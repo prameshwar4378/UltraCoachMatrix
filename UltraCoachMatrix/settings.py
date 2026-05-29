@@ -26,7 +26,19 @@ SECRET_KEY = 'django-insecure--9g_w960n(bzd)lhgg)w0(n)_)^nnc!ldvn@g225=ujrb*zepj
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '10.0.2.2', 'testserver']
+DEFAULT_ALLOWED_HOSTS = [
+    "ultracoachmatrix.pythonanywhere.com",
+    "localhost",
+    "127.0.0.1",
+    "10.0.2.2",
+    "10.0.3.2",
+    "testserver",
+]
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get("DJANGO_ALLOWED_HOSTS", ",".join(DEFAULT_ALLOWED_HOSTS)).split(",")
+    if host.strip()
+]
 
 
 # Application definition
