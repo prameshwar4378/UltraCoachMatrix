@@ -1,0 +1,30 @@
+{% extends "teacher_base.html" %}
+
+{% block title %}Teacher Homework{% endblock title %}
+
+{% block content %}
+<main id="main" class="main">
+    <div class="pagetitle"><h1>Homework</h1></div>
+    <div class="card p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <form method="get" class="d-flex gap-2">
+                <input class="form-control" name="search" value="{{ search }}" placeholder="Search homework">
+                <button class="btn btn-outline-primary" type="submit">Search</button>
+            </form>
+            <a class="btn btn-primary" href="{% url 'teacher:homework_create' %}">New Homework</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table">
+                <thead><tr><th>Title</th><th>Batch</th><th>Course</th><th>Due Date</th></tr></thead>
+                <tbody>
+                {% for item in homework_list %}
+                    <tr><td>{{ item.title }}</td><td>{{ item.batch.name }}</td><td>{{ item.course|default:"-" }}</td><td>{{ item.due_date|default:"-" }}</td></tr>
+                {% empty %}
+                    <tr><td colspan="4">No homework found.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+{% endblock content %}

@@ -1,0 +1,516 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Batch Setup{% endblock title %}
+
+{% block content %}
+<style>
+    .batch-page {
+        --primary: #4f46e5;
+        --primary-dark: #3730a3;
+        --surface: #ffffff;
+        --border: #e5e7eb;
+        --text: #111827;
+        --muted: #6b7280;
+    }
+
+    .page-toolbar, .filter-panel, .table-card, .stat-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
+
+    .page-toolbar {
+        padding: 22px;
+        margin-bottom: 24px;
+    }
+
+    .page-title {
+        font-size: 1.7rem;
+        font-weight: 800;
+        color: var(--text);
+        margin: 0;
+    }
+
+    .page-subtitle {
+        color: var(--muted);
+        margin: 6px 0 0;
+    }
+
+    .btn-gradient {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        padding: 11px 18px;
+        font-weight: 700;
+        box-shadow: 0 10px 22px rgba(79, 70, 229, 0.25);
+    }
+
+    .btn-gradient:hover {
+        color: #fff;
+        transform: translateY(-1px);
+    }
+
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 24px;
+    }
+
+    .stat-card {
+        padding: 22px;
+    }
+
+    .stat-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        background: #eef2ff;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        margin-bottom: 14px;
+    }
+
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--text);
+        line-height: 1;
+    }
+
+    .stat-label {
+        color: var(--muted);
+        font-size: .9rem;
+        margin-top: 8px;
+        font-weight: 600;
+    }
+
+    .filter-panel {
+        padding: 22px;
+        margin-bottom: 24px;
+    }
+
+    .filter-title {
+        font-weight: 800;
+        color: var(--text);
+        margin-bottom: 16px;
+    }
+
+    .form-control, .form-select {
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        padding: 11px 14px;
+    }
+
+    .table-card {
+        overflow: hidden;
+    }
+
+    .table-header {
+        padding: 20px 22px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .table-header h5 {
+        margin: 0;
+        font-weight: 800;
+    }
+
+    .table-modern {
+        margin: 0;
+    }
+
+    .table-modern thead th {
+        background: #f9fafb;
+        color: #374151;
+        border-bottom: 1px solid var(--border);
+        padding: 15px 18px;
+        font-size: .78rem;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        font-weight: 800;
+    }
+
+    .table-modern tbody td {
+        padding: 18px;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .table-modern tbody tr:hover {
+        background: #f8fafc;
+    }
+
+    .batch-avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+    }
+
+    .badge-soft {
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: .78rem;
+        font-weight: 800;
+    }
+
+    .badge-primary-soft {
+        background: #eef2ff;
+        color: #3730a3;
+    }
+
+    .badge-success-soft {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .badge-danger-soft {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .action-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .empty-state {
+        padding: 60px 20px;
+        text-align: center;
+        color: var(--muted);
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        color: #c7d2fe;
+        margin-bottom: 12px;
+    }
+
+    @media(max-width: 992px) {
+        .stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media(max-width: 576px) {
+        .stat-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .page-toolbar, .table-header {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 14px;
+        }
+    }
+</style>
+
+<main id="main" class="main batch-page">
+    <div class="pagetitle">
+        <h1>Batch Setup</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item active">Batches</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="page-toolbar d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="page-title">Batch Management</h2>
+            <p class="page-subtitle">Create batches, connect them to courses and assign teachers.</p>
+        </div>
+
+        <a href="javascript:void(0);"
+           data-url="{% url 'institute_admin:batch_create' %}"
+           class="btn btn-gradient"
+           onclick="openBatchWindow(this)">
+            <i class="bi bi-plus-circle"></i> New Batch
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="stat-grid">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-collection"></i></div>
+            <div class="stat-number">{{ total_batches }}</div>
+            <div class="stat-label">Total Batches</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+            <div class="stat-number">{{ active_batches }}</div>
+            <div class="stat-label">Active Batches</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-x-circle"></i></div>
+            <div class="stat-number">{{ inactive_batches }}</div>
+            <div class="stat-label">Inactive Batches</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-journal-bookmark"></i></div>
+            <div class="stat-number">{{ total_courses }}</div>
+            <div class="stat-label">Available Courses</div>
+        </div>
+    </div>
+
+    <div class="filter-panel">
+        <div class="filter-title">
+            <i class="bi bi-funnel me-1"></i> Filter Batches
+        </div>
+
+        <form method="get" class="row g-3">
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label">Course</label>
+                <select name="course" class="form-select">
+                    <option value="">All Courses</option>
+                    {% for course in courses %}
+                        <option value="{{ course.pk }}" {% if course_filter == course.pk|stringformat:"s" %}selected{% endif %}>{{ course.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="active" {% if status_filter == "active" %}selected{% endif %}>Active</option>
+                    <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>Inactive</option>
+                </select>
+            </div>
+
+            <div class="col-lg-4 col-md-12">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" placeholder="Search batch, course or timing..." value="{{ search_query }}">
+            </div>
+
+            <div class="col-lg-2 col-md-12 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-gradient">
+                    <i class="bi bi-search"></i> Filter
+                </button>
+
+                <a href="{% url 'institute_admin:batch_list' %}" class="btn btn-light border">
+                    <i class="bi bi-x-circle"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-card">
+        <div class="table-header">
+            <h5><i class="bi bi-list-ul me-1"></i> Batch Records</h5>
+            <span class="text-muted small">Showing latest batch records</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-modern align-middle">
+                <thead>
+                    <tr>
+                        <th>Batch</th>
+                        <th>Courses</th>
+                        <th>Total Fee</th>
+                        <th>Timing</th>
+                        <th>Dates</th>
+                        <th>Teachers</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for batch in batches %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="batch-avatar">
+                                    {{ batch.name|slice:":1" }}
+                                </div>
+                                <div>
+                                    <strong>{{ batch.name }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ batch.institute.name }}</small>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td>
+                            {% for course in batch.courses.all %}
+                                <span class="badge-soft badge-primary-soft">{{ course.name }}</span>
+                            {% empty %}
+                                <span class="text-muted">No courses</span>
+                            {% endfor %}
+                        </td>
+
+                        <td>
+                            {{ batch.total_course_fee }}
+                        </td>
+
+                        <td>{{ batch.timing|default:"Not set" }}</td>
+
+                        <td>
+                            <strong>{{ batch.start_date|date:"d M Y"|default:"Not set" }}</strong>
+                            <br>
+                            <small class="text-muted">to {{ batch.end_date|date:"d M Y"|default:"Not set" }}</small>
+                        </td>
+
+                        <td>
+                            {% for teacher in batch.teachers.all %}
+                                <span class="badge-soft badge-primary-soft">{{ teacher.get_full_name|default:teacher.username }}</span>
+                            {% empty %}
+                                <span class="text-muted">No teachers</span>
+                            {% endfor %}
+                        </td>
+
+                        <td>
+                            {% if batch.is_active %}
+                                <span class="badge-soft badge-success-soft">
+                                    <i class="bi bi-check-circle me-1"></i> Active
+                                </span>
+                            {% else %}
+                                <span class="badge-soft badge-danger-soft">
+                                    <i class="bi bi-x-circle me-1"></i> Inactive
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td class="text-end">
+                            <div class="btn-group">
+                                <a href="javascript:void(0);"
+                                   data-url="{% url 'institute_admin:batch_update' batch.pk %}"
+                                   class="btn btn-sm btn-outline-warning action-btn"
+                                   onclick="openBatchWindow(this)"
+                                   title="Edit">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger action-btn"
+                                        data-delete-url="{% url 'institute_admin:batch_delete' batch.pk %}"
+                                        data-batch-name="{{ batch.name }}"
+                                        onclick="openDeleteBatchModal(this)"
+                                        title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <i class="bi bi-collection"></i>
+                                <h5>No Batches Found</h5>
+                                <p>Create batches after setting up courses.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="deleteBatchModal" tabindex="-1" aria-labelledby="deleteBatchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteBatchModalLabel">
+                    <i class="bi bi-exclamation-triangle me-2"></i> Delete Batch
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <h6 class="fw-bold mb-2">Are you sure you want to delete this batch?</h6>
+                <p class="mb-0">
+                    Batch <strong id="deleteBatchName"></strong> will be removed.
+                </p>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </button>
+                <form method="post" id="deleteBatchForm" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Delete Batch
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openBatchWindow(element, customWidth = 980, customHeight = 760) {
+        const url = element.dataset.url;
+        const left = Math.max(0, (window.screen.width - customWidth) / 2);
+        const top = Math.max(0, (window.screen.height - customHeight) / 2);
+
+        const features = [
+            `width=${customWidth}`,
+            `height=${customHeight}`,
+            `left=${left}`,
+            `top=${top}`,
+            'scrollbars=yes',
+            'resizable=yes',
+            'location=no',
+            'menubar=no',
+            'toolbar=no',
+            'status=no'
+        ].join(',');
+
+        const newWindow = window.open(url, "batchWindow", features);
+
+        if (newWindow) {
+            newWindow.focus();
+            const checkWindow = setInterval(function () {
+                if (newWindow.closed) {
+                    clearInterval(checkWindow);
+                    window.location.reload();
+                }
+            }, 500);
+        }
+
+        return false;
+    }
+
+    function openDeleteBatchModal(button) {
+        document.getElementById("deleteBatchForm").action = button.dataset.deleteUrl;
+        document.getElementById("deleteBatchName").textContent = button.dataset.batchName || "this batch";
+
+        const modal = new bootstrap.Modal(document.getElementById("deleteBatchModal"));
+        modal.show();
+    }
+</script>
+{% endblock content %}

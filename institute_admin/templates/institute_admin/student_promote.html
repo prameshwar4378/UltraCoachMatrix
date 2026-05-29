@@ -1,0 +1,291 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Promote Students{% endblock title %}
+
+{% block content %}
+<style>
+    .promote-page {
+        --primary: #0f766e;
+        --primary-dark: #115e59;
+        --ink: #0f172a;
+        --muted: #64748b;
+        --line: #dbe4ee;
+        --soft: #f8fafc;
+        --warn: #f97316;
+        --good: #16a34a;
+    }
+    .promote-shell {
+        background: linear-gradient(135deg, #e0f2fe 0%, #f0fdfa 45%, #fff7ed 100%);
+        border: 1px solid #dbeafe;
+        border-radius: 18px;
+        padding: 24px;
+        box-shadow: 0 18px 45px rgba(15, 23, 42, .08);
+        margin-bottom: 22px;
+    }
+    .promote-title {
+        color: var(--ink);
+        font-weight: 900;
+        font-size: 1.8rem;
+        margin: 0;
+    }
+    .promote-subtitle {
+        color: var(--muted);
+        margin: 6px 0 0;
+        font-weight: 650;
+    }
+    .year-card, .student-card, .option-card {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, .06);
+    }
+    .year-card { padding: 18px; }
+    .form-control, .form-select {
+        border-radius: 11px;
+        border: 1px solid #cbd5e1;
+        padding: 11px 13px;
+        color: var(--ink);
+        font-weight: 650;
+    }
+    .btn-main {
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        font-weight: 850;
+        padding: 11px 16px;
+    }
+    .btn-main:hover { color: #fff; transform: translateY(-1px); }
+    .btn-soft {
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        background: #fff;
+        color: var(--ink);
+        font-weight: 800;
+        padding: 11px 16px;
+        text-decoration: none;
+    }
+    .option-card {
+        padding: 18px;
+        margin-bottom: 18px;
+    }
+    .student-card {
+        overflow: hidden;
+    }
+    .student-table { margin: 0; }
+    .student-table thead th {
+        background: #0f172a;
+        color: #fff;
+        font-size: .76rem;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        padding: 13px 15px;
+        border: 0;
+    }
+    .student-table tbody td {
+        padding: 15px;
+        border-bottom: 1px solid #edf2f7;
+        vertical-align: middle;
+        color: var(--ink);
+    }
+    .student-name { font-weight: 900; color: var(--ink); }
+    .student-meta { color: var(--muted); font-size: .84rem; font-weight: 650; }
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        font-size: .78rem;
+        font-weight: 900;
+    }
+    .status-ready { background: #dcfce7; color: #166534; }
+    .status-done { background: #ffedd5; color: #9a3412; }
+    .summary-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin: 18px 0;
+    }
+    .summary-item {
+        background: rgba(255,255,255,.82);
+        border: 1px solid rgba(203,213,225,.9);
+        border-radius: 14px;
+        padding: 14px;
+    }
+    .summary-number { font-size: 1.5rem; font-weight: 950; color: var(--ink); line-height: 1; }
+    .summary-label { color: var(--muted); font-size: .82rem; font-weight: 800; margin-top: 6px; }
+    .empty-box {
+        padding: 45px 20px;
+        text-align: center;
+        color: var(--muted);
+        font-weight: 700;
+    }
+    @media(max-width: 768px) {
+        .summary-strip { grid-template-columns: 1fr; }
+        .promote-shell { padding: 18px; }
+    }
+</style>
+
+<main id="main" class="main promote-page">
+    <div class="pagetitle">
+        <h1>Promote Students</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'institute_admin:student_list' %}">Students</a></li>
+                <li class="breadcrumb-item active">Promote</li>
+            </ol>
+        </nav>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <section class="promote-shell">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+            <div>
+                <h2 class="promote-title">Promote Academic Session</h2>
+                <p class="promote-subtitle">Create only fresh student records for the next academic year. Enrollments, batches, courses, fees and attendance are not copied.</p>
+            </div>
+            <a href="{% url 'institute_admin:student_list' %}" class="btn-soft"><i class="bi bi-arrow-left"></i> Students</a>
+        </div>
+
+        <div class="summary-strip">
+            <div class="summary-item">
+                <div class="summary-number">{{ source_year.name }}</div>
+                <div class="summary-label">Source Year</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-number">{{ target_year_name }}</div>
+                <div class="summary-label">Target Year</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-number">{{ available_count }}</div>
+                <div class="summary-label">Available To Promote</div>
+            </div>
+        </div>
+    </section>
+
+    <div class="year-card mb-3">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-lg-4 col-md-6">
+                <label class="form-label fw-bold">Source Academic Year</label>
+                <select name="source_year" class="form-select">
+                    {% for year in academic_years %}
+                        <option value="{{ year.pk }}" {% if year.pk == source_year.pk %}selected{% endif %}>{{ year.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <label class="form-label fw-bold">Target Academic Year</label>
+                <input type="text" name="target_year_name" value="{{ target_year_name }}" class="form-control" placeholder="2027-28">
+            </div>
+            <div class="col-lg-4 d-flex gap-2">
+                <button type="submit" class="btn-main"><i class="bi bi-funnel"></i> Load Students</button>
+            </div>
+        </form>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="source_year" value="{{ source_year.pk }}">
+        <input type="hidden" name="target_year_name" value="{{ target_year_name }}">
+
+        <div class="option-card">
+            <strong style="color:#0f172a;">Student-only promotion</strong>
+            <div class="student-meta mt-1">
+                This will create a new academic-year student admission number only. Add batches, courses and fees separately after promotion.
+            </div>
+        </div>
+
+        <div class="student-card">
+            <div class="d-flex justify-content-between align-items-center p-3 border-bottom flex-wrap gap-2">
+                <div>
+                    <strong style="color:#0f172a;">Students In {{ source_year.name }}</strong>
+                    <div class="student-meta">Already promoted students are locked for the selected target year.</div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn-soft" id="selectAllStudents"><i class="bi bi-check2-square"></i> Select All</button>
+                    <button type="submit" class="btn-main"><i class="bi bi-arrow-up-right-circle"></i> Promote Selected</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table student-table align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width:60px;">Select</th>
+                            <th>Student</th>
+                            <th>Admission</th>
+                            <th>Class</th>
+                            <th>Guardian</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for session in students %}
+                            <tr>
+                                <td>
+                                    {% if session.student_id in already_promoted_student_ids %}
+                                        <input type="checkbox" class="form-check-input" disabled>
+                                    {% else %}
+                                        <input type="checkbox" class="form-check-input promote-check" name="students" value="{{ session.student_id }}">
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="student-name">{{ session.student.user.get_full_name|default:session.student.user.username }}</div>
+                                    <div class="student-meta">@{{ session.student.user.username }}{% if session.student.user.profile.phone %} · {{ session.student.user.profile.phone }}{% endif %}</div>
+                                </td>
+                                <td>{{ session.admission_number }}</td>
+                                <td>{{ session.previous_class|default:"Not set" }}</td>
+                                <td>
+                                    {% with guardian=session.student.guardians.all.0 %}
+                                        {{ guardian.name|default:"No Guardian" }}
+                                        {% if guardian.phone %}<div class="student-meta">{{ guardian.phone }}</div>{% endif %}
+                                    {% endwith %}
+                                </td>
+                                <td>
+                                    {% if session.student_id in already_promoted_student_ids %}
+                                        <span class="status-pill status-done"><i class="bi bi-shield-check"></i> Already Promoted</span>
+                                    {% else %}
+                                        <span class="status-pill status-ready"><i class="bi bi-check-circle"></i> Ready</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6">
+                                    <div class="empty-box">
+                                        <i class="bi bi-inbox" style="font-size:2.4rem;"></i>
+                                        <div class="mt-2">No active students found in this academic year.</div>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </form>
+</main>
+
+<script>
+    const selectAllStudents = document.getElementById("selectAllStudents");
+    if (selectAllStudents) {
+        selectAllStudents.addEventListener("click", function () {
+            const checks = Array.from(document.querySelectorAll(".promote-check"));
+            const shouldCheck = checks.some(function (check) { return !check.checked; });
+            checks.forEach(function (check) { check.checked = shouldCheck; });
+            selectAllStudents.innerHTML = shouldCheck
+                ? '<i class="bi bi-square"></i> Clear All'
+                : '<i class="bi bi-check2-square"></i> Select All';
+        });
+    }
+</script>
+{% endblock content %}

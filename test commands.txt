@@ -1,0 +1,20 @@
+python manage.py check
+python manage.py makemigrations --check --dry-run
+python manage.py migrate
+python manage.py test
+
+
+
+#Session/tenant audit:
+python manage.py audit_sessions
+python manage.py audit_sessions --fail-on-issues
+python manage.py audit_sessions --institute-code aa
+python manage.py audit_sessions --institute-code aa --fail-on-issues
+
+
+
+#Focused tests:
+python manage.py test institute_admin
+python manage.py test institute_admin.tests.AcademicSessionIsolationTests
+python manage.py test institute_admin.tests.TenantIsolationTests
+python manage.py test institute_admin.tests.SessionAuditCommandTests

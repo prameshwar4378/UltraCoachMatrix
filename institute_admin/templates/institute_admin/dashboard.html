@@ -1,0 +1,1041 @@
+{% extends "institute_admin/base.html" %}
+{% load static %}
+
+{% block title %}UltraCoachMatrix - Dashboard{% endblock title %}
+
+{% block content %}
+<style>
+    .dashboard-pro {
+        --ink: #101828;
+        --muted: #667085;
+        --line: #e7eaf2;
+        --paper: #ffffff;
+        --page: #f4f7fb;
+        --blue: #3867f6;
+        --blue-soft: #eaf0ff;
+        --violet: #6042c8;
+        --violet-soft: #f1edff;
+        --teal: #0f9f8f;
+        --teal-soft: #e5fbf7;
+        --green: #16a34a;
+        --green-soft: #e9fbeF;
+        --amber: #f59e0b;
+        --amber-soft: #fff7e5;
+        --rose: #e11d48;
+        --rose-soft: #fff0f3;
+        --shadow: 0 18px 45px rgba(33, 42, 73, .11);
+    }
+
+    .dashboard-pro .page-shell {
+        position: relative;
+        background:
+            radial-gradient(circle at 4% 8%, rgba(96, 66, 200, .16), transparent 24%),
+            radial-gradient(circle at 94% 0%, rgba(56, 103, 246, .14), transparent 28%),
+            linear-gradient(180deg, #f7f9ff 0%, #f4f7fb 100%);
+        border-radius: 8px;
+        padding: 18px;
+        overflow: hidden;
+    }
+
+    .dashboard-pro .page-shell::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+            linear-gradient(135deg, rgba(96, 66, 200, .07) 0 2px, transparent 2px 18px),
+            linear-gradient(45deg, rgba(56, 103, 246, .06) 0 2px, transparent 2px 18px);
+        background-size: 110px 110px;
+        opacity: .5;
+        pointer-events: none;
+    }
+
+    .dashboard-pro .dash-inner {
+        position: relative;
+        z-index: 1;
+    }
+
+    .dashboard-pro .topbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 18px;
+        align-items: center;
+        margin-bottom: 18px;
+    }
+
+    .dashboard-pro .hero-card {
+        position: relative;
+        min-height: 215px;
+        background:
+            linear-gradient(135deg, rgba(56, 103, 246, .97), rgba(96, 66, 200, .93)),
+            radial-gradient(circle at 76% 24%, rgba(255,255,255,.28), transparent 22%);
+        color: #fff;
+        border-radius: 8px;
+        padding: 28px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .dashboard-pro .hero-card::before,
+    .dashboard-pro .hero-card::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, .14);
+    }
+
+    .dashboard-pro .hero-card::before {
+        width: 220px;
+        height: 220px;
+        right: -70px;
+        top: -80px;
+    }
+
+    .dashboard-pro .hero-card::after {
+        width: 150px;
+        height: 150px;
+        right: 105px;
+        bottom: -80px;
+    }
+
+    .dashboard-pro .hero-content {
+        position: relative;
+        z-index: 1;
+        max-width: 680px;
+    }
+
+    .dashboard-pro .hero-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: rgba(255,255,255,.88);
+        font-size: .78rem;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        font-weight: 900;
+        margin-bottom: 12px;
+    }
+
+    .dashboard-pro .hero-title {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 950;
+        letter-spacing: 0;
+        line-height: 1.1;
+    }
+
+    .dashboard-pro .hero-copy {
+        margin: 12px 0 0;
+        color: rgba(255,255,255,.82);
+        font-weight: 700;
+        max-width: 590px;
+    }
+
+    .dashboard-pro .hero-strip {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        max-width: 620px;
+        margin-top: 26px;
+    }
+
+    .dashboard-pro .hero-mini {
+        background: rgba(255,255,255,.15);
+        border: 1px solid rgba(255,255,255,.22);
+        border-radius: 8px;
+        padding: 12px;
+        backdrop-filter: blur(10px);
+    }
+
+    .dashboard-pro .hero-mini span {
+        display: block;
+        color: rgba(255,255,255,.78);
+        font-weight: 800;
+        font-size: .78rem;
+    }
+
+    .dashboard-pro .hero-mini strong {
+        display: block;
+        color: #fff;
+        font-size: 1.2rem;
+        font-weight: 950;
+        margin-top: 6px;
+        word-break: break-word;
+    }
+
+    .dashboard-pro .date-card {
+        align-self: stretch;
+        min-width: 255px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 18px;
+        box-shadow: var(--shadow);
+        display: grid;
+        align-content: space-between;
+        gap: 18px;
+    }
+
+    .dashboard-pro .date-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        color: var(--blue);
+        font-weight: 950;
+    }
+
+    .dashboard-pro .focus-number {
+        color: var(--ink);
+        font-size: 1.55rem;
+        font-weight: 950;
+        line-height: 1.1;
+        word-break: break-word;
+    }
+
+    .dashboard-pro .focus-label {
+        color: var(--muted);
+        font-weight: 800;
+        margin-top: 6px;
+    }
+
+    .dashboard-pro .quick-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .dashboard-pro .quick-action {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        text-decoration: none;
+        color: var(--ink);
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px;
+        box-shadow: 0 12px 32px rgba(33, 42, 73, .07);
+        transition: transform .16s ease, box-shadow .16s ease;
+    }
+
+    .dashboard-pro .quick-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 18px 38px rgba(33, 42, 73, .12);
+        color: var(--ink);
+    }
+
+    .dashboard-pro .quick-icon {
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        background: var(--quick-soft);
+        color: var(--quick-color);
+        font-size: 1.2rem;
+    }
+
+    .dashboard-pro .quick-action strong {
+        display: block;
+        font-weight: 950;
+        color: var(--ink);
+    }
+
+    .dashboard-pro .quick-action span {
+        display: block;
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: .8rem;
+        font-weight: 750;
+    }
+
+    .dashboard-pro .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 18px;
+    }
+
+    .dashboard-pro .metric-card {
+        position: relative;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 18px;
+        min-height: 170px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .dashboard-pro .metric-card::after {
+        content: "";
+        position: absolute;
+        width: 95px;
+        height: 95px;
+        right: -35px;
+        top: -34px;
+        border-radius: 50%;
+        background: var(--metric-soft);
+    }
+
+    .dashboard-pro .metric-top {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+    }
+
+    .dashboard-pro .metric-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--metric-soft);
+        color: var(--metric-color);
+        font-size: 1.2rem;
+    }
+
+    .dashboard-pro .metric-name {
+        color: var(--muted);
+        font-size: .77rem;
+        text-transform: uppercase;
+        letter-spacing: .07em;
+        font-weight: 950;
+    }
+
+    .dashboard-pro .metric-value {
+        position: relative;
+        z-index: 1;
+        color: var(--ink);
+        font-size: 1.62rem;
+        font-weight: 950;
+        margin-top: 20px;
+        line-height: 1.08;
+        word-break: break-word;
+    }
+
+    .dashboard-pro .metric-caption {
+        position: relative;
+        z-index: 1;
+        color: var(--muted);
+        font-weight: 800;
+        font-size: .83rem;
+        margin-top: 8px;
+    }
+
+    .dashboard-pro .tiny-bars {
+        position: relative;
+        z-index: 1;
+        height: 34px;
+        display: flex;
+        align-items: end;
+        gap: 5px;
+        margin-top: 14px;
+    }
+
+    .dashboard-pro .tiny-bars span {
+        flex: 1;
+        min-width: 5px;
+        border-radius: 999px 999px 4px 4px;
+        background: var(--metric-color);
+        opacity: .75;
+    }
+
+    .dashboard-pro .main-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(320px, .65fr);
+        gap: 18px;
+        align-items: start;
+    }
+
+    .dashboard-pro .panel {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        margin-bottom: 18px;
+    }
+
+    .dashboard-pro .panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+        background: #fbfcff;
+    }
+
+    .dashboard-pro .panel-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0;
+        color: var(--ink);
+        font-size: 1rem;
+        font-weight: 950;
+    }
+
+    .dashboard-pro .panel-title i {
+        color: var(--panel-color);
+    }
+
+    .dashboard-pro .panel-link {
+        color: var(--panel-color);
+        font-weight: 900;
+        font-size: .84rem;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .dashboard-pro .chart-card {
+        padding: 18px;
+    }
+
+    .dashboard-pro .chart-summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .dashboard-pro .chart-chip {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px;
+        background: #fff;
+    }
+
+    .dashboard-pro .chart-chip span {
+        display: block;
+        color: var(--muted);
+        font-size: .76rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+    }
+
+    .dashboard-pro .chart-chip strong {
+        display: block;
+        color: var(--ink);
+        font-size: 1.18rem;
+        font-weight: 950;
+        margin-top: 7px;
+        word-break: break-word;
+    }
+
+    .dashboard-pro .bar-chart {
+        height: 210px;
+        display: grid;
+        grid-template-columns: repeat(12, minmax(14px, 1fr));
+        gap: 13px;
+        align-items: end;
+        padding: 20px 14px 10px;
+        background:
+            linear-gradient(#eef2ff 1px, transparent 1px),
+            linear-gradient(90deg, transparent, transparent);
+        background-size: 100% 42px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+    }
+
+    .dashboard-pro .bar-wrap {
+        display: grid;
+        gap: 8px;
+        justify-items: center;
+        align-items: end;
+        height: 100%;
+    }
+
+    .dashboard-pro .bar {
+        width: 100%;
+        max-width: 22px;
+        min-height: 18px;
+        border-radius: 999px 999px 6px 6px;
+        background: linear-gradient(180deg, #6b5bd6, #3867f6);
+        box-shadow: 0 8px 18px rgba(56, 103, 246, .22);
+    }
+
+    .dashboard-pro .bar-label {
+        color: var(--muted);
+        font-size: .68rem;
+        font-weight: 850;
+    }
+
+    .dashboard-pro .table-list {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .dashboard-pro .table-list th {
+        color: #475467;
+        background: #fbfcff;
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .07em;
+        font-weight: 950;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .dashboard-pro .table-list td {
+        color: var(--ink);
+        padding: 14px 16px;
+        border-bottom: 1px solid #f1f4f8;
+        vertical-align: middle;
+    }
+
+    .dashboard-pro .table-list tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .dashboard-pro .person-line {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+    }
+
+    .dashboard-pro .avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--blue-soft);
+        color: var(--blue);
+        font-weight: 950;
+        text-transform: uppercase;
+    }
+
+    .dashboard-pro .cell-title {
+        display: block;
+        color: var(--ink);
+        font-weight: 950;
+        line-height: 1.2;
+    }
+
+    .dashboard-pro .cell-subtitle {
+        display: block;
+        color: var(--muted);
+        font-size: .8rem;
+        font-weight: 750;
+        margin-top: 3px;
+    }
+
+    .dashboard-pro .money-good {
+        color: #166534;
+        font-weight: 950;
+        white-space: nowrap;
+    }
+
+    .dashboard-pro .money-due {
+        color: #991b1b;
+        font-weight: 950;
+        white-space: nowrap;
+    }
+
+    .dashboard-pro .attendance-card {
+        padding: 18px;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 18px;
+        align-items: center;
+    }
+
+    .dashboard-pro .ring {
+        width: 130px;
+        height: 130px;
+        border-radius: 50%;
+        background:
+            radial-gradient(circle at center, #fff 0 54%, transparent 55%),
+            conic-gradient(var(--green) 0 var(--ring-value), #edf2f7 var(--ring-value) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: inset 0 0 0 1px var(--line);
+    }
+
+    .dashboard-pro .ring strong {
+        color: var(--ink);
+        font-size: 1.35rem;
+        font-weight: 950;
+    }
+
+    .dashboard-pro .attendance-breakdown {
+        display: grid;
+        gap: 10px;
+    }
+
+    .dashboard-pro .break-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .dashboard-pro .break-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--dot);
+    }
+
+    .dashboard-pro .break-row span {
+        color: var(--muted);
+        font-weight: 800;
+    }
+
+    .dashboard-pro .break-row strong {
+        color: var(--ink);
+        font-weight: 950;
+    }
+
+    .dashboard-pro .due-list {
+        padding: 8px 16px;
+    }
+
+    .dashboard-pro .due-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        padding: 13px 0;
+        border-bottom: 1px solid #f1f4f8;
+    }
+
+    .dashboard-pro .due-item:last-child {
+        border-bottom: 0;
+    }
+
+    .dashboard-pro .due-pill {
+        align-self: start;
+        background: var(--rose-soft);
+        color: #991b1b;
+        border-radius: 999px;
+        padding: 7px 10px;
+        font-weight: 950;
+        white-space: nowrap;
+    }
+
+    .dashboard-pro .notice-list {
+        padding: 8px 16px;
+    }
+
+    .dashboard-pro .notice-item {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 12px;
+        padding: 13px 0;
+        border-bottom: 1px solid #f1f4f8;
+    }
+
+    .dashboard-pro .notice-item:last-child {
+        border-bottom: 0;
+    }
+
+    .dashboard-pro .notice-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: var(--amber-soft);
+        color: var(--amber);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .dashboard-pro .empty-state {
+        color: var(--muted);
+        text-align: center;
+        font-weight: 800;
+        padding: 28px 16px;
+    }
+
+    @media(max-width: 1200px) {
+        .dashboard-pro .topbar,
+        .dashboard-pro .main-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .dashboard-pro .quick-grid,
+        .dashboard-pro .metric-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media(max-width: 768px) {
+        .dashboard-pro .hero-strip,
+        .dashboard-pro .chart-summary {
+            grid-template-columns: 1fr;
+        }
+
+        .dashboard-pro .quick-grid,
+        .dashboard-pro .metric-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .dashboard-pro .attendance-card {
+            grid-template-columns: 1fr;
+        }
+
+        .dashboard-pro .bar-chart {
+            gap: 7px;
+            overflow-x: auto;
+        }
+    }
+</style>
+
+<main id="main" class="main dashboard-pro">
+    <div class="pagetitle">
+        <h1>Dashboard</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item active">Home</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="page-shell">
+        <div class="dash-inner">
+            <section class="topbar">
+                <div class="hero-card">
+                    <div class="hero-content">
+                        <div class="hero-kicker">
+                            <i class="bi bi-stars"></i>
+                            {{ institute.name|default:"UltraCoachMatrix" }}
+                        </div>
+                        <h2 class="hero-title">Good day, {{ request.user.first_name|default:request.user.username }}</h2>
+                        <p class="hero-copy">
+                            The important picture only: collection, pending fees, attendance, students and the fee follow-ups that need attention.
+                        </p>
+                        <div class="hero-strip">
+                            <div class="hero-mini">
+                                <span>Today Collection</span>
+                                <strong>{{ today_collection }}</strong>
+                            </div>
+                            <div class="hero-mini">
+                                <span>Pending Due</span>
+                                <strong>{{ due_amount }}</strong>
+                            </div>
+                            <div class="hero-mini">
+                                <span>Attendance</span>
+                                <strong>{{ attendance_rate }}%</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <aside class="date-card">
+                    <div>
+                        <div class="date-chip">
+                            <i class="bi bi-calendar2-check"></i>
+                            {{ today }}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="focus-number">{{ month_collection }}</div>
+                        <div class="focus-label">This month collection</div>
+                    </div>
+                    <div>
+                        <div class="focus-number">{{ collection_rate }}%</div>
+                        <div class="focus-label">Overall collection rate</div>
+                    </div>
+                </aside>
+            </section>
+
+            <section class="quick-grid">
+                <a href="{% url 'institute_admin:student_list' %}" class="quick-action">
+                    <div class="quick-icon" style="--quick-color: var(--blue); --quick-soft: var(--blue-soft);">
+                        <i class="bi bi-people"></i>
+                    </div>
+                    <div>
+                        <strong>Students</strong>
+                        <span>Admissions and records</span>
+                    </div>
+                </a>
+                <a href="{% url 'institute_admin:enrollment_list' %}" class="quick-action">
+                    <div class="quick-icon" style="--quick-color: var(--violet); --quick-soft: var(--violet-soft);">
+                        <i class="bi bi-diagram-3"></i>
+                    </div>
+                    <div>
+                        <strong>Enrollments</strong>
+                        <span>Batch assignments</span>
+                    </div>
+                </a>
+                <a href="{% url 'institute_admin:fee_category_list' %}" class="quick-action">
+                    <div class="quick-icon" style="--quick-color: var(--amber); --quick-soft: var(--amber-soft);">
+                        <i class="bi bi-receipt"></i>
+                    </div>
+                    <div>
+                        <strong>Fees</strong>
+                        <span>Fee heads and charges</span>
+                    </div>
+                </a>
+                <a href="{% url 'institute_admin:batch_list' %}" class="quick-action">
+                    <div class="quick-icon" style="--quick-color: var(--teal); --quick-soft: var(--teal-soft);">
+                        <i class="bi bi-collection"></i>
+                    </div>
+                    <div>
+                        <strong>Batches</strong>
+                        <span>Classes and timing</span>
+                    </div>
+                </a>
+            </section>
+
+            <section class="metric-grid">
+                <div class="metric-card" style="--metric-color: var(--green); --metric-soft: var(--green-soft);">
+                    <div class="metric-top">
+                        <div>
+                            <div class="metric-name">Today Collection</div>
+                        </div>
+                        <div class="metric-icon">
+                            <i class="bi bi-cash-coin"></i>
+                        </div>
+                    </div>
+                    <div class="metric-value">{{ today_collection }}</div>
+                    <div class="metric-caption">Cash flow received today</div>
+                    <div class="tiny-bars">
+                        <span style="height: 24%;"></span>
+                        <span style="height: 52%;"></span>
+                        <span style="height: 36%;"></span>
+                        <span style="height: 72%;"></span>
+                        <span style="height: 48%;"></span>
+                        <span style="height: 68%;"></span>
+                    </div>
+                </div>
+
+                <div class="metric-card" style="--metric-color: var(--blue); --metric-soft: var(--blue-soft);">
+                    <div class="metric-top">
+                        <div>
+                            <div class="metric-name">Overall Collection</div>
+                        </div>
+                        <div class="metric-icon">
+                            <i class="bi bi-wallet2"></i>
+                        </div>
+                    </div>
+                    <div class="metric-value">{{ paid_amount }}</div>
+                    <div class="metric-caption">{{ collection_rate }}% collected against total fees</div>
+                    <div class="tiny-bars">
+                        <span style="height: 34%;"></span>
+                        <span style="height: 46%;"></span>
+                        <span style="height: 62%;"></span>
+                        <span style="height: 76%;"></span>
+                        <span style="height: 58%;"></span>
+                        <span style="height: 84%;"></span>
+                    </div>
+                </div>
+
+                <div class="metric-card" style="--metric-color: var(--rose); --metric-soft: var(--rose-soft);">
+                    <div class="metric-top">
+                        <div>
+                            <div class="metric-name">Pending Due</div>
+                        </div>
+                        <div class="metric-icon">
+                            <i class="bi bi-hourglass-split"></i>
+                        </div>
+                    </div>
+                    <div class="metric-value">{{ due_amount }}</div>
+                    <div class="metric-caption">Needs fee follow-up</div>
+                    <div class="tiny-bars">
+                        <span style="height: 74%;"></span>
+                        <span style="height: 42%;"></span>
+                        <span style="height: 66%;"></span>
+                        <span style="height: 30%;"></span>
+                        <span style="height: 54%;"></span>
+                        <span style="height: 80%;"></span>
+                    </div>
+                </div>
+
+                <div class="metric-card" style="--metric-color: var(--teal); --metric-soft: var(--teal-soft);">
+                    <div class="metric-top">
+                        <div>
+                            <div class="metric-name">Active Students</div>
+                        </div>
+                        <div class="metric-icon">
+                            <i class="bi bi-mortarboard"></i>
+                        </div>
+                    </div>
+                    <div class="metric-value">{{ active_student_count }}</div>
+                    <div class="metric-caption">{{ student_count }} total student records</div>
+                    <div class="tiny-bars">
+                        <span style="height: 40%;"></span>
+                        <span style="height: 50%;"></span>
+                        <span style="height: 44%;"></span>
+                        <span style="height: 62%;"></span>
+                        <span style="height: 68%;"></span>
+                        <span style="height: 74%;"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="main-grid">
+                <div>
+                    <div class="panel" style="--panel-color: var(--blue);">
+                        <div class="panel-head">
+                            <h3 class="panel-title"><i class="bi bi-bar-chart-line"></i>Collection Overview</h3>
+                            <a href="{% url 'institute_admin:student_list' %}" class="panel-link">Open Fee Records</a>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-summary">
+                                <div class="chart-chip">
+                                    <span>Total Fees</span>
+                                    <strong>{{ invoice_amount }}</strong>
+                                </div>
+                                <div class="chart-chip">
+                                    <span>Total Collected</span>
+                                    <strong>{{ paid_amount }}</strong>
+                                </div>
+                                <div class="chart-chip">
+                                    <span>This Month</span>
+                                    <strong>{{ month_collection }}</strong>
+                                </div>
+                            </div>
+                            <div class="bar-chart" aria-label="Decorative collection chart">
+                                <div class="bar-wrap"><div class="bar" style="height: 42%;"></div><div class="bar-label">01</div></div>
+                                <div class="bar-wrap"><div class="bar" style="height: 68%;"></div><div class="bar-label">02</div></div>
+                                <div class="bar-wrap"><div class="bar" style="height: 38%;"></div><div class="bar-label">03</div></div>
+                                <div class="bar-wrap"><div class="bar" style="height: 58%;"></div><div class="bar-label">04</div></div>
+                                <div class="bar-wrap"><div class="bar" style="height: 82%;"></div><div class="bar-label">05</div></div>
+                                <div class="bar-wrap"><div class="bar" style="height: 48%;"></div><div class="bar-label">06</div></div>
+                                <div class="bar-wrap"><div class="bar" style="height: 74%;"></div><div class="bar-label">07</div></div>
+                                <div class="bar-wrap"><div class="bar" style="height: 44%;"></div><div class="bar-label">08</div></div>
+                                <div class="bar-wrap"><div class="bar" style="height: 62%;"></div><div class="bar-label">09</div></div>
+                                <div class="bar-wrap"><div class="bar" style="height: 52%;"></div><div class="bar-label">10</div></div>
+                                <div class="bar-wrap"><div class="bar" style="height: 86%;"></div><div class="bar-label">11</div></div>
+                                <div class="bar-wrap"><div class="bar" style="height: 66%;"></div><div class="bar-label">12</div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel" style="--panel-color: var(--blue);">
+                        <div class="panel-head">
+                            <h3 class="panel-title"><i class="bi bi-lightning-charge"></i>Recent Payments</h3>
+                            <a href="{% url 'institute_admin:student_list' %}" class="panel-link">Students</a>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table-list">
+                                <thead>
+                                    <tr>
+                                        <th>Student</th>
+                                        <th>Invoice</th>
+                                        <th>Method</th>
+                                        <th class="text-end">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for payment in recent_payments %}
+                                    <tr>
+                                        <td>
+                                            <div class="person-line">
+                                                <div class="avatar">{{ payment.invoice.student.user.first_name|default:payment.invoice.student.user.username|slice:":1" }}</div>
+                                                <div>
+                                                    <span class="cell-title">{{ payment.invoice.student.user.get_full_name|default:payment.invoice.student.user.username }}</span>
+                                                    <span class="cell-subtitle">{{ payment.paid_on }}</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="cell-title">{{ payment.invoice.title }}</span>
+                                            <span class="cell-subtitle">{{ payment.receipt_number|default:"Auto receipt" }}</span>
+                                        </td>
+                                        <td>{{ payment.get_method_display }}</td>
+                                        <td class="text-end"><span class="money-good">{{ payment.amount }}</span></td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="4"><div class="empty-state">No payments received yet.</div></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <aside>
+                    <div class="panel" style="--panel-color: var(--green);">
+                        <div class="panel-head">
+                            <h3 class="panel-title"><i class="bi bi-check2-square"></i>Today Attendance</h3>
+                        </div>
+                        <div class="attendance-card">
+                            <div class="ring" style="--ring-value: {{ attendance_rate }}%;">
+                                <strong>{{ attendance_rate }}%</strong>
+                            </div>
+                            <div class="attendance-breakdown">
+                                <div class="break-row">
+                                    <div class="break-dot" style="--dot: var(--green);"></div>
+                                    <span>Present</span>
+                                    <strong>{{ today_present_count }}</strong>
+                                </div>
+                                <div class="break-row">
+                                    <div class="break-dot" style="--dot: var(--rose);"></div>
+                                    <span>Absent</span>
+                                    <strong>{{ today_absent_count }}</strong>
+                                </div>
+                                <div class="break-row">
+                                    <div class="break-dot" style="--dot: var(--amber);"></div>
+                                    <span>Late</span>
+                                    <strong>{{ today_late_count }}</strong>
+                                </div>
+                                <div class="break-row">
+                                    <div class="break-dot" style="--dot: var(--blue);"></div>
+                                    <span>Marked</span>
+                                    <strong>{{ today_attendance_count }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel" style="--panel-color: var(--rose);">
+                        <div class="panel-head">
+                            <h3 class="panel-title"><i class="bi bi-exclamation-diamond"></i>Pending Fee Follow-Up</h3>
+                        </div>
+                        <div class="due-list">
+                            {% for row in due_invoice_rows %}
+                            <div class="due-item">
+                                <div>
+                                    <span class="cell-title">{{ row.student_name }}</span>
+                                    <span class="cell-subtitle">{{ row.title }}{% if row.due_date %} &middot; Due {{ row.due_date }}{% endif %}</span>
+                                </div>
+                                <div class="due-pill">{{ row.due_amount }}</div>
+                            </div>
+                            {% empty %}
+                            <div class="empty-state">No pending dues.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="panel" style="--panel-color: var(--amber);">
+                        <div class="panel-head">
+                            <h3 class="panel-title"><i class="bi bi-megaphone"></i>Notices</h3>
+                        </div>
+                        <div class="notice-list">
+                            {% for notice in recent_notices %}
+                            <div class="notice-item">
+                                <div class="notice-icon"><i class="bi bi-pin-angle"></i></div>
+                                <div>
+                                    <span class="cell-title">{{ notice.title }}</span>
+                                    <span class="cell-subtitle">{{ notice.get_audience_display }} &middot; {{ notice.created_at }}</span>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="empty-state">No notices published.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </aside>
+            </section>
+        </div>
+    </div>
+</main>
+{% endblock content %}

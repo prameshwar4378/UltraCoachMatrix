@@ -1,0 +1,636 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Student Dashboard{% endblock title %}
+
+{% block content %}
+<style>
+    .student-dashboard {
+        --ink: #172033;
+        --muted: #667085;
+        --line: #e6eaf0;
+        --paper: #ffffff;
+        --teal: #0f766e;
+        --violet: #7c3aed;
+        --orange: #ea580c;
+        --blue: #2563eb;
+        --green: #16a34a;
+        --red: #dc2626;
+    }
+    .dashboard-card, .summary-card, .tab-card, .content-panel {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 10px 24px rgba(16, 24, 40, .06);
+    }
+    .dashboard-card { padding: 18px; margin-bottom: 16px; }
+    .student-hero {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 16px;
+    }
+    .student-avatar {
+        width: 74px;
+        height: 74px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #0f766e, #2563eb);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: 900;
+        overflow: hidden;
+    }
+    .student-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .student-title { margin: 0; color: var(--ink); font-size: 1.45rem; font-weight: 900; letter-spacing: 0; }
+    .student-subtitle { margin: 5px 0 10px; color: var(--muted); font-weight: 700; }
+    .hero-actions, .panel-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .btn-main {
+        background: #0f766e;
+        border: 1px solid #0f766e;
+        color: #fff;
+        border-radius: 8px;
+        font-weight: 800;
+        padding: 9px 13px;
+    }
+    .btn-main:hover { background: #115e59; color: #fff; }
+    .btn-add-fee {
+        background: var(--red);
+        border-color: var(--red);
+        color: #fff;
+    }
+    .btn-add-fee:hover { background: #b91c1c; color: #fff; }
+    .btn-soft { border-radius: 8px; font-weight: 800; padding: 9px 13px; }
+    .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: .78rem;
+        font-weight: 850;
+    }
+    .pill-success { background: #dcfce7; color: #166534; }
+    .pill-danger { background: #fee2e2; color: #991b1b; }
+    .pill-blue { background: #dbeafe; color: #1e40af; }
+    .pill-orange { background: #ffedd5; color: #9a3412; }
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    .summary-card {
+        padding: 15px;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 12px;
+        align-items: center;
+        border-left: 5px solid var(--card-color);
+    }
+    .summary-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        background: var(--card-soft);
+        color: var(--card-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+    }
+    .summary-value { color: var(--ink); font-size: 1.35rem; font-weight: 950; line-height: 1.1; word-break: break-word; }
+    .summary-label { color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: .76rem; font-weight: 850; margin-top: 4px; }
+    .tab-card-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 9px;
+        margin-bottom: 16px;
+    }
+    .tab-card {
+        position: relative;
+        width: 100%;
+        min-height: 82px;
+        text-align: left;
+        padding: 13px 12px;
+        border-top: 3px solid var(--tab-color);
+        background: #fff;
+        color: var(--ink);
+        cursor: pointer;
+        transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    .tab-card:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(16, 24, 40, .1); }
+    .tab-card.active { background: var(--tab-soft); box-shadow: inset 0 0 0 1px var(--tab-color), 0 12px 26px rgba(16, 24, 40, .08); }
+    .tab-card i { color: var(--tab-color); font-size: 1.05rem; }
+    .tab-card strong { display: block; margin-top: 8px; font-size: .95rem; font-weight: 950; }
+    .tab-card span { display: block; color: var(--muted); font-size: .78rem; font-weight: 750; margin-top: 2px; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+    .panel-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 16px;
+    }
+    .content-panel { overflow: hidden; margin-bottom: 16px; border-top: 4px solid var(--panel-color); }
+    .content-panel-body { padding: 16px; }
+    .panel-header {
+        padding: 14px 16px;
+        background: var(--panel-soft);
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+    .panel-title-wrap { display: flex; align-items: center; gap: 10px; }
+    .panel-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        background: #fff;
+        color: var(--panel-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: inset 0 0 0 1px rgba(16, 24, 40, .06);
+    }
+    .panel-title { margin: 0; color: var(--ink); font-size: 1rem; font-weight: 950; }
+    .panel-subtitle { color: var(--muted); font-size: .78rem; font-weight: 750; }
+    .info-row {
+        display: grid;
+        grid-template-columns: 42% minmax(0, 1fr);
+        gap: 10px;
+        padding: 9px 0;
+        border-bottom: 1px solid #f1f4f8;
+    }
+    .info-row:last-child { border-bottom: 0; }
+    .info-label { color: var(--muted); font-weight: 750; }
+    .info-value { color: var(--ink); font-weight: 850; word-break: break-word; }
+    .table-modern { margin: 0; }
+    .table-modern thead th {
+        background: #fff;
+        color: #475467;
+        border-bottom: 1px solid var(--line);
+        padding: 13px 16px;
+        font-size: .76rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        font-weight: 900;
+    }
+    .table-modern tbody td {
+        padding: 15px 16px;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f4f8;
+        color: var(--ink);
+    }
+    .table-modern tbody tr:hover { background: #fafcff; }
+    .badge-soft { padding: 7px 11px; border-radius: 999px; font-size: .76rem; font-weight: 850; }
+    .badge-success-soft { background: #dcfce7; color: #166534; }
+    .badge-danger-soft { background: #fee2e2; color: #991b1b; }
+    .badge-info-soft { background: #dbeafe; color: #1e40af; }
+    .badge-warning-soft { background: #fef3c7; color: #92400e; }
+    .course-chip {
+        display: inline-block;
+        background: #eef2ff;
+        color: #3730a3;
+        padding: 5px 9px;
+        border-radius: 999px;
+        font-size: .76rem;
+        font-weight: 800;
+        margin: 2px;
+    }
+    .action-btn { width: 34px; height: 34px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; }
+    .empty-state { padding: 34px 20px; text-align: center; color: var(--muted); font-weight: 750; }
+    @media(max-width: 1180px) {
+        .student-hero { grid-template-columns: auto minmax(0, 1fr); }
+        .hero-actions { grid-column: 1 / -1; justify-content: flex-start; }
+        .tab-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .panel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media(max-width: 900px) {
+        .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media(max-width: 680px) {
+        .student-hero, .summary-grid, .tab-card-grid, .panel-grid { grid-template-columns: 1fr; }
+        .hero-actions, .panel-actions { justify-content: flex-start; }
+        .info-row { grid-template-columns: 1fr; gap: 3px; }
+        .panel-header { align-items: flex-start; flex-direction: column; }
+    }
+</style>
+
+<main id="main" class="main student-dashboard">
+    <div class="pagetitle">
+        <h1>Student Dashboard</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'institute_admin:student_list' %}">Students</a></li>
+                <li class="breadcrumb-item active">{{ student_session.admission_number }}</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="dashboard-card">
+        <div class="student-hero">
+            <div class="student-avatar">
+                {% if student.profile_image %}
+                    <img src="{{ student.profile_image.url }}" alt="{{ student.user.get_full_name|default:student.user.username }}">
+                {% else %}
+                    {{ student.user.first_name|default:student.user.username|slice:":1" }}
+                {% endif %}
+            </div>
+            <div>
+                <h2 class="student-title">{{ student.user.get_full_name|default:student.user.username }}</h2>
+                <p class="student-subtitle">{{ student_session.admission_number }} &middot; @{{ student.user.username }}</p>
+                <div class="d-flex flex-wrap gap-2">
+                    {% if student.is_active %}
+                        <span class="pill pill-success"><i class="bi bi-check-circle"></i> Active Student</span>
+                    {% else %}
+                        <span class="pill pill-danger"><i class="bi bi-x-circle"></i> Inactive Student</span>
+                    {% endif %}
+                    <span class="pill pill-blue">{{ enrollments|length }} Enrollment(s)</span>
+                    <span class="pill pill-orange">{{ documents|length }} Document(s)</span>
+                </div>
+            </div>
+            <div class="hero-actions">
+                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_basic_update' student.pk %}" class="btn btn-light border btn-soft" onclick="openStudentDashboardWindow(this, 780, 700)">
+                    <i class="bi bi-pencil-square"></i> Edit Basic
+                </a>
+                <a href="javascript:void(0);" data-url="{% url 'institute_admin:enrollment_create' %}?student={{ student.pk }}" class="btn btn-main" onclick="openStudentDashboardWindow(this)">
+                    <i class="bi bi-diagram-3"></i> Add Enrollment
+                </a>
+                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_add_fee' student.pk %}" class="btn btn-main btn-add-fee" onclick="openStudentDashboardWindow(this, 760, 620)">
+                    <i class="bi bi-plus-circle"></i> Add Additional Fee
+                </a>
+                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_receive_fee' student.pk %}" class="btn btn-main" onclick="openStudentDashboardWindow(this)">
+                    <i class="bi bi-wallet2"></i> Receive Fee
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="summary-grid">
+        <div class="summary-card" style="--card-color: var(--teal); --card-soft: #ccfbf1;">
+            <div class="summary-icon"><i class="bi bi-cash-coin"></i></div>
+            <div><div class="summary-value">{{ total_fee_amount }}</div><div class="summary-label">Total Fees</div></div>
+        </div>
+        <div class="summary-card" style="--card-color: var(--blue); --card-soft: #dbeafe;">
+            <div class="summary-icon"><i class="bi bi-wallet2"></i></div>
+            <div><div class="summary-value">{{ total_paid_amount }}</div><div class="summary-label">Paid Amount</div></div>
+        </div>
+        <div class="summary-card" style="--card-color: var(--orange); --card-soft: #ffedd5;">
+            <div class="summary-icon"><i class="bi bi-hourglass-split"></i></div>
+            <div><div class="summary-value">{{ total_due_amount }}</div><div class="summary-label">Due Amount</div></div>
+        </div>
+        <div class="summary-card" style="--card-color: var(--green); --card-soft: #dcfce7;">
+            <div class="summary-icon"><i class="bi bi-check2-square"></i></div>
+            <div><div class="summary-value">{{ attendance_percentage }}%</div><div class="summary-label">Attendance</div></div>
+        </div>
+    </div>
+    {% if overpaid_amount %}
+        <div class="alert alert-warning border-0 shadow-sm">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Historical payments are higher than total fees by {{ overpaid_amount }}. New receive-fee validation now blocks extra collection.
+        </div>
+    {% endif %}
+
+    <div class="tab-card-grid" role="tablist">
+        <button type="button" class="tab-card active" style="--tab-color: var(--teal); --tab-soft: #f0fdfa;" data-tab-target="profile">
+            <i class="bi bi-person-vcard"></i><strong>Profile</strong><span>Basic data</span>
+        </button>
+        <button type="button" class="tab-card" style="--tab-color: var(--violet); --tab-soft: #f5f3ff;" data-tab-target="enrollment">
+            <i class="bi bi-diagram-3"></i><strong>Enrollment</strong><span>Batch courses</span>
+        </button>
+        <button type="button" class="tab-card" style="--tab-color: var(--orange); --tab-soft: #fff7ed;" data-tab-target="fees">
+            <i class="bi bi-receipt"></i><strong>Fees</strong><span>Invoice due</span>
+        </button>
+        <button type="button" class="tab-card" style="--tab-color: var(--blue); --tab-soft: #eff6ff;" data-tab-target="payment">
+            <i class="bi bi-wallet2"></i><strong>Payment</strong><span>Receipts</span>
+        </button>
+        <button type="button" class="tab-card" style="--tab-color: var(--green); --tab-soft: #f0fdf4;" data-tab-target="attendance">
+            <i class="bi bi-check2-square"></i><strong>Attendance</strong><span>Presence</span>
+        </button>
+    </div>
+
+    <div class="tab-pane active" data-tab-pane="profile">
+        <div class="panel-grid">
+            <div class="content-panel" style="--panel-color: var(--teal); --panel-soft: #f0fdfa;">
+                <div class="panel-header">
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-person-vcard"></i></div><div><h5 class="panel-title">Student Summary</h5><div class="panel-subtitle">Login and admission</div></div></div>
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_basic_update' student.pk %}" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 780, 700)"><i class="bi bi-pencil-square"></i></a>
+                </div>
+                <div class="content-panel-body">
+                    <div class="info-row"><span class="info-label">Admission No.</span><span class="info-value">{{ student_session.admission_number }}</span></div>
+                    <div class="info-row"><span class="info-label">Phone</span><span class="info-value">{{ student.user.profile.phone|default:"Not set" }}</span></div>
+                    <div class="info-row"><span class="info-label">Email</span><span class="info-value">{{ student.user.email|default:"Not set" }}</span></div>
+                    <div class="info-row"><span class="info-label">DOB</span><span class="info-value">{{ student.date_of_birth|default:"Not set" }}</span></div>
+                    <div class="info-row"><span class="info-label">Joined</span><span class="info-value">{{ student_session.joined_on|default:"Not set" }}</span></div>
+                    <div class="info-row"><span class="info-label">Address</span><span class="info-value">{{ student.address|default:"Not set" }}</span></div>
+                </div>
+            </div>
+
+            <div class="content-panel" style="--panel-color: var(--blue); --panel-soft: #eff6ff;">
+                <div class="panel-header">
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-person-hearts"></i></div><div><h5 class="panel-title">Parent / Guardian</h5><div class="panel-subtitle">Primary contact</div></div></div>
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_guardian_update' student.pk %}" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 720, 620)"><i class="bi bi-pencil-square"></i></a>
+                </div>
+                <div class="content-panel-body">
+                    <div class="info-row"><span class="info-label">Name</span><span class="info-value">{{ primary_guardian.name|default:"Not set" }}</span></div>
+                    <div class="info-row"><span class="info-label">Relation</span><span class="info-value">{{ primary_guardian.relation|default:"Not set" }}</span></div>
+                    <div class="info-row"><span class="info-label">Phone</span><span class="info-value">{{ primary_guardian.phone|default:"Not set" }}</span></div>
+                    <div class="info-row"><span class="info-label">Email</span><span class="info-value">{{ primary_guardian.email|default:"Not set" }}</span></div>
+                    <div class="info-row"><span class="info-label">Login</span><span class="info-value">{% if student.user.is_active %}Active{% else %}Inactive{% endif %}</span></div>
+                </div>
+            </div>
+
+            <div class="content-panel" style="--panel-color: #0891b2; --panel-soft: #ecfeff;">
+                <div class="panel-header">
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-building"></i></div><div><h5 class="panel-title">Education Details</h5><div class="panel-subtitle">School or college</div></div></div>
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_education_update' student.pk %}" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 720, 620)"><i class="bi bi-pencil-square"></i></a>
+                </div>
+                <div class="content-panel-body">
+                    <div class="info-row"><span class="info-label">Current</span><span class="info-value">{{ student_session.current_school_name|default:"Not set" }}</span></div>
+                    <div class="info-row"><span class="info-label">Address</span><span class="info-value">{{ student_session.current_school_address|default:"Not set" }}</span></div>
+                    <div class="info-row"><span class="info-label">Previous</span><span class="info-value">{{ student_session.previous_school_name|default:"Not set" }}</span></div>
+                    <div class="info-row"><span class="info-label">Class</span><span class="info-value">{{ student_session.previous_class|default:"Not set" }}</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-panel" style="--panel-color: #0891b2; --panel-soft: #ecfeff;">
+            <div class="panel-header">
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-text"></i></div><div><h5 class="panel-title">Student Documents</h5><div class="panel-subtitle">Aadhaar, profile, marksheet and other files</div></div></div>
+                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_document_upload' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 720, 620)"><i class="bi bi-plus-circle"></i> Upload</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-modern align-middle">
+                    <thead><tr><th>Document</th><th>Type</th><th>Uploaded</th><th>Note</th><th class="text-end">Actions</th></tr></thead>
+                    <tbody>
+                        {% for document in documents %}
+                        <tr>
+                            <td><strong>{{ document.title }}</strong></td>
+                            <td>{{ document.get_document_type_display }}</td>
+                            <td>{{ document.uploaded_at }}</td>
+                            <td>{{ document.note|default:"-" }}</td>
+                            <td class="text-end">
+                                <div class="d-inline-flex gap-2">
+                                    <a href="{{ document.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-up-right"></i> View</a>
+                                    <form method="post" action="{% url 'institute_admin:student_document_delete' document.pk %}" class="m-0" onsubmit="return confirm('Delete this document record?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Delete</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5"><div class="empty-state">No student documents uploaded yet.</div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane" data-tab-pane="enrollment">
+        <div class="content-panel" style="--panel-color: var(--violet); --panel-soft: #f5f3ff;">
+            <div class="panel-header">
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-diagram-3"></i></div><div><h5 class="panel-title">Enrollments</h5><div class="panel-subtitle">Batch and course mapping</div></div></div>
+                <a href="javascript:void(0);" data-url="{% url 'institute_admin:enrollment_create' %}?student={{ student.pk }}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this)"><i class="bi bi-plus-circle"></i> Add</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-modern align-middle">
+                    <thead><tr><th>Batch</th><th>Courses</th><th>Fee</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+                    <tbody>
+                        {% for enrollment in enrollments %}
+                        <tr>
+                            <td><strong>{{ enrollment.batch.name }}</strong><br><small class="text-muted">{{ enrollment.enrolled_on|default:"No date" }}</small></td>
+                            <td>
+                                {% for course in enrollment.courses.all %}
+                                    <span class="course-chip">{{ course.name }}</span>
+                                {% empty %}
+                                    <span class="text-muted">No courses</span>
+                                {% endfor %}
+                            </td>
+                            <td>{{ enrollment.total_course_fee }}</td>
+                            <td>
+                                {% if enrollment.status == "ACTIVE" %}
+                                    <span class="badge-soft badge-success-soft">Active</span>
+                                {% elif enrollment.status == "COMPLETED" %}
+                                    <span class="badge-soft badge-info-soft">Completed</span>
+                                {% else %}
+                                    <span class="badge-soft badge-danger-soft">Cancelled</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="javascript:void(0);" data-url="{% url 'institute_admin:enrollment_update' enrollment.pk %}" class="btn btn-sm btn-outline-warning action-btn" onclick="openStudentDashboardWindow(this)" title="Edit"><i class="bi bi-pencil-square"></i></a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5"><div class="empty-state">No enrollments yet.</div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane" data-tab-pane="fees">
+        <div class="content-panel" style="--panel-color: var(--orange); --panel-soft: #fff7ed;">
+            <div class="panel-header">
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-receipt"></i></div><div><h5 class="panel-title">Fees</h5><div class="panel-subtitle">Invoices, received amount and due amount</div></div></div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_add_fee' student.pk %}" class="btn btn-sm btn-main btn-add-fee" onclick="openStudentDashboardWindow(this, 760, 620)"><i class="bi bi-plus-circle"></i> Add Additional Fee</a>
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_receive_fee' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this)"><i class="bi bi-wallet2"></i> Receive Fee</a>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-modern align-middle">
+                    <thead><tr><th>Invoice</th><th>Category</th><th>Amount</th><th>Paid</th><th>Due</th><th>Status</th></tr></thead>
+                    <tbody>
+                        {% for row in invoice_rows %}
+                        <tr>
+                            <td>
+                                <strong>{{ row.title }}</strong><br>
+                                <small class="text-muted">Due: {{ row.due_date|default:"-" }}</small>
+                                {% if row.adjusted_credit %}
+                                    <br><small class="text-success">Includes adjusted credit: {{ row.adjusted_credit }}</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ row.category }}</td>
+                            <td>{{ row.amount }}</td>
+                            <td>{{ row.paid_amount }}</td>
+                            <td>{{ row.due_amount }}</td>
+                            <td>
+                                {% if row.status == "PAID" %}
+                                    <span class="badge-soft badge-success-soft">Paid</span>
+                                {% elif row.status == "PARTIAL" %}
+                                    <span class="badge-soft badge-warning-soft">Partial</span>
+                                {% else %}
+                                    <span class="badge-soft badge-danger-soft">Unpaid</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6"><div class="empty-state">No fee invoices yet.</div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane" data-tab-pane="payment">
+        <div class="content-panel" style="--panel-color: var(--blue); --panel-soft: #eff6ff;">
+            <div class="panel-header">
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-wallet2"></i></div><div><h5 class="panel-title">Payment History</h5><div class="panel-subtitle">Showing all {{ all_payment_count }} receipt(s), {{ active_payment_count }} active. Active total: {{ raw_paid_amount }}</div></div></div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-modern align-middle">
+                    <thead><tr><th>Date</th><th>Invoice</th><th>Amount</th><th>Method</th><th>Receipt</th><th>Received By</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+                    <tbody>
+                        {% for payment in payments %}
+                        <tr>
+                            <td>{{ payment.paid_on }}</td>
+                            <td>{{ payment.invoice.title }}</td>
+                            <td>{{ payment.amount }}</td>
+                            <td>{{ payment.get_method_display }}</td>
+                            <td>{{ payment.receipt_number|default:"-" }}</td>
+                            <td>{{ payment.received_by.get_full_name|default:payment.received_by.username|default:"System" }}</td>
+                            <td>
+                                {% if payment.status == "ACTIVE" %}
+                                    <span class="badge-soft badge-success-soft">Active</span>
+                                {% else %}
+                                    <span class="badge-soft badge-danger-soft">Voided</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'institute_admin:payment_receipt' payment.pk %}" target="_blank" class="btn btn-sm btn-outline-primary action-btn" title="Receipt"><i class="bi bi-receipt"></i></a>
+                                {% if payment.status == "ACTIVE" %}
+                                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:payment_update' payment.pk %}" class="btn btn-sm btn-outline-warning action-btn" onclick="openStudentDashboardWindow(this)" title="Correct"><i class="bi bi-pencil-square"></i></a>
+                                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:payment_void' payment.pk %}" class="btn btn-sm btn-outline-danger action-btn" onclick="openStudentDashboardWindow(this)" title="Void"><i class="bi bi-slash-circle"></i></a>
+                                {% else %}
+                                    <span class="text-muted small">Locked</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8"><div class="empty-state">No payments received yet.</div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="content-panel" style="--panel-color: var(--red); --panel-soft: #fff1f2;">
+            <div class="panel-header">
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-clock-history"></i></div><div><h5 class="panel-title">Payment Activity History</h5><div class="panel-subtitle">Corrections and void actions</div></div></div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-modern align-middle">
+                    <thead><tr><th>Date & Time</th><th>Invoice</th><th>Action</th><th>Old Amount</th><th>New Amount</th><th>By</th><th>Reason / Note</th></tr></thead>
+                    <tbody>
+                        {% for activity in payment_activities %}
+                        <tr>
+                            <td>{{ activity.performed_at }}</td>
+                            <td>{{ activity.payment.invoice.title }}</td>
+                            <td>{{ activity.get_action_display }}</td>
+                            <td>{{ activity.old_amount|default:"-" }}</td>
+                            <td>{{ activity.new_amount|default:"-" }}</td>
+                            <td>{{ activity.performed_by.get_full_name|default:activity.performed_by.username|default:"System" }}</td>
+                            <td>{{ activity.note }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="7"><div class="empty-state">No payment activity yet.</div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane" data-tab-pane="attendance">
+        <div class="content-panel" style="--panel-color: var(--green); --panel-soft: #f0fdf4;">
+            <div class="panel-header">
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-check2-square"></i></div><div><h5 class="panel-title">Attendance</h5><div class="panel-subtitle">Present: {{ present_count }} &middot; Absent: {{ absent_count }} &middot; Late: {{ late_count }}</div></div></div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-modern align-middle">
+                    <thead><tr><th>Date</th><th>Batch</th><th>Status</th><th>Marked By</th><th>Note</th></tr></thead>
+                    <tbody>
+                        {% for attendance in attendance_records %}
+                        <tr>
+                            <td>{{ attendance.date }}</td>
+                            <td>{{ attendance.batch.name }}</td>
+                            <td>
+                                {% if attendance.status == "PRESENT" %}
+                                    <span class="badge-soft badge-success-soft">Present</span>
+                                {% elif attendance.status == "LATE" %}
+                                    <span class="badge-soft badge-warning-soft">Late</span>
+                                {% else %}
+                                    <span class="badge-soft badge-danger-soft">Absent</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ attendance.marked_by.get_full_name|default:attendance.marked_by.username|default:"Not set" }}</td>
+                            <td>{{ attendance.note|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5"><div class="empty-state">No attendance records yet.</div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    function openStudentDashboardWindow(element, customWidth = 1000, customHeight = 760) {
+        const url = element.dataset.url;
+        const left = Math.max(0, (window.screen.width - customWidth) / 2);
+        const top = Math.max(0, (window.screen.height - customHeight) / 2);
+        const features = [`width=${customWidth}`, `height=${customHeight}`, `left=${left}`, `top=${top}`, 'scrollbars=yes', 'resizable=yes', 'location=no', 'menubar=no', 'toolbar=no', 'status=no'].join(',');
+        const newWindow = window.open(url, "studentDashboardWindow", features);
+        if (newWindow) {
+            newWindow.focus();
+            const checkWindow = setInterval(function () {
+                if (newWindow.closed) {
+                    clearInterval(checkWindow);
+                    window.location.reload();
+                }
+            }, 500);
+        }
+        return false;
+    }
+
+    const tabStorageKey = "student-dashboard-tab-{{ student.pk }}";
+
+    function activateStudentTab(target, persist = true) {
+        const tabButton = document.querySelector(`[data-tab-target="${target}"]`);
+        const tabPane = document.querySelector(`[data-tab-pane="${target}"]`);
+        if (!tabButton || !tabPane) {
+            return;
+        }
+
+        document.querySelectorAll("[data-tab-target]").forEach(function (button) {
+            button.classList.toggle("active", button === tabButton);
+        });
+        document.querySelectorAll("[data-tab-pane]").forEach(function (pane) {
+            pane.classList.toggle("active", pane === tabPane);
+        });
+
+        if (persist) {
+            localStorage.setItem(tabStorageKey, target);
+        }
+    }
+
+    document.querySelectorAll("[data-tab-target]").forEach(function (tabButton) {
+        tabButton.addEventListener("click", function () {
+            activateStudentTab(tabButton.dataset.tabTarget);
+        });
+    });
+
+    activateStudentTab(localStorage.getItem(tabStorageKey) || "profile", false);
+</script>
+{% endblock content %}

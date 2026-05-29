@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root { --primary-color: #0f766e; --secondary-color: #115e59; --light-bg: #f8fafc; --border-color: #e2e8f0; --text-primary: #1e293b; --text-secondary: #64748b; }
+        body { background: linear-gradient(135deg, #f8fafc, #ccfbf1); min-height: 100vh; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .form-container { max-width: 760px; margin: 0 auto; background: #fff; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.1); overflow: hidden; }
+        .form-header { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); color: #fff; padding: 28px 34px; }
+        .form-header h1 { font-size: 1.55rem; font-weight: 800; margin-bottom: 6px; }
+        .form-header p { opacity: .9; margin: 0; }
+        .form-body { padding: 32px; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+        .form-field-wide { grid-column: 1 / -1; }
+        .form-label { font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+        .form-control, .form-select { border: 2px solid var(--border-color); border-radius: 10px; padding: 12px 14px; }
+        textarea.form-control { min-height: 96px; }
+        .form-check-input { width: 1.1em; height: 1.1em; }
+        .errorlist { color: #b91c1c; margin: 8px 0 0; padding-left: 18px; font-size: .9rem; }
+        .form-actions { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 12px; }
+        .btn { padding: 11px 22px; border-radius: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); border: none; }
+        .btn-secondary { background: var(--light-bg); color: var(--text-secondary); border: 2px solid var(--border-color); }
+        @media(max-width: 700px) { body { padding: 10px; } .form-header, .form-body { padding: 22px 18px; } .form-grid { grid-template-columns: 1fr; } .form-actions { flex-direction: column; } .btn { width: 100%; justify-content: center; } }
+    </style>
+</head>
+<body>
+<div class="form-container">
+    <div class="form-header">
+        <h1><i class="bi {{ icon|default:'bi-pencil-square' }} me-2"></i>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+    <form method="POST" enctype="multipart/form-data" class="form-body">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+        <div class="form-grid">
+            {% for field in form %}
+                <div class="{% if field.field.widget.input_type == 'textarea' or field.name == 'files' or field.name == 'profile_image' %}form-field-wide{% endif %}">
+                    {% if field.field.widget.input_type == "checkbox" %}
+                        <div class="form-check pt-2">
+                            {{ field }}
+                            <label class="form-check-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        </div>
+                    {% else %}
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                    {% endif %}
+                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                    {{ field.errors }}
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="window.close()"><i class="bi bi-x-circle"></i> Cancel</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle"></i> {{ button_text }}</button>
+        </div>
+    </form>
+</div>
+</body>
+</html>

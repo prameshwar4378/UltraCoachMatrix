@@ -1,0 +1,55 @@
+{% extends "teacher_base.html" %}
+
+{% block title %}Teacher Dashboard{% endblock title %}
+
+{% block content %}
+<main id="main" class="main">
+    <div class="pagetitle">
+        <h1>Teacher Dashboard</h1>
+    </div>
+
+    <section class="section dashboard">
+        <div class="row g-3">
+            <div class="col-md-3"><div class="card info-card p-3"><h6>Batches</h6><h3>{{ batch_count }}</h3></div></div>
+            <div class="col-md-3"><div class="card info-card p-3"><h6>Students</h6><h3>{{ student_count }}</h3></div></div>
+            <div class="col-md-3"><div class="card info-card p-3"><h6>Homework</h6><h3>{{ homework_count }}</h3></div></div>
+            <div class="col-md-3"><div class="card info-card p-3"><h6>Exams</h6><h3>{{ exam_count }}</h3></div></div>
+        </div>
+
+        <div class="row g-3 mt-1">
+            <div class="col-lg-6">
+                <div class="card p-3">
+                    <h5>Recent Homework</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <tbody>
+                            {% for item in recent_homework %}
+                                <tr><td>{{ item.title }}</td><td>{{ item.batch.name }}</td><td>{{ item.due_date|default:"-" }}</td></tr>
+                            {% empty %}
+                                <tr><td>No homework created yet.</td></tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card p-3">
+                    <h5>Upcoming Exams</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <tbody>
+                            {% for exam in recent_exams %}
+                                <tr><td>{{ exam.title }}</td><td>{{ exam.batch.name }}</td><td>{{ exam.exam_date }}</td></tr>
+                            {% empty %}
+                                <tr><td>No exams created yet.</td></tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock content %}

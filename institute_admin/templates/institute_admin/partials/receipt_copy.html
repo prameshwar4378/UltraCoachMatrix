@@ -1,0 +1,67 @@
+<section class="copy">
+    <div class="receipt-top">
+        <div>
+            <div class="institute-name">{{ institute.name }}</div>
+            <div class="institute-meta">
+                {% if institute.address %}{{ institute.address }}<br>{% endif %}
+                {% if institute.phone %}Phone: {{ institute.phone }}{% endif %}
+                {% if institute.email %}{% if institute.phone %} | {% endif %}Email: {{ institute.email }}{% endif %}
+                {% if institute.code %}<br>Institute Code: {{ institute.code }}{% endif %}
+            </div>
+        </div>
+        <div class="copy-badge">
+            {{ copy_label }}
+            <div class="receipt-title">Fee Receipt</div>
+        </div>
+    </div>
+
+    <div class="meta-grid">
+        <div class="field"><div class="label">Receipt No.</div><div class="value">{{ payment.receipt_number }}</div></div>
+        <div class="field"><div class="label">Payment Date</div><div class="value">{{ payment.paid_on }}</div></div>
+        <div class="field"><div class="label">Student Name</div><div class="value">{{ student.user.get_full_name|default:student.user.username }}</div></div>
+        <div class="field"><div class="label">Admission No.</div><div class="value">{{ student_session.admission_number }}</div></div>
+        <div class="field"><div class="label">Guardian</div><div class="value">{{ guardian.name|default:"-" }}</div></div>
+        <div class="field"><div class="label">Contact</div><div class="value">{{ guardian.phone|default:student.user.profile.phone|default:"-" }}</div></div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Fee Particular</th>
+                <th>Category</th>
+                <th>Batch</th>
+                <th>Method</th>
+                <th class="amount">Paid Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <strong>{{ invoice.title }}</strong><br>
+                    <span>Invoice Due Date: {{ invoice.due_date }}</span>
+                </td>
+                <td>{{ invoice.category.name|default:"General" }}</td>
+                <td>{{ invoice.batch.name|default:"-" }}</td>
+                <td>{{ payment.get_method_display }}</td>
+                <td class="amount">{{ payment.amount }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="summary">
+        <div class="note-box">
+            <strong>Remarks:</strong> {{ payment.note|default:"Payment received with thanks." }}<br>
+            <strong>Received By:</strong> {{ payment.received_by.get_full_name|default:payment.received_by.username|default:"System" }}
+        </div>
+        <div class="totals">
+            <div class="total-row"><span>Invoice Amount</span><span>{{ invoice.amount }}</span></div>
+            <div class="total-row"><span>Total Paid</span><span>{{ invoice_paid_amount }}</span></div>
+            <div class="total-row"><span>Balance Due</span><span>{{ invoice_due_amount }}</span></div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div>This is a computer generated receipt. Please keep it for your records.</div>
+        <div class="signature">Authorized Signature</div>
+    </div>
+</section>

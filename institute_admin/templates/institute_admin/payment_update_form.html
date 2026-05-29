@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root { --primary-color: #0f766e; --secondary-color: #115e59; --light-bg: #f8fafc; --border-color: #e2e8f0; --text-primary: #1e293b; --text-secondary: #64748b; }
+        body { background: linear-gradient(135deg, #f8fafc, #ccfbf1); min-height: 100vh; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .form-container { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.1); overflow: hidden; }
+        .form-header { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); color: #fff; padding: 30px 40px; }
+        .form-header h1 { font-weight: 700; margin-bottom: 6px; }
+        .form-header p { opacity: .9; margin: 0; }
+        .form-body { padding: 40px; }
+        .form-section { background: var(--light-bg); border-radius: 15px; padding: 25px; margin-bottom: 30px; border-left: 5px solid var(--primary-color); }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 22px; }
+        .form-label { font-weight: 600; color: var(--text-primary); margin-bottom: 10px; display: flex; gap: 8px; align-items: center; }
+        .form-label i { color: var(--primary-color); }
+        .form-control, .form-select { border: 2px solid var(--border-color); border-radius: 10px; padding: 13px 15px; }
+        .form-actions { background: #fff; padding-top: 25px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+        .btn { padding: 12px 26px; border-radius: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); border: none; }
+        .btn-secondary { background: var(--light-bg); color: var(--text-secondary); border: 2px solid var(--border-color); }
+    </style>
+</head>
+<body>
+<div class="form-container">
+    <div class="form-header">
+        <h1><i class="bi bi-pencil-square me-2"></i>{{ title }}</h1>
+        <p>{{ subtitle }} - {{ payment.invoice.title }}</p>
+    </div>
+    <form method="POST" class="form-body">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="form-section">
+            <div class="form-grid">
+                <div><label class="form-label"><i class="bi bi-currency-rupee"></i> Amount</label>{{ form.amount }}{{ form.amount.errors }}</div>
+                <div><label class="form-label"><i class="bi bi-calendar-check"></i> Paid On</label>{{ form.paid_on }}{{ form.paid_on.errors }}</div>
+                <div><label class="form-label"><i class="bi bi-credit-card"></i> Method</label>{{ form.method }}{{ form.method.errors }}</div>
+                <div><label class="form-label"><i class="bi bi-upc"></i> Receipt Number</label>{{ form.receipt_number }}{{ form.receipt_number.errors }}</div>
+                <div style="grid-column: 1 / -1;"><label class="form-label"><i class="bi bi-card-text"></i> Note</label>{{ form.note }}{{ form.note.errors }}</div>
+                <div style="grid-column: 1 / -1;"><label class="form-label"><i class="bi bi-shield-check"></i> Correction Reason</label>{{ form.correction_reason }}{{ form.correction_reason.errors }}</div>
+            </div>
+        </div>
+        <div class="form-actions">
+            <div class="text-muted"><i class="bi bi-info-circle me-1"></i> This correction will be added to payment activity history.</div>
+            <div class="d-flex gap-3">
+                <button type="button" class="btn btn-secondary" onclick="window.close()"><i class="bi bi-x-circle"></i> Cancel</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle"></i> {{ button_text }}</button>
+            </div>
+        </div>
+    </form>
+</div>
+</body>
+</html>

@@ -1,0 +1,234 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Enrollments{% endblock title %}
+
+{% block content %}
+<style>
+    .enrollment-page { --primary: #7c3aed; --primary-dark: #5b21b6; --surface: #ffffff; --border: #e5e7eb; --text: #111827; --muted: #6b7280; }
+    .page-toolbar, .filter-panel, .table-card, .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06); }
+    .page-toolbar { padding: 22px; margin-bottom: 24px; }
+    .page-title { font-size: 1.7rem; font-weight: 800; color: var(--text); margin: 0; }
+    .page-subtitle { color: var(--muted); margin: 6px 0 0; }
+    .btn-gradient { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; border: none; border-radius: 12px; padding: 11px 18px; font-weight: 700; }
+    .btn-gradient:hover { color: #fff; transform: translateY(-1px); }
+    .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; margin-bottom: 24px; }
+    .stat-card { padding: 20px; }
+    .stat-icon { width: 42px; height: 42px; border-radius: 12px; background: #ede9fe; color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-bottom: 12px; }
+    .stat-number { font-size: 1.8rem; font-weight: 800; color: var(--text); line-height: 1; }
+    .stat-label { color: var(--muted); font-size: .86rem; margin-top: 8px; font-weight: 600; }
+    .filter-panel { padding: 22px; margin-bottom: 24px; }
+    .form-control, .form-select { border-radius: 12px; border: 1px solid var(--border); padding: 11px 14px; }
+    .table-card { overflow: hidden; }
+    .table-header { padding: 20px 22px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .table-header h5 { margin: 0; font-weight: 800; }
+    .table-modern { margin: 0; }
+    .table-modern thead th { background: #f9fafb; color: #374151; border-bottom: 1px solid var(--border); padding: 15px 18px; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 800; }
+    .table-modern tbody td { padding: 18px; vertical-align: middle; border-bottom: 1px solid #f1f5f9; }
+    .badge-soft { padding: 7px 12px; border-radius: 999px; font-size: .78rem; font-weight: 800; }
+    .badge-active { background: #dcfce7; color: #166534; }
+    .badge-completed { background: #dbeafe; color: #1e40af; }
+    .badge-cancelled { background: #fee2e2; color: #991b1b; }
+    .course-chip { display: inline-block; background: #f3f4f6; color: #374151; padding: 5px 9px; border-radius: 999px; font-size: .78rem; font-weight: 700; margin: 2px; }
+    .action-btn { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; }
+    .empty-state { padding: 60px 20px; text-align: center; color: var(--muted); }
+    .empty-state i { font-size: 3rem; color: #ddd6fe; margin-bottom: 12px; }
+    @media(max-width: 992px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+
+<main id="main" class="main enrollment-page">
+    <div class="pagetitle">
+        <h1>Enrollments</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item active">Enrollments</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="page-toolbar d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="page-title">Batch & Course Enrollments</h2>
+            <p class="page-subtitle">Assign students to batches and calculate course-wise fee totals.</p>
+        </div>
+        <a href="javascript:void(0);" data-url="{% url 'institute_admin:enrollment_create' %}" class="btn btn-gradient" onclick="openEnrollmentWindow(this)">
+            <i class="bi bi-plus-circle"></i> New Enrollment
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="stat-grid">
+        <div class="stat-card"><div class="stat-icon"><i class="bi bi-diagram-3"></i></div><div class="stat-number">{{ total_enrollments }}</div><div class="stat-label">Total</div></div>
+        <div class="stat-card"><div class="stat-icon"><i class="bi bi-check-circle"></i></div><div class="stat-number">{{ active_enrollments }}</div><div class="stat-label">Active</div></div>
+        <div class="stat-card"><div class="stat-icon"><i class="bi bi-award"></i></div><div class="stat-number">{{ completed_enrollments }}</div><div class="stat-label">Completed</div></div>
+        <div class="stat-card"><div class="stat-icon"><i class="bi bi-x-circle"></i></div><div class="stat-number">{{ cancelled_enrollments }}</div><div class="stat-label">Cancelled</div></div>
+    </div>
+
+    <div class="filter-panel">
+        <form method="get" class="row g-3">
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label">Batch</label>
+                <select name="batch" class="form-select">
+                    <option value="">All Batches</option>
+                    {% for batch in batches %}
+                        <option value="{{ batch.pk }}" {% if batch_filter == batch.pk|stringformat:"s" %}selected{% endif %}>{{ batch.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-4 col-md-12">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" placeholder="Search student, batch, course..." value="{{ search_query }}">
+            </div>
+            <div class="col-lg-2 col-md-12 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-gradient"><i class="bi bi-search"></i> Filter</button>
+                <a href="{% url 'institute_admin:enrollment_list' %}" class="btn btn-light border"><i class="bi bi-x-circle"></i></a>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-card">
+        <div class="table-header">
+            <h5><i class="bi bi-list-ul me-1"></i> Enrollment Records</h5>
+            <span class="text-muted small">Course-wise fee comes from selected courses</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-modern align-middle">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Batch</th>
+                        <th>Courses</th>
+                        <th>Fee</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for enrollment in enrollments %}
+                    <tr>
+                        <td>
+                            <strong>{{ enrollment.student.user.get_full_name|default:enrollment.student.user.username }}</strong>
+                            <br>
+                            <small class="text-muted">{{ enrollment.academic_session.admission_number }}</small>
+                        </td>
+                        <td>
+                            <strong>{{ enrollment.batch.name }}</strong>
+                            <br>
+                            <small class="text-muted">{{ enrollment.enrolled_on|default:"No date" }}</small>
+                        </td>
+                        <td>
+                            {% for course in enrollment.courses.all %}
+                                <span class="course-chip">{{ course.name }}</span>
+                            {% empty %}
+                                <span class="text-muted">No courses</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            <strong>{{ enrollment.total_course_fee }}</strong>
+                            {% if enrollment.custom_fee_amount %}
+                                <br><small class="text-muted">Custom fee</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if enrollment.status == "ACTIVE" %}
+                                <span class="badge-soft badge-active">Active</span>
+                            {% elif enrollment.status == "COMPLETED" %}
+                                <span class="badge-soft badge-completed">Completed</span>
+                            {% else %}
+                                <span class="badge-soft badge-cancelled">Cancelled</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group">
+                                <a href="javascript:void(0);" class="btn btn-sm btn-outline-warning action-btn" data-url="{% url 'institute_admin:enrollment_update' enrollment.pk %}" onclick="openEnrollmentWindow(this)" title="Edit">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger action-btn" data-delete-url="{% url 'institute_admin:enrollment_delete' enrollment.pk %}" data-enrollment-name="{{ enrollment.student }} - {{ enrollment.batch.name }}" onclick="openDeleteEnrollmentModal(this)" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <i class="bi bi-diagram-3"></i>
+                                <h5>No Enrollments Found</h5>
+                                <p>Enroll students into batches after creating students and batches.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<div class="modal fade" id="deleteEnrollmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i> Delete Enrollment</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <h6 class="fw-bold mb-2">Are you sure you want to delete this enrollment?</h6>
+                <p class="mb-0"><strong id="deleteEnrollmentName"></strong> will be removed.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancel</button>
+                <form method="post" id="deleteEnrollmentForm" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash"></i> Delete Enrollment</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openEnrollmentWindow(element, customWidth = 940, customHeight = 720) {
+        const url = element.dataset.url;
+        const left = Math.max(0, (window.screen.width - customWidth) / 2);
+        const top = Math.max(0, (window.screen.height - customHeight) / 2);
+        const features = [`width=${customWidth}`, `height=${customHeight}`, `left=${left}`, `top=${top}`, 'scrollbars=yes', 'resizable=yes', 'location=no', 'menubar=no', 'toolbar=no', 'status=no'].join(',');
+        const newWindow = window.open(url, "enrollmentWindow", features);
+        if (newWindow) {
+            newWindow.focus();
+            const checkWindow = setInterval(function () {
+                if (newWindow.closed) {
+                    clearInterval(checkWindow);
+                    window.location.reload();
+                }
+            }, 500);
+        }
+        return false;
+    }
+
+    function openDeleteEnrollmentModal(button) {
+        document.getElementById("deleteEnrollmentForm").action = button.dataset.deleteUrl;
+        document.getElementById("deleteEnrollmentName").textContent = button.dataset.enrollmentName || "this enrollment";
+        const modal = new bootstrap.Modal(document.getElementById("deleteEnrollmentModal"));
+        modal.show();
+    }
+</script>
+{% endblock content %}

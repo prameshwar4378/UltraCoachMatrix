@@ -1,0 +1,60 @@
+{% extends "teacher_base.html" %}
+
+{% block title %}Teacher Attendance{% endblock title %}
+
+{% block content %}
+<main id="main" class="main">
+    <div class="pagetitle"><h1>Attendance</h1></div>
+
+    <form method="get" class="card p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label">Batch</label>
+                <select name="batch" class="form-select">
+                    {% for batch in batches %}
+                        <option value="{{ batch.pk }}" {% if selected_batch.pk == batch.pk %}selected{% endif %}>{{ batch.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Date</label>
+                <input type="date" name="date" class="form-control" value="{{ selected_date|date:'Y-m-d' }}">
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-primary w-100" type="submit">Load</button>
+            </div>
+        </div>
+    </form>
+
+    <form method="post" class="card p-3">
+        {% csrf_token %}
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr><th>Student</th><th>Status</th><th>Note</th></tr></thead>
+                <tbody>
+                {% for row in rows %}
+                    <tr>
+                        <td>
+                            <strong>{{ row.session.student.user.get_full_name|default:row.session.student.user.username }}</strong>
+                            <div class="text-muted small">{{ row.session.admission_number }}</div>
+                        </td>
+                        <td>
+                            {% for value,label in status_choices %}
+                                <label class="me-2">
+                                    <input type="radio" name="status_{{ row.session.pk }}" value="{{ value }}" {% if row.status == value %}checked{% endif %}>
+                                    {{ label }}
+                                </label>
+                            {% endfor %}
+                        </td>
+                        <td><input class="form-control" name="note_{{ row.session.pk }}" value="{{ row.note }}"></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="3">No assigned batch students found.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button class="btn btn-success" type="submit" {% if not selected_batch %}disabled{% endif %}>Save Attendance</button>
+    </form>
+</main>
+{% endblock content %}

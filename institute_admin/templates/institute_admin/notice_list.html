@@ -1,0 +1,264 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Notices{% endblock title %}
+
+{% block content %}
+<style>
+    .notice-page { --primary:#0f766e; --dark:#115e59; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --soft:#f0fdfa; --surface:#fff; }
+    .notice-shell, .notice-filter, .notice-table, .notice-stat { background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:0 14px 34px rgba(15,23,42,.06); }
+    .notice-shell { padding:22px; margin-bottom:18px; position:relative; overflow:hidden; }
+    .notice-shell:before { content:""; position:absolute; inset:0 auto 0 0; width:7px; background:linear-gradient(180deg,#14b8a6,#0f766e); }
+    .notice-title { margin:0; color:var(--ink); font-weight:950; font-size:1.8rem; }
+    .notice-subtitle { margin:6px 0 0; color:var(--muted); font-weight:700; }
+    .btn-notice { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:0; border-radius:8px; padding:10px 16px; font-weight:850; display:inline-flex; align-items:center; gap:8px; }
+    .btn-notice:hover { color:#fff; transform:translateY(-1px); }
+    .notice-stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+    .notice-stat { padding:18px; }
+    .notice-stat i { width:42px; height:42px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; background:var(--stat-soft); color:var(--stat-color); font-size:1.15rem; margin-bottom:12px; }
+    .notice-stat strong { display:block; color:var(--ink); font-size:1.65rem; line-height:1; font-weight:950; }
+    .notice-stat span { display:block; color:var(--muted); margin-top:8px; font-weight:800; font-size:.84rem; }
+    .notice-filter { padding:18px; margin-bottom:18px; }
+    .form-control, .form-select { border-radius:8px; border:1px solid var(--line); padding:10px 12px; }
+    .notice-table { overflow:hidden; }
+    .notice-table-head { padding:17px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .notice-table-head h5 { margin:0; color:var(--ink); font-weight:950; }
+    .table-modern { margin:0; }
+    .table-modern thead th { background:#f8fafc; border-bottom:1px solid var(--line); color:#475569; padding:14px 16px; font-size:.75rem; letter-spacing:.06em; text-transform:uppercase; font-weight:950; }
+    .table-modern tbody td { padding:16px; border-bottom:1px solid #f1f5f9; vertical-align:middle; color:var(--ink); }
+    .notice-name { display:flex; gap:10px; align-items:flex-start; }
+    .notice-pin { width:34px; height:34px; border-radius:8px; background:#ecfeff; color:#0e7490; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; }
+    .notice-name strong { display:block; font-weight:900; }
+    .notice-name small { display:block; color:var(--muted); margin-top:3px; max-width:390px; }
+    .pill { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:7px 10px; font-size:.77rem; font-weight:900; white-space:nowrap; }
+    .pill-green { background:#dcfce7; color:#166534; }
+    .pill-blue { background:#dbeafe; color:#1d4ed8; }
+    .pill-amber { background:#fef3c7; color:#92400e; }
+    .pill-red { background:#fee2e2; color:#991b1b; }
+    .pill-slate { background:#f1f5f9; color:#475569; }
+    .target-line { color:var(--muted); font-weight:750; font-size:.84rem; }
+    .action-btn { width:34px; height:34px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; }
+    .empty-state { padding:48px 20px; text-align:center; color:var(--muted); font-weight:800; }
+    .pagination .page-link { border-radius:8px; margin:0 3px; color:var(--primary); }
+    .pagination .active .page-link { background:var(--primary); border-color:var(--primary); color:#fff; }
+    @media(max-width:992px){ .notice-stat-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); } .notice-shell{ flex-direction:column; align-items:flex-start!important; } }
+    @media(max-width:576px){ .notice-stat-grid{ grid-template-columns:1fr; } .notice-table-head{ flex-direction:column; align-items:flex-start; } }
+</style>
+
+<main id="main" class="main notice-page">
+    <div class="pagetitle">
+        <h1>Notices</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item active">Notices</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="notice-shell d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="notice-title">Notice & App Notification Center</h2>
+            <p class="notice-subtitle">Create institute announcements once, then keep them ready for the student/parent mobile app.</p>
+        </div>
+        <a href="javascript:void(0);" data-url="{% url 'institute_admin:notice_create' %}" class="btn-notice" onclick="openNoticeWindow(this)">
+            <i class="bi bi-plus-circle"></i> New Notice
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="notice-stat-grid">
+        <div class="notice-stat" style="--stat-color:#0f766e; --stat-soft:#ccfbf1;"><i class="bi bi-megaphone"></i><strong>{{ total_notices }}</strong><span>Total Notices</span></div>
+        <div class="notice-stat" style="--stat-color:#16a34a; --stat-soft:#dcfce7;"><i class="bi bi-broadcast"></i><strong>{{ active_notices }}</strong><span>Active Now</span></div>
+        <div class="notice-stat" style="--stat-color:#d97706; --stat-soft:#fef3c7;"><i class="bi bi-clock-history"></i><strong>{{ scheduled_notices }}</strong><span>Scheduled</span></div>
+        <div class="notice-stat" style="--stat-color:#2563eb; --stat-soft:#dbeafe;"><i class="bi bi-phone"></i><strong>{{ app_notices }}</strong><span>Mobile App Ready</span></div>
+    </div>
+
+    <div class="notice-filter">
+        <form method="get" class="row g-3">
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label">Audience</label>
+                <select name="audience" class="form-select">
+                    <option value="">All Audience</option>
+                    {% for value, label in audience_choices %}
+                        <option value="{{ value }}" {% if audience_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">Category</label>
+                <select name="category" class="form-select">
+                    <option value="">All Categories</option>
+                    {% for value, label in category_choices %}
+                        <option value="{{ value }}" {% if category_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="published" {% if status_filter == "published" %}selected{% endif %}>Published</option>
+                    <option value="scheduled" {% if status_filter == "scheduled" %}selected{% endif %}>Scheduled</option>
+                    <option value="expired" {% if status_filter == "expired" %}selected{% endif %}>Expired</option>
+                    <option value="draft" {% if status_filter == "draft" %}selected{% endif %}>Draft</option>
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" placeholder="Search notice..." value="{{ search_query }}">
+            </div>
+            <div class="col-lg-2 col-md-12 d-flex align-items-end gap-2">
+                <button type="submit" class="btn-notice"><i class="bi bi-search"></i> Filter</button>
+                <a href="{% url 'institute_admin:notice_list' %}" class="btn btn-light border"><i class="bi bi-x-circle"></i></a>
+            </div>
+        </form>
+    </div>
+
+    <div class="notice-table">
+        <div class="notice-table-head">
+            <h5><i class="bi bi-bell me-1"></i> Notice Records</h5>
+            <span class="text-muted small">Web-created records for institute and future app delivery</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-modern align-middle">
+                <thead>
+                    <tr>
+                        <th>Notice</th>
+                        <th>Audience</th>
+                        <th>Target</th>
+                        <th>Schedule</th>
+                        <th>Status</th>
+                        <th>Reads</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for notice in notice_list %}
+                    <tr>
+                        <td>
+                            <div class="notice-name">
+                                <span class="notice-pin"><i class="bi {% if notice.pin_on_top %}bi-pin-angle-fill{% else %}bi-megaphone{% endif %}"></i></span>
+                                <div>
+                                    <strong>{{ notice.title }}</strong>
+                                    <small>{{ notice.message|striptags|truncatechars:90 }}</small>
+                                    <div class="mt-2">
+                                        <span class="pill pill-blue">{{ notice.get_category_display }}</span>
+                                        {% if notice.priority == "URGENT" %}
+                                            <span class="pill pill-red">{{ notice.get_priority_display }}</span>
+                                        {% elif notice.priority == "IMPORTANT" %}
+                                            <span class="pill pill-amber">{{ notice.get_priority_display }}</span>
+                                        {% else %}
+                                            <span class="pill pill-slate">{{ notice.get_priority_display }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ notice.get_audience_display }}</td>
+                        <td>
+                            <div class="target-line">{{ notice.target_batches.count }} batch(es)</div>
+                            <div class="target-line">{{ notice.target_courses.count }} course(s), {{ notice.target_students.count }} student(s)</div>
+                        </td>
+                        <td>
+                            <div class="target-line">From: {{ notice.publish_at|default:"Now" }}</div>
+                            <div class="target-line">Until: {{ notice.expires_at|default:"No expiry" }}</div>
+                        </td>
+                        <td>
+                            {% if not notice.is_published %}
+                                <span class="pill pill-slate">Draft</span>
+                            {% elif notice.publish_at and notice.publish_at > now %}
+                                <span class="pill pill-amber">Scheduled</span>
+                            {% elif notice.expires_at and notice.expires_at < now %}
+                                <span class="pill pill-red">Expired</span>
+                            {% else %}
+                                <span class="pill pill-green">Published</span>
+                            {% endif %}
+                            {% if notice.push_to_app %}<span class="pill pill-blue mt-1"><i class="bi bi-phone"></i> App</span>{% endif %}
+                        </td>
+                        <td><strong>{{ notice.read_receipts.count }}</strong></td>
+                        <td class="text-end">
+                            <a href="javascript:void(0);" data-url="{% url 'institute_admin:notice_update' notice.pk %}" class="btn btn-sm btn-outline-warning action-btn" onclick="openNoticeWindow(this)" title="Edit"><i class="bi bi-pencil-square"></i></a>
+                            <button type="button" class="btn btn-sm btn-outline-danger action-btn" data-delete-url="{% url 'institute_admin:notice_delete' notice.pk %}" data-notice-title="{{ notice.title }}" onclick="openDeleteNoticeModal(this)" title="Delete"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7"><div class="empty-state">No notices created yet.</div></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if page_obj.has_other_pages %}
+            <nav class="p-3">
+                <ul class="pagination justify-content-end mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ search_query }}&audience={{ audience_filter }}&category={{ category_filter }}&status={{ status_filter }}"><i class="bi bi-chevron-left"></i></a></li>
+                    {% endif %}
+                    {% for num in page_obj.paginator.page_range %}
+                        <li class="page-item {% if page_obj.number == num %}active{% endif %}"><a class="page-link" href="?page={{ num }}&search={{ search_query }}&audience={{ audience_filter }}&category={{ category_filter }}&status={{ status_filter }}">{{ num }}</a></li>
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ search_query }}&audience={{ audience_filter }}&category={{ category_filter }}&status={{ status_filter }}"><i class="bi bi-chevron-right"></i></a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+    </div>
+</main>
+
+<div class="modal fade" id="deleteNoticeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i> Delete Notice</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <h6 class="fw-bold mb-2">Delete this notice?</h6>
+                <p class="mb-0"><strong id="deleteNoticeTitle"></strong> will be removed from web and app notification records.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" id="deleteNoticeForm" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openNoticeWindow(element, customWidth = 960, customHeight = 760) {
+        const url = element.dataset.url;
+        const left = Math.max(0, (window.screen.width - customWidth) / 2);
+        const top = Math.max(0, (window.screen.height - customHeight) / 2);
+        const features = [`width=${customWidth}`, `height=${customHeight}`, `left=${left}`, `top=${top}`, 'scrollbars=yes', 'resizable=yes', 'location=no', 'menubar=no', 'toolbar=no', 'status=no'].join(',');
+        const newWindow = window.open(url, "noticeWindow", features);
+        if (newWindow) {
+            newWindow.focus();
+            const checkWindow = setInterval(function () {
+                if (newWindow.closed) {
+                    clearInterval(checkWindow);
+                    window.location.reload();
+                }
+            }, 500);
+        }
+        return false;
+    }
+
+    function openDeleteNoticeModal(button) {
+        document.getElementById("deleteNoticeForm").action = button.dataset.deleteUrl;
+        document.getElementById("deleteNoticeTitle").textContent = button.dataset.noticeTitle || "This notice";
+        const modal = new bootstrap.Modal(document.getElementById("deleteNoticeModal"));
+        modal.show();
+    }
+</script>
+{% endblock content %}

@@ -1,0 +1,29 @@
+{% extends "teacher_base.html" %}
+
+{% block title %}Teacher Results{% endblock title %}
+
+{% block content %}
+<main id="main" class="main">
+    <div class="pagetitle"><h1>Results</h1></div>
+    <div class="card p-3">
+        <div class="d-flex justify-content-end mb-3">
+            <a class="btn btn-primary" href="{% url 'teacher:result_create' %}">Add Result</a>
+        </div>
+        <table class="table">
+            <thead><tr><th>Exam</th><th>Student</th><th>Marks</th><th>Remark</th></tr></thead>
+            <tbody>
+            {% for result in results %}
+                <tr>
+                    <td>{{ result.exam.title }}</td>
+                    <td>{{ result.student.user.get_full_name|default:result.student.user.username }}</td>
+                    <td>{{ result.marks_obtained }}</td>
+                    <td>{{ result.remark|default:"-" }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4">No results found.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</main>
+{% endblock content %}
