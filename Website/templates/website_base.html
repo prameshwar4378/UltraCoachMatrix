@@ -1,0 +1,1807 @@
+<!-- load static tag in this file -->
+ {% load static %}
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UltraCoachMatrix Software</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+<style>
+
+
+
+:root{
+  --primary:#123c7a;
+  --secondary:#1d65c1;
+  --accent:#f4b942;
+  --dark:#071527;
+  --text:#1b2b45;
+  --muted:#6b7a90;
+  --white:#fff;
+  --glass:rgba(255,255,255,.88);
+  --shadow:0 24px 70px rgba(7,21,39,.18);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+
+html{
+  scroll-behavior:smooth;
+}
+
+*{box-sizing:border-box}
+
+section[id],
+article[id],
+.um-ai-block[id],
+.um-ai-points [id],
+.um-footer-newsletter[id]{
+  scroll-margin-top:96px;
+}
+
+a,
+a:hover,
+a:focus,
+a:active{
+  text-decoration:none;
+}
+
+body{
+  margin:0;
+  font-family:"Segoe UI",sans-serif;
+  background:
+    radial-gradient(circle at 15% 20%,rgba(24,216,255,.18),transparent 30%),
+    radial-gradient(circle at 85% 15%,rgba(244,185,66,.22),transparent 28%),
+    linear-gradient(135deg,#f6f9ff,#eef6ff 60%,#ffffff);
+  background-attachment:fixed;
+  min-height:100vh;
+}
+
+body.lock-scroll{overflow:hidden}
+
+.website-loader{
+  position:fixed;
+  inset:0;
+  z-index:3000;
+  display:grid;
+  place-items:center;
+  padding:28px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 22% 22%,rgba(24,216,255,.28),transparent 30%),
+    radial-gradient(circle at 82% 20%,rgba(244,185,66,.28),transparent 28%),
+    linear-gradient(135deg,#eef8ff,#ffffff 54%,#f8fbff);
+  transition:opacity .65s var(--ease),visibility .65s var(--ease);
+}
+
+.website-loader.hide{
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+}
+
+.loader-grid{
+  position:absolute;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(18,60,122,.055) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(18,60,122,.055) 1px,transparent 1px);
+  background-size:54px 54px;
+  mask-image:radial-gradient(circle at center,#000 18%,transparent 74%);
+  animation:loaderGridMove 18s linear infinite;
+}
+
+.loader-shell{
+  position:relative;
+  width:min(520px,100%);
+  min-height:420px;
+  display:grid;
+  place-items:center;
+  text-align:center;
+}
+
+.loader-orbit{
+  position:absolute;
+  border-radius:50%;
+  border:1px dashed rgba(18,60,122,.18);
+}
+
+.loader-orbit.one{
+  width:360px;
+  height:360px;
+  animation:loaderSpin 16s linear infinite;
+}
+
+.loader-orbit.two{
+  width:260px;
+  height:260px;
+  border-color:rgba(244,185,66,.34);
+  animation:loaderSpin 11s linear infinite reverse;
+}
+
+.loader-dot{
+  position:absolute;
+  width:14px;
+  height:14px;
+  border-radius:50%;
+  background:#18d8ff;
+  box-shadow:0 0 0 10px rgba(24,216,255,.12);
+}
+
+.loader-orbit.one .loader-dot{
+  left:42px;
+  top:46px;
+}
+
+.loader-orbit.two .loader-dot{
+  right:28px;
+  bottom:56px;
+  background:var(--accent);
+  box-shadow:0 0 0 10px rgba(244,185,66,.14);
+}
+
+.loader-card{
+  position:relative;
+  z-index:2;
+  width:min(330px,100%);
+  padding:30px 26px;
+  border-radius:34px;
+  background:rgba(255,255,255,.82);
+  border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 34px 90px rgba(18,60,122,.18);
+  backdrop-filter:blur(18px);
+}
+
+.loader-logo{
+  width:86px;
+  height:86px;
+  margin:0 auto 18px;
+  display:grid;
+  place-items:center;
+  border-radius:28px;
+  background:#fff;
+  border:1px solid rgba(18,60,122,.12);
+  box-shadow:0 22px 46px rgba(18,60,122,.18);
+  animation:loaderLogoFloat 2.6s ease-in-out infinite;
+}
+
+.loader-logo img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  padding:10px;
+}
+
+.loader-card strong{
+  display:block;
+  color:var(--primary);
+  font-size:24px;
+  line-height:1.1;
+  font-weight:950;
+}
+
+.loader-card p{
+  margin:10px auto 20px;
+  max-width:250px;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.6;
+  font-weight:750;
+}
+
+.loader-progress{
+  height:9px;
+  border-radius:999px;
+  overflow:hidden;
+  background:rgba(18,60,122,.09);
+}
+
+.loader-progress span{
+  display:block;
+  width:42%;
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,var(--primary),#18d8ff,var(--accent));
+  animation:loaderProgress 1.35s ease-in-out infinite;
+}
+
+.loader-modules{
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:18px;
+}
+
+.loader-modules span{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:7px 10px;
+  border-radius:999px;
+  color:var(--primary);
+  background:rgba(18,60,122,.07);
+  font-size:11px;
+  font-weight:900;
+}
+
+.loader-modules i{
+  color:var(--secondary);
+}
+
+@keyframes loaderGridMove{
+  to{background-position:108px 108px}
+}
+
+@keyframes loaderSpin{
+  to{transform:rotate(360deg)}
+}
+
+@keyframes loaderLogoFloat{
+  50%{transform:translateY(-9px) scale(1.03)}
+}
+
+@keyframes loaderProgress{
+  0%{transform:translateX(-110%)}
+  55%{transform:translateX(80%)}
+  100%{transform:translateX(245%)}
+}
+
+.school-header{
+  position:sticky;
+  top:0;
+  z-index:1000;
+  width:100%;
+  background:rgba(255,255,255,.76);
+  backdrop-filter:blur(22px);
+  border-bottom:1px solid rgba(18,60,122,.08);
+  box-shadow:0 12px 38px rgba(18,60,122,.08);
+}
+
+.nav-inner{
+  width:100%;
+  padding:12px 28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  position:relative;
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  text-decoration:none;
+  color:var(--text);
+  min-width:max-content;
+}
+
+.brand-logo{
+  width:50px;
+  height:50px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-size:24px;
+  background:#fff;
+  box-shadow:0 14px 30px rgba(18,60,122,.25);
+  overflow:hidden;
+  border:1px solid rgba(18,60,122,.12);
+}
+
+.brand-logo img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  padding:6px;
+}
+
+.brand-text strong{
+  display:block;
+  color:var(--primary);
+  font-size:18px;
+  font-weight:900;
+  line-height:1;
+}
+
+.brand-text span{
+  display:block;
+  margin-top:5px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.right-nav{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+}
+
+.desktop-menu{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:4px;
+  position:relative;
+}
+
+.nav-indicator{
+  position:absolute;
+  top:50%;
+  left:0;
+  height:46px;
+  border-radius:999px;
+  background:rgba(18,60,122,.09);
+  transform:translateY(-50%);
+  opacity:0;
+  pointer-events:none;
+  transition:.35s var(--ease);
+}
+
+.nav-btn{
+  border:0;
+  background:transparent;
+  padding:13px 16px;
+  border-radius:999px;
+  color:var(--text);
+  font-weight:850;
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  transition:.25s ease;
+  white-space:nowrap;
+}
+
+.nav-btn i{
+  font-size:12px;
+  transition:.25s ease;
+}
+
+.nav-btn:hover,
+.nav-btn.active{
+  color:var(--primary);
+}
+
+.nav-btn.dashboard-btn{
+  background:linear-gradient(135deg,#16a34a,#22c55e);
+  color:#fff;
+  box-shadow:0 14px 34px rgba(34,197,94,.26);
+}
+
+.nav-btn.dashboard-btn:hover{
+  color:#fff;
+  transform:translateY(-2px);
+}
+
+.nav-btn.active i{
+  transform:rotate(180deg);
+}
+
+.apply-btn{
+  border:0;
+  text-decoration:none;
+  padding:13px 22px;
+  border-radius:999px;
+  color:#071527;
+  font-weight:900;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  box-shadow:0 14px 34px rgba(244,185,66,.3);
+  transition:.3s var(--ease);
+  white-space:nowrap;
+}
+
+.apply-btn:hover{
+  transform:translateY(-3px);
+  color:#071527;
+}
+
+.mobile-toggle{
+  display:none;
+  width:48px;
+  height:48px;
+  border:0;
+  border-radius:16px;
+  color:#fff;
+  font-size:24px;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+}
+
+.backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(7,21,39,.18);
+  backdrop-filter:blur(4px);
+  z-index:998;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:.3s ease;
+}
+
+.backdrop.show{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+}
+
+.mega-wrap{
+  position:absolute;
+  top:100%;
+  right:28px;
+  width:min(1120px,calc(100vw - 56px));
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transform:translateY(18px) scale(.985);
+  transition:.35s var(--ease);
+  z-index:1001;
+}
+
+.mega-wrap.open{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transform:translateY(0) scale(1);
+}
+
+.mega-panel{
+  margin-top:12px;
+  border-radius:30px;
+  padding:22px;
+  overflow:hidden;
+  position:relative;
+  background:linear-gradient(135deg,rgba(7,21,39,.96),rgba(12,34,66,.94));
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:var(--shadow);
+}
+
+.mega-panel:before{
+  content:"";
+  position:absolute;
+  inset:-120px;
+  background:
+    radial-gradient(circle at var(--x,50%) var(--y,50%),rgba(24,216,255,.25),transparent 24%),
+    radial-gradient(circle at 10% 10%,rgba(244,185,66,.18),transparent 30%),
+    radial-gradient(circle at 90% 90%,rgba(29,101,193,.22),transparent 30%);
+  pointer-events:none;
+}
+
+.mega-grid{
+  position:relative;
+  z-index:2;
+  display:grid;
+  grid-template-columns:320px 1fr;
+  gap:20px;
+}
+
+.mega-hero{
+  min-height:430px;
+  border-radius:26px;
+  padding:26px;
+  background:rgba(255,255,255,.09);
+  border:1px solid rgba(255,255,255,.13);
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  overflow:hidden;
+}
+
+.kicker{
+  display:inline-flex;
+  width:max-content;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:999px;
+  color:#ffe6a2;
+  background:rgba(244,185,66,.13);
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+
+.mega-hero h2{
+  color:#fff;
+  margin:18px 0 10px;
+  font-size:36px;
+  font-weight:950;
+  letter-spacing:-1px;
+  line-height:1;
+}
+
+.mega-hero p{
+  color:#b8c7dc;
+  font-size:14px;
+  line-height:1.7;
+  margin:0;
+}
+
+.orbit{
+  height:180px;
+  display:grid;
+  place-items:center;
+  position:relative;
+}
+
+.orbit-ring{
+  position:absolute;
+  border-radius:50%;
+  border:1px dashed rgba(255,255,255,.26);
+  animation:spin 14s linear infinite;
+}
+
+.orbit-ring.one{width:160px;height:160px}
+.orbit-ring.two{width:115px;height:115px;animation-direction:reverse;animation-duration:9s}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.core-icon{
+  width:82px;
+  height:82px;
+  border-radius:28px;
+  display:grid;
+  place-items:center;
+  font-size:36px;
+  color:#fff;
+  background:linear-gradient(135deg,var(--secondary),#18d8ff);
+  box-shadow:0 0 45px rgba(24,216,255,.35);
+  animation:float 3s ease-in-out infinite;
+}
+
+@keyframes float{
+  50%{transform:translateY(-8px)}
+}
+
+.mega-links{
+  border-radius:26px;
+  padding:18px;
+  background:rgba(255,255,255,.075);
+  border:1px solid rgba(255,255,255,.12);
+}
+
+.mega-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-bottom:16px;
+}
+
+.mega-top h3{
+  margin:0;
+  color:#fff;
+  font-size:17px;
+  font-weight:950;
+}
+
+.badge-pro{
+  color:#d9fbff;
+  background:rgba(24,216,255,.12);
+  border:1px solid rgba(24,216,255,.18);
+  padding:8px 12px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:900;
+}
+
+.card-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:13px;
+}
+
+.menu-card{
+  min-height:124px;
+  padding:16px;
+  border-radius:22px;
+  color:#fff;
+  display:flex;
+  align-items:flex-start;
+  gap:13px;
+  position:relative;
+  overflow:hidden;
+  background:linear-gradient(145deg,rgba(255,255,255,.11),rgba(255,255,255,.055));
+  border:1px solid rgba(255,255,255,.13);
+  transition:.35s var(--ease);
+}
+
+.menu-card:before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:radial-gradient(circle at var(--cx,50%) var(--cy,50%),rgba(255,255,255,.2),transparent 35%);
+  opacity:0;
+  transition:.25s ease;
+}
+
+.menu-card:hover{
+  transform:translateY(-7px);
+  background:linear-gradient(145deg,rgba(255,255,255,.17),rgba(255,255,255,.08));
+  box-shadow:0 24px 50px rgba(0,0,0,.22);
+  color:#fff;
+}
+
+.menu-card:hover:before{opacity:1}
+
+.menu-icon{
+  width:48px;
+  height:48px;
+  min-width:48px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(135deg,var(--secondary),#18d8ff);
+  box-shadow:0 14px 28px rgba(24,216,255,.24);
+  position:relative;
+  z-index:1;
+}
+
+.menu-content{
+  position:relative;
+  z-index:1;
+}
+
+.menu-content h4{
+  margin:0 0 6px;
+  color:#fff;
+  font-size:15px;
+  font-weight:950;
+}
+
+.menu-content p{
+  margin:0;
+  color:#b5c6d8;
+  font-size:13px;
+  line-height:1.45;
+}
+
+.mobile-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(7,21,39,.5);
+  backdrop-filter:blur(8px);
+  z-index:1100;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:.3s ease;
+}
+
+.mobile-backdrop.show{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+}
+
+.mobile-drawer{
+  position:fixed;
+  top:0;
+  right:0;
+  width:min(450px,94vw);
+  height:100dvh;
+  z-index:1200;
+  background:linear-gradient(145deg,#071527,#0c2445);
+  transform:translateX(110%);
+  transition:.42s var(--ease);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+.mobile-drawer.show{transform:translateX(0)}
+
+.mobile-head{
+  padding:18px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border-bottom:1px solid rgba(255,255,255,.1);
+}
+
+.mobile-brand{
+  color:#fff;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.mobile-brand i,
+.mobile-brand-logo{
+  width:44px;
+  height:44px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  background:#fff;
+  object-fit:contain;
+  padding:5px;
+}
+
+.mobile-brand strong{display:block;font-weight:950}
+.mobile-brand span{font-size:12px;color:#aebed2}
+
+.mobile-close{
+  width:44px;
+  height:44px;
+  border:0;
+  border-radius:16px;
+  color:#fff;
+  background:rgba(255,255,255,.1);
+}
+
+.mobile-body{
+  padding:16px;
+  overflow:auto;
+  flex:1;
+}
+
+.mobile-primary-nav{
+  display:grid;
+  gap:10px;
+  margin-bottom:16px;
+}
+
+.mobile-primary-link{
+  min-height:54px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px 14px;
+  border-radius:18px;
+  color:#fff;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.1);
+  font-weight:900;
+  transition:.25s ease;
+}
+
+.mobile-primary-link:hover{
+  color:#fff;
+  transform:translateX(4px);
+  background:rgba(255,255,255,.13);
+}
+
+.mobile-primary-link i{
+  width:38px;
+  height:38px;
+  min-width:38px;
+  border-radius:14px;
+  display:grid;
+  place-items:center;
+  color:#dff8ff;
+  background:rgba(24,216,255,.12);
+}
+
+.mobile-primary-link span{
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+
+.mobile-action-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin:4px 0 18px;
+}
+
+.mobile-action-btn{
+  min-height:50px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:12px;
+  border-radius:16px;
+  color:#fff;
+  background:rgba(255,255,255,.09);
+  border:1px solid rgba(255,255,255,.11);
+  font-size:13px;
+  font-weight:950;
+  text-align:center;
+}
+
+.mobile-action-btn:hover{
+  color:#fff;
+}
+
+.mobile-action-btn.demo{
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  border:0;
+}
+
+.mobile-action-btn.dashboard{
+  background:linear-gradient(135deg,#16a34a,#22c55e);
+  border:0;
+}
+
+.mobile-section-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:4px 0 12px;
+  color:#ffe59a;
+  font-size:12px;
+  font-weight:950;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.acc-item{
+  margin-bottom:12px;
+  border-radius:22px;
+  overflow:hidden;
+  background:rgba(255,255,255,.075);
+  border:1px solid rgba(255,255,255,.11);
+}
+
+.acc-btn{
+  width:100%;
+  border:0;
+  background:transparent;
+  color:#fff;
+  padding:16px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  text-align:left;
+}
+
+.acc-icon{
+  width:42px;
+  height:42px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(135deg,var(--secondary),#18d8ff);
+}
+
+.acc-title{flex:1}
+.acc-title strong{display:block;font-size:15px}
+.acc-title span{display:block;color:#aebed2;font-size:12px}
+
+.acc-chev{
+  transition:.25s ease;
+}
+
+.acc-item.open .acc-chev{
+  transform:rotate(180deg);
+}
+
+.acc-panel{
+  max-height:0;
+  overflow:hidden;
+  transition:max-height .4s var(--ease);
+}
+
+.acc-content{
+  padding:0 14px 14px;
+  display:grid;
+  gap:9px;
+}
+
+.mobile-link{
+  color:#fff;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px;
+  border-radius:16px;
+  background:rgba(255,255,255,.07);
+  transition:.25s ease;
+}
+
+.mobile-link:hover{
+  color:#fff;
+  transform:translateX(4px);
+  background:rgba(255,255,255,.12);
+}
+
+.mobile-link i{
+  width:34px;
+  height:34px;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  background:rgba(24,216,255,.12);
+}
+
+.mobile-link strong{
+  display:block;
+  font-size:13px;
+}
+
+.mobile-link span span{
+  display:block;
+  font-size:11px;
+  color:#9fb2c9;
+}
+
+@media(max-width:1100px){
+  .nav-btn{padding-inline:11px}
+}
+
+@media(max-width:991px){
+  .desktop-menu,
+  .apply-btn,
+  .mega-wrap{
+    display:none!important;
+  }
+
+  .mobile-toggle{
+    display:grid;
+    place-items:center;
+  }
+
+  .nav-inner{
+    padding:10px 16px;
+  }
+
+  .dashboard-btn{
+    width:48px;
+    height:48px;
+    padding:0;
+    justify-content:center;
+    flex-shrink:0;
+  }
+
+  .dashboard-btn .dashboard-label{
+    display:none;
+  }
+}
+
+@media(max-width:575px){
+  .brand-text span{display:none}
+  .brand-text strong{font-size:16px}
+  .brand-logo{width:46px;height:46px}
+  .mobile-action-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+
+<body>
+
+<div class="website-loader" id="websiteLoader" role="status" aria-live="polite" aria-label="Loading UltraCoachMatrix website">
+  <div class="loader-grid"></div>
+  <div class="loader-shell">
+    <div class="loader-orbit one"><span class="loader-dot"></span></div>
+    <div class="loader-orbit two"><span class="loader-dot"></span></div>
+
+    <div class="loader-card">
+      <div class="loader-logo">
+        <img src="{% static 'img/logo.png' %}" alt="UltraCoachMatrix Logo">
+      </div>
+      <strong>UltraCoachMatrix</strong>
+      <p>Preparing coaching institute dashboard, apps and reports.</p>
+      <div class="loader-progress"><span></span></div>
+      <div class="loader-modules" aria-hidden="true">
+        <span><i class="bi bi-people-fill"></i> Students</span>
+        <span><i class="bi bi-cash-stack"></i> Fees</span>
+        <span><i class="bi bi-bar-chart-fill"></i> Reports</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="backdrop" id="backdrop"></div>
+<div class="mobile-backdrop" id="mobileBackdrop"></div>
+
+<header class="school-header">
+  <div class="nav-inner">
+
+    <a href="{% url 'index' %}" class="brand">
+      <span class="brand-logo"><img src="{% static 'img/logo.png' %}" alt="UltraCoachMatrix Logo"></span>
+      <span class="brand-text">
+        <strong>UltraCoachMatrix</strong>
+        <span>Coaching Management SaaS</span>
+      </span>
+    </a>
+
+    <div class="right-nav">
+      <nav class="desktop-menu" id="desktopMenu">
+        <span class="nav-indicator" id="navIndicator"></span>
+
+          <a href="{% url 'index' %}" class="nav-btn">Home</a>
+          <a href="{% url 'web-features' %}" class="nav-btn">Features</a>
+          <button class="nav-btn" data-menu="academics">Modules <i class="bi bi-chevron-down"></i></button>
+          <a href="{% url 'index' %}#mobile-apps" class="nav-btn">Mobile Apps</a>
+          <a href="{% url 'index' %}#pricing" class="nav-btn">Pricing</a>
+          <a href="{% url 'web_contact_us' %}" class="nav-btn">Contact us</a>
+          <button class="nav-btn" data-menu="help">Help <i class="bi bi-chevron-down"></i></button>
+      </nav>
+
+      {% if request.user.is_authenticated %}
+      <a href="/dashboard/" class="nav-btn dashboard-btn">
+        <i class="bi bi-speedometer2"></i> <span class="dashboard-label">Dashboard</span>
+      </a>
+      {% else %}
+      <a href="/login/" class="nav-btn">Login</a>
+      <a href="{% url 'web_contact_us' %}" class="apply-btn">Book Demo <i class="bi bi-arrow-right"></i></a>
+      {% endif %}
+      <button class="mobile-toggle" id="openMobile"><i class="bi bi-list"></i></button>
+    </div>
+
+    <div class="mega-wrap" id="megaWrap">
+      <div class="mega-panel" id="megaPanel">
+        <div class="mega-grid" id="megaContent"></div>
+      </div>
+    </div>
+
+  </div>
+</header>
+
+<aside class="mobile-drawer" id="mobileDrawer">
+  <div class="mobile-head">
+    <div class="mobile-brand">
+      <i class="bi bi-stars"></i>
+      <div>
+        <strong>UltraCoachMatrix</strong>
+        <span>Explore Platform</span>
+      </div>
+    </div>
+    <button class="mobile-close" id="closeMobile"><i class="bi bi-x-lg"></i></button>
+  </div>
+
+  <div class="mobile-body">
+    <div class="mobile-primary-nav">
+      <a href="{% url 'index' %}" class="mobile-primary-link">
+        <i class="bi bi-house-door-fill"></i>
+        <span>Home</span>
+      </a>
+      <a href="{% url 'web-features' %}" class="mobile-primary-link">
+        <i class="bi bi-grid-1x2-fill"></i>
+        <span>Features</span>
+      </a>
+      <a href="{% url 'index' %}#mobile-apps" class="mobile-primary-link">
+        <i class="bi bi-phone-fill"></i>
+        <span>Mobile Apps</span>
+      </a>
+      <a href="{% url 'index' %}#pricing" class="mobile-primary-link">
+        <i class="bi bi-cash-stack"></i>
+        <span>Pricing</span>
+      </a>
+      <a href="{% url 'web_contact_us' %}" class="mobile-primary-link">
+        <i class="bi bi-headset"></i>
+        <span>Contact us</span>
+      </a>
+    </div>
+
+    <div class="mobile-action-row">
+      {% if request.user.is_authenticated %}
+      <a href="/dashboard/" class="mobile-action-btn dashboard">
+        <i class="bi bi-speedometer2"></i> Dashboard
+      </a>
+      {% else %}
+      <a href="/login/" class="mobile-action-btn">
+        <i class="bi bi-box-arrow-in-right"></i> Login
+      </a>
+      {% endif %}
+      <a href="{% url 'web_contact_us' %}" class="mobile-action-btn demo">
+        <i class="bi bi-calendar-check"></i> Book Demo
+      </a>
+    </div>
+
+    <div class="mobile-section-title">
+      <i class="bi bi-list-stars"></i>
+      Platform modules
+    </div>
+
+    <div id="mobileAccordion"></div>
+  </div>
+</aside>
+
+<script>
+const menuData = {
+  academics: {
+    kicker: "Core Modules",
+    title: "Institute Management",
+    icon: "bi-building-fill-gear",
+    badge: "All-in-One",
+    desc: "Manage students, teachers, courses, batches, admissions and complete institute operations from one powerful dashboard.",
+    links: [
+      ["Student Management", "Create profiles, admissions, enrollments and student records.", "bi-people-fill", "{% url 'web-features' %}"],
+      ["Teacher Management", "Manage faculty profiles, roles, subjects and workload.", "bi-person-workspace", "{% url 'web-features' %}"],
+      ["Course Management", "Organize courses, subjects, batches and academic structure.", "bi-journal-bookmark-fill", "{% url 'web-features' %}"],
+      ["Batch Management", "Handle batch strength, schedules, students and faculty mapping.", "bi-diagram-3-fill", "{% url 'web-features' %}"],
+      ["Admission & Enrollment", "Digitize student admission and enrollment workflow.", "bi-person-plus-fill", "{% url 'web-features' %}"],
+      ["Branch Management", "Control single or multi-branch coaching operations easily.", "bi-buildings-fill", "{% url 'web-features' %}"]
+    ]
+  },
+
+  admissions: {
+    kicker: "Mobile Apps",
+    title: "Student & Teacher Apps",
+    icon: "bi-phone-fill",
+    badge: "Android Ready",
+    desc: "Give students and teachers dedicated Android apps for attendance, fees, homework, results, study material and announcements.",
+    links: [
+      ["Student Android App", "Students can view fees, attendance, results and study material.", "bi-phone", "{% url 'index' %}#mobile-apps"],
+      ["Teacher Android App", "Teachers can manage attendance, homework, marks and updates.", "bi-tablet", "{% url 'index' %}#mobile-apps"],
+      ["Announcements", "Send instant updates to students, parents and teachers.", "bi-megaphone-fill", "{% url 'web-features' %}"],
+      ["Notifications", "Keep users informed about fees, tests and institute updates.", "bi-bell-fill", "{% url 'web-features' %}"],
+      ["Study Material", "Share notes, PDFs, videos and resources digitally.", "bi-cloud-arrow-up-fill", "{% url 'web-features' %}"],
+      ["Online Lectures", "Support online class links and lecture management.", "bi-camera-video-fill", "{% url 'web-features' %}"]
+    ]
+  },
+
+  campus: {
+    kicker: "Pricing",
+    title: "Flexible Plans",
+    icon: "bi-cash-stack",
+    badge: "For Every Institute",
+    desc: "Simple plans for small coaching classes, growing institutes and multi-branch education businesses.",
+    links: [
+      ["Starter Plan", "Best for small coaching classes starting digital management.", "bi-box", "{% url 'index' %}#pricing"],
+      ["Professional Plan", "Advanced fees, attendance, reports and mobile app access.", "bi-gem", "{% url 'index' %}#pricing"],
+      ["Enterprise Plan", "Multi-branch support, analytics and priority assistance.", "bi-building-gear", "{% url 'index' %}#pricing"],
+      ["Fee Management", "Manage collections, installments and pending dues.", "bi-wallet2", "{% url 'web-features' %}"],
+      ["Reports Access", "Course-wise, batch-wise, fee and attendance reports.", "bi-graph-up", "{% url 'web-features' %}"],
+      ["Onboarding Support", "Get help setting up institute, students and batches.", "bi-headset", "{% url 'web_contact_us' %}"]
+    ]
+  },
+
+  help: {
+    kicker: "Help Center",
+    title: "Support & Policies",
+    icon: "bi-life-preserver",
+    badge: "Useful Links",
+    desc: "Find support options, product contact details and important policy pages for UltraCoachMatrix.",
+    links: [
+      ["Support Center", "Get help with demos, onboarding and platform setup.", "bi-life-preserver", "{% url 'web_support' %}"],
+      ["Contact Team", "Call, email or send an enquiry to the product team.", "bi-headset", "{% url 'web_contact_us' %}"],
+      ["Privacy Policy", "Understand how enquiry and website data is handled.", "bi-shield-check", "{% url 'web_privacy_policy' %}"],
+      ["Terms of Use", "Read the terms for using the public website.", "bi-file-earmark-text", "{% url 'web_terms' %}"],
+      ["Book Demo", "Request a guided walkthrough for your institute.", "bi-calendar-check", "{% url 'web_contact_us' %}"],
+      ["WhatsApp", "Message the UltraCoachMatrix team directly.", "bi-whatsapp", "https://wa.me/917776824564"]
+    ]
+  }
+}
+
+const menuBtns = document.querySelectorAll(".nav-btn[data-menu]");
+const megaWrap = document.getElementById("megaWrap");
+const megaContent = document.getElementById("megaContent");
+const megaPanel = document.getElementById("megaPanel");
+const backdrop = document.getElementById("backdrop");
+const desktopMenu = document.getElementById("desktopMenu");
+const navIndicator = document.getElementById("navIndicator");
+
+const mobileDrawer = document.getElementById("mobileDrawer");
+const mobileBackdrop = document.getElementById("mobileBackdrop");
+const openMobile = document.getElementById("openMobile");
+const closeMobile = document.getElementById("closeMobile");
+const mobileAccordion = document.getElementById("mobileAccordion");
+
+let activeMenu = "academics";
+let closeTimer = null;
+
+function renderMega(type){
+  const data = menuData[type];
+  activeMenu = type;
+
+  megaContent.innerHTML = `
+    <div class="mega-hero">
+      <div>
+        <div class="kicker"><i class="bi bi-stars"></i>${data.kicker}</div>
+        <h2>${data.title}</h2>
+        <p>${data.desc}</p>
+      </div>
+
+      <div class="orbit">
+        <span class="orbit-ring one"></span>
+        <span class="orbit-ring two"></span>
+        <span class="core-icon"><i class="bi ${data.icon}"></i></span>
+      </div>
+    </div>
+
+    <div class="mega-links">
+      <div class="mega-top">
+        <h3>${data.title} Menu</h3>
+        <span class="badge-pro"><i class="bi bi-lightning-charge"></i> ${data.badge}</span>
+      </div>
+
+      <div class="card-grid">
+        ${data.links.map(link=>`
+          <a href="${link[3]}" class="menu-card">
+            <span class="menu-icon"><i class="bi ${link[2]}"></i></span>
+            <span class="menu-content">
+              <h4>${link[0]}</h4>
+              <p>${link[1]}</p>
+            </span>
+          </a>
+        `).join("")}
+      </div>
+    </div>
+  `;
+
+  bindCardMouse();
+}
+
+function openMega(type){
+  clearTimeout(closeTimer);
+  renderMega(type);
+  megaWrap.classList.add("open");
+  backdrop.classList.add("show");
+
+  menuBtns.forEach(btn=>{
+    btn.classList.toggle("active",btn.dataset.menu===type);
+  });
+
+  moveIndicator(document.querySelector(`.nav-btn[data-menu="${type}"]`));
+}
+
+function closeMega(){
+  megaWrap.classList.remove("open");
+  backdrop.classList.remove("show");
+  menuBtns.forEach(btn=>btn.classList.remove("active"));
+  navIndicator.style.opacity = "0";
+}
+
+function delayClose(){
+  clearTimeout(closeTimer);
+  closeTimer=setTimeout(closeMega,180);
+}
+
+function moveIndicator(btn){
+  if(!btn)return;
+  const menuRect = desktopMenu.getBoundingClientRect();
+  const btnRect = btn.getBoundingClientRect();
+
+  navIndicator.style.width = btnRect.width + "px";
+  navIndicator.style.transform = `translate(${btnRect.left - menuRect.left}px,-50%)`;
+  navIndicator.style.opacity = "1";
+}
+
+function bindCardMouse(){
+  document.querySelectorAll(".menu-card").forEach(card=>{
+    card.addEventListener("mousemove",e=>{
+      const rect = card.getBoundingClientRect();
+      card.style.setProperty("--cx",(e.clientX-rect.left)+"px");
+      card.style.setProperty("--cy",(e.clientY-rect.top)+"px");
+    });
+    card.addEventListener("click",closeMega);
+  });
+}
+
+menuBtns.forEach(btn=>{
+  btn.addEventListener("mouseenter",()=>openMega(btn.dataset.menu));
+  btn.addEventListener("click",()=>{
+    if(activeMenu===btn.dataset.menu && megaWrap.classList.contains("open")){
+      closeMega();
+    }else{
+      openMega(btn.dataset.menu);
+    }
+  });
+});
+
+desktopMenu.addEventListener("mouseenter",()=>clearTimeout(closeTimer));
+desktopMenu.addEventListener("mouseleave",delayClose);
+megaWrap.addEventListener("mouseenter",()=>clearTimeout(closeTimer));
+megaWrap.addEventListener("mouseleave",delayClose);
+backdrop.addEventListener("click",closeMega);
+
+megaPanel.addEventListener("mousemove",e=>{
+  const rect = megaPanel.getBoundingClientRect();
+  megaPanel.style.setProperty("--x",(e.clientX-rect.left)+"px");
+  megaPanel.style.setProperty("--y",(e.clientY-rect.top)+"px");
+});
+
+function renderMobile(){
+  mobileAccordion.innerHTML = Object.entries(menuData).map(([key,data],index)=>`
+    <div class="acc-item">
+      <button class="acc-btn" type="button">
+        <span class="acc-icon"><i class="bi ${data.icon}"></i></span>
+        <span class="acc-title">
+          <strong>${data.title}</strong>
+          <span>${data.kicker}</span>
+        </span>
+        <i class="bi bi-chevron-down acc-chev"></i>
+      </button>
+      <div class="acc-panel">
+        <div class="acc-content">
+          ${data.links.map(link=>`
+            <a href="${link[3]}" class="mobile-link">
+              <i class="bi ${link[2]}"></i>
+              <span>
+                <strong>${link[0]}</strong>
+                <span>${link[1]}</span>
+              </span>
+            </a>
+          `).join("")}
+        </div>
+      </div>
+    </div>
+  `).join("");
+
+  bindAccordion();
+  document.querySelectorAll(".mobile-link, .mobile-primary-link, .mobile-action-btn").forEach(link=>{
+    link.addEventListener("click",closeMobileMenu);
+  });
+}
+
+function bindAccordion(){
+  document.querySelectorAll(".acc-item").forEach(item=>{
+    const btn = item.querySelector(".acc-btn");
+    const panel = item.querySelector(".acc-panel");
+
+    if(item.classList.contains("open")){
+      panel.style.maxHeight = panel.scrollHeight + "px";
+    }
+
+    btn.addEventListener("click",()=>{
+      const isOpen = item.classList.contains("open");
+
+      document.querySelectorAll(".acc-item").forEach(other=>{
+        other.classList.remove("open");
+        other.querySelector(".acc-panel").style.maxHeight = 0;
+      });
+
+      if(!isOpen){
+        item.classList.add("open");
+        panel.style.maxHeight = panel.scrollHeight + "px";
+      }
+    });
+  });
+}
+
+function openMobileMenu(){
+  mobileDrawer.classList.add("show");
+  mobileBackdrop.classList.add("show");
+  document.body.classList.add("lock-scroll");
+}
+
+function closeMobileMenu(){
+  mobileDrawer.classList.remove("show");
+  mobileBackdrop.classList.remove("show");
+  document.body.classList.remove("lock-scroll");
+}
+
+openMobile.addEventListener("click",openMobileMenu);
+closeMobile.addEventListener("click",closeMobileMenu);
+mobileBackdrop.addEventListener("click",closeMobileMenu);
+
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){
+    closeMega();
+    closeMobileMenu();
+  }
+});
+
+window.addEventListener("resize",()=>{
+  moveIndicator(document.querySelector(".nav-btn.active"));
+  if(window.innerWidth>991)closeMobileMenu();
+});
+
+const websiteLoader = document.getElementById("websiteLoader");
+const loaderStartedAt = Date.now();
+
+function hideWebsiteLoader(){
+  if(!websiteLoader) return;
+  const elapsed = Date.now() - loaderStartedAt;
+  const delay = Math.max(0,900 - elapsed);
+
+  setTimeout(()=>{
+    websiteLoader.classList.add("hide");
+    setTimeout(()=>websiteLoader.remove(),700);
+  },delay);
+}
+
+if(document.readyState === "complete"){
+  hideWebsiteLoader();
+}else{
+  window.addEventListener("load",hideWebsiteLoader,{once:true});
+}
+
+renderMega("academics");
+renderMobile();
+</script>
+
+
+
+
+
+
+
+
+
+
+{% block content %}
+  
+{% endblock content %}
+
+
+
+<a class="website-help-fab" href="{% url 'web_contact_us' %}" title="Need help?">
+  <i class="bi bi-chat-dots-fill"></i>
+  <span>Help</span>
+</a>
+
+
+
+
+<footer class="um-footer">
+  <div class="um-footer-glow glow-one"></div>
+  <div class="um-footer-glow glow-two"></div>
+
+  <div class="um-footer-container">
+
+    <div class="um-footer-main">
+
+      <div class="um-footer-brand">
+        <a href="{% url 'index' %}" class="um-footer-logo">
+          <span><img src="{% static 'img/logo.png' %}" alt="UltraCoachMatrix Logo"></span>
+          <div>
+            <strong>UltraCoachMatrix</strong>
+            <small>Coaching Management SaaS</small>
+          </div>
+        </a>
+
+        <p>
+          Complete coaching institute management software for admissions, fees, attendance, exams, batches, teachers, students, reports and communication.
+        </p>
+
+        <div class="um-footer-social">
+          <a href="{% url 'web_contact_us' %}" aria-label="Contact UltraCoachMatrix on Facebook"><i class="bi bi-facebook"></i></a>
+          <a href="{% url 'web_contact_us' %}" aria-label="Contact UltraCoachMatrix on Instagram"><i class="bi bi-instagram"></i></a>
+          <a href="{% url 'web_contact_us' %}" aria-label="Contact UltraCoachMatrix on LinkedIn"><i class="bi bi-linkedin"></i></a>
+          <a href="{% url 'web_contact_us' %}" aria-label="Contact UltraCoachMatrix on YouTube"><i class="bi bi-youtube"></i></a>
+        </div>
+      </div>
+
+      <div class="um-footer-links">
+        <h4>Platform</h4>
+        <a href="{% url 'web-features' %}">Student Management</a>
+        <a href="{% url 'web-features' %}">Fees Management</a>
+        <a href="{% url 'web-features' %}">Attendance Management</a>
+        <a href="{% url 'web-features' %}">Reports & Analytics</a>
+      </div>
+
+      <div class="um-footer-links">
+        <h4>Explore</h4>
+        <a href="{% url 'index' %}">Home</a>
+        <a href="{% url 'web-features' %}">Features</a>
+        <a href="{% url 'index' %}#pricing">Pricing</a>
+        <a href="{% url 'web_contact_us' %}">Contact</a>
+      </div>
+
+      <div class="um-footer-newsletter" id="book-demo">
+        <h4>Book a Demo</h4>
+        <p>See how UltraCoachMatrix can simplify your complete coaching institute workflow.</p>
+
+        <form class="um-footer-form" action="{% url 'web_contact_us' %}">
+          <input type="email" placeholder="Enter email address">
+          <button type="submit">
+            <i class="bi bi-send-fill"></i>
+          </button>
+        </form>
+      </div>
+
+    </div>
+
+    <div class="um-footer-bottom">
+      <p>&copy; 2026 UltraCoachMatrix Software. All rights reserved.</p>
+
+      <div>
+        <a href="{% url 'web_contact_us' %}">Privacy Policy</a>
+        <a href="{% url 'web_contact_us' %}">Terms</a>
+        <a href="{% url 'web_contact_us' %}">Support</a>
+      </div>
+    </div>
+
+  </div>
+</footer>
+
+<style>
+.um-footer{
+  position:relative;
+  overflow:hidden;
+  padding:90px 28px 28px;
+  background:linear-gradient(145deg,#071527,#0d2c5d 55%,#123c7a);
+}
+
+.website-help-fab{
+  position:fixed;
+  right:22px;
+  bottom:22px;
+  z-index:1200;
+  min-height:54px;
+  padding:0 20px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  color:#fff;
+  background:linear-gradient(135deg,#16a34a,#22c55e);
+  box-shadow:0 18px 44px rgba(22,163,74,.32);
+  border:1px solid rgba(255,255,255,.35);
+  font-weight:950;
+  text-decoration:none;
+  transition:.25s var(--ease);
+}
+
+.website-help-fab:hover{
+  color:#fff;
+  transform:translateY(-3px);
+  box-shadow:0 24px 58px rgba(22,163,74,.38);
+}
+
+.website-help-fab i{
+  font-size:18px;
+}
+
+.um-footer::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
+  background-size:54px 54px;
+  mask-image:radial-gradient(circle at center,#000 25%,transparent 78%);
+}
+
+.um-footer-glow{
+  position:absolute;
+  border-radius:50%;
+  pointer-events:none;
+}
+
+.um-footer .glow-one{
+  width:360px;
+  height:360px;
+  left:-140px;
+  top:20%;
+  background:rgba(24,216,255,.16);
+}
+
+.um-footer .glow-two{
+  width:300px;
+  height:300px;
+  right:-120px;
+  bottom:8%;
+  background:rgba(244,185,66,.18);
+}
+
+.um-footer-container{
+  width:100%;
+  max-width:1280px;
+  margin:auto;
+  position:relative;
+  z-index:2;
+}
+
+.um-footer-main{
+  display:grid;
+  grid-template-columns:1.3fr .7fr .7fr 1fr;
+  gap:34px;
+  padding:42px;
+  border-radius:42px;
+  background:rgba(255,255,255,.075);
+  border:1px solid rgba(255,255,255,.1);
+  backdrop-filter:blur(18px);
+  box-shadow:0 35px 95px rgba(0,0,0,.2);
+}
+
+.um-footer-logo{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  color:#fff;
+}
+
+.um-footer-logo span{
+  width:56px;
+  height:56px;
+  border-radius:20px;
+  display:grid;
+  place-items:center;
+  color:#071527;
+  font-size:26px;
+  background:#fff;
+  box-shadow:0 18px 40px rgba(244,185,66,.28);
+  overflow:hidden;
+}
+
+.um-footer-logo span img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  padding:6px;
+}
+
+.um-footer-logo strong{
+  display:block;
+  font-size:22px;
+  font-weight:950;
+}
+
+.um-footer-logo small{
+  color:#b9cce2;
+  font-size:12px;
+  font-weight:700;
+}
+
+.um-footer-brand p,
+.um-footer-newsletter p{
+  margin:22px 0;
+  color:#b9cce2;
+  font-size:14px;
+  line-height:1.8;
+  font-weight:550;
+}
+
+.um-footer-social{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.um-footer-social a{
+  width:42px;
+  height:42px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.1);
+  transition:.3s var(--ease);
+}
+
+.um-footer-social a:hover{
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  transform:translateY(-5px);
+}
+
+.um-footer-links h4,
+.um-footer-newsletter h4{
+  margin:0 0 20px;
+  color:#fff;
+  font-size:17px;
+  font-weight:950;
+}
+
+.um-footer-links{
+  display:flex;
+  flex-direction:column;
+}
+
+.um-footer-links a{
+  width:max-content;
+  margin-bottom:13px;
+  color:#b9cce2;
+  font-size:14px;
+  font-weight:650;
+  transition:.25s ease;
+}
+
+.um-footer-links a:hover{
+  color:#ffe59a;
+  transform:translateX(6px);
+}
+
+.um-footer-form{
+  display:flex;
+  gap:10px;
+  padding:8px;
+  border-radius:22px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.1);
+}
+
+.um-footer-form input{
+  width:100%;
+  border:0;
+  outline:0;
+  color:#fff;
+  background:transparent;
+  padding:12px 10px;
+  font-size:14px;
+}
+
+.um-footer-form input::placeholder{
+  color:#8fa4bd;
+}
+
+.um-footer-form button{
+  width:48px;
+  height:48px;
+  min-width:48px;
+  border:0;
+  border-radius:16px;
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+}
+
+.um-footer-bottom{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:18px;
+  flex-wrap:wrap;
+  padding:26px 6px 0;
+}
+
+.um-footer-bottom p{
+  margin:0;
+  color:#9fb2c9;
+  font-size:13px;
+  font-weight:600;
+}
+
+.um-footer-bottom div{
+  display:flex;
+  gap:18px;
+  flex-wrap:wrap;
+}
+
+.um-footer-bottom a{
+  color:#9fb2c9;
+  font-size:13px;
+  font-weight:700;
+}
+
+.um-footer-bottom a:hover{
+  color:#ffe59a;
+}
+
+@media(max-width:991px){
+  .um-footer{
+    padding:75px 18px 24px;
+  }
+
+  .um-footer-main{
+    grid-template-columns:1fr 1fr;
+    padding:30px;
+  }
+}
+
+@media(max-width:575px){
+  .um-footer{
+    padding:60px 14px 22px;
+  }
+
+  .um-footer-main{
+    grid-template-columns:1fr;
+    padding:24px;
+    border-radius:30px;
+  }
+
+  .um-footer-bottom{
+    text-align:center;
+    justify-content:center;
+  }
+
+  .um-footer-bottom div{
+    justify-content:center;
+  }
+
+  .website-help-fab{
+    right:16px;
+    bottom:16px;
+    width:52px;
+    padding:0;
+  }
+
+  .website-help-fab span{
+    display:none;
+  }
+}
+</style>
+
+
+</body>
+</html>

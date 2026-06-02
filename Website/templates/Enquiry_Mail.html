@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>New Enquiry Received</title>
+</head>
+
+<body style="margin:0; padding:0; background:#eef4ff; font-family:Arial, Helvetica, sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#eef4ff; padding:28px 12px;">
+    <tr>
+      <td align="center">
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:680px; background:#ffffff; border-radius:24px; overflow:hidden; box-shadow:0 24px 70px rgba(7,21,39,0.16);">
+
+          <tr>
+            <td style="background:linear-gradient(135deg,#071527,#123c7a,#1d65c1); padding:34px 30px; text-align:center; color:#ffffff;">
+              <div style="display:inline-block; padding:9px 16px; border-radius:999px; background:rgba(255,255,255,0.12); color:#ffe59a; font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase;">
+                UltraCoachMatrix Coaching Software
+              </div>
+
+              <h1 style="margin:18px 0 8px; font-size:30px; line-height:1.2; font-weight:800;">
+                New Enquiry Received
+              </h1>
+
+              <p style="margin:0; color:#c9d8ec; font-size:15px; line-height:1.7;">
+                A new lead has submitted the website contact form.
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:30px;">
+
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding:14px; background:#f6f9ff; border-radius:18px;">
+                    <div style="font-size:11px; color:#6b7a90; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Full Name</div>
+                    <div style="margin-top:6px; font-size:17px; color:#123c7a; font-weight:800;">{{ full_name }}</div>
+                  </td>
+                </tr>
+
+                <tr><td height="12"></td></tr>
+
+                <tr>
+                  <td style="padding:14px; background:#f6f9ff; border-radius:18px;">
+                    <div style="font-size:11px; color:#6b7a90; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Coaching Institute</div>
+                    <div style="margin-top:6px; font-size:16px; color:#1b2b45; font-weight:700;">{{ school }}</div>
+                  </td>
+                </tr>
+
+                <tr><td height="12"></td></tr>
+
+                <tr>
+                  <td>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td width="50%" style="padding-right:6px;">
+                          <div style="padding:14px; background:#f6f9ff; border-radius:18px;">
+                            <div style="font-size:11px; color:#6b7a90; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Phone</div>
+                            <div style="margin-top:6px; font-size:15px; color:#1b2b45; font-weight:700;">{{ phone }}</div>
+                          </div>
+                        </td>
+
+                        <td width="50%" style="padding-left:6px;">
+                          <div style="padding:14px; background:#f6f9ff; border-radius:18px;">
+                            <div style="font-size:11px; color:#6b7a90; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Email</div>
+                            <div style="margin-top:6px; font-size:15px; color:#1b2b45; font-weight:700; word-break:break-word;">{{ email }}</div>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr><td height="12"></td></tr>
+
+                <tr>
+                  <td>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td width="50%" style="padding-right:6px;">
+                          <div style="padding:14px; background:#fff8e6; border-radius:18px; border:1px solid #ffe4a3;">
+                            <div style="font-size:11px; color:#8a6a20; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Enquiry Type</div>
+                            <div style="margin-top:6px; font-size:15px; color:#1b2b45; font-weight:800;">{{ enquiry_type }}</div>
+                          </div>
+                        </td>
+
+                        <td width="50%" style="padding-left:6px;">
+                          <div style="padding:14px; background:#eafcff; border-radius:18px; border:1px solid #b9f4ff;">
+                            <div style="font-size:11px; color:#137386; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Institution Size</div>
+                            <div style="margin-top:6px; font-size:15px; color:#1b2b45; font-weight:800;">{{ institution_size }}</div>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr><td height="18"></td></tr>
+
+                <tr>
+                  <td style="padding:20px; background:#071527; border-radius:22px;">
+                    <div style="font-size:12px; color:#ffe59a; font-weight:800; text-transform:uppercase; letter-spacing:1px;">
+                      Requirement
+                    </div>
+
+                    <div style="margin-top:12px; padding:16px; border-radius:16px; background:rgba(255,255,255,0.08); border-left:4px solid #18d8ff; color:#d8e7f8; font-size:15px; line-height:1.8; white-space:pre-wrap;">
+{{ message }}
+                    </div>
+                  </td>
+                </tr>
+
+                <tr><td height="16"></td></tr>
+
+                <tr>
+                  <td style="padding:14px 16px; background:#f6f9ff; border-radius:18px; text-align:center;">
+                    <div style="font-size:11px; color:#6b7a90; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Submitted On</div>
+                    <div style="margin-top:6px; color:#123c7a; font-size:15px; font-weight:800;">{{ submitted_on }}</div>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:22px 30px; background:#f8fbff; border-top:1px solid #e4edf8; text-align:center;">
+              <p style="margin:0; color:#6b7a90; font-size:13px; line-height:1.7;">
+                This message was automatically sent from your website contact form.
+              </p>
+
+              <p style="margin:8px 0 0; color:#123c7a; font-size:13px; font-weight:800;">
+                UltraCoachMatrix Software
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

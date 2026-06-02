@@ -1,0 +1,4041 @@
+{% extends "website_base.html" %}
+
+{% block content %}
+<section class="um-feature-hero-section" id="institute-management">
+  <div class="um-fh-glow glow-left"></div>
+  <div class="um-fh-glow glow-right"></div>
+
+  <div class="um-fh-container">
+
+    <div class="um-fh-content">
+
+      <span class="um-fh-badge">
+        <i class="bi bi-grid-1x2-fill"></i>
+        Core Modules
+      </span>
+
+      <h1>
+        Institute
+        <span>Management</span>
+      </h1>
+
+      <p>
+        Manage students, teachers, courses, batches, fees, attendance, exams and communication from one powerful dashboard.
+      </p>
+
+      <div class="um-fh-actions">
+        <a href="{% url 'web_contact_us' %}" class="um-fh-primary">
+          Book Demo
+          <i class="bi bi-arrow-right"></i>
+        </a>
+
+        <a href="#fees-management" class="um-fh-secondary">
+          Explore Modules
+          <i class="bi bi-play-circle"></i>
+        </a>
+      </div>
+
+      <div class="um-fh-stats">
+
+        <div class="um-fh-stat-card">
+          <strong>Students</strong>
+          <span>Profile & admission records</span>
+        </div>
+
+        <div class="um-fh-stat-card">
+          <strong>Fees</strong>
+          <span>Pending fees tracking</span>
+        </div>
+
+        <div class="um-fh-stat-card">
+          <strong>Reports</strong>
+          <span>Analytics dashboard</span>
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="um-fh-visual">
+
+      <div class="um-fh-dashboard">
+        <div class="um-fh-dashboard-head">
+          <div>
+            <strong>Institute Dashboard</strong>
+            <span>Today's coaching operations</span>
+          </div>
+          <span class="um-fh-live">
+            <i class="bi bi-activity"></i>
+            Live
+          </span>
+        </div>
+
+        <div class="um-fh-summary-grid">
+          <div class="um-fh-summary-card admissions">
+            <i class="bi bi-person-plus-fill"></i>
+            <small>Admissions</small>
+            <strong>24</strong>
+            <span>New enquiries</span>
+          </div>
+
+          <div class="um-fh-summary-card fees">
+            <i class="bi bi-cash-stack"></i>
+            <small>Fees</small>
+            <strong>82%</strong>
+            <span>Collected this month</span>
+          </div>
+
+          <div class="um-fh-summary-card attendance">
+            <i class="bi bi-calendar-check-fill"></i>
+            <small>Attendance</small>
+            <strong>91%</strong>
+            <span>Average presence</span>
+          </div>
+        </div>
+
+        <div class="um-fh-module-flow">
+          <div class="um-fh-module-row active">
+            <span><i class="bi bi-people-fill"></i></span>
+            <div>
+              <strong>Student records updated</strong>
+              <small>Profiles, batches and enrollments synced</small>
+            </div>
+            <b>Done</b>
+          </div>
+
+          <div class="um-fh-module-row warning">
+            <span><i class="bi bi-wallet2"></i></span>
+            <div>
+              <strong>Fee follow-ups ready</strong>
+              <small>Pending installments highlighted</small>
+            </div>
+            <b>12</b>
+          </div>
+
+          <div class="um-fh-module-row">
+            <span><i class="bi bi-award-fill"></i></span>
+            <div>
+              <strong>Exam results prepared</strong>
+              <small>Marks and reports ready for review</small>
+            </div>
+            <b>Ready</b>
+          </div>
+        </div>
+
+        <div class="um-fh-report-panel">
+          <div>
+            <small>Monthly overview</small>
+            <strong>Students, fees, attendance and exams in one view</strong>
+          </div>
+          <div class="um-fh-bars" aria-hidden="true">
+            <span style="--w:78%"></span>
+            <span style="--w:62%"></span>
+            <span style="--w:88%"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="um-fh-floating-card card-one">
+        <i class="bi bi-person-vcard-fill"></i>
+        <div>
+          <strong>Student Records</strong>
+          <span>Manage profiles and enrollments</span>
+        </div>
+      </div>
+
+      <div class="um-fh-floating-card card-two">
+        <i class="bi bi-bar-chart-line-fill"></i>
+        <div>
+          <strong>Smart Reports</strong>
+          <span>Clean institute insights</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<style>
+.um-feature-hero-section{
+  position:relative;
+  overflow:hidden;
+  padding:110px 28px;
+}
+
+.um-fh-glow{
+  position:absolute;
+  border-radius:50%;
+  pointer-events:none;
+}
+
+.um-feature-hero-section .glow-left{
+  width:420px;
+  height:420px;
+  left:-160px;
+  top:10%;
+  background:rgba(24,216,255,.16);
+}
+
+.um-feature-hero-section .glow-right{
+  width:360px;
+  height:360px;
+  right:-140px;
+  bottom:5%;
+  background:rgba(244,185,66,.18);
+}
+
+.um-fh-container{
+  width:100%;
+  max-width:1280px;
+  margin:auto;
+  display:grid;
+  grid-template-columns:1.02fr .98fr;
+  align-items:center;
+  gap:60px;
+  position:relative;
+  z-index:2;
+}
+
+.um-fh-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 18px;
+  border-radius:999px;
+  color:var(--primary);
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(255,255,255,.88);
+  backdrop-filter:blur(14px);
+  box-shadow:0 14px 38px rgba(18,60,122,.1);
+  font-size:12px;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+}
+
+.um-fh-content h1{
+  margin:26px 0 18px;
+  color:var(--dark);
+  font-size:82px;
+  line-height:.94;
+  font-weight:950;
+  letter-spacing:-2px;
+}
+
+.um-fh-content h1 span{
+  display:block;
+  background:linear-gradient(135deg,var(--primary),var(--secondary),#18d8ff);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+.um-fh-content p{
+  max-width:650px;
+  color:var(--muted);
+  font-size:18px;
+  line-height:1.9;
+  font-weight:550;
+}
+
+.um-fh-actions{
+  display:flex;
+  gap:16px;
+  flex-wrap:wrap;
+  margin-top:34px;
+}
+
+.um-fh-primary,
+.um-fh-secondary{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:16px 26px;
+  border-radius:20px;
+  font-size:15px;
+  font-weight:900;
+  transition:.35s var(--ease);
+}
+
+.um-fh-primary{
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  box-shadow:0 20px 45px rgba(244,185,66,.28);
+}
+
+.um-fh-secondary{
+  color:var(--primary);
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(18,60,122,.08);
+}
+
+.um-fh-primary:hover,
+.um-fh-secondary:hover{
+  transform:translateY(-5px);
+}
+
+.um-fh-stats{
+  display:flex;
+  gap:16px;
+  flex-wrap:wrap;
+  margin-top:38px;
+}
+
+.um-fh-stat-card{
+  min-width:150px;
+  padding:18px;
+  border-radius:24px;
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:0 16px 40px rgba(18,60,122,.09);
+  backdrop-filter:blur(14px);
+}
+
+.um-fh-stat-card strong{
+  display:block;
+  color:var(--primary);
+  font-size:24px;
+  font-weight:950;
+}
+
+.um-fh-stat-card span{
+  color:var(--muted);
+  font-size:13px;
+  font-weight:700;
+}
+
+.um-fh-visual{
+  position:relative;
+  min-height:620px;
+  display:grid;
+  place-items:center;
+  padding:40px 18px;
+}
+
+.um-fh-dashboard{
+  position:relative;
+  width:min(560px,100%);
+  padding:24px;
+  border-radius:38px;
+  background:rgba(255,255,255,.76);
+  border:1px solid rgba(255,255,255,.9);
+  box-shadow:0 40px 95px rgba(18,60,122,.18);
+  backdrop-filter:blur(16px);
+  overflow:hidden;
+}
+
+.um-fh-dashboard::before{
+  content:"";
+  position:absolute;
+  width:270px;
+  height:270px;
+  right:-110px;
+  top:-120px;
+  border-radius:50%;
+  background:rgba(24,216,255,.16);
+  animation:umDashboardGlow 6s ease-in-out infinite;
+}
+
+.um-fh-dashboard::after{
+  content:"";
+  position:absolute;
+  width:220px;
+  height:220px;
+  left:-95px;
+  bottom:-110px;
+  border-radius:50%;
+  background:rgba(244,185,66,.2);
+  animation:umDashboardGlow 7s ease-in-out infinite reverse;
+}
+
+.um-fh-dashboard-head{
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:22px;
+}
+
+.um-fh-dashboard-head strong{
+  display:block;
+  color:var(--primary);
+  font-size:20px;
+  font-weight:950;
+}
+
+.um-fh-dashboard-head span{
+  display:block;
+  margin-top:4px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+}
+
+.um-fh-live{
+  display:inline-flex!important;
+  align-items:center;
+  gap:8px;
+  width:max-content;
+  margin:0!important;
+  padding:9px 12px;
+  border-radius:999px;
+  color:#0f5132!important;
+  background:#dff8ea;
+  border:1px solid #b8efce;
+  animation:umLivePulse 2.4s ease-in-out infinite;
+}
+
+.um-fh-summary-grid{
+  position:relative;
+  z-index:1;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+  margin-bottom:16px;
+}
+
+.um-fh-summary-card{
+  min-height:150px;
+  padding:16px;
+  border-radius:24px;
+  background:rgba(244,248,252,.92);
+  border:1px solid rgba(18,60,122,.06);
+  box-shadow:0 14px 35px rgba(18,60,122,.08);
+  animation:umModuleFloat 5s ease-in-out infinite;
+}
+
+.um-fh-summary-card:nth-child(2){animation-delay:-1.5s}
+.um-fh-summary-card:nth-child(3){animation-delay:-3s}
+
+.um-fh-summary-card i{
+  width:44px;
+  height:44px;
+  display:grid;
+  place-items:center;
+  margin-bottom:16px;
+  border-radius:16px;
+  color:#fff;
+  font-size:20px;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+  box-shadow:0 14px 30px rgba(18,60,122,.18);
+}
+
+.um-fh-summary-card.fees i{
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+}
+
+.um-fh-summary-card.attendance i{
+  background:linear-gradient(135deg,#18d8ff,#1d65c1);
+}
+
+.um-fh-summary-card small{
+  display:block;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+
+.um-fh-summary-card strong{
+  display:block;
+  margin:7px 0 4px;
+  color:var(--primary);
+  font-size:28px;
+  line-height:1;
+  font-weight:950;
+}
+
+.um-fh-summary-card span{
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.4;
+  font-weight:750;
+}
+
+.um-fh-module-flow{
+  position:relative;
+  z-index:1;
+  display:grid;
+  gap:11px;
+}
+
+.um-fh-module-row{
+  display:flex;
+  align-items:center;
+  gap:13px;
+  padding:14px;
+  border-radius:18px;
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(18,60,122,.07);
+  box-shadow:0 12px 28px rgba(18,60,122,.06);
+  animation:umRowSweep 4.8s ease-in-out infinite;
+}
+
+.um-fh-module-row:nth-child(2){animation-delay:-1.4s}
+.um-fh-module-row:nth-child(3){animation-delay:-2.8s}
+
+.um-fh-module-row > span{
+  width:42px;
+  height:42px;
+  min-width:42px;
+  display:grid;
+  place-items:center;
+  border-radius:15px;
+  color:#fff;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+}
+
+.um-fh-module-row.warning > span{
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+}
+
+.um-fh-module-row div{
+  min-width:0;
+  flex:1;
+}
+
+.um-fh-module-row strong{
+  display:block;
+  color:var(--primary);
+  font-size:14px;
+  font-weight:950;
+}
+
+.um-fh-module-row small{
+  display:block;
+  margin-top:3px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.um-fh-module-row b{
+  padding:7px 10px;
+  border-radius:999px;
+  color:var(--primary);
+  background:rgba(18,60,122,.08);
+  font-size:11px;
+  font-weight:950;
+}
+
+.um-fh-report-panel{
+  position:relative;
+  z-index:1;
+  display:grid;
+  grid-template-columns:1fr 170px;
+  gap:18px;
+  align-items:center;
+  margin-top:16px;
+  padding:18px;
+  border-radius:24px;
+  color:#fff;
+  background:linear-gradient(135deg,#071527,#123c7a);
+  box-shadow:0 18px 45px rgba(7,21,39,.16);
+}
+
+.um-fh-report-panel small{
+  display:block;
+  color:#ffe59a;
+  font-size:11px;
+  font-weight:950;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.um-fh-report-panel strong{
+  display:block;
+  margin-top:7px;
+  color:#fff;
+  font-size:15px;
+  line-height:1.4;
+  font-weight:900;
+}
+
+.um-fh-bars{
+  display:grid;
+  gap:8px;
+}
+
+.um-fh-bars span{
+  display:block;
+  height:9px;
+  border-radius:999px;
+  background:rgba(255,255,255,.14);
+  overflow:hidden;
+}
+
+.um-fh-bars span::before{
+  content:"";
+  display:block;
+  width:var(--w);
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,#ffe59a,#18d8ff);
+  animation:umBarGrow 3.2s ease-in-out infinite;
+}
+
+@keyframes umDashboardGlow{
+  50%{transform:scale(1.12) translateY(14px)}
+}
+
+@keyframes umLivePulse{
+  50%{box-shadow:0 0 0 9px rgba(34,197,94,.12)}
+}
+
+@keyframes umModuleFloat{
+  50%{transform:translateY(-8px)}
+}
+
+@keyframes umRowSweep{
+  50%{transform:translateX(6px);background:#fff}
+}
+
+@keyframes umBarGrow{
+  0%,100%{transform:scaleX(.86);transform-origin:left}
+  50%{transform:scaleX(1);transform-origin:left}
+}
+
+.um-fh-floating-card{
+  position:absolute;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:15px 18px;
+  border-radius:22px;
+  background:rgba(255,255,255,.82);
+  border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 22px 55px rgba(18,60,122,.16);
+  backdrop-filter:blur(14px);
+  animation:umFloatCard 5s ease-in-out infinite;
+}
+
+.um-fh-floating-card i{
+  width:46px;
+  height:46px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+}
+
+.um-fh-floating-card strong{
+  display:block;
+  color:var(--primary);
+  font-size:14px;
+  font-weight:950;
+}
+
+.um-fh-floating-card span{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.card-one{
+  top:40px;
+  left:-10px;
+}
+
+.card-two{
+  right:-10px;
+  bottom:55px;
+  animation-delay:-2s;
+}
+
+@keyframes umFloatCard{
+  50%{
+    transform:translateY(-10px);
+  }
+}
+
+@media(max-width:991px){
+  .um-feature-hero-section{
+    padding:80px 18px;
+  }
+
+  .um-fh-container{
+    grid-template-columns:1fr;
+    gap:50px;
+  }
+
+  .um-fh-content{
+    text-align:center;
+  }
+
+  .um-fh-content h1{
+    font-size:58px;
+  }
+
+  .um-fh-content p{
+    margin:auto;
+  }
+
+  .um-fh-actions,
+  .um-fh-stats{
+    justify-content:center;
+  }
+
+  .um-fh-visual{
+    min-height:auto;
+    padding:10px 0 28px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:14px;
+    width:100%;
+  }
+
+  .um-fh-dashboard{
+    width:min(620px,100%);
+  }
+
+  .um-fh-floating-card{
+    position:relative;
+    inset:auto;
+    width:min(100%,420px);
+    animation:none;
+  }
+}
+
+@media(max-width:760px){
+  .um-feature-hero-section{
+    padding:70px 16px 88px;
+  }
+
+  .um-fh-container{
+    gap:34px;
+  }
+
+  .um-fh-content h1{
+    font-size:50px;
+  }
+
+  .um-fh-stats{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    width:100%;
+    gap:12px;
+  }
+
+  .um-fh-stat-card{
+    min-width:0;
+    padding:16px 12px;
+    border-radius:20px;
+  }
+
+  .um-fh-stat-card strong{
+    font-size:20px;
+  }
+
+  .um-fh-stat-card span{
+    display:block;
+    overflow-wrap:anywhere;
+    font-size:12px;
+  }
+
+  .um-fh-dashboard-head{
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+
+  .um-fh-summary-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:10px;
+  }
+
+  .um-fh-summary-card{
+    min-height:132px;
+    padding:13px;
+    border-radius:20px;
+  }
+
+  .um-fh-summary-card i{
+    width:38px;
+    height:38px;
+    margin-bottom:12px;
+    border-radius:14px;
+    font-size:17px;
+  }
+
+  .um-fh-summary-card strong{
+    font-size:24px;
+  }
+
+  .um-fh-summary-card span{
+    display:block;
+    overflow-wrap:anywhere;
+    font-size:11px;
+  }
+
+}
+
+@media(max-width:575px){
+  .um-feature-hero-section{
+    padding:62px 14px 92px;
+  }
+
+  .um-fh-content h1{
+    font-size:44px;
+  }
+
+  .um-fh-content p{
+    font-size:15px;
+    line-height:1.7;
+  }
+
+  .um-fh-actions{
+    gap:10px;
+  }
+
+  .um-fh-primary,
+  .um-fh-secondary{
+    width:100%;
+    max-width:260px;
+    justify-content:center;
+    padding:14px 18px;
+    border-radius:18px;
+  }
+
+  .um-fh-stats{
+    grid-template-columns:1fr;
+    width:min(100%,280px);
+    margin-inline:auto;
+    margin-top:30px;
+  }
+
+  .um-fh-dashboard{
+    width:100%;
+    padding:16px;
+    border-radius:30px;
+  }
+
+  .um-fh-dashboard-head{
+    gap:10px;
+    margin-bottom:16px;
+  }
+
+  .um-fh-dashboard-head strong{
+    font-size:18px;
+  }
+
+  .um-fh-live{
+    padding:7px 10px;
+    font-size:12px;
+  }
+
+  .um-fh-summary-grid{
+    grid-template-columns:1fr;
+  }
+
+  .um-fh-summary-card{
+    min-height:auto;
+    display:grid;
+    grid-template-columns:42px 1fr;
+    column-gap:12px;
+    align-items:center;
+  }
+
+  .um-fh-summary-card i{
+    grid-row:1 / span 3;
+    margin:0;
+  }
+
+  .um-fh-module-row{
+    align-items:flex-start;
+    flex-wrap:wrap;
+    padding:13px;
+  }
+
+  .um-fh-module-row div{
+    flex:1 1 calc(100% - 56px);
+  }
+
+  .um-fh-module-row b{
+    margin-left:55px;
+  }
+
+  .um-fh-report-panel{
+    grid-template-columns:1fr;
+    gap:14px;
+    padding:16px;
+  }
+
+  .um-fh-floating-card{
+    margin-top:0;
+    width:100%;
+    max-width:100%;
+    padding:14px;
+    border-radius:20px;
+  }
+
+  .um-fh-floating-card i{
+    width:42px;
+    height:42px;
+    min-width:42px;
+    border-radius:16px;
+  }
+
+  .um-fh-floating-card div{
+    min-width:0;
+  }
+
+  .um-fh-floating-card span{
+    display:block;
+    overflow-wrap:anywhere;
+  }
+
+  .um-fh-visual{
+    padding-bottom:18px;
+  }
+}
+
+@media(max-width:380px){
+  .um-fh-content h1{
+    font-size:38px;
+  }
+
+  .um-fh-badge{
+    max-width:100%;
+    justify-content:center;
+    font-size:11px;
+  }
+
+  .um-fh-dashboard{
+    padding:13px;
+    border-radius:24px;
+  }
+
+  .um-fh-module-row > span{
+    width:38px;
+    height:38px;
+    min-width:38px;
+  }
+
+  .um-fh-module-row div{
+    flex-basis:calc(100% - 52px);
+  }
+
+  .um-fh-module-row b{
+    margin-left:51px;
+  }
+}
+</style>  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<section class="um-conflict-section" id="fees-management">
+
+  <div class="um-conflict-glow glow-left"></div>
+  <div class="um-conflict-glow glow-right"></div>
+
+  <div class="um-conflict-container">
+
+    <div class="um-conflict-content">
+
+      <span class="um-conflict-badge">
+        <i class="bi bi-cash-stack"></i>
+        Fee Collection
+      </span>
+
+      <h2>
+        Fees
+        <span>Management</span>
+      </h2>
+
+      <p>
+        Collect fees, manage installments, track pending payments and maintain complete payment history for every student.
+      </p>
+
+      <div class="um-conflict-info">
+
+        <div class="um-conflict-info-card safe-card">
+          <i class="bi bi-check-circle-fill"></i>
+          <div>
+            <strong>Payment Recorded</strong>
+            <span>Receipt and payment history saved</span>
+          </div>
+        </div>
+
+        <div class="um-conflict-info-card danger-card">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <div>
+            <strong>Pending Fee Alert</strong>
+            <span>Overdue installment highlighted instantly</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="um-conflict-visual">
+
+      <div class="um-conflict-board">
+
+        <div class="um-conflict-header">
+          <div class="um-conflict-title">
+            <strong>Fees Collection Dashboard</strong>
+            <span>Receipts, installments and pending dues</span>
+          </div>
+
+          <div class="um-conflict-status">
+            <span class="pulse-dot"></span>
+            Live Collection
+          </div>
+        </div>
+
+        <div class="um-conflict-grid">
+
+          <div class="um-conflict-row safe">
+            <div class="um-conflict-time">Paid</div>
+
+            <div class="um-conflict-entry">
+              <strong>Tuition Fee - April</strong>
+              <span>Rohan Patil · Receipt #RC-1028</span>
+            </div>
+
+            <div class="um-conflict-branch">
+              ₹8,000
+              <span>Collected</span>
+            </div>
+
+            <div class="um-conflict-state success-state">
+              <i class="bi bi-check-circle-fill"></i>
+              Paid
+            </div>
+          </div>
+
+          <div class="um-conflict-row danger blinking-row">
+            <div class="um-conflict-time">Overdue</div>
+
+            <div class="um-conflict-entry">
+              <strong>Installment 2</strong>
+              <span>Priya Sharma · Due date: 10 Apr</span>
+            </div>
+
+            <div class="um-conflict-branch">
+              ₹4,500
+              <span>Pending</span>
+            </div>
+
+            <div class="um-conflict-state danger-state">
+              <i class="bi bi-exclamation-triangle-fill"></i>
+              Pending
+            </div>
+
+            <div class="um-conflict-alert">
+              Due date crossed. Reminder ready for student and parent.
+            </div>
+          </div>
+
+          <div class="um-conflict-row partial">
+            <div class="um-conflict-time">Partial</div>
+
+            <div class="um-conflict-entry">
+              <strong>Admission Fee</strong>
+              <span>Aman Jadhav · ₹2,000 of ₹5,000 received</span>
+            </div>
+
+            <div class="um-conflict-branch">
+              ₹3,000
+              <span>Balance</span>
+            </div>
+
+            <div class="um-conflict-state partial-state">
+              <i class="bi bi-clock-history"></i>
+              Partial
+            </div>
+          </div>
+
+          <div class="um-conflict-row safe">
+            <div class="um-conflict-time">Paid</div>
+
+            <div class="um-conflict-entry">
+              <strong>Test Series Fee</strong>
+              <span>Sneha More · Online payment verified</span>
+            </div>
+
+            <div class="um-conflict-branch">
+              ₹7,500
+              <span>Collected</span>
+            </div>
+
+            <div class="um-conflict-state success-state">
+              <i class="bi bi-check-circle-fill"></i>
+              Paid
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="um-conflict-floating floating-safe">
+        <i class="bi bi-graph-up-arrow"></i>
+        <div>
+          <strong>₹17,500 Collected</strong>
+          <span>Today across active batches</span>
+        </div>
+      </div>
+
+      <div class="um-conflict-floating floating-alert">
+        <i class="bi bi-exclamation-octagon-fill"></i>
+        <div>
+          <strong>₹7,500 Pending</strong>
+          <span>2 follow-ups need attention</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<style>
+.um-conflict-section{
+  position:relative;
+  overflow:hidden;
+  padding:110px 28px;
+}
+
+.um-conflict-glow{
+  position:absolute;
+  border-radius:50%;
+  pointer-events:none;
+}
+
+.um-conflict-section .glow-left{
+  width:420px;
+  height:420px;
+  left:-160px;
+  top:18%;
+  background:rgba(24,216,255,.16);
+}
+
+.um-conflict-section .glow-right{
+  width:360px;
+  height:360px;
+  right:-140px;
+  bottom:10%;
+  background:rgba(255,80,80,.14);
+}
+
+.um-conflict-container{
+  width:100%;
+  max-width:1280px;
+  margin:auto;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  align-items:center;
+  gap:70px;
+  position:relative;
+  z-index:2;
+}
+
+.um-conflict-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 18px;
+  border-radius:999px;
+  color:var(--primary);
+  background:rgba(255,255,255,.74);
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:0 14px 35px rgba(18,60,122,.08);
+  backdrop-filter:blur(14px);
+  font-size:12px;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+}
+
+.um-conflict-content h2{
+  margin:26px 0 18px;
+  color:var(--dark);
+  font-size:78px;
+  line-height:.94;
+  font-weight:950;
+  letter-spacing:-2px;
+}
+
+.um-conflict-content h2 span{
+  display:block;
+  background:linear-gradient(135deg,#00a86b,#18d8ff,var(--primary));
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+.um-conflict-content p{
+  max-width:640px;
+  color:var(--muted);
+  font-size:18px;
+  line-height:1.9;
+  font-weight:550;
+}
+
+.um-conflict-info{
+  display:grid;
+  gap:18px;
+  margin-top:38px;
+}
+
+.um-conflict-info-card{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  padding:20px;
+  border-radius:26px;
+  background:rgba(255,255,255,.74);
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:0 18px 45px rgba(18,60,122,.08);
+}
+
+.um-conflict-info-card i{
+  width:58px;
+  height:58px;
+  border-radius:22px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-size:24px;
+}
+
+.safe-card i{
+  background:linear-gradient(135deg,#00b56a,#00d084);
+}
+
+.danger-card i{
+  background:linear-gradient(135deg,#ff5b5b,#ff2f2f);
+}
+
+.um-conflict-info-card strong{
+  display:block;
+  color:var(--primary);
+  font-size:17px;
+  font-weight:950;
+}
+
+.um-conflict-info-card span{
+  color:var(--muted);
+  font-size:13px;
+  font-weight:650;
+}
+
+.um-conflict-visual{
+  position:relative;
+  min-height:650px;
+  display:grid;
+  place-items:center;
+}
+
+.um-conflict-board{
+  position:relative;
+  width:min(620px,100%);
+  padding:24px;
+  border-radius:40px;
+  background:rgba(255,255,255,.8);
+  border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 40px 95px rgba(18,60,122,.16);
+  backdrop-filter:blur(18px);
+}
+
+.um-conflict-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:18px;
+  margin-bottom:24px;
+}
+
+.um-conflict-title strong{
+  display:block;
+  color:var(--primary);
+  font-size:22px;
+  font-weight:950;
+}
+
+.um-conflict-title span{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:750;
+}
+
+.um-conflict-status{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 16px;
+  border-radius:999px;
+  color:#00a86b;
+  background:rgba(0,208,132,.12);
+  font-size:12px;
+  font-weight:950;
+}
+
+.pulse-dot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:#00d084;
+  animation:umPulseDot 1.4s infinite;
+}
+
+@keyframes umPulseDot{
+  50%{
+    transform:scale(1.4);
+    opacity:.45;
+  }
+}
+
+.um-conflict-grid{
+  display:grid;
+  gap:18px;
+}
+
+.um-conflict-row{
+  position:relative;
+  display:grid;
+  grid-template-columns:90px 1fr 110px 100px;
+  align-items:center;
+  gap:14px;
+  padding:18px;
+  border-radius:26px;
+  overflow:hidden;
+  transition:.35s ease;
+}
+
+.um-conflict-row.safe{
+  background:linear-gradient(135deg,rgba(0,208,132,.16),rgba(255,255,255,.85));
+  border:1px solid rgba(0,208,132,.22);
+}
+
+.um-conflict-row.danger{
+  background:linear-gradient(135deg,rgba(255,70,70,.2),rgba(255,255,255,.86));
+  border:1px solid rgba(255,70,70,.26);
+}
+
+.um-conflict-row.partial{
+  background:linear-gradient(135deg,rgba(255,177,0,.18),rgba(255,255,255,.86));
+  border:1px solid rgba(255,177,0,.28);
+}
+
+.blinking-row{
+  animation:umDangerBlink 1.8s infinite;
+}
+
+@keyframes umDangerBlink{
+  50%{
+    transform:scale(1.01);
+    box-shadow:0 0 0 6px rgba(255,70,70,.08);
+  }
+}
+
+.um-conflict-time{
+  color:var(--primary);
+  font-size:13px;
+  font-weight:950;
+}
+
+.um-conflict-entry strong{
+  display:block;
+  color:var(--dark);
+  font-size:15px;
+  font-weight:900;
+}
+
+.um-conflict-entry span{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:650;
+}
+
+.um-conflict-branch{
+  color:var(--primary);
+  font-size:13px;
+  font-weight:850;
+}
+
+.um-conflict-branch span{
+  display:block;
+  margin-top:3px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:850;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+
+.um-conflict-state{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:10px 14px;
+  border-radius:16px;
+  font-size:12px;
+  font-weight:900;
+}
+
+.success-state{
+  color:#009e63;
+  background:rgba(0,208,132,.14);
+}
+
+.danger-state{
+  color:#ff3b3b;
+  background:rgba(255,70,70,.16);
+}
+
+.partial-state{
+  color:#d89b00;
+  background:rgba(255,177,0,.18);
+}
+
+.um-conflict-alert{
+  grid-column:1/-1;
+  margin-top:10px;
+  padding:12px 14px;
+  border-radius:16px;
+  color:#ff3b3b;
+  background:rgba(255,70,70,.12);
+  font-size:12px;
+  font-weight:850;
+}
+
+.um-conflict-floating{
+  position:absolute;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:16px 18px;
+  border-radius:24px;
+  background:rgba(255,255,255,.84);
+  border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 24px 60px rgba(18,60,122,.16);
+  backdrop-filter:blur(14px);
+  animation:umFloatCard 5s ease-in-out infinite;
+}
+
+.um-conflict-floating i{
+  width:48px;
+  height:48px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+}
+
+.floating-safe i{
+  background:linear-gradient(135deg,#00b56a,#00d084);
+}
+
+.floating-alert i{
+  background:linear-gradient(135deg,#ff5b5b,#ff2f2f);
+}
+
+.um-conflict-floating strong{
+  display:block;
+  color:var(--primary);
+  font-size:14px;
+  font-weight:950;
+}
+
+.um-conflict-floating span{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.floating-safe{
+  top:30px;
+  left:-20px;
+}
+
+.floating-alert{
+  right:-10px;
+  bottom:50px;
+  animation-delay:-2s;
+}
+
+@keyframes umFloatCard{
+  50%{
+    transform:translateY(-10px);
+  }
+}
+
+@media(max-width:991px){
+  .um-conflict-section{
+    padding:80px 18px;
+  }
+
+  .um-conflict-container{
+    grid-template-columns:1fr;
+    gap:55px;
+  }
+
+  .um-conflict-content{
+    text-align:center;
+  }
+
+  .um-conflict-content h2{
+    font-size:58px;
+  }
+
+  .um-conflict-content p{
+    margin:auto;
+  }
+}
+
+@media(max-width:575px){
+  .um-conflict-section{
+    padding:65px 14px;
+  }
+
+  .um-conflict-content h2{
+    font-size:44px;
+  }
+
+  .um-conflict-board{
+    padding:16px;
+    border-radius:30px;
+  }
+
+  .um-conflict-row{
+    grid-template-columns:1fr;
+  }
+
+  .um-conflict-floating{
+    position:relative;
+    inset:auto;
+    width:100%;
+    margin-top:14px;
+  }
+
+  .um-conflict-visual{
+    min-height:auto;
+  }
+}
+</style>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<section class="um-multi-section" id="attendance-management">
+
+  <div class="um-multi-glow glow-left"></div>
+  <div class="um-multi-glow glow-right"></div>
+
+  <div class="um-multi-container">
+
+    <div class="um-multi-content">
+
+      <span class="um-multi-badge">
+        <i class="bi bi-layers-fill"></i>
+        Attendance & Exams
+      </span>
+
+      <h2>
+        Attendance
+        <span>Management</span>
+      </h2>
+
+      <p>
+        Mark daily attendance, monitor student presence and connect attendance data with batch-wise academic performance.
+      </p>
+
+      <div class="um-multi-info">
+
+        <div class="um-multi-info-card">
+          <i class="bi bi-check2-circle"></i>
+          <div>
+            <strong>Daily Attendance</strong>
+            <span>Mark present, absent and late entries quickly</span>
+          </div>
+        </div>
+
+        <div class="um-multi-info-card">
+          <i class="bi bi-clock-history"></i>
+          <div>
+            <strong>Batch-wise Records</strong>
+            <span>View attendance history by batch or student</span>
+          </div>
+        </div>
+
+        <div class="um-multi-info-card">
+          <i class="bi bi-lightning-charge-fill"></i>
+          <div>
+            <strong>Attendance Reports</strong>
+            <span>Generate clear attendance summaries</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="um-multi-visual">
+
+      <div class="um-multi-stack">
+
+        <div class="um-multi-card back-card">
+          <div class="um-multi-top">
+            <span class="draft-dot"></span>
+            Absent List
+          </div>
+
+          <div class="um-multi-mini-grid">
+            <span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+
+        <div class="um-multi-card middle-card">
+          <div class="um-multi-top">
+            <span class="active-dot"></span>
+            Today Attendance
+          </div>
+
+          <div class="um-multi-mini-grid">
+            <span class="blue"></span>
+            <span></span>
+            <span class="gold"></span>
+            <span></span>
+
+            <span></span>
+            <span class="cyan"></span>
+            <span></span>
+            <span class="blue"></span>
+
+            <span></span>
+            <span></span>
+            <span class="gold"></span>
+            <span></span>
+          </div>
+        </div>
+
+        <div class="um-multi-card main-card">
+
+          <div class="um-multi-header">
+
+            <div>
+              <strong>Attendance Manager</strong>
+              <span>Batch-wise attendance overview</span>
+            </div>
+
+            <button>
+              <i class="bi bi-plus-lg"></i>
+            </button>
+
+          </div>
+
+          <div class="um-multi-version active-version">
+            <div class="um-version-left">
+              <span class="version-indicator active"></span>
+
+              <div>
+                <strong>Class 10 Foundation</strong>
+                <small>92% Present Today</small>
+              </div>
+            </div>
+
+            <span class="um-version-status live">
+              Live
+            </span>
+          </div>
+
+          <div class="um-multi-version">
+            <div class="um-version-left">
+              <span class="version-indicator draft"></span>
+
+              <div>
+                <strong>NEET Morning Batch</strong>
+                <small>86% Present Today</small>
+              </div>
+            </div>
+
+            <span class="um-version-status draft-text">
+              Draft
+            </span>
+          </div>
+
+          <div class="um-multi-version">
+            <div class="um-version-left">
+              <span class="version-indicator backup"></span>
+
+              <div>
+                <strong>JEE Evening Batch</strong>
+                <small>78% Present Today</small>
+              </div>
+            </div>
+
+            <span class="um-version-status backup-text">
+              Backup
+            </span>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="um-multi-floating card-one">
+        <i class="bi bi-arrow-repeat"></i>
+
+        <div>
+          <strong>Quick Attendance</strong>
+          <span>Mark attendance in seconds</span>
+        </div>
+      </div>
+
+      <div class="um-multi-floating card-two">
+        <i class="bi bi-cloud-check-fill"></i>
+
+        <div>
+          <strong>Attendance Trackory</strong>
+          <span>Student-wise records saved</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<style>
+.um-multi-section{
+  position:relative;
+  overflow:hidden;
+  padding:110px 28px;
+}
+
+.um-multi-glow{
+  position:absolute;
+  border-radius:50%;
+  pointer-events:none;
+}
+
+.um-multi-section .glow-left{
+  width:420px;
+  height:420px;
+  left:-160px;
+  top:14%;
+  background:rgba(24,216,255,.16);
+}
+
+.um-multi-section .glow-right{
+  width:360px;
+  height:360px;
+  right:-140px;
+  bottom:8%;
+  background:rgba(244,185,66,.16);
+}
+
+.um-multi-container{
+  width:100%;
+  max-width:1280px;
+  margin:auto;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  align-items:center;
+  gap:70px;
+  position:relative;
+  z-index:2;
+}
+
+.um-multi-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 18px;
+  border-radius:999px;
+  color:var(--primary);
+  background:rgba(255,255,255,.74);
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:0 14px 35px rgba(18,60,122,.08);
+  backdrop-filter:blur(14px);
+  font-size:12px;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+}
+
+.um-multi-content h2{
+  margin:26px 0 18px;
+  color:var(--dark);
+  font-size:78px;
+  line-height:.94;
+  font-weight:950;
+  letter-spacing:-2px;
+}
+
+.um-multi-content h2 span{
+  display:block;
+  background:linear-gradient(135deg,var(--primary),var(--secondary),#18d8ff);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+.um-multi-content p{
+  max-width:640px;
+  color:var(--muted);
+  font-size:18px;
+  line-height:1.9;
+  font-weight:550;
+}
+
+.um-multi-info{
+  display:grid;
+  gap:18px;
+  margin-top:38px;
+}
+
+.um-multi-info-card{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  padding:20px;
+  border-radius:26px;
+  background:rgba(255,255,255,.74);
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:0 18px 45px rgba(18,60,122,.08);
+}
+
+.um-multi-info-card i{
+  width:58px;
+  height:58px;
+  border-radius:22px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-size:24px;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+}
+
+.um-multi-info-card strong{
+  display:block;
+  color:var(--primary);
+  font-size:17px;
+  font-weight:950;
+}
+
+.um-multi-info-card span{
+  color:var(--muted);
+  font-size:13px;
+  font-weight:650;
+}
+
+.um-multi-visual{
+  position:relative;
+  min-height:700px;
+  display:grid;
+  place-items:center;
+}
+
+.um-multi-stack{
+  position:relative;
+  width:min(560px,100%);
+  height:620px;
+}
+
+.um-multi-card{
+  position:absolute;
+  width:100%;
+  border-radius:38px;
+  background:rgba(255,255,255,.82);
+  border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 35px 85px rgba(18,60,122,.16);
+  backdrop-filter:blur(16px);
+}
+
+.back-card{
+  height:420px;
+  top:0;
+  transform:rotate(-8deg) scale(.92);
+  opacity:.45;
+}
+
+.middle-card{
+  height:450px;
+  top:40px;
+  transform:rotate(7deg) scale(.95);
+  opacity:.7;
+}
+
+.main-card{
+  position:absolute;
+  bottom:0;
+  padding:28px;
+  min-height:460px;
+  z-index:4;
+}
+
+.um-multi-top{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:20px;
+  color:var(--primary);
+  font-size:14px;
+  font-weight:900;
+}
+
+.draft-dot,
+.active-dot{
+  width:12px;
+  height:12px;
+  border-radius:50%;
+}
+
+.draft-dot{
+  background:#ffb100;
+}
+
+.active-dot{
+  background:#00c875;
+}
+
+.um-multi-mini-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+  padding:0 20px 20px;
+}
+
+.um-multi-mini-grid span{
+  height:44px;
+  border-radius:14px;
+  background:#edf4fc;
+}
+
+.um-multi-mini-grid span.blue{
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+}
+
+.um-multi-mini-grid span.gold{
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+}
+
+.um-multi-mini-grid span.cyan{
+  background:linear-gradient(135deg,#18d8ff,#1d65c1);
+}
+
+.um-multi-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:18px;
+  margin-bottom:26px;
+}
+
+.um-multi-header strong{
+  display:block;
+  color:var(--primary);
+  font-size:24px;
+  font-weight:950;
+}
+
+.um-multi-header span{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.um-multi-header button{
+  width:52px;
+  height:52px;
+  border:0;
+  border-radius:18px;
+  color:#071527;
+  font-size:20px;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+}
+
+.um-multi-version{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+  padding:18px;
+  border-radius:24px;
+  margin-bottom:16px;
+  background:#f6f9ff;
+  border:1px solid rgba(18,60,122,.06);
+  transition:.3s ease;
+}
+
+.um-multi-version:hover{
+  transform:translateX(6px);
+}
+
+.active-version{
+  background:linear-gradient(135deg,rgba(24,216,255,.12),rgba(255,255,255,.9));
+}
+
+.um-version-left{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+
+.version-indicator{
+  width:16px;
+  height:16px;
+  border-radius:50%;
+}
+
+.version-indicator.active{
+  background:#00c875;
+}
+
+.version-indicator.draft{
+  background:#ffb100;
+}
+
+.version-indicator.backup{
+  background:#1d65c1;
+}
+
+.um-version-left strong{
+  display:block;
+  color:var(--dark);
+  font-size:15px;
+  font-weight:900;
+}
+
+.um-version-left small{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:650;
+}
+
+.um-version-status{
+  padding:10px 14px;
+  border-radius:14px;
+  font-size:12px;
+  font-weight:900;
+}
+
+.live{
+  color:#009e63;
+  background:rgba(0,208,132,.14);
+}
+
+.draft-text{
+  color:#d89b00;
+  background:rgba(255,177,0,.14);
+}
+
+.backup-text{
+  color:#1d65c1;
+  background:rgba(29,101,193,.12);
+}
+
+.um-multi-floating{
+  position:absolute;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:16px 18px;
+  border-radius:24px;
+  background:rgba(255,255,255,.84);
+  border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 24px 60px rgba(18,60,122,.16);
+  backdrop-filter:blur(14px);
+  animation:umMultiFloat 5s ease-in-out infinite;
+}
+
+.um-multi-floating i{
+  width:48px;
+  height:48px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+}
+
+.um-multi-floating strong{
+  display:block;
+  color:var(--primary);
+  font-size:14px;
+  font-weight:950;
+}
+
+.um-multi-floating span{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.card-one{
+  top:35px;
+  left:-20px;
+}
+
+.card-two{
+  right:-15px;
+  bottom:55px;
+  animation-delay:-2s;
+}
+
+@keyframes umMultiFloat{
+  50%{
+    transform:translateY(-10px);
+  }
+}
+
+@media(max-width:991px){
+  .um-multi-section{
+    padding:80px 18px;
+  }
+
+  .um-multi-container{
+    grid-template-columns:1fr;
+    gap:55px;
+  }
+
+  .um-multi-content{
+    text-align:center;
+  }
+
+  .um-multi-content h2{
+    font-size:58px;
+  }
+
+  .um-multi-content p{
+    margin:auto;
+  }
+}
+
+@media(max-width:575px){
+  .um-multi-section{
+    padding:65px 14px;
+  }
+
+  .um-multi-content h2{
+    font-size:44px;
+  }
+
+  .um-multi-stack{
+    height:560px;
+  }
+
+  .main-card{
+    padding:18px;
+    border-radius:30px;
+  }
+
+  .um-multi-floating{
+    position:relative;
+    inset:auto;
+    width:100%;
+    margin-top:14px;
+  }
+
+  .um-multi-visual{
+    min-height:auto;
+  }
+}
+</style>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<section class="um-workload-section" id="teacher-management">
+  <div class="um-workload-glow glow-left"></div>
+  <div class="um-workload-glow glow-right"></div>
+
+  <div class="um-workload-container">
+
+    <div class="um-workload-content">
+      <span class="um-workload-badge">
+        <i class="bi bi-speedometer2"></i>
+        Teacher & Faculty
+      </span>
+
+      <h2>
+        Teacher
+        <span>Management</span>
+      </h2>
+
+      <p>
+        Manage faculty profiles, assigned subjects, batches, records and performance responsibilities from one place.
+      </p>
+
+      <div class="um-workload-points">
+        <div>
+          <i class="bi bi-check-circle-fill"></i>
+          Teacher profile and subject allocation
+        </div>
+
+        <div>
+          <i class="bi bi-check-circle-fill"></i>
+          Batch-wise faculty assignment
+        </div>
+
+        <div>
+          <i class="bi bi-check-circle-fill"></i>
+          Role-based teacher access and activity tracking
+        </div>
+      </div>
+    </div>
+
+    <div class="um-workload-visual">
+
+      <div class="um-workload-dashboard">
+
+        <div class="um-workload-top">
+          <div>
+            <strong>Faculty Management</strong>
+            <span>Subject and batch allocation</span>
+          </div>
+
+          <span class="um-workload-live">
+            <i class="bi bi-activity"></i>
+            Live
+          </span>
+        </div>
+
+        <div class="um-load-row safe">
+          <div class="um-teacher-info">
+            <span>RS</span>
+            <div>
+              <strong>Aman Jadhav</strong>
+              <small>Admissions</small>
+            </div>
+          </div>
+
+          <div class="um-load-bar">
+            <span style="width:58%"></span>
+          </div>
+
+          <b>4 Batches</b>
+        </div>
+
+        <div class="um-load-row good">
+          <div class="um-teacher-info">
+            <span>SM</span>
+            <div>
+              <strong>Sharma Mam</strong>
+              <small>Daily Attendance</small>
+            </div>
+          </div>
+
+          <div class="um-load-bar">
+            <span style="width:72%"></span>
+          </div>
+
+          <b>5 Batches</b>
+        </div>
+
+        <div class="um-load-row warning">
+          <div class="um-teacher-info">
+            <span>MS</span>
+            <div>
+              <strong>Priya Sharma</strong>
+              <small>Faculty</small>
+            </div>
+          </div>
+
+          <div class="um-load-bar">
+            <span style="width:92%"></span>
+          </div>
+
+          <b>7 Batches</b>
+        </div>
+
+        <div class="um-load-row danger">
+          <div class="um-teacher-info">
+            <span>AK</span>
+            <div>
+              <strong>Sneha More</strong>
+              <small>Results</small>
+            </div>
+          </div>
+
+          <div class="um-load-bar">
+            <span style="width:105%"></span>
+          </div>
+
+          <b>8 Batches</b>
+
+          <div class="um-overload-alert">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            High batch allocation
+          </div>
+        </div>
+
+      </div>
+
+      <div class="um-workload-floating float-one">
+        <i class="bi bi-bar-chart-line-fill"></i>
+        <div>
+          <strong>Faculty Allocation</strong>
+          <span>Subjects and batches mapped</span>
+        </div>
+      </div>
+
+      <div class="um-workload-floating float-two">
+        <i class="bi bi-exclamation-circle-fill"></i>
+        <div>
+          <strong>Workload View</strong>
+          <span>Track teacher responsibilities</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<style>
+.um-workload-section{
+  position:relative;
+  overflow:hidden;
+  padding:110px 28px;
+}
+
+.um-workload-glow{
+  position:absolute;
+  border-radius:50%;
+  pointer-events:none;
+}
+
+.um-workload-section .glow-left{
+  width:420px;
+  height:420px;
+  left:-160px;
+  top:14%;
+  background:rgba(24,216,255,.16);
+}
+
+.um-workload-section .glow-right{
+  width:360px;
+  height:360px;
+  right:-140px;
+  bottom:8%;
+  background:rgba(244,185,66,.17);
+}
+
+.um-workload-container{
+  width:100%;
+  max-width:1280px;
+  margin:auto;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  align-items:center;
+  gap:70px;
+  position:relative;
+  z-index:2;
+}
+
+.um-workload-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 18px;
+  border-radius:999px;
+  color:var(--primary);
+  background:rgba(255,255,255,.74);
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:0 14px 35px rgba(18,60,122,.08);
+  backdrop-filter:blur(14px);
+  font-size:12px;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+}
+
+.um-workload-content h2{
+  margin:26px 0 18px;
+  color:var(--dark);
+  font-size:78px;
+  line-height:.94;
+  font-weight:950;
+  letter-spacing:-2px;
+}
+
+.um-workload-content h2 span{
+  display:block;
+  background:linear-gradient(135deg,var(--primary),var(--secondary),#18d8ff);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+.um-workload-content p{
+  max-width:640px;
+  color:var(--muted);
+  font-size:18px;
+  line-height:1.9;
+  font-weight:550;
+}
+
+.um-workload-points{
+  display:grid;
+  gap:16px;
+  margin-top:36px;
+}
+
+.um-workload-points div{
+  display:flex;
+  align-items:center;
+  gap:13px;
+  padding:16px 18px;
+  border-radius:22px;
+  color:var(--text);
+  font-size:15px;
+  font-weight:850;
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:0 16px 40px rgba(18,60,122,.08);
+}
+
+.um-workload-points i{
+  color:#00b56a;
+}
+
+.um-workload-visual{
+  position:relative;
+  min-height:650px;
+  display:grid;
+  place-items:center;
+  padding:35px 18px;
+}
+
+.um-workload-dashboard{
+  position:relative;
+  width:min(620px,100%);
+  padding:26px;
+  border-radius:40px;
+  background:rgba(255,255,255,.8);
+  border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 40px 95px rgba(18,60,122,.16);
+  backdrop-filter:blur(18px);
+  z-index:2;
+}
+
+.um-workload-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:18px;
+  margin-bottom:26px;
+}
+
+.um-workload-top strong{
+  display:block;
+  color:var(--primary);
+  font-size:24px;
+  font-weight:950;
+}
+
+.um-workload-top span{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.um-workload-live{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 15px;
+  border-radius:999px;
+  color:#00a86b!important;
+  background:rgba(0,208,132,.12);
+  font-size:12px!important;
+  font-weight:950!important;
+}
+
+.um-load-row{
+  position:relative;
+  display:grid;
+  grid-template-columns:190px 1fr 70px;
+  align-items:center;
+  gap:16px;
+  padding:18px;
+  margin-bottom:16px;
+  border-radius:26px;
+  background:#f6f9ff;
+  border:1px solid rgba(18,60,122,.06);
+  overflow:hidden;
+}
+
+.um-load-row.safe{
+  background:linear-gradient(135deg,rgba(0,208,132,.12),rgba(255,255,255,.88));
+}
+
+.um-load-row.good{
+  background:linear-gradient(135deg,rgba(24,216,255,.12),rgba(255,255,255,.88));
+}
+
+.um-load-row.warning{
+  background:linear-gradient(135deg,rgba(244,185,66,.2),rgba(255,255,255,.88));
+}
+
+.um-load-row.danger{
+  background:linear-gradient(135deg,rgba(255,70,70,.2),rgba(255,255,255,.88));
+  animation:umWorkloadWarn 1.9s ease-in-out infinite;
+}
+
+@keyframes umWorkloadWarn{
+  50%{
+    box-shadow:0 0 0 7px rgba(255,70,70,.08);
+  }
+}
+
+.um-teacher-info{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.um-teacher-info > span{
+  width:46px;
+  height:46px;
+  min-width:46px;
+  border-radius:17px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-size:13px;
+  font-weight:950;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+}
+
+.um-teacher-info strong{
+  display:block;
+  color:var(--dark);
+  font-size:14px;
+  font-weight:950;
+}
+
+.um-teacher-info small{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:650;
+}
+
+.um-load-bar{
+  height:12px;
+  border-radius:999px;
+  background:rgba(18,60,122,.1);
+  overflow:hidden;
+}
+
+.um-load-bar span{
+  display:block;
+  height:100%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#00c875,#18d8ff,var(--secondary));
+  animation:umLoadFill 1.4s var(--ease) both;
+}
+
+.um-load-row.warning .um-load-bar span{
+  background:linear-gradient(90deg,#ffe59a,var(--accent));
+}
+
+.um-load-row.danger .um-load-bar span{
+  background:linear-gradient(90deg,#ff7777,#ff2f2f);
+}
+
+@keyframes umLoadFill{
+  from{width:0}
+}
+
+.um-load-row b{
+  color:var(--primary);
+  font-size:13px;
+  font-weight:950;
+  text-align:right;
+}
+
+.um-overload-alert{
+  grid-column:1/-1;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 14px;
+  border-radius:16px;
+  color:#ff3b3b;
+  background:rgba(255,70,70,.12);
+  font-size:12px;
+  font-weight:900;
+}
+
+.um-workload-floating{
+  position:absolute;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:16px 18px;
+  border-radius:24px;
+  background:rgba(255,255,255,.84);
+  border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 24px 60px rgba(18,60,122,.16);
+  backdrop-filter:blur(14px);
+  animation:umWorkloadFloat 5s ease-in-out infinite;
+  z-index:5;
+}
+
+.um-workload-floating i{
+  width:48px;
+  height:48px;
+  min-width:48px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+}
+
+.um-workload-floating strong{
+  display:block;
+  color:var(--primary);
+  font-size:14px;
+  font-weight:950;
+}
+
+.um-workload-floating span{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.float-one{
+  top:35px;
+  left:0;
+}
+
+.float-two{
+  right:0;
+  bottom:45px;
+  animation-delay:-2s;
+}
+
+@keyframes umWorkloadFloat{
+  50%{
+    transform:translateY(-10px);
+  }
+}
+
+@media(max-width:991px){
+  .um-workload-section{
+    padding:80px 18px;
+  }
+
+  .um-workload-container{
+    grid-template-columns:1fr;
+    gap:55px;
+  }
+
+  .um-workload-content{
+    text-align:center;
+  }
+
+  .um-workload-content h2{
+    font-size:58px;
+  }
+
+  .um-workload-content p{
+    margin:auto;
+  }
+
+  .um-workload-visual{
+    min-height:auto;
+    padding:20px 0 0;
+    display:block;
+  }
+
+  .um-workload-dashboard{
+    margin:auto;
+  }
+
+  .um-workload-floating{
+    position:relative;
+    inset:auto;
+    width:100%;
+    max-width:620px;
+    margin:16px auto 0;
+  }
+
+  .float-one,
+  .float-two{
+    top:auto;
+    left:auto;
+    right:auto;
+    bottom:auto;
+  }
+}
+
+@media(max-width:575px){
+  .um-workload-section{
+    padding:65px 14px;
+  }
+
+  .um-workload-content h2{
+    font-size:44px;
+    letter-spacing:-1px;
+  }
+
+  .um-workload-dashboard{
+    padding:16px;
+    border-radius:30px;
+  }
+
+  .um-workload-top{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  .um-load-row{
+    grid-template-columns:1fr;
+  }
+
+  .um-load-row b{
+    text-align:left;
+  }
+
+  .um-workload-points div{
+    font-size:14px;
+  }
+}
+</style>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<section class="um-proxy-section" id="admission-workflow">
+  <div class="um-proxy-bg"></div>
+
+  <div class="um-proxy-container">
+
+    <div class="um-proxy-content">
+      <span class="um-proxy-badge">
+        <i class="bi bi-person-lines-fill"></i>
+        Admissions & Enquiries
+      </span>
+
+      <h2>
+        Admission
+        <span>Workflow</span>
+      </h2>
+
+      <p>
+        Track enquiries, manage student admissions, enrollments and follow-ups in a clean digital workflow.
+      </p>
+
+      <div class="um-proxy-points">
+        <div>
+          <i class="bi bi-calendar-x-fill"></i>
+          New enquiry capture
+        </div>
+
+        <div>
+          <i class="bi bi-person-check-fill"></i>
+          Admission follow-up tracking
+        </div>
+
+        <div>
+          <i class="bi bi-arrow-left-right"></i>
+          Student enrollment management
+        </div>
+      </div>
+    </div>
+
+    <div class="um-proxy-visual">
+
+      <div class="um-proxy-panel">
+
+        <div class="um-proxy-panel-head">
+          <div>
+            <strong>Admission Desk</strong>
+            <span>Live enquiry and admission mode</span>
+          </div>
+
+          <span class="um-proxy-alert">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            3 New Leads
+          </span>
+        </div>
+
+        <div class="um-leave-card">
+          <div class="um-leave-teacher">
+            <span>MS</span>
+            <div>
+              <strong>Priya Sharma</strong>
+              <small>Admission counsellor · On enquiry</small>
+            </div>
+          </div>
+
+          <div class="um-leave-status">
+            <i class="bi bi-calendar-x-fill"></i>
+            Enquiry
+          </div>
+        </div>
+
+        <div class="um-proxy-flow">
+          <div class="um-flow-step active">
+            <i class="bi bi-search"></i>
+            <span>Capture Lead</span>
+          </div>
+
+          <div class="um-flow-line"></div>
+
+          <div class="um-flow-step">
+            <i class="bi bi-person-check"></i>
+            <span>Follow Up</span>
+          </div>
+
+          <div class="um-flow-line"></div>
+
+          <div class="um-flow-step">
+            <i class="bi bi-check2-circle"></i>
+            <span>Enroll Student</span>
+          </div>
+        </div>
+
+        <div class="um-substitute-box">
+
+          <div class="um-sub-title">
+            <strong>Admission Follow-up</strong>
+            <span>Latest student enquiries</span>
+          </div>
+
+          <div class="um-sub-card selected">
+            <div class="um-sub-left">
+              <span>RS</span>
+              <div>
+                <strong>Aman Jadhav</strong>
+                <small>Follow-up due · ₹4,500 fee plan</small>
+              </div>
+            </div>
+
+            <button>
+              Enroll
+              <i class="bi bi-arrow-right"></i>
+            </button>
+          </div>
+
+          <div class="um-sub-card">
+            <div class="um-sub-left">
+              <span>AK</span>
+              <div>
+                <strong>Sneha More</strong>
+                <small>Enrollment ready · ₹7,500 fee plan</small>
+              </div>
+            </div>
+
+            <button>
+              Enroll
+              <i class="bi bi-arrow-right"></i>
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+ 
+
+      <div class="um-proxy-floating float-b">
+        <i class="bi bi-check-circle-fill"></i>
+        <div>
+          <strong>Proxy Enrolled</strong>
+          <span>Admission completed successfully</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<style>
+.um-proxy-section{
+  position:relative;
+  overflow:hidden;
+  padding:115px 28px;
+}
+
+.um-proxy-bg{
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(circle at 10% 20%,rgba(255,91,91,.18),transparent 28%),
+    radial-gradient(circle at 85% 25%,rgba(126,87,255,.18),transparent 30%),
+    radial-gradient(circle at 50% 90%,rgba(24,216,255,.14),transparent 35%);
+  pointer-events:none;
+}
+
+.um-proxy-container{
+  width:100%;
+  max-width:1280px;
+  margin:auto;
+  display:grid;
+  grid-template-columns:.95fr 1.05fr;
+  align-items:center;
+  gap:70px;
+  position:relative;
+  z-index:2;
+}
+
+.um-proxy-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 18px;
+  border-radius:999px;
+  color:#8b1e3f;
+  background:rgba(255,255,255,.76);
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:0 14px 36px rgba(139,30,63,.1);
+  backdrop-filter:blur(14px);
+  font-size:12px;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+}
+
+.um-proxy-content h2{
+  margin:26px 0 18px;
+  color:var(--dark);
+  font-size:78px;
+  line-height:.94;
+  font-weight:950;
+  letter-spacing:-2px;
+}
+
+.um-proxy-content h2 span{
+  display:block;
+  background:linear-gradient(135deg,#ff4d6d,#7e57ff,#18d8ff);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+.um-proxy-content p{
+  max-width:620px;
+  color:var(--muted);
+  font-size:18px;
+  line-height:1.9;
+  font-weight:550;
+}
+
+.um-proxy-points{
+  display:grid;
+  gap:16px;
+  margin-top:36px;
+}
+
+.um-proxy-points div{
+  display:flex;
+  align-items:center;
+  gap:13px;
+  padding:17px 19px;
+  border-radius:24px;
+  color:var(--text);
+  font-size:15px;
+  font-weight:850;
+  background:rgba(255,255,255,.76);
+  border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 18px 45px rgba(139,30,63,.08);
+}
+
+.um-proxy-points i{
+  color:#ff4d6d;
+}
+
+.um-proxy-visual{
+  position:relative;
+  min-height:720px;
+  display:grid;
+  place-items:center;
+  padding:38px 18px;
+}
+
+.um-proxy-panel{
+  position:relative;
+  width:min(650px,100%);
+  padding:28px;
+  border-radius:42px;
+  background:linear-gradient(145deg,rgba(255,255,255,.88),rgba(255,255,255,.62));
+  border:1px solid rgba(255,255,255,.95);
+  box-shadow:0 45px 105px rgba(139,30,63,.16);
+  backdrop-filter:blur(18px);
+  z-index:2;
+}
+
+.um-proxy-panel-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:18px;
+  margin-bottom:24px;
+}
+
+.um-proxy-panel-head strong{
+  display:block;
+  color:#8b1e3f;
+  font-size:24px;
+  font-weight:950;
+}
+
+.um-proxy-panel-head span{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.um-proxy-alert{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 15px;
+  border-radius:999px;
+  color:#ff3b5c!important;
+  background:rgba(255,77,109,.12);
+  font-size:12px!important;
+  font-weight:950!important;
+}
+
+.um-leave-card{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:18px;
+  padding:20px;
+  border-radius:28px;
+  background:linear-gradient(135deg,rgba(255,77,109,.16),rgba(255,255,255,.86));
+  border:1px solid rgba(255,77,109,.18);
+  animation:umProxyPulse 2.2s ease-in-out infinite;
+}
+
+@keyframes umProxyPulse{
+  50%{
+    box-shadow:0 0 0 8px rgba(255,77,109,.07);
+  }
+}
+
+.um-leave-teacher{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+
+.um-leave-teacher > span,
+.um-sub-left > span{
+  width:50px;
+  height:50px;
+  min-width:50px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-size:13px;
+  font-weight:950;
+  background:linear-gradient(135deg,#ff4d6d,#7e57ff);
+}
+
+.um-leave-teacher strong,
+.um-sub-left strong{
+  display:block;
+  color:var(--dark);
+  font-size:15px;
+  font-weight:950;
+}
+
+.um-leave-teacher small,
+.um-sub-left small{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:650;
+}
+
+.um-leave-status{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:11px 14px;
+  border-radius:16px;
+  color:#ff3b5c;
+  background:rgba(255,77,109,.13);
+  font-size:12px;
+  font-weight:900;
+}
+
+.um-proxy-flow{
+  display:grid;
+  grid-template-columns:auto 1fr auto 1fr auto;
+  align-items:center;
+  gap:12px;
+  margin:28px 0;
+}
+
+.um-flow-step{
+  display:grid;
+  place-items:center;
+  gap:8px;
+  color:#8b1e3f;
+  font-size:11px;
+  font-weight:900;
+  text-align:center;
+}
+
+.um-flow-step i{
+  width:48px;
+  height:48px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-size:20px;
+  background:linear-gradient(135deg,#8b1e3f,#7e57ff);
+}
+
+.um-flow-step.active i{
+  background:linear-gradient(135deg,#ff4d6d,#ff9a3c);
+}
+
+.um-flow-line{
+  height:3px;
+  border-radius:999px;
+  background:linear-gradient(90deg,#ff4d6d,#7e57ff,#18d8ff);
+}
+
+.um-substitute-box{
+  padding:20px;
+  border-radius:30px;
+  background:rgba(255,255,255,.68);
+  border:1px solid rgba(139,30,63,.08);
+}
+
+.um-sub-title{
+  margin-bottom:16px;
+}
+
+.um-sub-title strong{
+  display:block;
+  color:#8b1e3f;
+  font-size:18px;
+  font-weight:950;
+}
+
+.um-sub-title span{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.um-sub-card{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+  padding:16px;
+  border-radius:24px;
+  margin-bottom:14px;
+  background:#fff;
+  border:1px solid rgba(139,30,63,.08);
+  transition:.3s ease;
+}
+
+.um-sub-card:hover,
+.um-sub-card.selected{
+  transform:translateX(7px);
+  box-shadow:0 18px 42px rgba(139,30,63,.1);
+}
+
+.um-sub-left{
+  display:flex;
+  align-items:center;
+  gap:13px;
+}
+
+.um-sub-card button{
+  border:0;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:12px 15px;
+  border-radius:16px;
+  color:#fff;
+  font-size:12px;
+  font-weight:900;
+  background:linear-gradient(135deg,#ff4d6d,#7e57ff);
+}
+
+.um-proxy-floating{
+  position:absolute;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:16px 18px;
+  border-radius:24px;
+  background:rgba(255,255,255,.86);
+  border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 24px 60px rgba(139,30,63,.14);
+  backdrop-filter:blur(14px);
+  animation:umProxyFloat 5s ease-in-out infinite;
+  z-index:5;
+}
+
+.um-proxy-floating i{
+  width:48px;
+  height:48px;
+  min-width:48px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  background:linear-gradient(135deg,#ff4d6d,#7e57ff);
+}
+
+.um-proxy-floating strong{
+  display:block;
+  color:#8b1e3f;
+  font-size:14px;
+  font-weight:950;
+}
+
+.um-proxy-floating span{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.float-a{
+  top:34px;
+  left:0;
+}
+
+.float-b{
+  right:0;
+  bottom:55px;
+  animation-delay:-2s;
+}
+
+@keyframes umProxyFloat{
+  50%{
+    transform:translateY(-10px);
+  }
+}
+
+@media(max-width:991px){
+  .um-proxy-section{
+    padding:80px 18px;
+  }
+
+  .um-proxy-container{
+    grid-template-columns:1fr;
+    gap:55px;
+  }
+
+  .um-proxy-content{
+    text-align:center;
+  }
+
+  .um-proxy-content h2{
+    font-size:58px;
+  }
+
+  .um-proxy-content p{
+    margin:auto;
+  }
+
+  .um-proxy-visual{
+    min-height:auto;
+    padding:20px 0 0;
+    display:block;
+  }
+
+  .um-proxy-panel{
+    margin:auto;
+  }
+
+  .um-proxy-floating{
+    position:relative;
+    inset:auto;
+    width:100%;
+    max-width:650px;
+    margin:16px auto 0;
+  }
+
+  .float-a,
+  .float-b{
+    top:auto;
+    left:auto;
+    right:auto;
+    bottom:auto;
+  }
+}
+
+@media(max-width:575px){
+  .um-proxy-section{
+    padding:65px 14px;
+  }
+
+  .um-proxy-content h2{
+    font-size:44px;
+    letter-spacing:-1px;
+  }
+
+  .um-proxy-panel{
+    padding:16px;
+    border-radius:30px;
+  }
+
+  .um-proxy-panel-head,
+  .um-leave-card,
+  .um-sub-card{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  .um-proxy-flow{
+    grid-template-columns:1fr;
+  }
+
+  .um-flow-line{
+    width:3px;
+    height:28px;
+    margin:auto;
+  }
+
+  .um-sub-card button{
+    width:100%;
+    justify-content:center;
+  }
+}
+</style>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<section class="um-export-section" id="pdf-excel-export">
+  <div class="um-export-container">
+
+    <div class="um-export-top">
+      <span class="um-export-badge">
+        <i class="bi bi-file-earmark-arrow-down-fill"></i>
+        Reports & Analytics
+      </span>
+
+      <h2>
+        Reports &
+        <span>Analytics</span>
+      </h2>
+
+      <p>
+        View student progress, fee collection, attendance, exam results and batch-wise analytics in professional reports.
+      </p>
+    </div>
+
+    <div class="um-export-layout">
+
+      <div class="um-export-preview">
+
+        <div class="um-doc-window">
+          <div class="um-doc-toolbar">
+            <div>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+
+            <strong>Batch Performance Report</strong>
+          </div>
+
+          <div class="um-doc-paper">
+
+            <div class="um-doc-head">
+              <div>
+                <strong>UltraCoachMatrix Institute</strong>
+                <small>Coaching Analytics · Academic Year 2026</small>
+              </div>
+
+              <span>PDF</span>
+            </div>
+
+            <div class="um-doc-table">
+              <div class="head">Module</div>
+              <div class="head">Total</div>
+              <div class="head">Pending</div>
+              <div class="head">Status</div>
+
+              <div>Fees</div>
+              <div>₹2.4L</div>
+              <div>₹35K</div>
+              <div>Good</div>
+
+              <div>Attend.</div>
+              <div>92%</div>
+              <div>8%</div>
+              <div>Track</div>
+
+              <div>Exams</div>
+              <div>78%</div>
+              <div>₹2.4L</div>
+              <div>Improve</div>
+            </div>
+
+            <div class="um-doc-footer-line"></div>
+            <div class="um-doc-footer-line short"></div>
+
+          </div>
+        </div>
+
+        <div class="um-export-file pdf-file">
+          <i class="bi bi-filetype-pdf"></i>
+          <div>
+            <strong>Progress Report</strong>
+            <span>Student-wise summary</span>
+          </div>
+        </div>
+
+        <div class="um-export-file excel-file">
+          <i class="bi bi-filetype-xlsx"></i>
+          <div>
+            <strong>Analytics Sheet</strong>
+            <span>Exportable institute data</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="um-export-actions-panel">
+
+        <div class="um-export-panel-head">
+          <span>
+            <i class="bi bi-printer-fill"></i>
+          </span>
+
+          <div>
+            <strong>Report Control Center</strong>
+            <small>Select report type and download instantly</small>
+          </div>
+        </div>
+
+        <div class="um-export-options">
+
+          <label class="um-export-option active">
+            <span>
+              <i class="bi bi-building"></i>
+            </span>
+
+            <div>
+              <strong>Student Progress Report</strong>
+              <small>Marks, attendance and performance</small>
+            </div>
+
+            <b>Ready</b>
+          </label>
+
+          <label class="um-export-option">
+            <span>
+              <i class="bi bi-person-video3"></i>
+            </span>
+
+            <div>
+              <strong>Fee Collection Report</strong>
+              <small>Collected, pending and installment data</small>
+            </div>
+
+            <b>Ready</b>
+          </label>
+
+          <label class="um-export-option">
+            <span>
+              <i class="bi bi-door-open"></i>
+            </span>
+
+            <div>
+              <strong>Attendance Report</strong>
+              <small>Batch-wise attendance summary</small>
+            </div>
+
+            <b>Ready</b>
+          </label>
+
+        </div>
+
+        <div class="um-export-buttons">
+          <a href="{% url 'web_contact_us' %}" class="um-pdf-btn">
+            <i class="bi bi-filetype-pdf"></i>
+            Download Report
+          </a>
+
+          <a href="{% url 'web_contact_us' %}" class="um-excel-btn">
+            <i class="bi bi-filetype-xlsx"></i>
+            Export Excel
+          </a>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<style>
+.um-export-section{
+  position:relative;
+  overflow:hidden;
+  padding:115px 28px;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.38),rgba(255,255,255,0)),
+    radial-gradient(circle at 15% 25%,rgba(255,64,129,.12),transparent 28%),
+    radial-gradient(circle at 86% 20%,rgba(0,200,117,.16),transparent 30%);
+}
+
+.um-export-container{
+  width:100%;
+  max-width:1280px;
+  margin:auto;
+}
+
+.um-export-top{
+  max-width:820px;
+  margin:0 auto 64px;
+  text-align:center;
+}
+
+.um-export-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 18px;
+  border-radius:999px;
+  color:#0f8f55;
+  background:rgba(255,255,255,.78);
+  border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 14px 35px rgba(15,143,85,.08);
+  backdrop-filter:blur(14px);
+  font-size:12px;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+}
+
+.um-export-top h2{
+  margin:26px 0 18px;
+  color:var(--dark);
+  font-size:76px;
+  line-height:.94;
+  font-weight:950;
+  letter-spacing:-2px;
+}
+
+.um-export-top h2 span{
+  display:block;
+  background:linear-gradient(135deg,#ff407f,#00c875,#123c7a);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+.um-export-top p{
+  max-width:720px;
+  margin:auto;
+  color:var(--muted);
+  font-size:18px;
+  line-height:1.9;
+  font-weight:550;
+}
+
+.um-export-layout{
+  display:grid;
+  grid-template-columns:1.05fr .95fr;
+  gap:34px;
+  align-items:stretch;
+}
+
+.um-export-preview,
+.um-export-actions-panel{
+  position:relative;
+  min-height:590px;
+  border-radius:42px;
+  overflow:hidden;
+}
+
+.um-export-preview{
+  display:grid;
+  place-items:center;
+  padding:42px;
+  background:
+    linear-gradient(145deg,#101828,#123c7a);
+  box-shadow:0 40px 105px rgba(7,21,39,.22);
+}
+
+.um-export-preview::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
+  background-size:46px 46px;
+}
+
+.um-doc-window{
+  position:relative;
+  z-index:2;
+  width:min(470px,100%);
+  padding:14px;
+  border-radius:34px;
+  background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.16);
+  box-shadow:0 35px 80px rgba(0,0,0,.25);
+}
+
+.um-doc-toolbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:14px;
+  padding:10px 8px 18px;
+  color:#cbd8ea;
+  font-size:12px;
+  font-weight:800;
+}
+
+.um-doc-toolbar div{
+  display:flex;
+  gap:7px;
+}
+
+.um-doc-toolbar span{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:rgba(255,255,255,.35);
+}
+
+.um-doc-paper{
+  padding:26px;
+  border-radius:26px;
+  background:#fff;
+}
+
+.um-doc-head{
+  display:flex;
+  justify-content:space-between;
+  gap:18px;
+  align-items:flex-start;
+  margin-bottom:22px;
+}
+
+.um-doc-head strong{
+  display:block;
+  color:var(--primary);
+  font-size:20px;
+  font-weight:950;
+}
+
+.um-doc-head small{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.um-doc-head span{
+  padding:8px 12px;
+  border-radius:12px;
+  color:#ff2f5f;
+  background:rgba(255,64,129,.11);
+  font-size:12px;
+  font-weight:950;
+}
+
+.um-doc-table{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  border-radius:18px;
+  overflow:hidden;
+  border:1px solid #e5edf7;
+}
+
+.um-doc-table div{
+  padding:13px 10px;
+  color:var(--text);
+  font-size:12px;
+  font-weight:750;
+  border-right:1px solid #e5edf7;
+  border-bottom:1px solid #e5edf7;
+}
+
+.um-doc-table .head{
+  color:#fff;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+}
+
+.um-doc-footer-line{
+  height:12px;
+  width:100%;
+  margin-top:24px;
+  border-radius:999px;
+  background:#eaf1f9;
+}
+
+.um-doc-footer-line.short{
+  width:62%;
+  margin-top:10px;
+}
+
+.um-export-file{
+  position:absolute;
+  z-index:3;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:16px 18px;
+  border-radius:24px;
+  background:rgba(255,255,255,.92);
+  border:1px solid rgba(255,255,255,.95);
+  box-shadow:0 24px 60px rgba(0,0,0,.18);
+}
+
+.um-export-file i{
+  width:48px;
+  height:48px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-size:24px;
+}
+
+.um-export-file strong{
+  display:block;
+  color:var(--primary);
+  font-size:14px;
+  font-weight:950;
+}
+
+.um-export-file span{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.pdf-file{
+  left:24px;
+  bottom:42px;
+}
+
+.pdf-file i{
+  background:linear-gradient(135deg,#ff2f5f,#ff7a59);
+}
+
+.excel-file{
+  right:24px;
+  top:42px;
+}
+
+.excel-file i{
+  background:linear-gradient(135deg,#00a86b,#00c875);
+}
+
+.um-export-actions-panel{
+  padding:38px;
+  background:rgba(255,255,255,.78);
+  border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 35px 90px rgba(18,60,122,.12);
+  backdrop-filter:blur(18px);
+}
+
+.um-export-panel-head{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  margin-bottom:30px;
+}
+
+.um-export-panel-head > span{
+  width:66px;
+  height:66px;
+  border-radius:24px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  font-size:28px;
+  background:linear-gradient(135deg,#00a86b,#00c875);
+  box-shadow:0 18px 38px rgba(0,168,107,.22);
+}
+
+.um-export-panel-head strong{
+  display:block;
+  color:var(--primary);
+  font-size:25px;
+  font-weight:950;
+}
+
+.um-export-panel-head small{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+.um-export-options{
+  display:grid;
+  gap:16px;
+}
+
+.um-export-option{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:16px;
+  padding:18px;
+  border-radius:26px;
+  background:#fff;
+  border:1px solid rgba(18,60,122,.07);
+  box-shadow:0 14px 34px rgba(18,60,122,.06);
+  transition:.3s var(--ease);
+}
+
+.um-export-option:hover,
+.um-export-option.active{
+  transform:translateX(8px);
+  box-shadow:0 22px 50px rgba(18,60,122,.11);
+}
+
+.um-export-option > span{
+  width:48px;
+  height:48px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  color:var(--primary);
+  background:rgba(18,60,122,.08);
+}
+
+.um-export-option strong{
+  display:block;
+  color:var(--dark);
+  font-size:15px;
+  font-weight:950;
+}
+
+.um-export-option small{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:650;
+}
+
+.um-export-option b{
+  padding:9px 12px;
+  border-radius:999px;
+  color:#00a86b;
+  background:rgba(0,200,117,.12);
+  font-size:11px;
+  font-weight:950;
+}
+
+.um-export-buttons{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+  margin-top:32px;
+}
+
+.um-pdf-btn,
+.um-excel-btn{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding:17px 18px;
+  border-radius:20px;
+  color:#fff;
+  font-size:14px;
+  font-weight:950;
+  transition:.3s var(--ease);
+}
+
+.um-pdf-btn{
+  background:linear-gradient(135deg,#ff2f5f,#ff7a59);
+}
+
+.um-excel-btn{
+  background:linear-gradient(135deg,#00a86b,#00c875);
+}
+
+.um-pdf-btn:hover,
+.um-excel-btn:hover{
+  color:#fff;
+  transform:translateY(-5px);
+}
+
+@media(max-width:991px){
+  .um-export-section{
+    padding:80px 18px;
+  }
+
+  .um-export-top h2{
+    font-size:56px;
+  }
+
+  .um-export-layout{
+    grid-template-columns:1fr;
+  }
+
+  .um-export-preview,
+  .um-export-actions-panel{
+    min-height:auto;
+  }
+}
+
+@media(max-width:575px){
+  .um-export-section{
+    padding:65px 14px;
+  }
+
+  .um-export-top h2{
+    font-size:42px;
+  }
+
+  .um-export-preview{
+    padding:24px;
+    border-radius:32px;
+  }
+
+  .um-export-actions-panel{
+    padding:24px;
+    border-radius:32px;
+  }
+
+  .um-export-file{
+    position:relative;
+    inset:auto;
+    width:100%;
+    margin-top:14px;
+  }
+
+  .um-export-buttons{
+    grid-template-columns:1fr;
+  }
+
+  .um-export-option{
+    grid-template-columns:1fr;
+  }
+}
+</style>
+{% endblock content %}

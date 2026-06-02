@@ -22,7 +22,7 @@ from django.views.generic import RedirectView
 from student_parent import views as student_parent_views
 from super_admin import views as super_admin_views
 from super_admin import urls as super_admin_urls
-
+from Website import urls as website_urls
 urlpatterns = [
     path('api/mobile/homework/', student_parent_views.mobile_homework_planner, name='mobile_homework_planner'),
     path('api/mobile/devices/register/', student_parent_views.mobile_register_device, name='mobile_register_device'),
@@ -74,6 +74,7 @@ urlpatterns = [
     path('student/', include('student_parent.urls')),
     path('', include('accountant.urls')),
     path('', include(super_admin_urls)),
+    path('', include(website_urls)),
     path('admin/', admin.site.urls),
 ]
 

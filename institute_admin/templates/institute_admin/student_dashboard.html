@@ -4,137 +4,377 @@
 
 {% block content %}
 <style>
+    /*
+        Student dashboard responsive reset
+        Main fix: when the left sidebar is expanded, the base layout can leave #main at 100vw
+        while also applying a left margin. This CSS makes the dashboard width equal to the
+        remaining viewport, so no content disappears to the right.
+    */
+    html,
+    body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    #main.main.student-dashboard {
+        min-width: 0 !important;
+        box-sizing: border-box;
+        overflow-x: hidden;
+    }
+
+    @media (min-width: 1200px) {
+        body:not(.toggle-sidebar) #main.main.student-dashboard {
+            width: calc(100vw - 300px) !important;
+            max-width: calc(100vw - 300px) !important;
+        }
+
+        body.toggle-sidebar #main.main.student-dashboard {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+    }
+
+    @media (max-width: 1199.98px) {
+        #main.main.student-dashboard {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin-left: 0 !important;
+        }
+    }
+
     .student-dashboard {
-        --ink: #172033;
+        --ink: #121a31;
         --muted: #667085;
         --line: #e6eaf0;
         --paper: #ffffff;
+        --page: #f4f7ff;
         --teal: #0f766e;
         --violet: #7c3aed;
         --orange: #ea580c;
         --blue: #2563eb;
         --green: #16a34a;
         --red: #dc2626;
+        --radius: 18px;
+        --shadow: 0 14px 34px rgba(16, 24, 40, .08);
+        background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%);
     }
-    .dashboard-card, .summary-card, .tab-card, .content-panel {
-        background: var(--paper);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        box-shadow: 0 10px 24px rgba(16, 24, 40, .06);
+
+    .student-dashboard,
+    .student-dashboard * {
+        box-sizing: border-box;
     }
-    .dashboard-card { padding: 18px; margin-bottom: 16px; }
+
+    .student-dashboard a,
+    .student-dashboard button,
+    .student-dashboard input,
+    .student-dashboard select {
+        max-width: 100%;
+    }
+
+    .student-dashboard .pagetitle,
+    .student-dashboard .dashboard-card,
+    .student-dashboard .summary-grid,
+    .student-dashboard .tab-card-grid,
+    .student-dashboard .tab-pane,
+    .student-dashboard .content-panel,
+    .student-dashboard .panel-grid {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .student-dashboard .pagetitle h1 {
+        color: var(--ink);
+        font-weight: 950;
+        letter-spacing: -.03em;
+        font-size: clamp(1.25rem, 2vw, 1.55rem);
+    }
+
+    .dashboard-card,
+    .summary-card,
+    .tab-card,
+    .content-panel {
+        background: rgba(255, 255, 255, .96);
+        border: 1px solid rgba(230, 234, 240, .95);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        min-width: 0;
+    }
+
+    .dashboard-card {
+        position: relative;
+        padding: clamp(16px, 2vw, 24px);
+        margin-bottom: 16px;
+        overflow: hidden;
+        background:
+            radial-gradient(circle at 100% 0%, rgba(255,255,255,.22), transparent 28%),
+            linear-gradient(135deg, #121a3d 0%, #1f348d 55%, #4968dc 100%);
+        color: #fff;
+    }
+
+    .dashboard-card:after {
+        content: "";
+        position: absolute;
+        width: min(300px, 38vw);
+        height: min(300px, 38vw);
+        right: -90px;
+        top: -110px;
+        border-radius: 50%;
+        background: rgba(255,255,255,.16);
+        pointer-events: none;
+    }
+
     .student-hero {
+        position: relative;
+        z-index: 1;
         display: grid;
-        grid-template-columns: auto minmax(0, 1fr) auto;
-        align-items: center;
+        grid-template-columns: auto minmax(0, 1fr);
         gap: 16px;
+        align-items: center;
+        min-width: 0;
     }
+
     .student-avatar {
-        width: 74px;
-        height: 74px;
-        border-radius: 8px;
-        background: linear-gradient(135deg, #0f766e, #2563eb);
+        width: clamp(58px, 8vw, 78px);
+        height: clamp(58px, 8vw, 78px);
+        border-radius: 18px;
+        background: linear-gradient(135deg, #34d399, #3b82f6);
         color: #fff;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 2rem;
-        font-weight: 900;
+        font-size: clamp(1.45rem, 3vw, 2rem);
+        font-weight: 950;
         overflow: hidden;
+        flex: 0 0 auto;
     }
-    .student-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .student-title { margin: 0; color: var(--ink); font-size: 1.45rem; font-weight: 900; letter-spacing: 0; }
-    .student-subtitle { margin: 5px 0 10px; color: var(--muted); font-weight: 700; }
-    .hero-actions, .panel-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .student-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .student-identity {
+        min-width: 0;
+    }
+
+    .student-title {
+        margin: 0;
+        color: #fff;
+        font-size: clamp(1.35rem, 2.5vw, 1.85rem);
+        font-weight: 950;
+        letter-spacing: -.04em;
+        line-height: 1.1;
+        overflow-wrap: anywhere;
+    }
+
+    .student-subtitle {
+        margin: 7px 0 12px;
+        color: rgba(255,255,255,.82);
+        font-weight: 800;
+        overflow-wrap: anywhere;
+    }
+
+    .student-dashboard .hero-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .hero-actions,
+    .panel-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        min-width: 0;
+    }
+
+    .student-hero .hero-actions {
+        grid-column: 1 / -1;
+        margin-top: 4px;
+    }
+
+    @media (min-width: 1500px) {
+        .student-hero {
+            grid-template-columns: auto minmax(0, 1fr) minmax(360px, auto);
+        }
+        .student-hero .hero-actions {
+            grid-column: auto;
+            justify-content: flex-end;
+            margin-top: 0;
+        }
+    }
+
+    .btn-main,
+    .btn-soft,
+    .student-dashboard .btn {
+        min-width: 0;
+        white-space: normal;
+        line-height: 1.15;
+    }
+
     .btn-main {
         background: #0f766e;
         border: 1px solid #0f766e;
         color: #fff;
-        border-radius: 8px;
-        font-weight: 800;
-        padding: 9px 13px;
+        border-radius: 999px;
+        font-weight: 900;
+        padding: 10px 14px;
     }
-    .btn-main:hover { background: #115e59; color: #fff; }
+
+    .btn-main:hover {
+        background: #115e59;
+        color: #fff;
+    }
+
     .btn-add-fee {
         background: var(--red);
         border-color: var(--red);
         color: #fff;
     }
-    .btn-add-fee:hover { background: #b91c1c; color: #fff; }
-    .btn-soft { border-radius: 8px; font-weight: 800; padding: 9px 13px; }
+
+    .btn-add-fee:hover {
+        background: #b91c1c;
+        color: #fff;
+    }
+
+    .btn-soft {
+        border-radius: 999px;
+        font-weight: 900;
+        padding: 10px 14px;
+    }
+
     .pill {
         display: inline-flex;
         align-items: center;
         gap: 6px;
         padding: 6px 10px;
         border-radius: 999px;
-        font-size: .78rem;
-        font-weight: 850;
+        font-size: .76rem;
+        font-weight: 900;
+        max-width: 100%;
     }
+
     .pill-success { background: #dcfce7; color: #166534; }
     .pill-danger { background: #fee2e2; color: #991b1b; }
     .pill-blue { background: #dbeafe; color: #1e40af; }
     .pill-orange { background: #ffedd5; color: #9a3412; }
+
     .summary-grid {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
         gap: 12px;
         margin-bottom: 16px;
     }
+
     .summary-card {
-        padding: 15px;
+        position: relative;
+        overflow: hidden;
+        padding: 16px;
         display: grid;
         grid-template-columns: auto minmax(0, 1fr);
         gap: 12px;
         align-items: center;
-        border-left: 5px solid var(--card-color);
     }
+
+    .summary-card:after {
+        content: "";
+        position: absolute;
+        width: 76px;
+        height: 76px;
+        right: -26px;
+        top: -28px;
+        border-radius: 50%;
+        background: var(--card-soft);
+        opacity: .9;
+    }
+
     .summary-icon {
-        width: 42px;
-        height: 42px;
-        border-radius: 8px;
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
         background: var(--card-soft);
         color: var(--card-color);
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 1.15rem;
+        position: relative;
+        z-index: 1;
     }
-    .summary-value { color: var(--ink); font-size: 1.35rem; font-weight: 950; line-height: 1.1; word-break: break-word; }
-    .summary-label { color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: .76rem; font-weight: 850; margin-top: 4px; }
+
+    .summary-value {
+        color: var(--ink);
+        font-size: clamp(1.18rem, 2vw, 1.45rem);
+        font-weight: 950;
+        line-height: 1.1;
+        overflow-wrap: anywhere;
+    }
+
+    .summary-label {
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        font-size: .72rem;
+        font-weight: 900;
+        margin-top: 5px;
+    }
+
     .tab-card-grid {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 9px;
+        grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+        gap: 10px;
         margin-bottom: 16px;
     }
+
     .tab-card {
-        position: relative;
         width: 100%;
-        min-height: 82px;
+        min-height: 78px;
         text-align: left;
-        padding: 13px 12px;
-        border-top: 3px solid var(--tab-color);
+        padding: 13px 14px;
+        border-top: 0;
+        border-bottom: 4px solid var(--tab-color);
         background: #fff;
         color: var(--ink);
         cursor: pointer;
         transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
     }
-    .tab-card:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(16, 24, 40, .1); }
-    .tab-card.active { background: var(--tab-soft); box-shadow: inset 0 0 0 1px var(--tab-color), 0 12px 26px rgba(16, 24, 40, .08); }
+
+    .tab-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 26px rgba(16, 24, 40, .1);
+    }
+
+    .tab-card.active {
+        background: var(--tab-soft);
+        box-shadow: inset 0 0 0 1px var(--tab-color), 0 12px 26px rgba(16, 24, 40, .08);
+    }
+
     .tab-card i { color: var(--tab-color); font-size: 1.05rem; }
     .tab-card strong { display: block; margin-top: 8px; font-size: .95rem; font-weight: 950; }
-    .tab-card span { display: block; color: var(--muted); font-size: .78rem; font-weight: 750; margin-top: 2px; }
-    .tab-pane { display: none; }
+    .tab-card span { display: block; color: var(--muted); font-size: .78rem; font-weight: 800; margin-top: 2px; }
+
+    .tab-pane { display: none; min-width: 0; max-width: 100%; }
     .tab-pane.active { display: block; }
+
     .panel-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(310px, 100%), 1fr));
         gap: 14px;
         margin-bottom: 16px;
     }
-    .content-panel { overflow: hidden; margin-bottom: 16px; border-top: 4px solid var(--panel-color); }
-    .content-panel-body { padding: 16px; }
+
+    .content-panel {
+        overflow: hidden;
+        margin-bottom: 16px;
+        border-top: 4px solid var(--panel-color);
+    }
+
+    .content-panel-body { padding: 16px; min-width: 0; }
+
     .panel-header {
         padding: 14px 16px;
         background: var(--panel-soft);
@@ -143,54 +383,113 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
+        min-width: 0;
     }
-    .panel-title-wrap { display: flex; align-items: center; gap: 10px; }
+
+    .panel-title-wrap {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+    }
+
+    .panel-title-wrap > div:last-child {
+        min-width: 0;
+    }
+
     .panel-icon {
-        width: 34px;
-        height: 34px;
-        border-radius: 8px;
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
         background: #fff;
         color: var(--panel-color);
         display: flex;
         align-items: center;
         justify-content: center;
         box-shadow: inset 0 0 0 1px rgba(16, 24, 40, .06);
+        flex: 0 0 auto;
     }
-    .panel-title { margin: 0; color: var(--ink); font-size: 1rem; font-weight: 950; }
-    .panel-subtitle { color: var(--muted); font-size: .78rem; font-weight: 750; }
+
+    .panel-title {
+        margin: 0;
+        color: var(--ink);
+        font-size: 1rem;
+        font-weight: 950;
+        overflow-wrap: anywhere;
+    }
+
+    .panel-subtitle {
+        color: var(--muted);
+        font-size: .78rem;
+        font-weight: 800;
+        overflow-wrap: anywhere;
+    }
+
     .info-row {
         display: grid;
-        grid-template-columns: 42% minmax(0, 1fr);
+        grid-template-columns: minmax(105px, 38%) minmax(0, 1fr);
         gap: 10px;
         padding: 9px 0;
         border-bottom: 1px solid #f1f4f8;
+        min-width: 0;
     }
+
     .info-row:last-child { border-bottom: 0; }
-    .info-label { color: var(--muted); font-weight: 750; }
-    .info-value { color: var(--ink); font-weight: 850; word-break: break-word; }
-    .table-modern { margin: 0; }
+    .info-label { color: var(--muted); font-weight: 800; }
+    .info-value { color: var(--ink); font-weight: 850; overflow-wrap: anywhere; min-width: 0; }
+
+    .table-responsive {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table-modern {
+        width: 100%;
+        margin: 0;
+        table-layout: auto;
+    }
+
     .table-modern thead th {
         background: #fff;
         color: #475467;
         border-bottom: 1px solid var(--line);
         padding: 13px 16px;
-        font-size: .76rem;
+        font-size: .72rem;
         text-transform: uppercase;
-        letter-spacing: .05em;
-        font-weight: 900;
+        letter-spacing: .06em;
+        font-weight: 950;
+        white-space: nowrap;
     }
+
     .table-modern tbody td {
         padding: 15px 16px;
         vertical-align: middle;
         border-bottom: 1px solid #f1f4f8;
         color: var(--ink);
+        overflow-wrap: anywhere;
     }
+
     .table-modern tbody tr:hover { background: #fafcff; }
-    .badge-soft { padding: 7px 11px; border-radius: 999px; font-size: .76rem; font-weight: 850; }
+
+    .badge-soft {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 7px 11px;
+        border-radius: 999px;
+        font-size: .76rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
     .badge-success-soft { background: #dcfce7; color: #166534; }
     .badge-danger-soft { background: #fee2e2; color: #991b1b; }
     .badge-info-soft { background: #dbeafe; color: #1e40af; }
     .badge-warning-soft { background: #fef3c7; color: #92400e; }
+
     .course-chip {
         display: inline-block;
         background: #eef2ff;
@@ -198,25 +497,210 @@
         padding: 5px 9px;
         border-radius: 999px;
         font-size: .76rem;
-        font-weight: 800;
+        font-weight: 850;
         margin: 2px;
+        max-width: 100%;
+        overflow-wrap: anywhere;
     }
-    .action-btn { width: 34px; height: 34px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; }
-    .empty-state { padding: 34px 20px; text-align: center; color: var(--muted); font-weight: 750; }
-    @media(max-width: 1180px) {
-        .student-hero { grid-template-columns: auto minmax(0, 1fr); }
-        .hero-actions { grid-column: 1 / -1; justify-content: flex-start; }
-        .tab-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        .panel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .action-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
     }
-    @media(max-width: 900px) {
-        .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .empty-state {
+        padding: 34px 20px;
+        text-align: center;
+        color: var(--muted);
+        font-weight: 800;
     }
-    @media(max-width: 680px) {
-        .student-hero, .summary-grid, .tab-card-grid, .panel-grid { grid-template-columns: 1fr; }
-        .hero-actions, .panel-actions { justify-content: flex-start; }
-        .info-row { grid-template-columns: 1fr; gap: 3px; }
-        .panel-header { align-items: flex-start; flex-direction: column; }
+
+    @media (max-width: 991.98px) {
+        .student-dashboard {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }
+
+        .panel-header {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .panel-header .btn,
+        .panel-header .btn-main,
+        .panel-header .d-flex {
+            max-width: 100%;
+        }
+    }
+
+    @media (max-width: 767.98px) {
+        .student-dashboard {
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        .dashboard-card,
+        .summary-card,
+        .tab-card,
+        .content-panel {
+            border-radius: 16px;
+        }
+
+        .student-hero {
+            grid-template-columns: 1fr;
+            text-align: left;
+        }
+
+        .student-avatar {
+            width: 64px;
+            height: 64px;
+        }
+
+        .hero-actions,
+        .panel-actions,
+        .panel-header .d-flex {
+            width: 100%;
+            display: grid !important;
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .hero-actions .btn,
+        .hero-actions .btn-main,
+        .hero-actions .btn-soft,
+        .panel-header .btn,
+        .panel-header .btn-main {
+            width: 100%;
+            justify-content: center;
+            display: inline-flex;
+        }
+
+        .tab-card-grid {
+            display: flex;
+            overflow-x: auto;
+            gap: 10px;
+            padding: 2px 2px 10px;
+            scroll-snap-type: x mandatory;
+        }
+
+        .tab-card-grid::-webkit-scrollbar,
+        .table-responsive::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .tab-card-grid::-webkit-scrollbar-thumb,
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 999px;
+        }
+
+        .tab-card {
+            flex: 0 0 172px;
+            scroll-snap-align: start;
+        }
+
+        .info-row {
+            grid-template-columns: 1fr;
+            gap: 3px;
+        }
+
+        /* Phone layout: tables become readable cards instead of pushing page width. */
+        .student-dashboard .table-responsive {
+            overflow: visible;
+        }
+
+        .student-dashboard .table-modern,
+        .student-dashboard .table-modern thead,
+        .student-dashboard .table-modern tbody,
+        .student-dashboard .table-modern th,
+        .student-dashboard .table-modern td,
+        .student-dashboard .table-modern tr {
+            display: block;
+            width: 100%;
+        }
+
+        .student-dashboard .table-modern thead {
+            display: none;
+        }
+
+        .student-dashboard .table-modern tbody tr {
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: #fff;
+            padding: 12px;
+            margin: 12px;
+            box-shadow: 0 8px 20px rgba(16, 24, 40, .05);
+        }
+
+        .student-dashboard .table-modern tbody td {
+            border: 0;
+            padding: 8px 0;
+            display: grid;
+            grid-template-columns: minmax(95px, 38%) minmax(0, 1fr);
+            gap: 10px;
+            align-items: start;
+            text-align: left !important;
+        }
+
+        .student-dashboard .table-modern tbody td::before {
+            content: attr(data-label);
+            color: var(--muted);
+            font-size: .72rem;
+            font-weight: 950;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        .student-dashboard .table-modern tbody td:empty::after {
+            content: "-";
+        }
+
+        .student-dashboard .table-modern tbody td[colspan] {
+            display: block;
+        }
+
+        .student-dashboard .table-modern tbody td[colspan]::before {
+            display: none;
+        }
+
+        .student-dashboard .table-modern .d-inline-flex {
+            display: flex !important;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+        }
+    }
+
+    @media (max-width: 420px) {
+        .student-dashboard {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+
+        .student-dashboard .breadcrumb {
+            font-size: .78rem;
+            flex-wrap: wrap;
+        }
+
+        .dashboard-card,
+        .content-panel-body,
+        .panel-header {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        .summary-card {
+            grid-template-columns: 1fr;
+        }
+
+        .student-dashboard .table-modern tbody td {
+            grid-template-columns: 1fr;
+            gap: 3px;
+        }
     }
 </style>
 
@@ -241,10 +725,10 @@
                     {{ student.user.first_name|default:student.user.username|slice:":1" }}
                 {% endif %}
             </div>
-            <div>
+            <div class="student-identity">
                 <h2 class="student-title">{{ student.user.get_full_name|default:student.user.username }}</h2>
                 <p class="student-subtitle">{{ student_session.admission_number }} &middot; @{{ student.user.username }}</p>
-                <div class="d-flex flex-wrap gap-2">
+                <div class="hero-pills">
                     {% if student.is_active %}
                         <span class="pill pill-success"><i class="bi bi-check-circle"></i> Active Student</span>
                     {% else %}
@@ -370,11 +854,11 @@
                     <tbody>
                         {% for document in documents %}
                         <tr>
-                            <td><strong>{{ document.title }}</strong></td>
-                            <td>{{ document.get_document_type_display }}</td>
-                            <td>{{ document.uploaded_at }}</td>
-                            <td>{{ document.note|default:"-" }}</td>
-                            <td class="text-end">
+                            <td data-label="Document"><strong>{{ document.title }}</strong></td>
+                            <td data-label="Type">{{ document.get_document_type_display }}</td>
+                            <td data-label="Uploaded">{{ document.uploaded_at }}</td>
+                            <td data-label="Note">{{ document.note|default:"-" }}</td>
+                            <td data-label="Actions" class="text-end">
                                 <div class="d-inline-flex gap-2">
                                     <a href="{{ document.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-up-right"></i> View</a>
                                     <form method="post" action="{% url 'institute_admin:student_document_delete' document.pk %}" class="m-0" onsubmit="return confirm('Delete this document record?');">
@@ -405,16 +889,16 @@
                     <tbody>
                         {% for enrollment in enrollments %}
                         <tr>
-                            <td><strong>{{ enrollment.batch.name }}</strong><br><small class="text-muted">{{ enrollment.enrolled_on|default:"No date" }}</small></td>
-                            <td>
+                            <td data-label="Batch"><strong>{{ enrollment.batch.name }}</strong><br><small class="text-muted">{{ enrollment.enrolled_on|default:"No date" }}</small></td>
+                            <td data-label="Courses">
                                 {% for course in enrollment.courses.all %}
                                     <span class="course-chip">{{ course.name }}</span>
                                 {% empty %}
                                     <span class="text-muted">No courses</span>
                                 {% endfor %}
                             </td>
-                            <td>{{ enrollment.total_course_fee }}</td>
-                            <td>
+                            <td data-label="Fee">{{ enrollment.total_course_fee }}</td>
+                            <td data-label="Status">
                                 {% if enrollment.status == "ACTIVE" %}
                                     <span class="badge-soft badge-success-soft">Active</span>
                                 {% elif enrollment.status == "COMPLETED" %}
@@ -423,7 +907,7 @@
                                     <span class="badge-soft badge-danger-soft">Cancelled</span>
                                 {% endif %}
                             </td>
-                            <td class="text-end">
+                            <td data-label="Actions" class="text-end">
                                 <a href="javascript:void(0);" data-url="{% url 'institute_admin:enrollment_update' enrollment.pk %}" class="btn btn-sm btn-outline-warning action-btn" onclick="openStudentDashboardWindow(this)" title="Edit"><i class="bi bi-pencil-square"></i></a>
                             </td>
                         </tr>
@@ -451,18 +935,18 @@
                     <tbody>
                         {% for row in invoice_rows %}
                         <tr>
-                            <td>
+                            <td data-label="Invoice">
                                 <strong>{{ row.title }}</strong><br>
                                 <small class="text-muted">Due: {{ row.due_date|default:"-" }}</small>
                                 {% if row.adjusted_credit %}
                                     <br><small class="text-success">Includes adjusted credit: {{ row.adjusted_credit }}</small>
                                 {% endif %}
                             </td>
-                            <td>{{ row.category }}</td>
-                            <td>{{ row.amount }}</td>
-                            <td>{{ row.paid_amount }}</td>
-                            <td>{{ row.due_amount }}</td>
-                            <td>
+                            <td data-label="Category">{{ row.category }}</td>
+                            <td data-label="Amount">{{ row.amount }}</td>
+                            <td data-label="Paid">{{ row.paid_amount }}</td>
+                            <td data-label="Due">{{ row.due_amount }}</td>
+                            <td data-label="Status">
                                 {% if row.status == "PAID" %}
                                     <span class="badge-soft badge-success-soft">Paid</span>
                                 {% elif row.status == "PARTIAL" %}
@@ -492,20 +976,20 @@
                     <tbody>
                         {% for payment in payments %}
                         <tr>
-                            <td>{{ payment.paid_on }}</td>
-                            <td>{{ payment.invoice.title }}</td>
-                            <td>{{ payment.amount }}</td>
-                            <td>{{ payment.get_method_display }}</td>
-                            <td>{{ payment.receipt_number|default:"-" }}</td>
-                            <td>{{ payment.received_by.get_full_name|default:payment.received_by.username|default:"System" }}</td>
-                            <td>
+                            <td data-label="Date">{{ payment.paid_on }}</td>
+                            <td data-label="Invoice">{{ payment.invoice.title }}</td>
+                            <td data-label="Amount">{{ payment.amount }}</td>
+                            <td data-label="Method">{{ payment.get_method_display }}</td>
+                            <td data-label="Receipt">{{ payment.receipt_number|default:"-" }}</td>
+                            <td data-label="Received By">{{ payment.received_by.get_full_name|default:payment.received_by.username|default:"System" }}</td>
+                            <td data-label="Status">
                                 {% if payment.status == "ACTIVE" %}
                                     <span class="badge-soft badge-success-soft">Active</span>
                                 {% else %}
                                     <span class="badge-soft badge-danger-soft">Voided</span>
                                 {% endif %}
                             </td>
-                            <td class="text-end">
+                            <td data-label="Actions" class="text-end">
                                 <a href="{% url 'institute_admin:payment_receipt' payment.pk %}" target="_blank" class="btn btn-sm btn-outline-primary action-btn" title="Receipt"><i class="bi bi-receipt"></i></a>
                                 {% if payment.status == "ACTIVE" %}
                                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:payment_update' payment.pk %}" class="btn btn-sm btn-outline-warning action-btn" onclick="openStudentDashboardWindow(this)" title="Correct"><i class="bi bi-pencil-square"></i></a>
@@ -533,13 +1017,13 @@
                     <tbody>
                         {% for activity in payment_activities %}
                         <tr>
-                            <td>{{ activity.performed_at }}</td>
-                            <td>{{ activity.payment.invoice.title }}</td>
-                            <td>{{ activity.get_action_display }}</td>
-                            <td>{{ activity.old_amount|default:"-" }}</td>
-                            <td>{{ activity.new_amount|default:"-" }}</td>
-                            <td>{{ activity.performed_by.get_full_name|default:activity.performed_by.username|default:"System" }}</td>
-                            <td>{{ activity.note }}</td>
+                            <td data-label="Date & Time">{{ activity.performed_at }}</td>
+                            <td data-label="Invoice">{{ activity.payment.invoice.title }}</td>
+                            <td data-label="Action">{{ activity.get_action_display }}</td>
+                            <td data-label="Old Amount">{{ activity.old_amount|default:"-" }}</td>
+                            <td data-label="New Amount">{{ activity.new_amount|default:"-" }}</td>
+                            <td data-label="By">{{ activity.performed_by.get_full_name|default:activity.performed_by.username|default:"System" }}</td>
+                            <td data-label="Reason / Note">{{ activity.note }}</td>
                         </tr>
                         {% empty %}
                         <tr><td colspan="7"><div class="empty-state">No payment activity yet.</div></td></tr>
@@ -561,9 +1045,9 @@
                     <tbody>
                         {% for attendance in attendance_records %}
                         <tr>
-                            <td>{{ attendance.date }}</td>
-                            <td>{{ attendance.batch.name }}</td>
-                            <td>
+                            <td data-label="Date">{{ attendance.date }}</td>
+                            <td data-label="Batch">{{ attendance.batch.name }}</td>
+                            <td data-label="Status">
                                 {% if attendance.status == "PRESENT" %}
                                     <span class="badge-soft badge-success-soft">Present</span>
                                 {% elif attendance.status == "LATE" %}
@@ -572,8 +1056,8 @@
                                     <span class="badge-soft badge-danger-soft">Absent</span>
                                 {% endif %}
                             </td>
-                            <td>{{ attendance.marked_by.get_full_name|default:attendance.marked_by.username|default:"Not set" }}</td>
-                            <td>{{ attendance.note|default:"-" }}</td>
+                            <td data-label="Marked By">{{ attendance.marked_by.get_full_name|default:attendance.marked_by.username|default:"Not set" }}</td>
+                            <td data-label="Note">{{ attendance.note|default:"-" }}</td>
                         </tr>
                         {% empty %}
                         <tr><td colspan="5"><div class="empty-state">No attendance records yet.</div></td></tr>
@@ -588,9 +1072,13 @@
 <script>
     function openStudentDashboardWindow(element, customWidth = 1000, customHeight = 760) {
         const url = element.dataset.url;
-        const left = Math.max(0, (window.screen.width - customWidth) / 2);
-        const top = Math.max(0, (window.screen.height - customHeight) / 2);
-        const features = [`width=${customWidth}`, `height=${customHeight}`, `left=${left}`, `top=${top}`, 'scrollbars=yes', 'resizable=yes', 'location=no', 'menubar=no', 'toolbar=no', 'status=no'].join(',');
+        const availableWidth = window.screen.availWidth || window.innerWidth;
+        const availableHeight = window.screen.availHeight || window.innerHeight;
+        const popupWidth = Math.min(customWidth, Math.max(340, availableWidth - 32));
+        const popupHeight = Math.min(customHeight, Math.max(420, availableHeight - 48));
+        const left = Math.max(0, (availableWidth - popupWidth) / 2);
+        const top = Math.max(0, (availableHeight - popupHeight) / 2);
+        const features = [`width=${popupWidth}`, `height=${popupHeight}`, `left=${left}`, `top=${top}`, 'scrollbars=yes', 'resizable=yes', 'location=no', 'menubar=no', 'toolbar=no', 'status=no'].join(',');
         const newWindow = window.open(url, "studentDashboardWindow", features);
         if (newWindow) {
             newWindow.focus();

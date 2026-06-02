@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models import Q
@@ -8,22 +11,77 @@ from institute_admin.models import Notice
 from .models import PushNotification, StudentEnrollment, StudentProfile, UserDevice
 
 
-def _firebase_messaging():
+def firebase_configuration_status():
     if not getattr(settings, "PUSH_NOTIFICATIONS_ENABLED", True):
-        return None, "Push notifications are disabled."
+        return {
+            "ready": False,
+            "enabled": False,
+            "detail": "Push notifications are disabled.",
+        }
 
     try:
         import firebase_admin
-        from firebase_admin import credentials, messaging
+        from firebase_admin import credentials
     except ImportError:
-        return None, "firebase-admin package is not installed."
+        return {
+            "ready": False,
+            "enabled": True,
+            "detail": "firebase-admin package is not installed.",
+        }
+
+    credentials_file = str(getattr(settings, "FIREBASE_CREDENTIALS_FILE", "") or "").strip()
+    if not credentials_file:
+        return {
+            "ready": False,
+            "enabled": True,
+            "firebase_admin_installed": True,
+            "detail": "FIREBASE_CREDENTIALS_FILE is not configured.",
+        }
+
+    credentials_path = Path(credentials_file).expanduser()
+    if not credentials_path.exists():
+        return {
+            "ready": False,
+            "enabled": True,
+            "firebase_admin_installed": True,
+            "credentials_file": str(credentials_path),
+            "detail": "Firebase credentials file does not exist.",
+        }
+
+    project_id = getattr(settings, "FIREBASE_PROJECT_ID", "") or ""
+    try:
+        with credentials_path.open(encoding="utf-8") as handle:
+            project_id = project_id or json.load(handle).get("project_id", "")
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    return {
+        "ready": True,
+        "enabled": True,
+        "firebase_admin_installed": True,
+        "credentials_file": str(credentials_path),
+        "project_id": project_id,
+        "detail": "Firebase push notifications are configured.",
+    }
+
+
+def _firebase_messaging():
+    status = firebase_configuration_status()
+    if not status["ready"]:
+        return None, status["detail"]
+
+    import firebase_admin
+    from firebase_admin import credentials, messaging
 
     if not firebase_admin._apps:
-        credentials_file = getattr(settings, "FIREBASE_CREDENTIALS_FILE", "")
-        if not credentials_file:
-            return None, "FIREBASE_CREDENTIALS_FILE is not configured."
         try:
-            firebase_admin.initialize_app(credentials.Certificate(credentials_file))
+            options = {}
+            if status.get("project_id"):
+                options["projectId"] = status["project_id"]
+            firebase_admin.initialize_app(
+                credentials.Certificate(status["credentials_file"]),
+                options=options or None,
+            )
         except Exception as exc:
             return None, str(exc)
     return messaging, ""

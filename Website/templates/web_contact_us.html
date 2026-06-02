@@ -1,0 +1,753 @@
+{% extends "website_base.html" %}
+
+{% block content %}
+<main class="contact-page">
+  <section class="contact-hero">
+    <div class="contact-shell hero-shell">
+      <div class="hero-copy">
+        <span class="eyebrow"><i class="bi bi-headset"></i> UltraCoachMatrix Support Desk</span>
+        <h1>Contact our coaching software team.</h1>
+        <p>
+          Get help with product demos, pricing, onboarding, student management, fees management,
+          attendance tracking, exams, reports, mobile apps and institute setup.
+        </p>
+
+        <div class="hero-actions">
+          <a href="#contact-form" class="primary-action">Start an enquiry <i class="bi bi-arrow-right"></i></a>
+          <a href="tel:+917776824564" class="secondary-action"><i class="bi bi-telephone"></i> +91 7776824564</a>
+        </div>
+      </div>
+
+      <aside class="hero-console" aria-label="Support summary">
+        <div class="console-top">
+          <span class="live-dot"></span>
+          <strong>Enquiry board</strong>
+        </div>
+        <div class="console-metric">
+          <span>Demo enquiries</span>
+          <strong>Within 24 hours</strong>
+        </div>
+        <div class="console-metric">
+          <span>Implementation help</span>
+          <strong>Priority routing</strong>
+        </div>
+        <div class="console-metric">
+          <span>Availability</span>
+          <strong>Mon-Sat, 9:30 AM-6:30 PM</strong>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="contact-strip" aria-label="Contact methods">
+    <div class="contact-shell strip-grid">
+      <a class="strip-item" href="tel:+917776824564">
+        <i class="bi bi-telephone-outbound"></i>
+        <span>
+          <small>Call us</small>
+          <strong>+91 7776824564</strong>
+        </span>
+      </a>
+      <a class="strip-item" href="mailto:ultoxy.tech@gmail.com">
+        <i class="bi bi-envelope-check"></i>
+        <span>
+          <small>Email support</small>
+          <strong>ultoxy.tech@gmail.com</strong>
+        </span>
+      </a>
+      <a class="strip-item" href="{% url 'index' %}">
+        <i class="bi bi-globe-central-south-asia"></i>
+        <span>
+          <small>Platform home</small>
+          <strong>UltraCoachMatrix software</strong>
+        </span>
+      </a>
+    </div>
+  </section>
+
+  <section class="contact-workspace">
+    <div class="contact-shell workspace-grid">
+      <section class="enquiry-card" id="contact-form">
+        <div class="section-head">
+          <span class="eyebrow muted"><i class="bi bi-send"></i> Enquiry form</span>
+          <h2>Tell us about your coaching institute.</h2>
+          <p>Share the basics and our team will guide you with the right demo, plan or implementation support.</p>
+        </div>
+
+        {% if messages %}
+        <div class="contact-alerts">
+          {% for message in messages %}
+          <div class="contact-alert {{ message.tags }}">
+            <i class="bi {% if message.tags == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-circle-fill{% endif %}"></i>
+            <span>{{ message }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <form class="contact-form" method="post" action="{% url 'web_contact_us' %}#contact-form">
+          {% csrf_token %}
+          <div class="field-grid">
+            <label>
+              Full name
+              <input type="text" name="name" placeholder="Your name" value="{{ form_data.name|default:'' }}" required>
+            </label>
+            <label>
+              Coaching institute name
+              <input type="text" name="school" placeholder="Institute name" value="{{ form_data.school|default:'' }}" required>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              Phone number
+              <input type="tel" name="phone" placeholder="+91..." value="{{ form_data.phone|default:'' }}" required>
+            </label>
+            <label>
+              Email address
+              <input type="email" name="email" placeholder="you@example.com" value="{{ form_data.email|default:'' }}" required>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              Enquiry type
+              <select name="enquiry_type" required>
+                <option value="">Select enquiry type</option>
+                <option value="demo" {% if form_data.enquiry_type == "demo" %}selected{% endif %}>Book product demo</option>
+                <option value="pricing" {% if form_data.enquiry_type == "pricing" %}selected{% endif %}>Pricing and plan details</option>
+                <option value="implementation" {% if form_data.enquiry_type == "implementation" %}selected{% endif %}>Implementation support</option>
+                <option value="technical" {% if form_data.enquiry_type == "technical" %}selected{% endif %}>Technical support</option>
+                <option value="enterprise" {% if form_data.enquiry_type == "enterprise" %}selected{% endif %}>Enterprise or partnership query</option>
+              </select>
+            </label>
+            <label>
+              Institute size
+              <select name="student_count">
+                <option value="">Select range</option>
+                <option value="1-25" {% if form_data.student_count == "1-25" %}selected{% endif %}>Up to 100 students</option>
+                <option value="26-75" {% if form_data.student_count == "26-75" %}selected{% endif %}>100-500 students</option>
+                <option value="76-150" {% if form_data.student_count == "76-150" %}selected{% endif %}>500-1000 students</option>
+                <option value="150+" {% if form_data.student_count == "150+" %}selected{% endif %}>1000+ students</option>
+              </select>
+            </label>
+          </div>
+
+          <label>
+            Requirement
+            <textarea name="message" rows="5" placeholder="Tell us about your admission, fees, attendance, exam, mobile app or management requirement.">{{ form_data.message|default:'' }}</textarea>
+          </label>
+
+          <button type="submit">Submit enquiry <i class="bi bi-send-fill"></i></button>
+        </form>
+      </section>
+
+      <aside class="side-panel">
+        <div class="side-block dark-block">
+          <span class="eyebrow inverse"><i class="bi bi-compass"></i> Best for</span>
+          <h2>Coaching classes moving from registers, Excel sheets and manual follow-ups to a complete digital management system.</h2>
+          <ul>
+            <li><i class="bi bi-check2-circle"></i> Student admission & enrollment management</li>
+            <li><i class="bi bi-check2-circle"></i> Fees, installments & pending fee tracking</li>
+            <li><i class="bi bi-check2-circle"></i> Attendance, exams & performance reports</li>
+            <li><i class="bi bi-check2-circle"></i> Student and teacher mobile app support</li>
+          </ul>
+        </div>
+
+        <div class="side-block light-block">
+          <span class="eyebrow muted"><i class="bi bi-clock-history"></i> Business hours</span>
+          <strong>Monday to Saturday</strong>
+          <p>9:30 AM to 6:30 PM IST</p>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="support-section">
+    <div class="contact-shell">
+      <div class="section-head centered">
+        <span class="eyebrow muted"><i class="bi bi-life-preserver"></i> Support options</span>
+        <h2>Choose the right support path.</h2>
+        <p>Each enquiry is routed based on your institute requirement.</p>
+      </div>
+
+      <div class="support-grid">
+        <article class="support-path">
+          <span>01</span>
+          <i class="bi bi-display"></i>
+          <h3>Product demo</h3>
+          <p>Walk through admin dashboard, student app, teacher app, fees, attendance, exams and reports.</p>
+        </article>
+        <article class="support-path">
+          <span>02</span>
+          <i class="bi bi-diagram-3"></i>
+          <h3>Institute setup</h3>
+          <p>Prepare courses, batches, students, teachers, fee structures, subjects and branches.</p>
+        </article>
+        <article class="support-path">
+          <span>03</span>
+          <i class="bi bi-shield-check"></i>
+          <h3>Module guidance</h3>
+          <p>Discuss admission flow, fee collection, attendance process, exam reports and communication workflow.</p>
+        </article>
+        <article class="support-path">
+          <span>04</span>
+          <i class="bi bi-building-check"></i>
+          <h3>Enterprise support</h3>
+          <p>Explore custom workflows, multi-branch operations, role-based access and onboarding requirements.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="contact-final">
+    <div class="contact-shell final-grid">
+      <div class="region-card">
+        <i class="bi bi-geo-alt-fill"></i>
+        <h2>Remote onboarding for coaching institutes across India</h2>
+        <p>We support small coaching classes, large institutes, training centers and multi-branch education groups.</p>
+      </div>
+
+      <div class="faq-panel">
+        <span class="eyebrow muted"><i class="bi bi-question-circle"></i> Quick answers</span>
+        <details open>
+          <summary>Can we request a product demo?</summary>
+          <p>Yes. Submit the enquiry form and we can arrange a guided walkthrough for your coaching institute team.</p>
+        </details>
+        <details>
+          <summary>Can you help with institute data setup?</summary>
+          <p>Yes. We guide you through courses, batches, students, teachers, fee plans, attendance and exam setup.</p>
+        </details>
+        <details>
+          <summary>Do you support custom requirements?</summary>
+          <p>Yes. Enterprise requirements can be discussed through a consultation call.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<style>
+.contact-page{
+  background:
+    linear-gradient(180deg,rgba(246,249,255,.35),rgba(255,255,255,.92) 44%,#f7fbff),
+    radial-gradient(circle at 10% 12%,rgba(24,216,255,.18),transparent 32%),
+    radial-gradient(circle at 90% 4%,rgba(34,197,94,.14),transparent 30%);
+}
+
+.contact-shell{
+  width:min(1180px,calc(100% - 40px));
+  margin:0 auto;
+}
+
+.contact-hero{
+  position:relative;
+  padding:86px 0 44px;
+  overflow:hidden;
+}
+
+.hero-shell{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 390px;
+  gap:34px;
+  align-items:end;
+}
+
+.eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  width:max-content;
+  max-width:100%;
+  padding:8px 12px;
+  border-radius:999px;
+  color:#0f5132;
+  background:#dff8ea;
+  border:1px solid #b8efce;
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.02em;
+}
+
+.eyebrow.muted{
+  color:#17426f;
+  background:#edf6ff;
+  border-color:#d7e9fb;
+}
+
+.eyebrow.inverse{
+  color:#dff8ea;
+  background:rgba(34,197,94,.12);
+  border-color:rgba(187,247,208,.22);
+}
+
+.hero-copy h1{
+  max-width:850px;
+  margin:18px 0 18px;
+  color:#071527;
+  font-size:clamp(42px,6vw,78px);
+  line-height:.98;
+  font-weight:950;
+}
+
+.hero-copy p{
+  max-width:760px;
+  margin:0;
+  color:#496179;
+  font-size:18px;
+  line-height:1.75;
+}
+
+.hero-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-top:28px;
+}
+
+.primary-action,
+.secondary-action{
+  min-height:52px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  padding:0 22px;
+  border-radius:999px;
+  font-weight:900;
+  text-decoration:none;
+}
+
+.primary-action{
+  color:#fff;
+  background:linear-gradient(135deg,#123c7a,#1d65c1);
+  box-shadow:0 18px 38px rgba(18,60,122,.24);
+}
+
+.secondary-action{
+  color:#123c7a;
+  background:#fff;
+  border:1px solid #d9e6f4;
+}
+
+.hero-console{
+  padding:22px;
+  border-radius:18px;
+  color:#fff;
+  background:linear-gradient(145deg,#071527,#123c7a 62%,#155e75);
+  box-shadow:0 28px 80px rgba(7,21,39,.22);
+  border:1px solid rgba(255,255,255,.12);
+}
+
+.console-top{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding-bottom:18px;
+}
+
+.live-dot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:#22c55e;
+  box-shadow:0 0 0 8px rgba(34,197,94,.14);
+}
+
+.console-metric{
+  display:flex;
+  justify-content:space-between;
+  gap:18px;
+  padding:16px 0;
+  border-top:1px solid rgba(255,255,255,.12);
+}
+
+.console-metric span{
+  color:#b9cce2;
+}
+
+.console-metric strong{
+  text-align:right;
+}
+
+.contact-strip{
+  padding:0 0 34px;
+}
+
+.strip-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+
+.strip-item{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:18px;
+  border-radius:16px;
+  color:#071527;
+  background:rgba(255,255,255,.78);
+  border:1px solid #dce8f6;
+  box-shadow:0 16px 44px rgba(18,60,122,.08);
+  text-decoration:none;
+}
+
+.strip-item i{
+  width:44px;
+  height:44px;
+  flex:0 0 44px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  color:#fff;
+  background:#123c7a;
+}
+
+.strip-item span{
+  min-width:0;
+}
+
+.strip-item small{
+  display:block;
+  color:#6b7a90;
+  font-weight:800;
+  margin-bottom:4px;
+}
+
+.strip-item strong{
+  display:block;
+  overflow-wrap:anywhere;
+  color:#071527;
+  font-size:15px;
+}
+
+.contact-workspace,
+.support-section,
+.contact-final{
+  padding:52px 0;
+}
+
+.workspace-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 380px;
+  gap:24px;
+  align-items:start;
+}
+
+.enquiry-card,
+.side-block,
+.support-path,
+.faq-panel{
+  border:1px solid #dce8f6;
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 22px 60px rgba(18,60,122,.08);
+}
+
+.enquiry-card{
+  padding:30px;
+}
+
+.section-head h2{
+  margin:14px 0 8px;
+  color:#071527;
+  font-size:clamp(28px,3vw,42px);
+  line-height:1.08;
+  font-weight:950;
+}
+
+.section-head p{
+  margin:0;
+  color:#607089;
+  line-height:1.7;
+}
+
+.centered{
+  max-width:720px;
+  margin:0 auto 28px;
+  text-align:center;
+}
+
+.centered .eyebrow{
+  margin:auto;
+}
+
+.contact-form{
+  display:grid;
+  gap:16px;
+  margin-top:26px;
+}
+
+.contact-alerts{
+  display:grid;
+  gap:10px;
+  margin-top:22px;
+}
+
+.contact-alert{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:13px 14px;
+  border-radius:12px;
+  font-weight:850;
+}
+
+.contact-alert.success{
+  color:#0f5132;
+  background:#dff8ea;
+  border:1px solid #b8efce;
+}
+
+.contact-alert.error{
+  color:#842029;
+  background:#f8d7da;
+  border:1px solid #f1aeb5;
+}
+
+.field-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+}
+
+.contact-form label{
+  display:grid;
+  gap:8px;
+  min-width:0;
+  color:#1b2b45;
+  font-size:14px;
+  font-weight:900;
+}
+
+.contact-form input,
+.contact-form select,
+.contact-form textarea{
+  width:100%;
+  border:1px solid #d7e4f2;
+  border-radius:12px;
+  background:#f8fbff;
+  color:#1b2b45;
+  padding:13px 14px;
+  outline:0;
+  font:inherit;
+}
+
+.contact-form textarea{
+  resize:vertical;
+}
+
+.contact-form input:focus,
+.contact-form select:focus,
+.contact-form textarea:focus{
+  background:#fff;
+  border-color:#1d65c1;
+  box-shadow:0 0 0 4px rgba(29,101,193,.1);
+}
+
+.contact-form button{
+  min-height:54px;
+  border:0;
+  border-radius:14px;
+  color:#fff;
+  background:linear-gradient(135deg,#16a34a,#1d65c1);
+  font-weight:950;
+}
+
+.side-panel{
+  display:grid;
+  gap:18px;
+  position:sticky;
+  top:98px;
+}
+
+.side-block{
+  padding:24px;
+}
+
+.dark-block{
+  color:#fff;
+  background:linear-gradient(145deg,#071527,#123c7a);
+}
+
+.dark-block h2{
+  margin:16px 0;
+  font-size:25px;
+  line-height:1.18;
+  font-weight:950;
+}
+
+.dark-block ul{
+  display:grid;
+  gap:12px;
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+
+.dark-block li{
+  display:flex;
+  gap:10px;
+  color:#d8e6f5;
+}
+
+.dark-block i{
+  color:#22c55e;
+}
+
+.light-block strong{
+  display:block;
+  margin:14px 0 6px;
+  color:#071527;
+  font-size:20px;
+}
+
+.light-block p{
+  margin:0;
+  color:#607089;
+}
+
+.support-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:16px;
+}
+
+.support-path{
+  position:relative;
+  overflow:hidden;
+  padding:22px;
+  min-height:245px;
+}
+
+.support-path span{
+  color:#16a34a;
+  font-weight:950;
+}
+
+.support-path i{
+  display:grid;
+  place-items:center;
+  width:48px;
+  height:48px;
+  margin:22px 0;
+  border-radius:15px;
+  color:#fff;
+  background:#123c7a;
+}
+
+.support-path h3{
+  color:#071527;
+  font-weight:950;
+}
+
+.support-path p{
+  color:#607089;
+  line-height:1.65;
+}
+
+.final-grid{
+  display:grid;
+  grid-template-columns:.85fr 1.15fr;
+  gap:24px;
+}
+
+.region-card{
+  position:relative;
+  overflow:hidden;
+  min-height:330px;
+  padding:30px;
+  border-radius:18px;
+  color:#fff;
+  background:
+    linear-gradient(145deg,rgba(7,21,39,.9),rgba(18,60,122,.96)),
+    repeating-linear-gradient(135deg,rgba(255,255,255,.12) 0 1px,transparent 1px 44px);
+  box-shadow:0 28px 80px rgba(7,21,39,.18);
+}
+
+.region-card i{
+  color:#22c55e;
+  font-size:36px;
+}
+
+.region-card h2{
+  margin:34px 0 12px;
+  max-width:430px;
+  font-size:34px;
+  line-height:1.08;
+  font-weight:950;
+}
+
+.region-card p{
+  max-width:500px;
+  color:#d8e6f5;
+  line-height:1.7;
+}
+
+.faq-panel{
+  padding:30px;
+}
+
+.faq-panel details{
+  padding:18px 0;
+  border-top:1px solid #e7eef7;
+}
+
+.faq-panel summary{
+  cursor:pointer;
+  color:#071527;
+  font-weight:950;
+}
+
+.faq-panel p{
+  color:#607089;
+  line-height:1.7;
+}
+
+@media(max-width:1050px){
+  .hero-shell,
+  .workspace-grid,
+  .final-grid{
+    grid-template-columns:1fr;
+  }
+
+  .side-panel{
+    position:static;
+  }
+
+  .support-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media(max-width:760px){
+  .contact-shell{
+    width:min(100% - 28px,1180px);
+  }
+
+  .contact-hero{
+    padding:54px 0 28px;
+  }
+
+  .strip-grid,
+  .field-grid,
+  .support-grid{
+    grid-template-columns:1fr;
+  }
+
+  .hero-console,
+  .enquiry-card,
+  .side-block,
+  .faq-panel,
+  .region-card{
+    border-radius:14px;
+  }
+
+  .hero-copy h1{
+    font-size:40px;
+  }
+}
+</style>
+{% endblock content %}

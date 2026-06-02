@@ -30,6 +30,11 @@ class InstituteSignupForm(UserCreationForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs.setdefault("class", "form-control")
+            self.fields['password1'].help_text = None
+            self.fields['password2'].help_text = None
+            self.fields['username'].help_text = None
+
+
 
     def clean_institute_code(self):
         code = self.cleaned_data["institute_code"]

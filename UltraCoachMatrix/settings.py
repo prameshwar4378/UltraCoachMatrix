@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'teacher',
     'accountant',
     'student_parent',
+    'Website',
 ]
 
 MIDDLEWARE = [
@@ -165,6 +166,9 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-FIREBASE_CREDENTIALS_FILE = os.environ.get("FIREBASE_CREDENTIALS_FILE", "")
+FIREBASE_CREDENTIALS_FILE = os.environ.get(
+    "FIREBASE_CREDENTIALS_FILE",
+    os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", str(BASE_DIR / "firebase-service-account.json")),
+)
 FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "")
 PUSH_NOTIFICATIONS_ENABLED = os.environ.get("PUSH_NOTIFICATIONS_ENABLED", "true").lower() in {"1", "true", "yes"}
