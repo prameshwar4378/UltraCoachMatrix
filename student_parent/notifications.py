@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 from django.conf import settings
@@ -9,6 +10,15 @@ from django.utils import timezone
 from institute_admin.models import Notice
 
 from .models import PushNotification, StudentEnrollment, StudentProfile, UserDevice
+
+logger = logging.getLogger(__name__)
+
+INVALID_TOKEN_ERROR_MARKERS = (
+    "registration-token-not-registered",
+    "requested entity was not found",
+    "invalid registration token",
+    "sender id",
+)
 
 
 def firebase_configuration_status():
@@ -125,19 +135,33 @@ def send_push_to_user(user, notification_type, title, body, data=None):
         try:
             sent_ids.append(messaging.send(message))
         except Exception as exc:
-            errors.append(str(exc))
+            error_message = str(exc)
+            errors.append(f"{device.platform}:{device.pk}: {error_message}")
+            if _is_invalid_token_error(error_message):
+                device.is_active = False
+                device.save(update_fields=["is_active", "updated_at"])
+                logger.info("Deactivated invalid FCM token for device %s.", device.pk)
 
     if sent_ids:
         record.status = PushNotification.Status.SENT
         record.firebase_message_id = ",".join(sent_ids)[:255]
         record.sent_at = timezone.now()
-        update_fields = ["status", "firebase_message_id", "sent_at"]
+        if errors:
+            record.error_message = "; ".join(errors)
+            update_fields = ["status", "firebase_message_id", "sent_at", "error_message"]
+        else:
+            update_fields = ["status", "firebase_message_id", "sent_at"]
     else:
         record.status = PushNotification.Status.FAILED
         record.error_message = "; ".join(errors)
         update_fields = ["status", "error_message"]
     record.save(update_fields=update_fields)
     return record
+
+
+def _is_invalid_token_error(error_message):
+    normalized = error_message.lower()
+    return any(marker in normalized for marker in INVALID_TOKEN_ERROR_MARKERS)
 
 
 def notify_fee_paid(payment):

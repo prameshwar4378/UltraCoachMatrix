@@ -28,6 +28,9 @@ class TeacherProfile(models.Model):
 
     class Meta:
         ordering = ["user__first_name", "user__username"]
+        indexes = [
+            models.Index(fields=["institute", "is_active"], name="teacher_inst_active_idx"),
+        ]
 
     def __str__(self):
         return self.user.get_full_name() or self.user.username
@@ -68,6 +71,11 @@ class Attendance(models.Model):
     class Meta:
         ordering = ["-date"]
         unique_together = ["academic_session", "batch", "date"]
+        indexes = [
+            models.Index(fields=["academic_session", "-date", "status"], name="att_session_date_idx"),
+            models.Index(fields=["student", "-date"], name="att_student_date_idx"),
+            models.Index(fields=["batch", "date", "status"], name="att_batch_date_idx"),
+        ]
 
     def __str__(self):
         return f"{self.student} - {self.date} - {self.status}"
@@ -105,6 +113,10 @@ class Homework(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["batch", "due_date", "-created_at"], name="hw_batch_due_idx"),
+            models.Index(fields=["course", "due_date"], name="hw_course_due_idx"),
+        ]
 
     def __str__(self):
         return self.title
@@ -117,6 +129,9 @@ class HomeworkAttachment(models.Model):
 
     class Meta:
         ordering = ["-uploaded_at"]
+        indexes = [
+            models.Index(fields=["homework", "-uploaded_at"], name="hw_attach_uploaded_idx"),
+        ]
 
     def __str__(self):
         return self.file.name
@@ -141,6 +156,9 @@ class Exam(models.Model):
 
     class Meta:
         ordering = ["-exam_date"]
+        indexes = [
+            models.Index(fields=["batch", "-exam_date"], name="exam_batch_date_idx"),
+        ]
 
     def __str__(self):
         return f"{self.title} - {self.batch}"
@@ -159,6 +177,9 @@ class ExamResult(models.Model):
     class Meta:
         ordering = ["exam", "student__user__first_name", "student__user__username"]
         unique_together = ["exam", "student"]
+        indexes = [
+            models.Index(fields=["student"], name="exam_result_student_idx"),
+        ]
 
     def __str__(self):
         return f"{self.student} - {self.exam}"

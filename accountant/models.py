@@ -16,6 +16,9 @@ class FeeCategory(models.Model):
     class Meta:
         ordering = ["name"]
         unique_together = ["institute", "name"]
+        indexes = [
+            models.Index(fields=["institute", "is_active", "name"], name="feecat_inst_active_idx"),
+        ]
 
     def __str__(self):
         return self.name
@@ -79,6 +82,12 @@ class FeeInvoice(models.Model):
 
     class Meta:
         ordering = ["-due_date"]
+        indexes = [
+            models.Index(fields=["academic_session", "status", "-due_date"], name="inv_session_status_idx"),
+            models.Index(fields=["student", "status", "-due_date"], name="inv_student_status_idx"),
+            models.Index(fields=["institute", "status", "-due_date"], name="inv_inst_status_idx"),
+            models.Index(fields=["enrollment", "status"], name="inv_enroll_status_idx"),
+        ]
 
     def __str__(self):
         return f"{self.student} - {self.title}"
@@ -132,6 +141,11 @@ class Payment(models.Model):
 
     class Meta:
         ordering = ["-paid_on"]
+        indexes = [
+            models.Index(fields=["invoice", "status", "-paid_on"], name="pay_invoice_status_idx"),
+            models.Index(fields=["status", "-paid_on"], name="pay_status_date_idx"),
+            models.Index(fields=["receipt_number"], name="pay_receipt_idx"),
+        ]
 
     def __str__(self):
         return f"{self.invoice} - {self.amount}"
@@ -170,6 +184,9 @@ class PaymentActivity(models.Model):
 
     class Meta:
         ordering = ["-performed_at"]
+        indexes = [
+            models.Index(fields=["payment", "-performed_at"], name="payact_payment_time_idx"),
+        ]
 
     def __str__(self):
         return f"{self.payment} - {self.get_action_display()}"
@@ -195,6 +212,9 @@ class Expense(models.Model):
 
     class Meta:
         ordering = ["-spent_on"]
+        indexes = [
+            models.Index(fields=["institute", "-spent_on"], name="expense_inst_date_idx"),
+        ]
 
     def __str__(self):
         return f"{self.title} - {self.amount}"

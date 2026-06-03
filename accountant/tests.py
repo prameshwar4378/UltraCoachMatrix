@@ -138,6 +138,71 @@ class MobileFeesApiTests(TestCase):
         self.assertNotIn("fees", data)
         self.assertNotIn("payment_history", data)
 
+    def test_mobile_fee_details_use_selected_session_admission_and_invoice_amount(self):
+        next_year = AcademicYear.objects.create(
+            institute=self.institute,
+            name="2027-28",
+            start_date=date(2027, 4, 1),
+            end_date=date(2028, 3, 31),
+        )
+        next_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_year=next_year,
+            admission_number="SM-2027-28-0001",
+        )
+        next_course = Course.objects.create(
+            institute=self.institute,
+            academic_year=next_year,
+            name="Class 11",
+            fee_amount=Decimal("20000.00"),
+        )
+        next_batch = Batch.objects.create(
+            institute=self.institute,
+            academic_year=next_year,
+            name="Advanced",
+        )
+        next_batch.courses.add(next_course)
+        next_enrollment = StudentEnrollment.objects.create(
+            student=self.student,
+            academic_session=next_session,
+            batch=next_batch,
+        )
+        next_enrollment.courses.add(next_course)
+        next_invoice = FeeInvoice.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_session=next_session,
+            enrollment=next_enrollment,
+            course=next_course,
+            batch=next_batch,
+            category=self.category,
+            title="Annual Fee",
+            amount=Decimal("45000.00"),
+            due_date=date(2027, 6, 30),
+            status=FeeInvoice.Status.PARTIAL,
+        )
+        Payment.objects.create(
+            invoice=next_invoice,
+            amount=Decimal("1000.00"),
+            paid_on=date(2027, 5, 29),
+            receipt_number="RCP-2027",
+        )
+
+        response = self.client.get(
+            f"/api/mobile/fees/?academic_session_id={next_session.pk}",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["student"]["admission_number"], "SM-2027-28-0001")
+        self.assertEqual(data["summary"]["total_fee_amount"], "45000.00")
+        self.assertEqual(data["summary"]["total_paid_amount"], "1000.00")
+        self.assertEqual(data["summary"]["total_due_amount"], "44000.00")
+        self.assertEqual(data["fees"][0]["amount"], "45000.00")
+        self.assertEqual(data["fees"][0]["due_amount"], "44000.00")
+
     def test_mobile_fee_invoices_returns_invoice_list_only(self):
         response = self.client.get("/api/mobile/fees/invoices/", **self.auth_headers())
 

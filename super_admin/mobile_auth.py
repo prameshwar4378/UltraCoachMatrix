@@ -12,7 +12,7 @@ from .models import MobileRefreshToken
 
 ACCESS_TOKEN_SALT = "ultracoachmatrix.mobile.access"
 ACCESS_TOKEN_SECONDS = getattr(settings, "MOBILE_ACCESS_TOKEN_SECONDS", 15 * 60)
-REFRESH_TOKEN_DAYS = getattr(settings, "MOBILE_REFRESH_TOKEN_DAYS", 30)
+REFRESH_TOKEN_DAYS = getattr(settings, "MOBILE_REFRESH_TOKEN_DAYS", 3650)
 
 
 def hash_token(token):

@@ -12,6 +12,7 @@ urlpatterns = [
     path("api/mobile/auth/refresh/", views.mobile_token_refresh, name="mobile_token_refresh"),
     path("api/mobile/auth/logout/", views.mobile_logout, name="mobile_logout"),
     path("api/mobile/auth/me/", views.mobile_me, name="mobile_me"),
+    path("api/mobile/auth/password/", views.mobile_change_password, name="mobile_change_password"),
     path("api/mobile/profile/", views.mobile_profile, name="mobile_profile"),
     path("signup/", views.signup, name="signup"),
 ]

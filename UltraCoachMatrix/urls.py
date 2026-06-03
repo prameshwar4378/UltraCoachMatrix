@@ -24,7 +24,10 @@ from super_admin import views as super_admin_views
 from super_admin import urls as super_admin_urls
 from Website import urls as website_urls
 urlpatterns = [
+    path('api/mobile/attendance/', student_parent_views.mobile_attendance, name='mobile_attendance'),
     path('api/mobile/homework/', student_parent_views.mobile_homework_planner, name='mobile_homework_planner'),
+    path('api/mobile/notices/', student_parent_views.mobile_notices, name='mobile_notices'),
+    path('api/mobile/notices/<int:notice_id>/read/', student_parent_views.mobile_notice_mark_read, name='mobile_notice_mark_read'),
     path('api/mobile/devices/register/', student_parent_views.mobile_register_device, name='mobile_register_device'),
     path('api/mobile/devices/unregister/', student_parent_views.mobile_unregister_device, name='mobile_unregister_device'),
     path('api/mobile/notifications/', student_parent_views.mobile_notifications, name='mobile_notifications'),

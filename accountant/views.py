@@ -88,6 +88,12 @@ def _student_sessions(student, request):
 
 
 def _invoice_paid(invoice):
+    prefetched = getattr(invoice, "_prefetched_objects_cache", {}).get("payments")
+    if prefetched is not None:
+        return sum(
+            (payment.amount for payment in prefetched if payment.status == Payment.Status.ACTIVE),
+            Decimal("0.00"),
+        )
     return invoice.payments.filter(status=Payment.Status.ACTIVE).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
 
 
@@ -161,14 +167,28 @@ def _payment_payload(payment, request, include_activity=False):
     return payload
 
 
-def _student_payload(student):
-    return {
+def _active_fee_session(student, request):
+    return _student_sessions(student, request).first()
+
+
+def _student_payload(student, request=None):
+    session = _active_fee_session(student, request) if request is not None else None
+    admission_number = session.admission_number if session else student.admission_number
+    payload = {
         "id": student.pk,
-        "admission_number": student.admission_number,
+        "admission_number": admission_number,
         "name": student.user.get_full_name() or student.user.username,
         "username": student.user.username,
         "institute": {"id": student.institute_id, "name": student.institute.name},
     }
+    if session:
+        payload["academic_session"] = {
+            "id": session.pk,
+            "admission_number": session.admission_number,
+            "academic_year": session.academic_year.name if session.academic_year_id else "",
+            "status": session.status,
+        }
+    return payload
 
 
 def _academic_sessions_payload(sessions):
@@ -212,17 +232,29 @@ def _payment_queryset(student, request):
 
 
 def _fee_service_rows(student, request):
+    cache_key = (student.pk, request.GET.urlencode())
+    cache = getattr(request, "_mobile_fee_rows_cache", None)
+    if cache is None:
+        cache = {}
+        request._mobile_fee_rows_cache = cache
+    if cache_key in cache:
+        return cache[cache_key]
+
     sessions = _student_sessions(student, request)
     rows = []
     raw_paid_amount = Decimal("0.00")
     excess_credit = Decimal("0.00")
     additional_groups = {}
+    enrollment_invoice_totals = {}
 
     invoices = _invoice_queryset(student, request)
     for invoice in invoices:
         paid_amount = _invoice_paid(invoice)
         raw_paid_amount += paid_amount
         if invoice.enrollment_id:
+            enrollment_invoice_totals[invoice.enrollment_id] = (
+                enrollment_invoice_totals.get(invoice.enrollment_id, Decimal("0.00")) + invoice.amount
+            )
             continue
 
         group_key = f"category-{invoice.category_id}" if invoice.category_id else f"invoice-{invoice.pk}"
@@ -246,6 +278,8 @@ def _fee_service_rows(student, request):
     for session in sessions.prefetch_related("enrollments__batch", "enrollments__courses"):
         enrollments = session.enrollments.exclude(status=StudentEnrollment.Status.CANCELLED).select_related("batch")
         for enrollment in enrollments:
+            enrollment_invoice_total = enrollment_invoice_totals.get(enrollment.pk, Decimal("0.00"))
+            fee_amount = max(enrollment.total_course_fee, enrollment_invoice_total)
             paid_amount = (
                 Payment.objects.filter(
                     invoice__student=student,
@@ -255,9 +289,9 @@ def _fee_service_rows(student, request):
                 ).aggregate(total=Sum("amount"))["total"]
                 or Decimal("0.00")
             )
-            display_paid = min(paid_amount, enrollment.total_course_fee)
-            if paid_amount > enrollment.total_course_fee:
-                excess_credit += paid_amount - enrollment.total_course_fee
+            display_paid = min(paid_amount, fee_amount)
+            if paid_amount > fee_amount:
+                excess_credit += paid_amount - fee_amount
             courses = list(enrollment.courses.all())
             rows.append(
                 {
@@ -267,12 +301,12 @@ def _fee_service_rows(student, request):
                     "batch": {"id": enrollment.batch_id, "name": enrollment.batch.name},
                     "course": {"id": courses[0].pk, "name": courses[0].name} if len(courses) == 1 else {"id": None, "name": None},
                     "enrollment_id": enrollment.pk,
-                    "amount": enrollment.total_course_fee,
+                    "amount": fee_amount,
                     "paid_amount": display_paid,
                     "actual_paid": paid_amount,
-                    "due_amount": enrollment.total_course_fee - display_paid,
+                    "due_amount": fee_amount - display_paid,
                     "due_date": enrollment.enrolled_on,
-                    "status": "PAID" if display_paid >= enrollment.total_course_fee else "PARTIAL" if display_paid > 0 else "UNPAID",
+                    "status": "PAID" if display_paid >= fee_amount else "PARTIAL" if display_paid > 0 else "UNPAID",
                     "latest_receipt_url": None,
                     "latest_receipt_download_url": None,
                 }
@@ -321,7 +355,8 @@ def _fee_service_rows(student, request):
             row["status"] = "UNPAID"
 
     rows.sort(key=lambda row: (row["due_date"] is None, row["due_date"], row["title"]), reverse=True)
-    return rows, raw_paid_amount
+    cache[cache_key] = (rows, raw_paid_amount)
+    return cache[cache_key]
 
 
 def _fee_row_payload(row):
@@ -358,7 +393,7 @@ def _fee_summary_payload(student, request):
         total_due = Decimal("0.00")
 
     return {
-        "student": _student_payload(student),
+        "student": _student_payload(student, request),
         "summary": {
             "total_fee_amount": _money(total_fee),
             "total_paid_amount": _money(total_paid),
@@ -375,7 +410,7 @@ def _fee_summary_payload(student, request):
 def _fee_invoices_payload(student, request):
     fee_rows, _total_paid_raw = _fee_service_rows(student, request)
     return {
-        "student": _student_payload(student),
+        "student": _student_payload(student, request),
         "fees": [_fee_row_payload(row) for row in fee_rows],
     }
 
@@ -426,7 +461,7 @@ def _fee_breakup_payload(student, request):
             )
 
     return {
-        "student": _student_payload(student),
+        "student": _student_payload(student, request),
         "enrollments": enrollments,
         "category_wise": [
             {

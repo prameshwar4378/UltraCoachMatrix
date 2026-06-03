@@ -17,6 +17,9 @@ class AcademicYear(models.Model):
     class Meta:
         ordering = ["-start_date"]
         unique_together = ["institute", "name"]
+        indexes = [
+            models.Index(fields=["institute", "is_active", "-start_date"], name="ay_inst_active_idx"),
+        ]
 
     def __str__(self):
         return f"{self.institute} - {self.name}"
@@ -42,6 +45,9 @@ class Course(models.Model):
     class Meta:
         ordering = ["academic_year__start_date", "name"]
         unique_together = ["institute", "academic_year", "name"]
+        indexes = [
+            models.Index(fields=["institute", "academic_year", "is_active"], name="course_inst_year_idx"),
+        ]
 
     def __str__(self):
         return self.name
@@ -69,6 +75,9 @@ class Batch(models.Model):
     class Meta:
         ordering = ["academic_year__start_date", "name"]
         unique_together = ["institute", "academic_year", "name"]
+        indexes = [
+            models.Index(fields=["institute", "academic_year", "is_active"], name="batch_inst_year_idx"),
+        ]
 
     def __str__(self):
         return self.name
@@ -131,6 +140,11 @@ class Notice(models.Model):
 
     class Meta:
         ordering = ["-pin_on_top", "-created_at"]
+        indexes = [
+            models.Index(fields=["institute", "is_published", "push_to_app", "-pin_on_top", "-created_at"], name="notice_app_feed_idx"),
+            models.Index(fields=["institute", "category", "-created_at"], name="notice_category_idx"),
+            models.Index(fields=["institute", "priority", "-created_at"], name="notice_priority_idx"),
+        ]
 
     def __str__(self):
         return self.title
@@ -160,11 +174,13 @@ class Notice(models.Model):
         )
 
     @classmethod
-    def for_student(cls, student):
+    def for_student(cls, student, academic_session_id=None):
         from django.db.models import Q
         from student_parent.models import StudentEnrollment
 
         enrollments = StudentEnrollment.objects.filter(student=student)
+        if academic_session_id:
+            enrollments = enrollments.filter(academic_session_id=academic_session_id)
         batch_ids = enrollments.values_list("batch_id", flat=True)
         course_ids = enrollments.values_list("courses__id", flat=True)
         audience_filter = Q(audience=cls.Audience.EVERYONE) | Q(audience=cls.Audience.STUDENTS_PARENTS)
@@ -185,6 +201,9 @@ class NoticeRead(models.Model):
     class Meta:
         ordering = ["-read_at"]
         unique_together = ["notice", "user"]
+        indexes = [
+            models.Index(fields=["user", "-read_at"], name="notice_read_user_idx"),
+        ]
 
     def __str__(self):
         return f"{self.notice} read by {self.user}"

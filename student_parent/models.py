@@ -30,6 +30,10 @@ class StudentProfile(models.Model):
     class Meta:
         ordering = ["admission_number"]
         unique_together = ["institute", "academic_year", "admission_number"]
+        indexes = [
+            models.Index(fields=["institute", "academic_year", "is_active"], name="sp_inst_year_active_idx"),
+            models.Index(fields=["institute", "admission_number"], name="sp_inst_adm_idx"),
+        ]
 
     def __str__(self):
         name = self.user.get_full_name() or self.user.username
@@ -72,6 +76,10 @@ class StudentAcademicSession(models.Model):
             ["institute", "academic_year", "admission_number"],
             ["student", "academic_year"],
         ]
+        indexes = [
+            models.Index(fields=["student", "status"], name="sas_student_status_idx"),
+            models.Index(fields=["institute", "academic_year", "status"], name="sas_inst_year_status_idx"),
+        ]
 
     def __str__(self):
         return f"{self.admission_number} - {self.student} - {self.academic_year.name}"
@@ -110,6 +118,11 @@ class StudentEnrollment(models.Model):
     class Meta:
         ordering = ["academic_session__admission_number", "batch__name"]
         unique_together = ["academic_session", "batch"]
+        indexes = [
+            models.Index(fields=["student", "status"], name="se_student_status_idx"),
+            models.Index(fields=["academic_session", "status"], name="se_session_status_idx"),
+            models.Index(fields=["batch", "status"], name="se_batch_status_idx"),
+        ]
 
     def __str__(self):
         return f"{self.student} - {self.batch}"
@@ -140,6 +153,9 @@ class GuardianProfile(models.Model):
 
     class Meta:
         ordering = ["student__admission_number", "name"]
+        indexes = [
+            models.Index(fields=["student", "is_primary"], name="guardian_primary_idx"),
+        ]
 
     def __str__(self):
         return f"{self.name} - {self.student}"
@@ -166,6 +182,9 @@ class StudentDocument(models.Model):
 
     class Meta:
         ordering = ["-uploaded_at"]
+        indexes = [
+            models.Index(fields=["student", "-uploaded_at"], name="stud_doc_uploaded_idx"),
+        ]
 
     def __str__(self):
         return f"{self.student} - {self.title}"
@@ -191,6 +210,9 @@ class UserDevice(models.Model):
 
     class Meta:
         ordering = ["-last_seen_at"]
+        indexes = [
+            models.Index(fields=["user", "is_active", "-last_seen_at"], name="device_user_active_idx"),
+        ]
 
     def __str__(self):
         return f"{self.user} - {self.platform}"
@@ -222,6 +244,10 @@ class PushNotification(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "-created_at"], name="push_user_created_idx"),
+            models.Index(fields=["user", "status", "-created_at"], name="push_user_status_idx"),
+        ]
 
     def __str__(self):
         return f"{self.user} - {self.notification_type} - {self.status}"

@@ -1,17 +1,32 @@
 import json
+from datetime import date, timedelta
 
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
+from django.utils.html import strip_tags
+from django.utils.dateparse import parse_date
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 from django.views.decorators.http import require_POST
 
+from institute_admin.models import Notice, NoticeRead
 from super_admin.decorators import student_parent_required
 from super_admin.mobile_auth import bearer_user
 from super_admin.models import UserProfile
-from teacher.models import Homework
+from teacher.models import Attendance, Homework
 
-from .models import PushNotification, StudentEnrollment, StudentProfile, UserDevice
+from .models import PushNotification, StudentAcademicSession, StudentEnrollment, StudentProfile, UserDevice
+
+
+def _selected_academic_session(student, request):
+    session_id = (request.GET.get("academic_session_id") or "").strip()
+    if not session_id:
+        return None
+    return (
+        StudentAcademicSession.objects.filter(student=student, pk=session_id)
+        .select_related("academic_year", "institute")
+        .first()
+    )
 
 
 @student_parent_required
@@ -72,8 +87,270 @@ def _datetime(value):
     return value.isoformat() if value else None
 
 
+def _attendance_payload(student, request):
+    today = date.today()
+    date_to = parse_date(request.GET.get("date_to", "")) or today
+    date_from = parse_date(request.GET.get("date_from", "")) or (date_to - timedelta(days=89))
+    if date_from > date_to:
+        date_from, date_to = date_to, date_from
+
+    status_filter = (request.GET.get("status") or "").strip().upper()
+    batch_id = (request.GET.get("batch_id") or "").strip()
+    try:
+        limit = min(max(int(request.GET.get("limit", 90)), 1), 180)
+    except (TypeError, ValueError):
+        limit = 90
+
+    selected_session = _selected_academic_session(student, request)
+    sessions = (
+        StudentAcademicSession.objects.filter(student=student)
+        .select_related("academic_year", "institute")
+        .order_by("-academic_year__start_date", "-pk")
+    )
+    if selected_session:
+        sessions = sessions.filter(pk=selected_session.pk)
+    records = (
+        Attendance.objects.filter(
+            academic_session__in=sessions,
+            date__gte=date_from,
+            date__lte=date_to,
+        )
+        .select_related(
+            "academic_session",
+            "academic_session__academic_year",
+            "batch",
+            "batch__academic_year",
+            "marked_by",
+        )
+        .order_by("-date", "batch__name")
+    )
+    if status_filter in Attendance.Status.values:
+        records = records.filter(status=status_filter)
+    else:
+        status_filter = ""
+    if batch_id:
+        records = records.filter(batch_id=batch_id)
+
+    record_list = list(records)
+    total = len(record_list)
+    present = sum(1 for record in record_list if record.status == Attendance.Status.PRESENT)
+    absent = sum(1 for record in record_list if record.status == Attendance.Status.ABSENT)
+    late = sum(1 for record in record_list if record.status == Attendance.Status.LATE)
+    attended = present + late
+    attendance_rate = round((attended / total) * 100, 1) if total else 0
+    present_rate = round((present / total) * 100, 1) if total else 0
+
+    batch_groups = {}
+    for record in record_list:
+        group = batch_groups.setdefault(
+            record.batch_id,
+            {
+                "id": record.batch_id,
+                "name": record.batch.name,
+                "academic_year": record.batch.academic_year.name if record.batch.academic_year_id else "",
+                "total_count": 0,
+                "present_count": 0,
+                "absent_count": 0,
+                "late_count": 0,
+                "attendance_rate": 0,
+            },
+        )
+        group["total_count"] += 1
+        if record.status == Attendance.Status.PRESENT:
+            group["present_count"] += 1
+        elif record.status == Attendance.Status.ABSENT:
+            group["absent_count"] += 1
+        elif record.status == Attendance.Status.LATE:
+            group["late_count"] += 1
+
+    for group in batch_groups.values():
+        attended_count = group["present_count"] + group["late_count"]
+        group["attendance_rate"] = round((attended_count / group["total_count"]) * 100, 1) if group["total_count"] else 0
+
+    return {
+        "student": {
+            "id": student.pk,
+            "username": student.user.username,
+            "name": student.user.get_full_name() or student.user.username,
+            "admission_number": student.admission_number,
+        },
+        "filters": {
+            "date_from": _date(date_from),
+            "date_to": _date(date_to),
+            "status": status_filter,
+            "batch_id": batch_id,
+            "limit": limit,
+        },
+        "summary": {
+            "total_count": total,
+            "present_count": present,
+            "absent_count": absent,
+            "late_count": late,
+            "attended_count": attended,
+            "attendance_rate": attendance_rate,
+            "present_rate": present_rate,
+        },
+        "status_choices": [{"value": value, "label": label} for value, label in Attendance.Status.choices],
+        "batch_wise": list(batch_groups.values()),
+        "records": [
+            {
+                "id": record.pk,
+                "date": _date(record.date),
+                "status": record.status,
+                "status_label": record.get_status_display(),
+                "note": record.note,
+                "batch": {
+                    "id": record.batch_id,
+                    "name": record.batch.name,
+                    "academic_year": record.batch.academic_year.name if record.batch.academic_year_id else "",
+                },
+                "academic_session": {
+                    "id": record.academic_session_id,
+                    "admission_number": record.academic_session.admission_number,
+                    "academic_year": record.academic_session.academic_year.name if record.academic_session.academic_year_id else "",
+                },
+                "marked_by": record.marked_by.get_full_name() or record.marked_by.username if record.marked_by_id else "",
+            }
+            for record in record_list[:limit]
+        ],
+    }
+
+
+@require_GET
+def mobile_attendance(request):
+    student, error = _student_for_request(request)
+    if error:
+        return error
+    return JsonResponse(_attendance_payload(student, request))
+
+
+def _notice_payload(notice, read_ids):
+    return {
+        "id": notice.pk,
+        "title": notice.title,
+        "message": strip_tags(notice.message or "").strip(),
+        "html_message": notice.message,
+        "category": notice.category,
+        "category_label": notice.get_category_display(),
+        "priority": notice.priority,
+        "priority_label": notice.get_priority_display(),
+        "audience": notice.audience,
+        "audience_label": notice.get_audience_display(),
+        "publish_at": _datetime(notice.publish_at),
+        "expires_at": _datetime(notice.expires_at),
+        "created_at": _datetime(notice.created_at),
+        "pin_on_top": notice.pin_on_top,
+        "is_read": notice.pk in read_ids,
+        "created_by": notice.created_by.get_full_name() or notice.created_by.username if notice.created_by_id else "",
+    }
+
+
+def _mobile_notices_payload(student, request):
+    selected_session = _selected_academic_session(student, request)
+    notices = (
+        Notice.for_student(
+            student,
+            academic_session_id=selected_session.pk if selected_session else None,
+        )
+        .select_related("created_by")
+        .prefetch_related("target_batches", "target_courses", "target_students")
+    )
+    all_notices = list(notices)
+    read_ids = set(
+        NoticeRead.objects.filter(user=student.user, notice__in=all_notices).values_list("notice_id", flat=True)
+    )
+
+    category = (request.GET.get("category") or "").strip().upper()
+    priority = (request.GET.get("priority") or "").strip().upper()
+    unread_only = (request.GET.get("unread") or "").strip().lower() in {"1", "true", "yes"}
+    search = (request.GET.get("search") or "").strip().lower()
+    try:
+        limit = min(max(int(request.GET.get("limit", 50)), 1), 100)
+    except (TypeError, ValueError):
+        limit = 50
+
+    filtered = all_notices
+    if category in Notice.Category.values:
+        filtered = [notice for notice in filtered if notice.category == category]
+    else:
+        category = ""
+    if priority in Notice.Priority.values:
+        filtered = [notice for notice in filtered if notice.priority == priority]
+    else:
+        priority = ""
+    if unread_only:
+        filtered = [notice for notice in filtered if notice.pk not in read_ids]
+    if search:
+        filtered = [
+            notice
+            for notice in filtered
+            if search in notice.title.lower() or search in strip_tags(notice.message or "").lower()
+        ]
+
+    urgent_count = sum(1 for notice in all_notices if notice.priority == Notice.Priority.URGENT)
+    pinned_count = sum(1 for notice in all_notices if notice.pin_on_top)
+    category_counts = {}
+    for notice in all_notices:
+        row = category_counts.setdefault(
+            notice.category,
+            {"value": notice.category, "label": notice.get_category_display(), "count": 0},
+        )
+        row["count"] += 1
+
+    return {
+        "student": {
+            "id": student.pk,
+            "admission_number": student.admission_number,
+            "name": student.user.get_full_name() or student.user.username,
+            "username": student.user.username,
+            "institute": {"id": student.institute_id, "name": student.institute.name},
+        },
+        "filters": {
+            "category": category,
+            "priority": priority,
+            "unread": unread_only,
+            "search": search,
+            "limit": limit,
+            "academic_session_id": selected_session.pk if selected_session else None,
+        },
+        "summary": {
+            "total_count": len(all_notices),
+            "unread_count": len([notice for notice in all_notices if notice.pk not in read_ids]),
+            "urgent_count": urgent_count,
+            "pinned_count": pinned_count,
+        },
+        "category_choices": [{"value": value, "label": label} for value, label in Notice.Category.choices],
+        "priority_choices": [{"value": value, "label": label} for value, label in Notice.Priority.choices],
+        "category_counts": list(category_counts.values()),
+        "notices": [_notice_payload(notice, read_ids) for notice in filtered[:limit]],
+    }
+
+
+@require_GET
+def mobile_notices(request):
+    student, error = _student_for_request(request)
+    if error:
+        return error
+    return JsonResponse(_mobile_notices_payload(student, request))
+
+
+@csrf_exempt
+@require_POST
+def mobile_notice_mark_read(request, notice_id):
+    student, error = _student_for_request(request)
+    if error:
+        return error
+    notice = get_object_or_404(Notice.for_student(student), pk=notice_id)
+    receipt, _created = NoticeRead.objects.get_or_create(notice=notice, user=student.user)
+    return JsonResponse({"detail": "Notice marked as read.", "notice_id": notice.pk, "read_at": _datetime(receipt.read_at)})
+
+
 def _homework_document_url(request):
-    return request.build_absolute_uri("/api/mobile/homework/document/download/")
+    session_id = (request.GET.get("academic_session_id") or "").strip()
+    path = "/api/mobile/homework/document/download/"
+    if session_id:
+        path = f"{path}?academic_session_id={session_id}"
+    return request.build_absolute_uri(path)
 
 
 def _student_homework_queryset(student, request):
@@ -86,6 +363,9 @@ def _student_homework_queryset(student, request):
         .select_related("batch", "batch__academic_year")
         .prefetch_related("courses")
     )
+    selected_session = _selected_academic_session(student, request)
+    if selected_session:
+        enrollments = enrollments.filter(academic_session=selected_session)
     batch_ids = enrollments.values_list("batch_id", flat=True)
     course_ids = enrollments.values_list("courses__id", flat=True)
     queryset = (

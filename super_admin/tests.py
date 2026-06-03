@@ -141,6 +141,45 @@ class AuthEndpointTests(TestCase):
         response = self.post_json("mobile_token_refresh", {"refresh": refresh_token})
         self.assertEqual(response.status_code, 401)
 
+    def test_mobile_change_password_requires_current_password(self):
+        login_response = self.post_json(
+            "mobile_login",
+            {"username": "admin", "password": "pass12345"},
+        )
+        access_token = login_response.json()["access"]
+
+        response = self.client.post(
+            reverse("mobile_change_password"),
+            data=json.dumps(
+                {
+                    "current_password": "wrong-password",
+                    "new_password": "newpass12345",
+                    "confirm_password": "newpass12345",
+                }
+            ),
+            content_type="application/json",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("pass12345"))
+
+        response = self.client.post(
+            reverse("mobile_change_password"),
+            data=json.dumps(
+                {
+                    "current_password": "pass12345",
+                    "new_password": "newpass12345",
+                    "confirm_password": "newpass12345",
+                }
+            ),
+            content_type="application/json",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("newpass12345"))
+
     def test_mobile_profile_returns_student_details(self):
         student_user = User.objects.create_user(
             username="student",

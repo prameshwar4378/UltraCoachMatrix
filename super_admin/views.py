@@ -1,6 +1,9 @@
 import json
 
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.http import JsonResponse
 from django.contrib.auth.views import LoginView, LogoutView
 from django.views.decorators.csrf import csrf_exempt
@@ -174,6 +177,37 @@ def mobile_me(request):
     return JsonResponse({"user": _user_payload(user)})
 
 
+@csrf_exempt
+@require_POST
+def mobile_change_password(request):
+    user = bearer_user(request)
+    if not user:
+        return JsonResponse({"detail": "Invalid or expired access token."}, status=401)
+
+    data = _json_request_data(request)
+    if data is None:
+        return JsonResponse({"detail": "Invalid JSON body."}, status=400)
+
+    current_password = data.get("current_password") or ""
+    new_password = data.get("new_password") or ""
+    confirm_password = data.get("confirm_password") or ""
+    if not current_password or not new_password or not confirm_password:
+        return JsonResponse({"detail": "All password fields are required."}, status=400)
+    if not user.check_password(current_password):
+        return JsonResponse({"detail": "Current password is incorrect."}, status=400)
+    if new_password != confirm_password:
+        return JsonResponse({"detail": "New password and confirm password do not match."}, status=400)
+
+    try:
+        validate_password(new_password, user=user)
+    except ValidationError as error:
+        return JsonResponse({"detail": " ".join(error.messages)}, status=400)
+
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+    return JsonResponse({"detail": "Password updated successfully."})
+
+
 def _absolute_file_url(request, file_field):
     if not file_field:
         return ""
@@ -193,12 +227,20 @@ def mobile_profile(request):
         return JsonResponse({"detail": "No student profile is linked to this user."}, status=404)
 
     sessions = (
-        StudentAcademicSession.objects.filter(student=student)
+        StudentAcademicSession.objects.filter(
+            Q(student=student) | Q(enrollments__student=student)
+        )
         .select_related("academic_year", "institute")
         .prefetch_related("enrollments__batch", "enrollments__courses")
+        .distinct()
         .order_by("-academic_year__start_date", "-pk")
     )
-    active_session = sessions.first()
+    selected_session_id = (request.GET.get("academic_session_id") or "").strip()
+    active_session = None
+    if selected_session_id:
+        active_session = sessions.filter(pk=selected_session_id).first()
+    if not active_session:
+        active_session = sessions.first()
     guardians = student.guardians.all()
     documents = student.documents.all()
 
@@ -242,6 +284,10 @@ def mobile_profile(request):
                     "academic_year": session.academic_year.name,
                     "status": session.status,
                     "joined_on": session.joined_on.isoformat() if session.joined_on else None,
+                    "current_school_name": session.current_school_name,
+                    "current_school_address": session.current_school_address,
+                    "previous_school_name": session.previous_school_name,
+                    "previous_class": session.previous_class,
                 }
                 for session in sessions
             ],
