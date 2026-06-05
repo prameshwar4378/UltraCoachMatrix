@@ -18,3 +18,5 @@ python manage.py test institute_admin
 python manage.py test institute_admin.tests.AcademicSessionIsolationTests
 python manage.py test institute_admin.tests.TenantIsolationTests
 python manage.py test institute_admin.tests.SessionAuditCommandTests
+
+ram test
