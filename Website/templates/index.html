@@ -4,842 +4,696 @@
 {% block content %}
   
 
-<section class="school-hero" id="product-demo">
-  <div class="hero-bg-shape shape-one"></div>
-  <div class="hero-bg-shape shape-two"></div>
+<section class="school-hero um-next-hero" id="product-demo">
+  <div class="um-hero-bg-grid"></div>
+  <div class="um-hero-orb orb-one"></div>
+  <div class="um-hero-orb orb-two"></div>
 
-  <div class="hero-container">
-    <div class="hero-content">
-      <span class="hero-badge">
-        <i class="bi bi-stars"></i> Coaching Institute Management Software
+  <div class="um-hero-container">
+    <div class="um-hero-content">
+      <span class="um-hero-badge">
+        <i class="bi bi-stars"></i>
+        Coaching ERP + Mobile Apps
       </span>
 
       <h1>
-        Manage Your Coaching Institute
-        <span>From One Platform</span>
+        Digitize Your
+        <span>Coaching Institute</span>
       </h1>
 
       <p>
-        Manage admissions, students, teachers, fees, attendance, exams, homework and parent communication from one powerful digital platform.
+        Admissions, fees, attendance, exams, results, notifications, reports and mobile apps in one powerful coaching management platform.
       </p>
 
-      <div class="hero-actions">
-        <a href="{% url 'web_contact_us' %}" class="hero-primary-btn">
-          Request Demo <i class="bi bi-arrow-right"></i>
+      <div class="um-hero-actions">
+        <a href="{% url 'web_contact_us' %}" class="um-hero-btn demo">
+          <span class="um-btn-icon">
+            <i class="bi bi-calendar2-check-fill"></i>
+          </span>
+          <span class="um-btn-text">
+            <small>Book Your</small>
+            <strong>Request Demo</strong>
+          </span>
+          <span class="um-btn-arrow">
+            <i class="bi bi-arrow-right"></i>
+          </span>
         </a>
-        <a href="#feature-overview" class="hero-secondary-btn">
-          Explore Features <i class="bi bi-grid-3x3-gap-fill"></i>
-        </a>
-      </div>
 
-      <div class="hero-stats">
-        <div>
-          <strong>360&deg;</strong>
-          <span>Institute Control</span>
-        </div>
-        <div>
-          <strong>100%</strong>
-          <span>Digital Operations</span>
-        </div>
-        <div>
-          <strong>3</strong>
-          <span>Admin, Teacher & Student Panels</span>
-        </div>
+        <a href="/student/download-app/" class="um-hero-btn android">
+          <span class="um-btn-icon">
+            <i class="bi bi-google-play"></i>
+          </span>
+          <span class="um-btn-text">
+            <small>Download for</small>
+            <strong>Android</strong>
+          </span>
+        </a>
+
+        <a href="{% url 'web_contact_us' %}" class="um-hero-btn ios">
+          <span class="um-btn-icon">
+            <i class="bi bi-apple"></i>
+          </span>
+          <span class="um-btn-text">
+            <small>Request for</small>
+            <strong>iOS</strong>
+          </span>
+        </a>
       </div>
     </div>
+  </div>
 
-    <div class="hero-visual">
-      <div class="hero-command-center">
-        <div class="hero-console-top">
+  <div class="um-hero-slider">
+    <div class="um-slider-mask">
+      <div class="um-slider-track">
+
+        <article class="um-service-card">
+          <i class="bi bi-person-plus-fill"></i>
           <div>
-            <strong>UltraCoachMatrix Control Center</strong>
-            <span>Live institute operations</span>
+            <strong>Admissions</strong>
+            <span>Enquiries, leads and enrollment management</span>
           </div>
-          <span class="hero-live-pill"><i class="bi bi-broadcast-pin"></i> Live</span>
-        </div>
+        </article>
 
-        <div class="hero-console-grid">
-          <article class="hero-module-card admissions">
-            <i class="bi bi-person-plus-fill"></i>
-            <small>Admissions</small>
-            <strong>42</strong>
-            <span>Enquiries in follow-up</span>
-          </article>
-
-          <article class="hero-module-card fees">
-            <i class="bi bi-wallet2"></i>
-            <small>Fees</small>
-            <strong>86%</strong>
-            <span>Monthly collection</span>
-          </article>
-
-          <article class="hero-module-card attendance">
-            <i class="bi bi-calendar2-check-fill"></i>
-            <small>Attendance</small>
-            <strong>94%</strong>
-            <span>Today's presence</span>
-          </article>
-        </div>
-
-        <div class="hero-workflow">
-          <div class="hero-workflow-head">
-            <span><i class="bi bi-diagram-3-fill"></i></span>
-            <div>
-              <strong>Today's workflow</strong>
-              <small>Everything connected in one dashboard</small>
-            </div>
+        <article class="um-service-card">
+          <i class="bi bi-wallet2"></i>
+          <div>
+            <strong>Fees Management</strong>
+            <span>Installments, dues, receipts and collection reports</span>
           </div>
+        </article>
 
-          <div class="hero-flow-list">
-            <div>
-              <b>1</b>
-              <span>New student enquiry captured</span>
-              <strong>Admission</strong>
-            </div>
-            <div>
-              <b>2</b>
-              <span>Batch and teacher assigned</span>
-              <strong>Batch</strong>
-            </div>
-            <div>
-              <b>3</b>
-              <span>Fee installment reminder ready</span>
-              <strong>Fees</strong>
-            </div>
-            <div>
-              <b>4</b>
-              <span>Attendance and test report shared</span>
-              <strong>App</strong>
-            </div>
+        <article class="um-service-card">
+          <i class="bi bi-calendar2-check-fill"></i>
+          <div>
+            <strong>Attendance</strong>
+            <span>Daily student attendance with batch tracking</span>
           </div>
-        </div>
+        </article>
 
-        <div class="hero-app-panel">
-          <div class="hero-phone-shell">
-            <div class="hero-phone-notch"></div>
-            <div class="hero-app-row active"><i class="bi bi-mortarboard-fill"></i><span>Student app</span></div>
-            <div class="hero-app-row"><i class="bi bi-person-video3"></i><span>Teacher app</span></div>
-            <div class="hero-app-row"><i class="bi bi-bell-fill"></i><span>Instant alerts</span></div>
+        <article class="um-service-card">
+          <i class="bi bi-award-fill"></i>
+          <div>
+            <strong>Exams & Results</strong>
+            <span>Tests, marksheets and performance updates</span>
           </div>
-          <div class="hero-app-copy">
-            <small>Connected apps</small>
-            <strong>Students and teachers stay updated without calls.</strong>
+        </article>
+
+        <article class="um-service-card">
+          <i class="bi bi-phone-fill"></i>
+          <div>
+            <strong>Mobile Apps</strong>
+            <span>Student and teacher apps for instant updates</span>
           </div>
-        </div>
-      </div>
+        </article>
 
-      <div class="hero-float-card card-top">
-        <i class="bi bi-cash-stack"></i>
-        <div>
-          <strong>Fee Tracking</strong>
-          <span>Dues, receipts and installments</span>
-        </div>
-      </div>
+        <article class="um-service-card">
+          <i class="bi bi-bell-fill"></i>
+          <div>
+            <strong>Notifications</strong>
+            <span>Fees, homework, exams and notice alerts</span>
+          </div>
+        </article>
 
-      <div class="hero-float-card card-bottom">
-        <i class="bi bi-graph-up-arrow"></i>
-        <div>
-          <strong>Smart Reports</strong>
-          <span>Attendance, results and growth insights</span>
-        </div>
+        <article class="um-service-card">
+          <i class="bi bi-bar-chart-line-fill"></i>
+          <div>
+            <strong>Reports</strong>
+            <span>Fees, attendance, results and growth analytics</span>
+          </div>
+        </article>
+
+        <article class="um-service-card">
+          <i class="bi bi-cloud-check-fill"></i>
+          <div>
+            <strong>Cloud ERP</strong>
+            <span>Secure digital control for your institute</span>
+          </div>
+        </article>
+
+        <!-- duplicate for infinite loop -->
+        <article class="um-service-card">
+          <i class="bi bi-person-plus-fill"></i>
+          <div>
+            <strong>Admissions</strong>
+            <span>Enquiries, leads and enrollment management</span>
+          </div>
+        </article>
+
+        <article class="um-service-card">
+          <i class="bi bi-wallet2"></i>
+          <div>
+            <strong>Fees Management</strong>
+            <span>Installments, dues, receipts and collection reports</span>
+          </div>
+        </article>
+
+        <article class="um-service-card">
+          <i class="bi bi-calendar2-check-fill"></i>
+          <div>
+            <strong>Attendance</strong>
+            <span>Daily student attendance with batch tracking</span>
+          </div>
+        </article>
+
+        <article class="um-service-card">
+          <i class="bi bi-award-fill"></i>
+          <div>
+            <strong>Exams & Results</strong>
+            <span>Tests, marksheets and performance updates</span>
+          </div>
+        </article>
+
+        <article class="um-service-card">
+          <i class="bi bi-phone-fill"></i>
+          <div>
+            <strong>Mobile Apps</strong>
+            <span>Student and teacher apps for instant updates</span>
+          </div>
+        </article>
+
+        <article class="um-service-card">
+          <i class="bi bi-bell-fill"></i>
+          <div>
+            <strong>Notifications</strong>
+            <span>Fees, homework, exams and notice alerts</span>
+          </div>
+        </article>
+
+        <article class="um-service-card">
+          <i class="bi bi-bar-chart-line-fill"></i>
+          <div>
+            <strong>Reports</strong>
+            <span>Fees, attendance, results and growth analytics</span>
+          </div>
+        </article>
+
+        <article class="um-service-card">
+          <i class="bi bi-cloud-check-fill"></i>
+          <div>
+            <strong>Cloud ERP</strong>
+            <span>Secure digital control for your institute</span>
+          </div>
+        </article>
+
       </div>
     </div>
   </div>
 </section>
+
 <style>
-.school-hero{
-  position:relative;
-  overflow:hidden;
-  min-height:calc(100vh - 76px);
-  padding:90px 28px;
-  background:transparent;
+html,
+body{
+  overflow-x:hidden;
 }
 
-.hero-container{
+.um-next-hero{
+  position:relative;
   width:100%;
-  max-width:1280px;
-  margin:auto;
-  display:grid;
-  grid-template-columns:1.05fr .95fr;
+  max-width:100vw;
+  min-height:calc(100vh - 76px);
+  padding:105px 20px 165px;
+  display:flex;
   align-items:center;
-  gap:60px;
+  justify-content:center;
+  overflow-x:clip;
+  overflow-y:visible;
+  background:
+    radial-gradient(circle at 50% 18%,rgba(24,216,255,.18),transparent 33%),
+    radial-gradient(circle at 15% 78%,rgba(244,185,66,.22),transparent 30%),
+    linear-gradient(180deg,rgba(255,255,255,.15),rgba(244,249,255,.35));
+}
+
+@supports not (overflow:clip){
+  .um-next-hero{
+    overflow-x:hidden;
+  }
+}
+
+.um-next-hero::after{
+  content:"";
+  position:absolute;
+  left:6%;
+  right:6%;
+  bottom:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,var(--primary),var(--secondary),#18d8ff,var(--accent),transparent);
+  opacity:.75;
+}
+
+.um-hero-bg-grid{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background-image:
+    linear-gradient(rgba(18,60,122,.055) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(18,60,122,.055) 1px,transparent 1px);
+  background-size:54px 54px;
+  mask-image:radial-gradient(circle at center,#000 22%,transparent 78%);
+  animation:umGridMove 18s linear infinite;
+}
+
+@keyframes umGridMove{
+  to{background-position:108px 108px}
+}
+
+.um-hero-orb{
+  position:absolute;
+  z-index:0;
+  border-radius:50%;
+  pointer-events:none;
+  filter:blur(24px);
+  opacity:.72;
+}
+
+.orb-one{
+  width:340px;
+  height:340px;
+  left:-120px;
+  top:15%;
+  background:rgba(24,216,255,.25);
+  animation:umOrbFloat 7s ease-in-out infinite;
+}
+
+.orb-two{
+  width:320px;
+  height:320px;
+  right:-120px;
+  bottom:18%;
+  background:rgba(244,185,66,.3);
+  animation:umOrbFloat 8s ease-in-out infinite reverse;
+}
+
+@keyframes umOrbFloat{
+  50%{transform:translateY(-35px) scale(1.1)}
+}
+
+.um-hero-container{
   position:relative;
   z-index:2;
+  width:100%;
+  max-width:1180px;
+  margin:auto;
 }
 
-.hero-badge{
+.um-hero-content{
+  max-width:940px;
+  margin:auto;
+  text-align:center;
+}
+
+.um-hero-badge{
+  position:relative;
+  overflow:hidden;
   display:inline-flex;
   align-items:center;
   gap:9px;
-  padding:10px 16px;
+  padding:11px 17px;
   border-radius:999px;
   color:var(--primary);
   font-size:13px;
-  font-weight:900;
-  background:rgba(255,255,255,.72);
-  border:1px solid rgba(255,255,255,.85);
-  box-shadow:0 14px 36px rgba(18,60,122,.1);
+  font-weight:950;
+  background:rgba(255,255,255,.78);
+  border:1px solid rgba(255,255,255,.9);
+  box-shadow:0 15px 42px rgba(18,60,122,.12);
   backdrop-filter:blur(16px);
 }
 
-.hero-content h1{
-  margin:22px 0 18px;
-  color:var(--dark);
-  font-size:76px;
-  line-height:.95;
-  letter-spacing:0;
-  font-weight:950;
+.um-hero-badge::after{
+  content:"";
+  position:absolute;
+  inset:-60%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent);
+  transform:translateX(-130%) rotate(18deg);
+  animation:umBadgeShine 4s ease-in-out infinite;
 }
 
-.hero-content h1 span{
+@keyframes umBadgeShine{
+  45%,100%{transform:translateX(140%) rotate(18deg)}
+}
+
+.um-hero-content h1{
+  margin:24px 0 20px;
+  color:var(--dark);
+  font-size:clamp(44px,7vw,92px);
+  line-height:.95;
+  font-weight:950;
+  letter-spacing:-2px;
+}
+
+.um-hero-content h1 span{
   display:block;
-  background:linear-gradient(135deg,var(--primary),var(--secondary),#18d8ff);
+  background:linear-gradient(135deg,var(--primary),var(--secondary),#18d8ff,var(--accent));
   -webkit-background-clip:text;
   background-clip:text;
   color:transparent;
 }
 
-.hero-content p{
-  max-width:650px;
+.um-hero-content p{
+  max-width:780px;
+  margin:0 auto;
   color:var(--muted);
-  font-size:18px;
+  font-size:19px;
   line-height:1.8;
-  font-weight:550;
+  font-weight:600;
 }
 
-.hero-actions{
+.um-hero-actions{
   display:flex;
-  gap:14px;
-  flex-wrap:wrap;
-  margin-top:30px;
-}
-
-.hero-primary-btn,
-.hero-secondary-btn{
-  display:inline-flex;
   align-items:center;
-  gap:10px;
-  padding:15px 24px;
-  border-radius:999px;
-  font-weight:900;
-  transition:.3s var(--ease);
-}
-
-.hero-primary-btn{
-  color:#071527;
-  background:linear-gradient(135deg,#ffe59a,var(--accent));
-  box-shadow:0 18px 44px rgba(244,185,66,.32);
-}
-
-.hero-secondary-btn{
-  color:var(--primary);
-  background:rgba(255,255,255,.76);
-  border:1px solid rgba(18,60,122,.12);
-}
-
-.hero-primary-btn:hover,
-.hero-secondary-btn:hover{
-  transform:translateY(-5px);
-}
-
-.hero-stats{
-  display:flex;
-  gap:18px;
+  justify-content:center;
+  gap:14px;
   flex-wrap:wrap;
   margin-top:36px;
 }
 
-.hero-stats div{
-  min-width:135px;
-  padding:18px;
-  border-radius:22px;
-  background:rgba(255,255,255,.72);
-  border:1px solid rgba(255,255,255,.82);
-  box-shadow:0 16px 42px rgba(18,60,122,.09);
-  backdrop-filter:blur(14px);
-}
-
-.hero-stats strong{
-  display:block;
-  color:var(--primary);
-  font-size:28px;
-  font-weight:950;
-}
-
-.hero-stats span{
-  color:var(--muted);
-  font-size:13px;
-  font-weight:800;
-}
-
-.hero-visual{
+.um-hero-btn{
   position:relative;
-  min-height:620px;
-  display:grid;
-  place-items:center;
-  padding:40px 10px;
-}
-
-.hero-command-center{
-  position:relative;
-  width:min(560px,100%);
-  padding:24px;
-  border-radius:40px;
-  background:linear-gradient(145deg,rgba(255,255,255,.86),rgba(244,249,255,.76));
-  border:1px solid rgba(255,255,255,.92);
-  box-shadow:0 44px 105px rgba(18,60,122,.2);
-  backdrop-filter:blur(18px);
+  isolation:isolate;
+  min-height:70px;
+  display:inline-flex;
+  align-items:center;
+  gap:13px;
+  padding:13px 18px;
+  border-radius:24px;
+  text-decoration:none;
   overflow:hidden;
-  animation:heroFloat 5.8s ease-in-out infinite;
+  border:1px solid rgba(255,255,255,.88);
+  background:rgba(255,255,255,.82);
+  box-shadow:
+    0 18px 46px rgba(18,60,122,.13),
+    inset 0 1px 0 rgba(255,255,255,.85);
+  backdrop-filter:blur(18px);
+  transition:.35s var(--ease);
 }
 
-.hero-command-center::before,
-.hero-command-center::after{
+.um-hero-btn::before{
   content:"";
   position:absolute;
-  border-radius:50%;
-  pointer-events:none;
+  inset:0;
+  z-index:-1;
+  opacity:0;
+  transition:.35s var(--ease);
 }
 
-.hero-command-center::before{
-  width:280px;
-  height:280px;
-  right:-115px;
-  top:-120px;
-  background:rgba(24,216,255,.16);
+.um-hero-btn:hover{
+  transform:translateY(-6px);
+  box-shadow:0 30px 78px rgba(18,60,122,.22);
 }
 
-.hero-command-center::after{
-  width:240px;
-  height:240px;
-  left:-120px;
-  bottom:-110px;
-  background:rgba(244,185,66,.18);
-}
-
-.hero-console-top{
-  position:relative;
-  z-index:1;
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:16px;
-  margin-bottom:18px;
-}
-
-.hero-console-top strong{
-  display:block;
-  color:var(--primary);
-  font-size:20px;
-  font-weight:950;
-}
-
-.hero-console-top span{
-  display:block;
-  margin-top:5px;
-  color:var(--muted);
-  font-size:12px;
-  font-weight:800;
-}
-
-.hero-live-pill{
-  width:max-content;
-  margin:0!important;
-  display:inline-flex!important;
-  align-items:center;
-  gap:7px;
-  padding:8px 11px;
-  border-radius:999px;
-  color:#0f5132!important;
-  background:#dcfce7;
-  border:1px solid #bbf7d0;
-  animation:heroLivePulse 2.4s ease-in-out infinite;
-}
-
-.hero-console-grid{
-  position:relative;
-  z-index:1;
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:12px;
-  margin-bottom:14px;
-}
-
-.hero-module-card{
-  min-height:148px;
-  padding:16px;
-  border-radius:24px;
-  background:rgba(255,255,255,.74);
-  border:1px solid rgba(18,60,122,.08);
-  box-shadow:0 16px 36px rgba(18,60,122,.08);
-  animation:heroCardPulse 5.2s ease-in-out infinite;
-}
-
-.hero-module-card:nth-child(2){animation-delay:-1.6s}
-.hero-module-card:nth-child(3){animation-delay:-3.1s}
-
-.hero-module-card i{
-  width:42px;
-  height:42px;
+.um-btn-icon{
+  width:46px;
+  height:46px;
+  min-width:46px;
   display:grid;
   place-items:center;
-  margin-bottom:14px;
-  border-radius:16px;
-  color:#fff;
-  font-size:19px;
-  background:linear-gradient(135deg,var(--primary),var(--secondary));
-  box-shadow:0 14px 30px rgba(18,60,122,.18);
+  border-radius:17px;
+  font-size:20px;
 }
 
-.hero-module-card.fees i{
-  color:#071527;
-  background:linear-gradient(135deg,#ffe59a,var(--accent));
+.um-btn-text{
+  text-align:left;
 }
 
-.hero-module-card.attendance i{
-  background:linear-gradient(135deg,#18d8ff,#1d65c1);
-}
-
-.hero-module-card small{
+.um-btn-text small{
   display:block;
+  margin-bottom:4px;
   color:var(--muted);
   font-size:11px;
-  font-weight:950;
-  letter-spacing:.06em;
-  text-transform:uppercase;
+  line-height:1;
+  font-weight:900;
 }
 
-.hero-module-card strong{
+.um-btn-text strong{
   display:block;
-  margin:6px 0 4px;
   color:var(--primary);
-  font-size:28px;
+  font-size:16px;
   line-height:1;
   font-weight:950;
+  white-space:nowrap;
 }
 
-.hero-module-card span{
-  color:var(--muted);
-  font-size:12px;
-  line-height:1.4;
-  font-weight:750;
+.um-hero-btn.demo{
+  background:linear-gradient(135deg,#071527,var(--primary),var(--secondary));
+  border-color:rgba(255,255,255,.16);
+  box-shadow:0 24px 60px rgba(18,60,122,.28);
 }
 
-.hero-workflow{
-  position:relative;
-  z-index:1;
-  padding:18px;
-  border-radius:28px;
-  color:#fff;
-  background:linear-gradient(145deg,#071527,#123c7a 58%,#1d65c1);
-  box-shadow:0 24px 54px rgba(7,21,39,.18);
+.um-hero-btn.demo::before{
+  opacity:1;
+  background:
+    radial-gradient(circle at 20% 20%,rgba(255,255,255,.23),transparent 34%),
+    linear-gradient(135deg,transparent,rgba(24,216,255,.2));
 }
 
-.hero-workflow-head{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  margin-bottom:15px;
-}
-
-.hero-workflow-head > span{
-  width:44px;
-  height:44px;
-  min-width:44px;
-  display:grid;
-  place-items:center;
-  border-radius:16px;
-  color:#071527;
-  background:linear-gradient(135deg,#ffe59a,var(--accent));
-}
-
-.hero-workflow-head strong{
-  display:block;
-  color:#fff;
-  font-size:16px;
-  font-weight:950;
-}
-
-.hero-workflow-head small{
-  display:block;
-  margin-top:3px;
+.um-hero-btn.demo .um-btn-text small{
   color:#b9cce2;
-  font-size:12px;
-  font-weight:750;
 }
 
-.hero-flow-list{
-  display:grid;
-  gap:10px;
+.um-hero-btn.demo .um-btn-text strong{
+  color:#fff;
 }
 
-.hero-flow-list div{
-  display:grid;
-  grid-template-columns:30px 1fr auto;
-  align-items:center;
-  gap:10px;
-  padding:11px;
-  border-radius:16px;
-  background:rgba(255,255,255,.08);
-  border:1px solid rgba(255,255,255,.09);
-  animation:heroFlowSweep 5.5s ease-in-out infinite;
+.um-hero-btn.demo .um-btn-icon{
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  box-shadow:0 13px 28px rgba(244,185,66,.36);
 }
 
-.hero-flow-list div:nth-child(2){animation-delay:-1.2s}
-.hero-flow-list div:nth-child(3){animation-delay:-2.4s}
-.hero-flow-list div:nth-child(4){animation-delay:-3.6s}
-
-.hero-flow-list b{
-  width:30px;
-  height:30px;
+.um-btn-arrow{
+  width:34px;
+  height:34px;
+  min-width:34px;
   display:grid;
   place-items:center;
-  border-radius:11px;
+  border-radius:50%;
   color:#071527;
+  background:#fff;
+  transition:.35s var(--ease);
+}
+
+.um-hero-btn.demo:hover .um-btn-arrow{
+  transform:translateX(4px);
   background:#ffe59a;
-  font-size:12px;
 }
 
-.hero-flow-list span{
-  color:#e7f0fb;
-  font-size:12px;
-  font-weight:750;
-}
-
-.hero-flow-list strong{
-  padding:6px 9px;
-  border-radius:999px;
-  color:#dff8ff;
-  background:rgba(24,216,255,.12);
-  font-size:11px;
-  font-weight:950;
-}
-
-.hero-app-panel{
-  position:relative;
-  z-index:1;
-  display:grid;
-  grid-template-columns:170px 1fr;
-  gap:16px;
-  align-items:center;
-  margin-top:14px;
-  padding:16px;
-  border-radius:28px;
-  background:rgba(255,255,255,.72);
-  border:1px solid rgba(18,60,122,.08);
-}
-
-.hero-phone-shell{
-  padding:12px;
-  border-radius:24px;
-  background:#071527;
-  box-shadow:0 18px 42px rgba(7,21,39,.18);
-}
-
-.hero-phone-notch{
-  width:44px;
-  height:5px;
-  margin:0 auto 12px;
-  border-radius:999px;
-  background:rgba(255,255,255,.24);
-}
-
-.hero-app-row{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  margin-top:8px;
-  padding:9px;
-  border-radius:14px;
-  color:#cbd8e8;
-  background:rgba(255,255,255,.08);
-  font-size:11px;
-  font-weight:850;
-}
-
-.hero-app-row.active{
+.um-hero-btn.android .um-btn-icon{
   color:#071527;
   background:linear-gradient(135deg,#ffe59a,var(--accent));
 }
 
-.hero-app-copy small{
-  display:block;
-  color:var(--muted);
-  font-size:11px;
-  font-weight:950;
-  letter-spacing:.08em;
-  text-transform:uppercase;
+.um-hero-btn.ios .um-btn-icon{
+  color:#fff;
+  background:linear-gradient(135deg,#071527,#334155);
 }
 
-.hero-app-copy strong{
-  display:block;
-  margin-top:8px;
-  color:var(--primary);
-  font-size:18px;
-  line-height:1.35;
-  font-weight:950;
+.um-hero-btn.android:hover::before{
+  opacity:1;
+  background:linear-gradient(135deg,rgba(255,229,154,.32),rgba(244,185,66,.18));
 }
 
-@keyframes heroFloat{
-  0%,100%{transform:translateY(0) rotate(1.5deg)}
-  50%{transform:translateY(-16px) rotate(.4deg)}
+.um-hero-btn.ios:hover::before{
+  opacity:1;
+  background:linear-gradient(135deg,rgba(7,21,39,.08),rgba(29,101,193,.1));
 }
 
-.hero-float-card{
+.um-hero-slider{
   position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:5;
+  width:100%;
+  max-width:100vw;
+  transform:translateY(50%);
+  overflow:hidden;
+  pointer-events:auto;
+}
+
+.um-slider-mask{
+  width:100%;
+  max-width:100vw;
+  overflow:hidden;
+  padding:18px 0;
+  mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);
+}
+
+.um-slider-track{
+  display:flex;
+  align-items:stretch;
+  gap:18px;
+  width:max-content;
+  will-change:transform;
+  animation:umHeroSlider 38s linear infinite;
+}
+
+.um-slider-mask:hover .um-slider-track{
+  animation-play-state:paused;
+}
+
+.um-service-card{
+  flex:0 0 340px;
+  min-height:126px;
   display:flex;
   align-items:center;
-  gap:12px;
-  padding:15px 18px;
-  border-radius:22px;
-  background:rgba(255,255,255,.82);
-  border:1px solid rgba(255,255,255,.9);
-  box-shadow:0 24px 60px rgba(18,60,122,.18);
+  gap:15px;
+  padding:20px;
+  border-radius:30px;
+  background:rgba(255,255,255,.93);
+  border:1px solid rgba(255,255,255,.98);
+  box-shadow:0 25px 68px rgba(18,60,122,.16);
   backdrop-filter:blur(18px);
-  animation:cardFloat 4s ease-in-out infinite;
+  transition:.35s var(--ease);
 }
 
-.hero-float-card i{
-  width:44px;
-  height:44px;
-  border-radius:16px;
+.um-service-card:hover{
+  transform:translateY(-8px);
+  background:#fff;
+  box-shadow:0 34px 85px rgba(18,60,122,.22);
+}
+
+.um-service-card i{
+  width:62px;
+  height:62px;
+  min-width:62px;
   display:grid;
   place-items:center;
+  border-radius:23px;
   color:#fff;
-  background:linear-gradient(135deg,var(--primary),var(--secondary));
+  font-size:25px;
+  background:linear-gradient(135deg,var(--primary),var(--secondary),#18d8ff);
+  box-shadow:0 16px 36px rgba(18,60,122,.2);
 }
 
-.hero-float-card strong{
+.um-service-card strong{
   display:block;
   color:var(--primary);
-  font-size:14px;
+  font-size:17px;
+  line-height:1.2;
   font-weight:950;
 }
 
-.hero-float-card span{
+.um-service-card span{
+  display:block;
+  margin-top:6px;
   color:var(--muted);
-  font-size:12px;
+  font-size:13px;
+  line-height:1.45;
   font-weight:750;
 }
 
-.card-top{
-  top:54px;
-  left:-20px;
-}
-
-.card-bottom{
-  bottom:74px;
-  right:-14px;
-  animation-delay:-1.8s;
-}
-
-@keyframes cardFloat{
-  0%,100%{transform:translateY(0)}
-  50%{transform:translateY(-14px)}
-}
-
-@keyframes heroLivePulse{
-  50%{box-shadow:0 0 0 9px rgba(34,197,94,.12)}
-}
-
-@keyframes heroCardPulse{
-  50%{transform:translateY(-7px);background:#fff}
-}
-
-@keyframes heroFlowSweep{
-  50%{transform:translateX(6px);background:rgba(255,255,255,.13)}
-}
-
-.hero-bg-shape{
-  position:absolute;
-  border-radius:50%;
-  pointer-events:none;
-  filter:blur(8px);
-  opacity:.55;
-  animation:shapeMove 8s ease-in-out infinite alternate;
-}
-
-.shape-one{
-  width:260px;
-  height:260px;
-  left:-90px;
-  bottom:60px;
-  background:rgba(24,216,255,.25);
-}
-
-.shape-two{
-  width:220px;
-  height:220px;
-  right:-70px;
-  top:130px;
-  background:rgba(244,185,66,.28);
-  animation-delay:-3s;
-}
-
-@keyframes shapeMove{
-  from{transform:translateY(0) scale(1)}
-  to{transform:translateY(-35px) scale(1.1)}
+@keyframes umHeroSlider{
+  from{transform:translate3d(0,0,0)}
+  to{transform:translate3d(calc(-50% - 9px),0,0)}
 }
 
 @media(max-width:991px){
-  .school-hero{
-    padding:70px 18px;
-  }
-
-  .hero-container{
-    grid-template-columns:1fr;
-    gap:45px;
-  }
-
-  .hero-content{
-    text-align:center;
-  }
-
-  .hero-content h1{
-    font-size:58px;
-  }
-
-  .hero-content p{
-    margin:auto;
-  }
-
-  .hero-actions,
-  .hero-stats{
-    justify-content:center;
-  }
-
-  .hero-visual{
+  .um-next-hero{
     min-height:auto;
-    padding:10px 0 28px;
+    padding:88px 18px 150px;
   }
 
-  .hero-command-center{
-    width:min(680px,100%);
+  .um-hero-content h1{
+    letter-spacing:-1px;
   }
 
-  .hero-float-card{
-    position:relative;
-    inset:auto;
-    width:min(100%,420px);
-    margin-top:14px;
-    animation:none;
+  .um-hero-content p{
+    font-size:16px;
+  }
+
+  .um-hero-btn{
+    min-height:66px;
+  }
+
+  .um-service-card{
+    flex-basis:290px;
+    min-height:114px;
+    padding:17px;
+    border-radius:26px;
+  }
+
+  .um-service-card i{
+    width:54px;
+    height:54px;
+    min-width:54px;
+    border-radius:20px;
+    font-size:22px;
   }
 }
 
 @media(max-width:575px){
-  .school-hero{
-    padding:55px 14px 88px;
+  .um-next-hero{
+    padding:70px 14px 138px;
   }
 
-  .hero-content h1{
-    font-size:44px;
-    letter-spacing:0;
+  .um-hero-content h1{
+    font-size:42px;
+    line-height:1;
   }
 
-  .hero-content p{
+  .um-hero-content p{
     font-size:15px;
     line-height:1.7;
   }
 
-  .hero-primary-btn,
-  .hero-secondary-btn{
+  .um-hero-actions{
+    gap:12px;
+  }
+
+  .um-hero-btn{
     width:100%;
-    max-width:260px;
-    justify-content:center;
-  }
-
-  .hero-stats{
-    display:grid;
-    grid-template-columns:1fr;
-    width:min(100%,280px);
-    margin-inline:auto;
-  }
-
-  .hero-stats div{
-    min-width:0;
-    text-align:left;
-  }
-
-  .hero-command-center{
-    padding:16px;
-    border-radius:30px;
-  }
-
-  .hero-console-top{
-    flex-wrap:wrap;
-    margin-bottom:15px;
-  }
-
-  .hero-console-grid{
-    grid-template-columns:1fr;
-  }
-
-  .hero-module-card{
-    min-height:auto;
-    display:grid;
-    grid-template-columns:42px 1fr;
-    column-gap:12px;
-    align-items:center;
-  }
-
-  .hero-module-card i{
-    grid-row:1 / span 3;
-    margin:0;
-  }
-
-  .hero-flow-list div{
-    grid-template-columns:30px 1fr;
-  }
-
-  .hero-flow-list strong{
-    grid-column:2;
-    width:max-content;
-  }
-
-  .hero-app-panel{
-    grid-template-columns:1fr;
-  }
-
-  .hero-phone-shell{
-    max-width:220px;
-  }
-
-  .hero-float-card{
-    width:100%;
+    max-width:300px;
+    min-height:64px;
     justify-content:flex-start;
-    padding:14px;
-    border-radius:20px;
   }
 
-  .hero-visual{
-    min-height:auto;
-    display:flex;
-    flex-direction:column;
-    gap:0;
-    width:100%;
+  .um-hero-btn.demo{
+    max-width:320px;
+  }
+
+  .um-slider-mask{
+    padding:14px 0;
+    mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent);
+  }
+
+  .um-slider-track{
+    gap:12px;
+    animation-duration:30s;
+  }
+
+  .um-service-card{
+    flex-basis:255px;
+    min-height:106px;
+    padding:14px;
+    gap:12px;
+    border-radius:23px;
+  }
+
+  .um-service-card i{
+    width:48px;
+    height:48px;
+    min-width:48px;
+    border-radius:17px;
+    font-size:20px;
+  }
+
+  .um-service-card strong{
+    font-size:15px;
+  }
+
+  .um-service-card span{
+    font-size:12px;
+    line-height:1.35;
   }
 }
 
 @media(max-width:380px){
-  .hero-content h1{
+  .um-hero-content h1{
     font-size:38px;
   }
 
-  .hero-command-center{
-    padding:13px;
-    border-radius:24px;
-  }
-
-  .hero-workflow,
-  .hero-app-panel{
-    padding:14px;
-    border-radius:22px;
-  }
-
-  .hero-float-card span,
-  .hero-module-card span,
-  .hero-flow-list span{
-    overflow-wrap:anywhere;
+  .um-service-card{
+    flex-basis:230px;
   }
 }
 </style>
@@ -876,6 +730,473 @@ if(heroVisual){
 }
 </script>
 
+
+<section class="um-download-app-section" id="download-app">
+  <div class="um-download-container">
+    <div class="um-download-copy">
+      <span class="hero-badge">
+        <i class="bi bi-phone-fill"></i> Mobile App Access
+      </span>
+
+      <h2>
+        Ready To Digitize
+        <span>Your Coaching Institute?</span>
+      </h2>
+
+      <p>
+        Download the UltraCoachMatrix mobile app and keep students, parents and
+        teachers connected with attendance, homework, notices, fees, exams and results.
+      </p>
+
+      <div class="um-download-actions">
+        <a href="/student/download-app/" class="um-store-btn android-btn">
+          <i class="bi bi-google-play"></i>
+          <span>
+            <small>Download for</small>
+            <strong>Android</strong>
+          </span>
+        </a>
+
+        <a href="{% url 'web_contact_us' %}" class="um-store-btn ios-btn">
+          <i class="bi bi-apple"></i>
+          <span>
+            <small>Request for</small>
+            <strong>iOS</strong>
+          </span>
+        </a>
+      </div>
+
+      <div class="um-download-points">
+        <div><i class="bi bi-check-circle-fill"></i> Student and parent updates</div>
+        <div><i class="bi bi-check-circle-fill"></i> Homework, exams and notices</div>
+        <div><i class="bi bi-check-circle-fill"></i> Fee and result notifications</div>
+      </div>
+    </div>
+
+    <div class="um-download-visual" aria-label="UltraCoachMatrix mobile app preview">
+      <div class="um-app-device">
+        <div class="um-app-notch"></div>
+        <div class="um-app-screen-head">
+          <span><img src="{% static 'img/logo.png' %}" alt="UltraCoachMatrix Logo"></span>
+          <div>
+            <strong>UltraCoachMatrix</strong>
+            <small>Student app</small>
+          </div>
+        </div>
+
+        <div class="um-app-feature-list">
+          <div class="active"><i class="bi bi-calendar-check-fill"></i><span>Attendance</span><b>94%</b></div>
+          <div><i class="bi bi-journal-text"></i><span>Homework</span><b>4</b></div>
+          <div><i class="bi bi-megaphone-fill"></i><span>Notices</span><b>New</b></div>
+          <div><i class="bi bi-award-fill"></i><span>Results</span><b>Ready</b></div>
+        </div>
+      </div>
+ 
+      <div class="um-download-card card-right">
+        <i class="bi bi-shield-check"></i>
+        <div>
+          <strong>Instant Alerts</strong>
+          <span>Fee, exam and notice updates</span>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</section>
+
+<style>
+.um-download-app-section{
+  position:relative;
+  overflow:hidden;
+  padding:105px 28px;
+}
+
+.um-download-container{
+  position:relative;
+  width:100%;
+  max-width:1280px;
+  margin:auto;
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  align-items:center;
+  gap:46px;
+  padding:70px;
+  border-radius:46px;
+  overflow:hidden;
+  background:linear-gradient(145deg,#071527,#0d2c5d 55%,#1d65c1);
+  box-shadow:0 40px 110px rgba(7,21,39,.28);
+}
+
+.um-download-container::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+  background-size:52px 52px;
+  mask-image:radial-gradient(circle at center,#000 28%,transparent 82%);
+}
+
+.um-download-copy,
+.um-download-visual{
+  position:relative;
+  z-index:2;
+}
+
+.um-download-copy .hero-badge{
+  color:#ffe59a;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.1);
+  box-shadow:none;
+}
+
+.um-download-copy h2{
+  margin:28px 0 18px;
+  color:#fff;
+  font-size:64px;
+  line-height:.98;
+  font-weight:950;
+  letter-spacing:0;
+}
+
+.um-download-copy h2 span{
+  display:block;
+  background:linear-gradient(135deg,#ffe59a,#ffffff,#18d8ff);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+.um-download-copy p{
+  max-width:640px;
+  margin:0;
+  color:#b9cce2;
+  font-size:17px;
+  line-height:1.9;
+  font-weight:550;
+}
+
+.um-download-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:14px;
+  margin-top:30px;
+}
+
+.um-store-btn{
+  min-width:190px;
+  min-height:66px;
+  display:inline-flex;
+  align-items:center;
+  gap:13px;
+  padding:13px 18px;
+  border-radius:22px;
+  color:#fff;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 18px 42px rgba(0,0,0,.16);
+  transition:.3s var(--ease);
+}
+
+.um-store-btn:hover{
+  color:#fff;
+  transform:translateY(-5px);
+}
+
+.um-store-btn i{
+  font-size:30px;
+}
+
+.um-store-btn small,
+.um-store-btn strong{
+  display:block;
+  line-height:1.1;
+}
+
+.um-store-btn small{
+  color:#b9cce2;
+  font-size:12px;
+  font-weight:800;
+}
+
+.um-store-btn strong{
+  margin-top:4px;
+  color:#fff;
+  font-size:19px;
+  font-weight:950;
+}
+
+.android-btn{
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  border:0;
+  box-shadow:0 20px 45px rgba(244,185,66,.28);
+}
+
+.android-btn small,
+.android-btn strong,
+.android-btn:hover{
+  color:#071527;
+}
+
+.ios-btn{
+  background:rgba(255,255,255,.08);
+}
+
+.um-download-points{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-top:28px;
+}
+
+.um-download-points div{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  padding:11px 14px;
+  border-radius:999px;
+  color:#e7f0fb;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.1);
+  font-size:13px;
+  font-weight:900;
+}
+
+.um-download-points i{
+  color:#16a34a;
+}
+
+.um-download-visual{
+  position:relative;
+  min-height:470px;
+  display:grid;
+  place-items:center;
+}
+
+.um-app-device{
+  position:relative;
+  z-index:2;
+  width:min(310px,100%);
+  padding:16px;
+  border-radius:42px;
+  background:#06111f;
+  border:1px solid rgba(255,255,255,.16);
+  box-shadow:
+    0 42px 100px rgba(0,0,0,.36),
+    0 0 0 18px rgba(255,255,255,.04);
+}
+
+.um-app-notch{
+  width:58px;
+  height:6px;
+  margin:2px auto 18px;
+  border-radius:999px;
+  background:rgba(255,255,255,.25);
+}
+
+.um-app-screen-head{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px;
+  border-radius:24px;
+  background:linear-gradient(135deg,#f8fbff,#eaf4ff);
+}
+
+.um-app-screen-head span{
+  width:48px;
+  height:48px;
+  display:grid;
+  place-items:center;
+  border-radius:17px;
+  background:#fff;
+  border:1px solid rgba(18,60,122,.1);
+  overflow:hidden;
+}
+
+.um-app-screen-head img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  padding:5px;
+}
+
+.um-app-screen-head strong{
+  display:block;
+  color:var(--primary);
+  font-size:15px;
+  font-weight:950;
+}
+
+.um-app-screen-head small{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+}
+
+.um-app-feature-list{
+  display:grid;
+  gap:10px;
+  margin-top:14px;
+}
+
+.um-app-feature-list div{
+  display:grid;
+  grid-template-columns:38px 1fr auto;
+  align-items:center;
+  gap:10px;
+  padding:12px;
+  border-radius:18px;
+  color:#d8e6f5;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.08);
+}
+
+.um-app-feature-list div.active{
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+}
+
+.um-app-feature-list i{
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  color:#fff;
+  background:rgba(255,255,255,.14);
+}
+
+.um-app-feature-list div.active i{
+  color:#071527;
+  background:rgba(255,255,255,.45);
+}
+
+.um-app-feature-list span,
+.um-app-feature-list b{
+  font-size:13px;
+  font-weight:950;
+}
+
+.um-download-card{
+  position:absolute;
+  z-index:3;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:16px 18px;
+  border-radius:22px;
+  background:rgba(255,255,255,.86);
+  border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 22px 58px rgba(0,0,0,.18);
+  backdrop-filter:blur(14px);
+}
+
+.um-download-card i{
+  width:46px;
+  height:46px;
+  min-width:46px;
+  display:grid;
+  place-items:center;
+  border-radius:17px;
+  color:#fff;
+  background:linear-gradient(135deg,#16a34a,var(--secondary));
+}
+
+.um-download-card strong{
+  display:block;
+  color:var(--primary);
+  font-size:14px;
+  font-weight:950;
+}
+
+.um-download-card span{
+  display:block;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:750;
+}
+
+.card-left{
+  left:0;
+  top:88px;
+}
+
+.card-right{
+  right:0;
+  bottom:88px;
+}
+
+@media(max-width:991px){
+  .um-download-app-section{
+    padding:80px 18px;
+  }
+
+  .um-download-container{
+    grid-template-columns:1fr;
+    gap:36px;
+    padding:50px 34px;
+  }
+
+  .um-download-copy{
+    text-align:center;
+  }
+
+  .um-download-copy h2{
+    font-size:48px;
+  }
+
+  .um-download-copy p{
+    margin:auto;
+  }
+
+  .um-download-actions,
+  .um-download-points{
+    justify-content:center;
+  }
+
+  .um-download-visual{
+    min-height:auto;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  .um-download-card{
+    position:relative;
+    inset:auto;
+    width:min(100%,420px);
+  }
+}
+
+@media(max-width:575px){
+  .um-download-app-section{
+    padding:65px 14px;
+  }
+
+  .um-download-container{
+    padding:40px 22px;
+    border-radius:32px;
+  }
+
+  .um-download-copy h2{
+    font-size:38px;
+  }
+
+  .um-store-btn{
+    width:100%;
+    max-width:280px;
+  }
+
+  .um-download-points{
+    display:grid;
+    grid-template-columns:1fr;
+    width:100%;
+  }
+}
+</style>
 
 
 
@@ -2280,8 +2601,8 @@ if(heroVisual){
       </h2>
 
       <p>
-        Start with the essentials for a small coaching class and scale with mobile apps,
-        advanced reports, fee automation and multi-branch management.
+        Choose a simple monthly or yearly plan for your coaching institute, or talk to
+        our team for custom setup and onboarding requirements.
       </p>
     </div>
 
@@ -2289,11 +2610,11 @@ if(heroVisual){
 
       <div class="um-price-card starter-card">
         <div class="um-price-top">
-          <span class="um-price-tag">Starter</span>
-          <h3>Small Coaching Class</h3>
+          <span class="um-price-tag">Monthly</span>
+          <h3>Monthly Plan</h3>
           <div class="um-price-amount">
-            <strong>Contact</strong>
-            <span>pricing</span>
+            <strong>349</strong>
+            <span>/ month</span>
           </div>
         </div>
 
@@ -2306,7 +2627,7 @@ if(heroVisual){
         </div>
 
         <a href="{% url 'web_contact_us' %}" class="um-price-btn">
-          Request Demo
+          Get Monthly Plan
           <i class="bi bi-arrow-right"></i>
         </a>
       </div>
@@ -2317,11 +2638,11 @@ if(heroVisual){
         </span>
 
         <div class="um-price-top">
-          <span class="um-price-tag">Professional</span>
-          <h3>Growing Institute</h3>
+          <span class="um-price-tag">Yearly</span>
+          <h3>Yearly Plan</h3>
           <div class="um-price-amount">
-            <strong>Contact</strong>
-            <span>pricing</span>
+            <strong>3499</strong>
+            <span>/ year</span>
           </div>
         </div>
 
@@ -2335,15 +2656,15 @@ if(heroVisual){
         </div>
 
         <a href="{% url 'web_contact_us' %}" class="um-price-btn premium-btn">
-          Book Demo
+          Get Yearly Plan
           <i class="bi bi-arrow-right"></i>
         </a>
       </div>
 
       <div class="um-price-card enterprise-card">
         <div class="um-price-top">
-          <span class="um-price-tag">Enterprise</span>
-          <h3>Multi Branch Setup</h3>
+          <span class="um-price-tag">Custom</span>
+          <h3>Custom Setup</h3>
           <div class="um-price-amount">
             <strong>Custom</strong>
             <span>pricing</span>
@@ -2359,8 +2680,8 @@ if(heroVisual){
           <div><i class="bi bi-check-circle-fill"></i> Unlimited Reports</div>
         </div>
 
-        <a href="{% url 'web_contact_us' %}" class="um-price-btn dark-btn">
-          Contact Sales
+        <a href="{% url 'index' %}" class="um-price-btn dark-btn">
+          Contact Sales Team
           <i class="bi bi-arrow-right"></i>
         </a>
       </div>
