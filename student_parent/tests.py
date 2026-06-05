@@ -3,6 +3,7 @@ from decimal import Decimal
 import json
 
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.utils import timezone
 
@@ -14,6 +15,7 @@ from teacher.models import (
     Exam,
     ExamAttempt,
     ExamAttemptActivity,
+    ExamAttemptUpload,
     ExamQuestion,
     ExamQuestionOption,
     ExamResult,
@@ -246,6 +248,7 @@ class MobileHomeworkPlannerTests(TestCase):
         listing_data = listing.json()
         self.assertEqual(listing_data["summary"]["exam_count"], 1)
         self.assertEqual(listing_data["exams"][0]["title"], "Mobile MCQ Exam")
+        self.assertTrue(listing_data["exams"][0]["allow_rough_work_uploads"])
 
         started = self.client.post(
             f"/api/mobile/exams/{exam.pk}/start/",
@@ -259,6 +262,18 @@ class MobileHomeworkPlannerTests(TestCase):
         attempt_id = start_data["attempt"]["id"]
         self.assertEqual(start_data["questions"][0]["options"][1]["text"], "4")
         self.assertNotIn("is_correct", start_data["questions"][0]["options"][1])
+
+        upload = self.client.post(
+            f"/api/mobile/exam-attempts/{attempt_id}/rough-work/",
+            data={
+                "question_id": str(question.pk),
+                "image": SimpleUploadedFile("rough.png", b"rough-work", content_type="image/png"),
+            },
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(upload.status_code, 201)
+        self.assertEqual(ExamAttemptUpload.objects.filter(attempt_id=attempt_id, question=question).count(), 1)
 
         submitted = self.client.post(
             f"/api/mobile/exam-attempts/{attempt_id}/submit/",
@@ -305,6 +320,37 @@ class MobileHomeworkPlannerTests(TestCase):
         self.assertEqual(result_data["questions"][0]["selected_option_id"], correct_option.pk)
         self.assertEqual(result_data["questions"][0]["correct_option_id"], correct_option.pk)
         self.assertTrue(result_data["questions"][0]["is_correct"])
+
+    def test_mobile_exam_rough_work_upload_respects_exam_setting(self):
+        exam = Exam.objects.create(
+            academic_year=self.academic_year,
+            batch=self.batch,
+            course=self.math,
+            title="No Upload Exam",
+            exam_date=date(2026, 6, 11),
+            total_marks=1,
+            duration_minutes=30,
+            is_published=True,
+            allow_rough_work_uploads=False,
+        )
+        ExamQuestion.objects.create(exam=exam, text="Question", marks=1, order=1)
+
+        started = self.client.post(
+            f"/api/mobile/exams/{exam.pk}/start/",
+            data={},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        attempt_id = started.json()["attempt"]["id"]
+
+        upload = self.client.post(
+            f"/api/mobile/exam-attempts/{attempt_id}/rough-work/",
+            data={"image": SimpleUploadedFile("rough.png", b"rough-work", content_type="image/png")},
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(upload.status_code, 403)
+        self.assertFalse(ExamAttemptUpload.objects.filter(attempt_id=attempt_id).exists())
 
     def test_mobile_exam_start_is_csrf_exempt_for_token_auth(self):
         exam = Exam.objects.create(

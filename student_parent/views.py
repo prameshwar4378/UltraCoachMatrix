@@ -225,6 +225,7 @@ def _mobile_exam_item(exam, attempt=None):
         "total_marks": exam.total_marks,
         "question_count": exam.questions.count(),
         "instructions": strip_tags(exam.instructions or "").strip(),
+        "allow_rough_work_uploads": exam.allow_rough_work_uploads,
         "show_result_after_submit": exam.show_result_after_submit,
         "batch": {
             "id": exam.batch_id,
@@ -418,6 +419,48 @@ def mobile_exam_start(request, pk):
     if attempt.is_submitted:
         return JsonResponse({"detail": "This exam has already been submitted."}, status=400)
     return JsonResponse(_mobile_attempt_payload(request, attempt))
+
+
+@csrf_exempt
+@require_POST
+def mobile_exam_rough_work_upload(request, attempt_id):
+    student, error = _student_for_request(request)
+    if error:
+        return error
+    attempt = get_object_or_404(
+        ExamAttempt.objects.select_related("exam", "student"),
+        pk=attempt_id,
+        student=student,
+    )
+    if attempt.is_submitted:
+        return JsonResponse({"detail": "This exam has already been submitted."}, status=400)
+    if not attempt.exam.allow_rough_work_uploads:
+        return JsonResponse({"detail": "Rough-work uploads are not allowed for this exam."}, status=403)
+
+    image = request.FILES.get("image")
+    if not image:
+        return JsonResponse({"detail": "Upload an image file."}, status=400)
+    if not (image.content_type or "").startswith("image/"):
+        return JsonResponse({"detail": "Only image uploads are allowed."}, status=400)
+
+    question = None
+    question_id = request.POST.get("question_id")
+    if question_id:
+        question = attempt.exam.questions.filter(pk=question_id).first()
+        if not question:
+            return JsonResponse({"detail": "Question does not belong to this exam."}, status=400)
+
+    upload = ExamAttemptUpload.objects.create(attempt=attempt, question=question, image=image)
+    return JsonResponse(
+        {
+            "id": upload.pk,
+            "attempt_id": attempt.pk,
+            "question_id": upload.question_id,
+            "image_url": _absolute_media_url(request, upload.image),
+            "uploaded_at": _datetime(upload.uploaded_at),
+        },
+        status=201,
+    )
 
 
 @csrf_exempt
