@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AcademicYear, Batch, Course, Notice, NoticeRead
+from .models import AcademicYear, Batch, Course, Notice, NoticeRead, Subject
 
 
 @admin.register(AcademicYear)
@@ -13,6 +13,13 @@ class AcademicYearAdmin(admin.ModelAdmin):
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
     list_display = ("name", "institute", "academic_year", "duration", "fee_amount", "is_active")
+    list_filter = ("institute", "academic_year", "is_active")
+    search_fields = ("name", "description")
+
+
+@admin.register(Subject)
+class SubjectAdmin(admin.ModelAdmin):
+    list_display = ("name", "institute", "academic_year", "is_active")
     list_filter = ("institute", "academic_year", "is_active")
     search_fields = ("name", "description")
 

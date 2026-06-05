@@ -4,6 +4,7 @@ from io import BytesIO
 import json
 
 from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -15,9 +16,11 @@ from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
 from django.utils.dateparse import parse_date
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.datavalidation import DataValidation
 
 from accountant.models import FeeCategory, FeeInvoice, Payment, PaymentActivity
 from student_parent.models import (
@@ -27,10 +30,23 @@ from student_parent.models import (
     StudentEnrollment,
     StudentProfile,
 )
-from student_parent.notifications import notify_fee_paid, notify_notice_published
+from student_parent.notifications import notify_fee_paid, notify_notice_published, notify_result_declared
 from super_admin.models import UserProfile
 from super_admin.decorators import institute_admin_required
-from teacher.models import Attendance, Homework, TeacherProfile
+from teacher.models import (
+    Attendance,
+    Exam,
+    ExamAttempt,
+    ExamAttemptUpload,
+    ExamQuestion,
+    ExamQuestionAttempt,
+    ExamQuestionOption,
+    ExamResult,
+    Homework,
+    TeacherProfile,
+)
+from teacher.forms import ExamQuestionForm, ExamQuestionOptionFormSet, TeacherExamForm, TeacherExamResultForm
+
 
 from .forms import (
     AddStudentFeeForm,
@@ -53,9 +69,10 @@ from .forms import (
     StudentEnrollmentForm,
     StudentForm,
     StudentGuardianForm,
+    SubjectForm,
     TeacherForm,
 )
-from .models import AcademicYear, Batch, Course, Notice
+from .models import AcademicYear, Batch, Course, Notice, Subject
 
 
 def close_popup_response(receipt_url=None):
@@ -265,9 +282,12 @@ def get_student_category_due_data(student_or_session):
     }
 
 
-@institute_admin_required
+@login_required
 def academic_year_switch(request):
-    institute = get_current_institute(request)
+    profile = getattr(request.user, "profile", None)
+    if not profile or profile.role not in {UserProfile.Role.INSTITUTE_ADMIN, UserProfile.Role.TEACHER} or not profile.institute_id:
+        return redirect(reverse("school_dashboard"))
+    institute = profile.institute
     if request.method == "POST":
         year_name = request.POST.get("academic_year", "").strip()
         if year_name:
@@ -541,6 +561,127 @@ def course_delete(request, pk):
             messages.success(request, "Course deleted successfully.")
 
     return redirect("institute_admin:course_list")
+
+
+@institute_admin_required
+def subject_list(request):
+    institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
+    subjects = Subject.objects.select_related("institute", "academic_year")
+    if institute:
+        subjects = subjects.filter(institute=institute)
+    if academic_year:
+        subjects = subjects.filter(academic_year=academic_year)
+
+    search_query = request.GET.get("search", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+
+    if search_query:
+        subjects = subjects.filter(Q(name__icontains=search_query) | Q(description__icontains=search_query))
+
+    if status_filter == "active":
+        subjects = subjects.filter(is_active=True)
+    elif status_filter == "inactive":
+        subjects = subjects.filter(is_active=False)
+
+    base_queryset = Subject.objects.filter(institute=institute) if institute else Subject.objects.all()
+    if academic_year:
+        base_queryset = base_queryset.filter(academic_year=academic_year)
+
+    context = {
+        "subjects": subjects,
+        "search_query": search_query,
+        "status_filter": status_filter,
+        "total_subjects": base_queryset.count(),
+        "active_subjects": base_queryset.filter(is_active=True).count(),
+        "inactive_subjects": base_queryset.filter(is_active=False).count(),
+    }
+    return render(request, "institute_admin/subject_list.html", context)
+
+
+@institute_admin_required
+def subject_create(request):
+    institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
+    if not institute:
+        messages.error(request, "Select an institute before creating a subject.")
+        return redirect("institute_admin:subject_list")
+
+    if request.method == "POST":
+        form = SubjectForm(request.POST, institute=institute, academic_year=academic_year)
+        if form.is_valid():
+            subject = form.save(commit=False)
+            subject.institute = institute
+            subject.academic_year = academic_year
+            subject.save()
+            messages.success(request, "Subject created successfully.")
+            return close_popup_response()
+    else:
+        form = SubjectForm(institute=institute, academic_year=academic_year)
+
+    return render(
+        request,
+        "institute_admin/subject_form.html",
+        {
+            "form": form,
+            "title": "Create Subject",
+            "subtitle": "Add a subject for exams and academic work.",
+            "button_text": "Save Subject",
+        },
+    )
+
+
+@institute_admin_required
+def subject_update(request, pk):
+    institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
+    queryset = Subject.objects.all()
+    if institute:
+        queryset = queryset.filter(institute=institute)
+    if academic_year:
+        queryset = queryset.filter(academic_year=academic_year)
+    subject = get_object_or_404(queryset, pk=pk)
+
+    if request.method == "POST":
+        form = SubjectForm(request.POST, instance=subject, institute=subject.institute, academic_year=subject.academic_year)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Subject updated successfully.")
+            return close_popup_response()
+    else:
+        form = SubjectForm(instance=subject, institute=subject.institute, academic_year=subject.academic_year)
+
+    return render(
+        request,
+        "institute_admin/subject_form.html",
+        {
+            "form": form,
+            "title": "Edit Subject",
+            "subtitle": "Update subject details and active status.",
+            "button_text": "Update Subject",
+        },
+    )
+
+
+@institute_admin_required
+def subject_delete(request, pk):
+    institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
+    queryset = Subject.objects.all()
+    if institute:
+        queryset = queryset.filter(institute=institute)
+    if academic_year:
+        queryset = queryset.filter(academic_year=academic_year)
+    subject = get_object_or_404(queryset, pk=pk)
+
+    if request.method == "POST":
+        if subject.exams.exists():
+            messages.error(request, "This subject is used in exams. Remove it from exams before deleting.")
+        else:
+            subject.delete()
+            messages.success(request, "Subject deleted successfully.")
+
+    return redirect("institute_admin:subject_list")
 
 
 @institute_admin_required
@@ -2520,7 +2661,7 @@ def enrollment_delete(request, pk):
 def homework_list(request):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
-    homework = Homework.objects.select_related("batch", "course", "created_by").prefetch_related("attachments")
+    homework = Homework.objects.select_related("batch", "subject", "course", "created_by").prefetch_related("attachments")
     if institute:
         homework = homework.filter(batch__institute=institute)
     if academic_year:
@@ -2528,6 +2669,7 @@ def homework_list(request):
 
     search_query = request.GET.get("search", "").strip()
     batch_filter = request.GET.get("batch", "").strip()
+    subject_filter = request.GET.get("subject", "").strip()
     course_filter = request.GET.get("course", "").strip()
 
     if search_query:
@@ -2535,33 +2677,40 @@ def homework_list(request):
             Q(title__icontains=search_query)
             | Q(instructions__icontains=search_query)
             | Q(batch__name__icontains=search_query)
+            | Q(subject__name__icontains=search_query)
             | Q(course__name__icontains=search_query)
         )
     if batch_filter:
         homework = homework.filter(batch_id=batch_filter)
+    if subject_filter:
+        homework = homework.filter(subject_id=subject_filter)
     if course_filter:
         homework = homework.filter(course_id=course_filter)
 
     base_queryset = Homework.objects.filter(batch__institute=institute) if institute else Homework.objects.all()
     batch_queryset = Batch.objects.filter(institute=institute, is_active=True) if institute else Batch.objects.none()
+    subject_queryset = Subject.objects.filter(institute=institute, is_active=True) if institute else Subject.objects.none()
     course_queryset = Course.objects.filter(institute=institute, is_active=True) if institute else Course.objects.none()
     if academic_year:
         base_queryset = base_queryset.filter(batch__academic_year=academic_year)
         batch_queryset = batch_queryset.filter(academic_year=academic_year)
+        subject_queryset = subject_queryset.filter(academic_year=academic_year)
         course_queryset = course_queryset.filter(academic_year=academic_year)
 
     context = {
         "homework_list": homework,
         "batches": batch_queryset,
+        "subjects": subject_queryset,
         "courses": course_queryset,
         "search_query": search_query,
         "batch_filter": batch_filter,
+        "subject_filter": subject_filter,
         "course_filter": course_filter,
         "today": date.today(),
         "total_homework": base_queryset.count(),
         "due_homework": base_queryset.filter(due_date__gte=date.today()).count(),
         "expired_homework": base_queryset.filter(due_date__lt=date.today()).count(),
-        "subject_count": course_queryset.count(),
+        "subject_count": subject_queryset.count(),
     }
     return render(request, "institute_admin/homework_list.html", context)
 
@@ -2592,7 +2741,7 @@ def homework_create(request):
         {
             "form": form,
             "title": "Create Homework",
-            "subtitle": "Assign work to a batch with an optional subject/course.",
+            "subtitle": "Assign work to a batch with separate subject and course details.",
             "button_text": "Save Homework",
             "batch_course_data": get_batch_course_data(institute, academic_year),
             "attachments": [],
@@ -2604,7 +2753,7 @@ def homework_create(request):
 def homework_update(request, pk):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
-    queryset = Homework.objects.select_related("batch", "course")
+    queryset = Homework.objects.select_related("batch", "subject", "course")
     if institute:
         queryset = queryset.filter(batch__institute=institute)
     if academic_year:
@@ -2633,7 +2782,7 @@ def homework_update(request, pk):
         {
             "form": form,
             "title": "Edit Homework",
-            "subtitle": "Update batch, subject, instructions and due date.",
+            "subtitle": "Update batch, subject, course, instructions and due date.",
             "button_text": "Update Homework",
             "batch_course_data": get_batch_course_data(homework.batch.institute, homework.batch.academic_year),
             "attachments": homework.attachments.all(),
@@ -3344,3 +3493,653 @@ def teacher_delete(request, pk):
             messages.success(request, "Teacher deleted successfully.")
 
     return redirect("institute_admin:teacher_list")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+BULK_QUESTION_HEADERS = [
+    "Question Text",
+    "Option A",
+    "Option B",
+    "Option C",
+    "Option D",
+    "Correct Answer",
+    "Marks",
+]
+BULK_ANSWER_TO_ORDER = {"A": 1, "B": 2, "C": 3, "D": 4}
+
+
+def close_institute_exam_popup_response(fallback_url="/institute/exams/"):
+    return HttpResponse(
+        f"""
+        <script>
+            if (window.opener) {{
+                window.opener.location.reload();
+                window.close();
+            }} else {{
+                window.location.href = "{fallback_url}";
+            }}
+        </script>
+        """
+    )
+
+
+def institute_exam_batches(request):
+    institute = get_current_institute(request)
+    selected_year = get_current_academic_year(request, institute)
+    if not institute or not selected_year:
+        return Batch.objects.none()
+    return Batch.objects.filter(institute=institute, academic_year=selected_year)
+
+
+def institute_exam_queryset(request):
+    return Exam.objects.filter(batch__in=institute_exam_batches(request)).select_related("batch", "academic_year", "subject")
+
+
+
+@institute_admin_required
+def exams(request):
+    batches = institute_exam_batches(request)
+    selected_year = get_current_academic_year(request)
+    exam_qs = (
+        Exam.objects.filter(batch__in=batches)
+        .select_related("batch", "academic_year", "subject")
+        .annotate(question_count=Count("questions", distinct=True), marks_from_questions=Sum("questions__marks"))
+    )
+    search_query = request.GET.get("search", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+    batch_filter = request.GET.get("batch", "").strip()
+    if search_query:
+        exam_qs = exam_qs.filter(Q(title__icontains=search_query) | Q(batch__name__icontains=search_query) | Q(subject__name__icontains=search_query))
+    if status_filter == "published":
+        exam_qs = exam_qs.filter(is_published=True)
+    elif status_filter == "draft":
+        exam_qs = exam_qs.filter(is_published=False)
+    if batch_filter:
+        exam_qs = exam_qs.filter(batch_id=batch_filter)
+    base_qs = Exam.objects.filter(batch__in=batches)
+    return render(
+        request,
+        "exam/institute_exams.html",
+        {
+            "exams": exam_qs,
+            "batches": batches,
+            "selected_academic_year": selected_year,
+            "search_query": search_query,
+            "status_filter": status_filter,
+            "batch_filter": batch_filter,
+            "total_exams": base_qs.count(),
+            "published_exams": base_qs.filter(is_published=True).count(),
+            "draft_exams": base_qs.filter(is_published=False).count(),
+            "total_attempts": ExamAttempt.objects.filter(exam__in=base_qs, submitted_at__isnull=False).count(),
+        },
+    )
+
+
+@institute_admin_required
+def exam_create(request):
+    batches = institute_exam_batches(request)
+    form = TeacherExamForm(request.POST or None, batches=batches)
+    if request.method == "POST" and form.is_valid():
+        exam = form.save(commit=False)
+        exam.academic_year = exam.batch.academic_year
+        exam.created_by = request.user
+        exam.total_marks = 0
+        exam.save()
+        messages.success(request, "Exam created successfully.")
+        return close_institute_exam_popup_response()
+    return render(
+        request,
+        "exam/institute_exam_form.html",
+        {
+            "form": form,
+            "title": "Create Exam",
+            "subtitle": "Set exam details for the selected academic year.",
+            "button_text": "Save Exam",
+        },
+    )
+
+
+@institute_admin_required
+def exam_update(request, pk):
+    exam = get_object_or_404(institute_exam_queryset(request), pk=pk)
+    form = TeacherExamForm(request.POST or None, instance=exam, batches=institute_exam_batches(request))
+    if request.method == "POST" and form.is_valid():
+        exam = form.save(commit=False)
+        exam.academic_year = exam.batch.academic_year
+        exam.save()
+        messages.success(request, "Exam updated successfully.")
+        return close_institute_exam_popup_response()
+    return render(
+        request,
+        "exam/institute_exam_form.html",
+        {
+            "form": form,
+            "title": "Edit Exam",
+            "subtitle": "Update exam schedule, instructions and publish settings.",
+            "button_text": "Update Exam",
+        },
+    )
+
+def sync_exam_total_marks(exam):
+    total = exam.questions.aggregate(total=Sum("marks")).get("total") or 0
+    Exam.objects.filter(pk=exam.pk).update(total_marks=total)
+    exam.total_marks = total
+
+
+def recalculate_exam_attempt(attempt):
+    questions = list(attempt.exam.questions.prefetch_related("options"))
+    answer_map = {
+        row.question_id: row
+        for row in attempt.question_attempts.select_related("selected_option")
+    }
+    score = 0
+    correct_count = 0
+    wrong_count = 0
+    unattempted_count = 0
+    total_marks = sum(question.marks for question in questions)
+    for question in questions:
+        answer = answer_map.get(question.pk)
+        selected_option = answer.selected_option if answer else None
+        if selected_option and selected_option.question_id != question.pk:
+            selected_option = None
+        is_correct = bool(selected_option and selected_option.is_correct)
+        marks_awarded = question.marks if is_correct else 0
+        if selected_option is None:
+            unattempted_count += 1
+        elif is_correct:
+            correct_count += 1
+            score += question.marks
+        else:
+            wrong_count += 1
+        ExamQuestionAttempt.objects.update_or_create(
+            attempt=attempt,
+            question=question,
+            defaults={
+                "selected_option": selected_option,
+                "is_correct": is_correct,
+                "marks_awarded": marks_awarded,
+            },
+        )
+    attempt.score = score
+    attempt.total_marks = total_marks
+    attempt.correct_count = correct_count
+    attempt.wrong_count = wrong_count
+    attempt.unattempted_count = unattempted_count
+    attempt.save(
+        update_fields=[
+            "score",
+            "total_marks",
+            "correct_count",
+            "wrong_count",
+            "unattempted_count",
+        ]
+    )
+    if attempt.is_submitted:
+        ExamResult.objects.update_or_create(
+            exam=attempt.exam,
+            student=attempt.student,
+            defaults={
+                "marks_obtained": score,
+                "remark": "Updated by teacher from exam submission management.",
+            },
+        )
+    return attempt
+
+
+def option_formset_has_one_correct(formset):
+    option_rows = [
+        data
+        for data in formset.cleaned_data
+        if data and not data.get("DELETE") and data.get("text")
+    ]
+    return len(option_rows) == 4 and sum(1 for data in option_rows if data.get("is_correct")) == 1
+
+
+@institute_admin_required
+def exam_questions(request, pk):
+    exam = get_object_or_404(
+        institute_exam_queryset(request).prefetch_related("questions", "questions__options"),
+        pk=pk,
+    )
+    return render(request, "exam/institute_exam_questions.html", {"exam": exam})
+
+
+@institute_admin_required
+def exam_question_create(request, pk):
+    exam = get_object_or_404(institute_exam_queryset(request), pk=pk)
+    question = ExamQuestion(exam=exam, order=exam.questions.count() + 1)
+    form = ExamQuestionForm(request.POST or None, request.FILES or None, instance=question)
+    formset = ExamQuestionOptionFormSet(request.POST or None, instance=question, prefix="options")
+    if request.method == "POST" and form.is_valid() and formset.is_valid():
+        if not option_formset_has_one_correct(formset):
+            messages.error(request, "Add exactly four options and select exactly one correct option.")
+        else:
+            question = form.save(commit=False)
+            question.exam = exam
+            question.order = exam.questions.count() + 1
+            question.save()
+            formset.instance = question
+            options = formset.save(commit=False)
+            for index, option in enumerate(options, start=1):
+                option.question = question
+                option.order = index
+                option.save()
+            for deleted in formset.deleted_objects:
+                deleted.delete()
+            sync_exam_total_marks(exam)
+            messages.success(request, "Question added successfully.")
+            return close_institute_exam_popup_response(reverse("institute_admin:institute_exam_questions", args=[exam.pk]))
+    return render(
+        request,
+        "exam/institute_exam_question_form.html",
+        {"exam": exam, "form": form, "formset": formset, "title": "Add Question"},
+    )
+
+
+@institute_admin_required
+def exam_question_update(request, exam_pk, question_pk):
+    exam = get_object_or_404(institute_exam_queryset(request), pk=exam_pk)
+    question = get_object_or_404(ExamQuestion.objects.filter(exam=exam), pk=question_pk)
+    form = ExamQuestionForm(request.POST or None, request.FILES or None, instance=question)
+    formset = ExamQuestionOptionFormSet(request.POST or None, instance=question, prefix="options")
+    if request.method == "POST" and form.is_valid() and formset.is_valid():
+        if not option_formset_has_one_correct(formset):
+            messages.error(request, "Add exactly four options and select exactly one correct option.")
+        else:
+            question = form.save()
+            options = formset.save(commit=False)
+            for deleted in formset.deleted_objects:
+                deleted.delete()
+            for index, option in enumerate(options, start=1):
+                option.question = question
+                option.order = index
+                option.save()
+            sync_exam_total_marks(exam)
+            messages.success(request, "Question updated successfully.")
+            return close_institute_exam_popup_response(reverse("institute_admin:institute_exam_questions", args=[exam.pk]))
+    return render(
+        request,
+        "exam/institute_exam_question_form.html",
+        {"exam": exam, "form": form, "formset": formset, "title": "Edit Question"},
+    )
+
+
+def normalize_bulk_cell(value):
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+@institute_admin_required
+def exam_question_import_template(request, pk):
+    exam = get_object_or_404(institute_exam_queryset(request), pk=pk)
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Questions"
+    worksheet.append(BULK_QUESTION_HEADERS)
+
+    sample_rows = [
+        [
+            "A body is moving with uniform velocity. Its acceleration is?",
+            "Zero",
+            "Positive",
+            "Negative",
+            "Variable",
+            "A",
+            1,
+        ],
+        [
+            "If x + 5 = 12, then x equals?",
+            "5",
+            "6",
+            "7",
+            "8",
+            "C",
+            1,
+        ],
+        [
+            "Which option best represents the SI unit of force?",
+            "Joule",
+            "Newton",
+            "Watt",
+            "Pascal",
+            "B",
+            1,
+        ],
+    ]
+    for row in sample_rows:
+        worksheet.append(row)
+
+    header_fill = PatternFill(start_color="EEF2FF", end_color="EEF2FF", fill_type="solid")
+    for cell in worksheet[1]:
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+    for column_index, width in enumerate([48, 28, 28, 28, 28, 18, 12], start=1):
+        worksheet.column_dimensions[get_column_letter(column_index)].width = width
+
+    answer_validation = DataValidation(type="list", formula1='"A,B,C,D"', allow_blank=False)
+    answer_validation.error = "Select only A, B, C, or D as the correct answer."
+    answer_validation.errorTitle = "Invalid answer"
+    answer_validation.prompt = "Choose the correct option."
+    answer_validation.promptTitle = "Correct Answer"
+    worksheet.add_data_validation(answer_validation)
+    answer_validation.add("F2:F500")
+
+    buffer = BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    filename = f"bulk-question-template-{exam.pk}.xlsx"
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@institute_admin_required
+def exam_question_bulk_import(request, pk):
+    exam = get_object_or_404(institute_exam_queryset(request), pk=pk)
+    if request.method != "POST":
+        return redirect("institute_admin:institute_exam_questions", pk=exam.pk)
+
+    upload = request.FILES.get("question_file")
+    if not upload:
+        messages.error(request, "Please select the completed question template.")
+        return redirect("institute_admin:institute_exam_questions", pk=exam.pk)
+    if not upload.name.lower().endswith(".xlsx"):
+        messages.error(request, "Please upload the Excel template in .xlsx format.")
+        return redirect("institute_admin:institute_exam_questions", pk=exam.pk)
+
+    try:
+        workbook = load_workbook(upload, data_only=True)
+    except Exception:
+        messages.error(request, "Unable to read the uploaded Excel file. Please download the template and try again.")
+        return redirect("institute_admin:institute_exam_questions", pk=exam.pk)
+
+    worksheet = workbook.active
+    imported_rows = []
+    errors = []
+    for row_number, row in enumerate(worksheet.iter_rows(min_row=2, values_only=True), start=2):
+        values = [normalize_bulk_cell(value) for value in row[:7]]
+        values += [""] * (7 - len(values))
+        question_text, option_a, option_b, option_c, option_d, correct_answer, marks_value = values
+
+        if not any(values):
+            continue
+
+        row_errors = []
+        if not question_text:
+            row_errors.append("question text is required")
+        options = [option_a, option_b, option_c, option_d]
+        if any(not option for option in options):
+            row_errors.append("all four options are required")
+        correct_answer = correct_answer.upper()
+        if correct_answer not in BULK_ANSWER_TO_ORDER:
+            row_errors.append("correct answer must be A, B, C, or D")
+        try:
+            marks = int(float(marks_value or 1))
+        except (TypeError, ValueError):
+            marks = 0
+        if marks < 1:
+            row_errors.append("marks must be 1 or higher")
+
+        if row_errors:
+            errors.append(f"Row {row_number}: {', '.join(row_errors)}.")
+            continue
+
+        imported_rows.append(
+            {
+                "text": question_text,
+                "options": options,
+                "correct_order": BULK_ANSWER_TO_ORDER[correct_answer],
+                "marks": marks,
+            }
+        )
+
+    if errors:
+        messages.error(request, "Bulk import failed. Fix these rows and upload again: " + " ".join(errors[:8]))
+        if len(errors) > 8:
+            messages.error(request, f"{len(errors) - 8} more row(s) also need correction.")
+        return redirect("institute_admin:institute_exam_questions", pk=exam.pk)
+    if not imported_rows:
+        messages.error(request, "No question rows found in the uploaded template.")
+        return redirect("institute_admin:institute_exam_questions", pk=exam.pk)
+
+    start_order = exam.questions.count() + 1
+    with transaction.atomic():
+        for offset, row in enumerate(imported_rows):
+            question = ExamQuestion.objects.create(
+                exam=exam,
+                text=row["text"],
+                marks=row["marks"],
+                order=start_order + offset,
+            )
+            ExamQuestionOption.objects.bulk_create(
+                [
+                    ExamQuestionOption(
+                        question=question,
+                        text=option_text,
+                        order=option_order,
+                        is_correct=option_order == row["correct_order"],
+                    )
+                    for option_order, option_text in enumerate(row["options"], start=1)
+                ]
+            )
+        sync_exam_total_marks(exam)
+
+    messages.success(request, f"{len(imported_rows)} question(s) imported successfully.")
+    return redirect("institute_admin:institute_exam_questions", pk=exam.pk)
+
+
+@institute_admin_required
+def exam_submissions(request, pk):
+    exam = get_object_or_404(institute_exam_queryset(request), pk=pk)
+    enrollments = (
+        StudentEnrollment.objects.filter(
+            batch=exam.batch,
+            academic_session__academic_year=exam.academic_year,
+            academic_session__status=StudentAcademicSession.Status.ACTIVE,
+            status=StudentEnrollment.Status.ACTIVE,
+            student__is_active=True,
+        )
+        .select_related("academic_session", "student", "student__user")
+        .order_by("academic_session__admission_number", "student__user__first_name", "student__user__username")
+    )
+    attempts = list(
+        ExamAttempt.objects.filter(exam=exam)
+        .select_related("student", "student__user", "academic_session")
+        .prefetch_related("uploads")
+    )
+    attempts_by_session = {attempt.academic_session_id: attempt for attempt in attempts}
+    rows = []
+    seen_session_ids = set()
+
+    for enrollment in enrollments:
+        attempt = attempts_by_session.get(enrollment.academic_session_id)
+        seen_session_ids.add(enrollment.academic_session_id)
+        rows.append(
+            {
+                "academic_session": enrollment.academic_session,
+                "student": enrollment.student,
+                "attempt": attempt,
+                "status": "Attempted" if attempt and attempt.is_submitted else "In Progress" if attempt else "Not Attempted",
+            }
+        )
+
+    for attempt in attempts:
+        if attempt.academic_session_id in seen_session_ids:
+            continue
+        rows.append(
+            {
+                "academic_session": attempt.academic_session,
+                "student": attempt.student,
+                "attempt": attempt,
+                "status": "Attempted" if attempt.is_submitted else "In Progress",
+            }
+        )
+
+    attempted_count = sum(1 for row in rows if row["attempt"] and row["attempt"].is_submitted)
+    in_progress_count = sum(1 for row in rows if row["attempt"] and not row["attempt"].is_submitted)
+    not_attempted_count = sum(1 for row in rows if not row["attempt"])
+    return render(
+        request,
+        "exam/institute_exam_submissions.html",
+        {
+            "exam": exam,
+            "rows": rows,
+            "total_students": len(rows),
+            "attempted_count": attempted_count,
+            "in_progress_count": in_progress_count,
+            "not_attempted_count": not_attempted_count,
+        },
+    )
+
+
+@institute_admin_required
+def exam_attempt_manage(request, exam_pk, attempt_pk):
+    exam = get_object_or_404(institute_exam_queryset(request), pk=exam_pk)
+    attempt = get_object_or_404(
+        ExamAttempt.objects.select_related("student", "student__user", "academic_session", "exam")
+        .prefetch_related("question_attempts", "uploads", "activities"),
+        pk=attempt_pk,
+        exam=exam,
+    )
+    questions = list(exam.questions.prefetch_related("options"))
+
+    if request.method == "POST":
+        action = request.POST.get("action", "save_answers")
+        with transaction.atomic():
+            for question in questions:
+                selected_option = None
+                option_id = request.POST.get(f"answer_{question.pk}")
+                if option_id:
+                    selected_option = question.options.filter(pk=option_id).first()
+                ExamQuestionAttempt.objects.update_or_create(
+                    attempt=attempt,
+                    question=question,
+                    defaults={"selected_option": selected_option},
+                )
+            if action == "force_submit" and not attempt.is_submitted:
+                attempt.submitted_at = timezone.now()
+                attempt.save(update_fields=["submitted_at"])
+            recalculate_exam_attempt(attempt)
+        if action == "force_submit":
+            messages.success(request, "Attempt answers saved and marked as submitted.")
+        else:
+            messages.success(request, "Student answers updated and score recalculated.")
+        return redirect("institute_admin:institute_exam_attempt_manage", exam_pk=exam.pk, attempt_pk=attempt.pk)
+
+    recalculate_exam_attempt(attempt)
+    attempts_by_question = {
+        answer.question_id: answer
+        for answer in attempt.question_attempts.select_related("selected_option")
+    }
+    question_rows = [
+        {
+            "question": question,
+            "answer": attempts_by_question.get(question.pk),
+            "uploads": [upload for upload in attempt.uploads.all() if upload.question_id == question.pk],
+        }
+        for question in questions
+    ]
+    unlinked_uploads = [upload for upload in attempt.uploads.all() if not upload.question_id]
+    return render(
+        request,
+        "exam/institute_exam_attempt_manage.html",
+        {
+            "exam": exam,
+            "attempt": attempt,
+            "question_rows": question_rows,
+            "unlinked_uploads": unlinked_uploads,
+        },
+    )
+
+
+@institute_admin_required
+@require_POST
+def exam_attempt_reset(request, exam_pk, attempt_pk):
+    exam = get_object_or_404(institute_exam_queryset(request), pk=exam_pk)
+    attempt = get_object_or_404(ExamAttempt.objects.select_related("student"), pk=attempt_pk, exam=exam)
+    student_name = attempt.student.user.get_full_name() or attempt.student.user.username
+    ExamResult.objects.filter(exam=exam, student=attempt.student).delete()
+    attempt.delete()
+    messages.success(request, f"Attempt reset for {student_name}. The student can attend this exam again.")
+    return redirect("institute_admin:institute_exam_submissions", pk=exam.pk)
+
+
+@institute_admin_required
+@require_POST
+def exam_publish(request, pk):
+    exam = get_object_or_404(institute_exam_queryset(request), pk=pk)
+    if exam.is_published:
+        messages.info(request, "Exam is already published to students.")
+    else:
+        exam.is_published = True
+        exam.save(update_fields=["is_published"])
+        messages.success(request, "Exam published successfully. Students can now view and attempt this exam.")
+    return redirect("institute_admin:institute_exam_submissions", pk=exam.pk)
+
+
+@institute_admin_required
+@require_POST
+def exam_toggle_result_publish(request, pk):
+    exam = get_object_or_404(institute_exam_queryset(request), pk=pk)
+    action = request.POST.get("action")
+    if action == "publish":
+        exam.show_result_after_submit = True
+        exam.save(update_fields=["show_result_after_submit"])
+        messages.success(request, "Exam results published successfully. Students can now view their scores.")
+    elif action == "hide":
+        exam.show_result_after_submit = False
+        exam.save(update_fields=["show_result_after_submit"])
+        messages.success(request, "Exam results hidden successfully. Students will not see scores until you publish again.")
+    else:
+        messages.error(request, "Invalid result visibility action.")
+    return redirect("institute_admin:institute_exam_submissions", pk=exam.pk)
+
+
+@institute_admin_required
+def results(request):
+    batches = institute_exam_batches(request)
+    exams_qs = Exam.objects.filter(batch__in=batches)
+    result_qs = ExamResult.objects.filter(exam__in=exams_qs).select_related("exam", "student", "student__user")
+    return render(request, "exam/institute_results.html", {"results": result_qs})
+
+
+@institute_admin_required
+def result_create(request):
+    batches = institute_exam_batches(request)
+    exams_qs = Exam.objects.filter(batch__in=batches)
+    students_qs = StudentEnrollment.objects.filter(
+        batch__in=batches,
+        academic_session__status=StudentAcademicSession.Status.ACTIVE,
+        status=StudentEnrollment.Status.ACTIVE,
+        student__is_active=True,
+    ).values_list("student_id", flat=True)
+    from student_parent.models import StudentProfile
+
+    form = TeacherExamResultForm(
+        request.POST or None,
+        exams=exams_qs,
+        students=StudentProfile.objects.filter(pk__in=students_qs).select_related("user"),
+    )
+    if request.method == "POST" and form.is_valid():
+        result = form.save()
+        notify_result_declared(result)
+        messages.success(request, "Result saved successfully.")
+        return redirect("institute_admin:institute_results")
+    return render(request, "exam/institute_result_form.html", {"form": form, "title": "Add Result"})

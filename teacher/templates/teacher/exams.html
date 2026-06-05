@@ -3,22 +3,531 @@
 {% block title %}Teacher Exams{% endblock title %}
 
 {% block content %}
-<main id="main" class="main">
-    <div class="pagetitle"><h1>Exams</h1></div>
-    <div class="card p-3">
-        <div class="d-flex justify-content-end mb-3">
-            <a class="btn btn-primary" href="{% url 'teacher:exam_create' %}">New Exam</a>
+<style>
+    .exam-page {
+        --primary: #4f46e5;
+        --primary-dark: #312e81;
+        --accent: #06b6d4;
+        --surface-soft: #f8fafc;
+        --border: #e5e7eb;
+        --text: #0f172a;
+        --muted: #64748b;
+        --shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+        --shadow-soft: 0 10px 26px rgba(15, 23, 42, 0.06);
+        position: relative;
+    }
+
+    .exam-page::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+            radial-gradient(circle at 12% 10%, rgba(79, 70, 229, 0.14), transparent 28%),
+            radial-gradient(circle at 90% 18%, rgba(6, 182, 212, 0.13), transparent 28%),
+            linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255, 255, 255, 0.65));
+        z-index: -1;
+    }
+
+    .exam-page .pagetitle h1,
+    .exam-page .page-title {
+        font-weight: 900;
+        color: var(--text);
+        letter-spacing: -0.04em;
+    }
+
+    .exam-page .breadcrumb {
+        background: transparent;
+        margin-bottom: 0;
+    }
+
+    .page-toolbar,
+    .filter-panel,
+    .table-card,
+    .stat-card {
+        background: rgba(255, 255, 255, 0.88);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 24px;
+        box-shadow: var(--shadow-soft);
+        backdrop-filter: blur(12px);
+    }
+
+    .page-toolbar {
+        padding: 26px;
+        margin-bottom: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .page-toolbar::after {
+        content: "";
+        position: absolute;
+        width: 190px;
+        height: 190px;
+        right: -70px;
+        top: -85px;
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.16), rgba(6, 182, 212, 0.16));
+        border-radius: 50%;
+    }
+
+    .page-title {
+        font-size: clamp(1.55rem, 2.4vw, 2.15rem);
+        margin: 0;
+    }
+
+    .page-subtitle {
+        color: var(--muted);
+        margin: 8px 0 0;
+        max-width: 680px;
+        font-weight: 500;
+    }
+
+    .btn-gradient {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        border: none;
+        border-radius: 14px;
+        padding: 11px 18px;
+        font-weight: 800;
+        box-shadow: 0 14px 28px rgba(79, 70, 229, 0.28);
+        transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+        position: relative;
+        z-index: 1;
+        white-space: nowrap;
+    }
+
+    .btn-gradient:hover,
+    .btn-gradient:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 18px 34px rgba(79, 70, 229, 0.34);
+        opacity: .96;
+    }
+
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 24px;
+    }
+
+    .stat-card {
+        padding: 22px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .stat-card::after {
+        content: "";
+        position: absolute;
+        inset: auto -28px -45px auto;
+        width: 112px;
+        height: 112px;
+        background: rgba(79, 70, 229, 0.08);
+        border-radius: 50%;
+    }
+
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.13), rgba(6, 182, 212, 0.14));
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        margin-bottom: 16px;
+    }
+
+    .stat-number {
+        font-size: 2.1rem;
+        font-weight: 900;
+        color: var(--text);
+        line-height: 1;
+        letter-spacing: -0.04em;
+    }
+
+    .stat-label {
+        color: var(--muted);
+        font-size: .9rem;
+        margin-top: 8px;
+        font-weight: 700;
+    }
+
+    .filter-panel {
+        padding: 24px;
+        margin-bottom: 24px;
+        position: relative;
+        z-index: 20;
+        overflow: visible !important;
+    }
+
+    .filter-title {
+        font-weight: 900;
+        color: var(--text);
+        margin-bottom: 18px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .exam-page .form-label {
+        color: #334155;
+        font-size: .82rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+    .exam-page .form-control,
+    .exam-page .form-select {
+        min-height: 46px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        padding: 11px 14px;
+        background-color: #fff;
+        color: var(--text) !important;
+    }
+
+    .exam-page .form-control:focus,
+    .exam-page .form-select:focus {
+        border-color: rgba(79, 70, 229, 0.55);
+        box-shadow: 0 0 0 .22rem rgba(79, 70, 229, 0.12);
+    }
+
+    .btn-reset {
+        min-height: 46px;
+        border-radius: 14px;
+        font-weight: 800;
+        background: #fff;
+    }
+
+    .table-card {
+        overflow: hidden;
+        box-shadow: var(--shadow);
+    }
+
+    .table-header {
+        padding: 20px 22px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(135deg, rgba(248, 250, 252, 0.94), rgba(255, 255, 255, 0.98));
+    }
+
+    .table-header h5 {
+        margin: 0;
+        font-weight: 900;
+        color: var(--text);
+    }
+
+    .table-modern {
+        margin: 0;
+    }
+
+    .table-modern thead th {
+        background: #f8fafc;
+        color: #475569;
+        border-bottom: 1px solid var(--border);
+        padding: 15px 18px;
+        font-size: .76rem;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .table-modern tbody td {
+        padding: 18px;
+        vertical-align: middle;
+        border-bottom: 1px solid #eef2f7;
+        color: #1e293b;
+    }
+
+    .exam-avatar {
+        width: 46px;
+        min-width: 46px;
+        height: 46px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        box-shadow: 0 12px 22px rgba(79, 70, 229, 0.2);
+    }
+
+    .exam-name {
+        color: var(--text);
+        font-weight: 900;
+    }
+
+    .badge-soft {
+        display: inline-flex;
+        align-items: center;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: .78rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .badge-success-soft {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .badge-muted-soft {
+        background: #e2e8f0;
+        color: #334155;
+    }
+
+    .action-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px !important;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 6px;
+    }
+
+    .empty-state {
+        padding: 64px 20px;
+        text-align: center;
+        color: var(--muted);
+    }
+
+    .empty-state i {
+        font-size: 3.2rem;
+        color: #c7d2fe;
+        margin-bottom: 12px;
+    }
+
+    @media(max-width: 992px) {
+        .stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media(max-width: 576px) {
+        .stat-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .page-toolbar,
+        .table-header {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 14px;
+        }
+    }
+</style>
+
+<main id="main" class="main exam-page">
+    <div class="pagetitle">
+        <h1>Exam Setup</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item active">Exams</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="page-toolbar d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="page-title">Exam Management</h2>
+            <p class="page-subtitle">Create MCQ exams for the selected academic year and manage questions separately.</p>
+            <p class="page-subtitle mb-0"><strong>Academic Year:</strong> {{ selected_academic_year.name|default:"-" }}</p>
         </div>
-        <table class="table">
-            <thead><tr><th>Exam</th><th>Batch</th><th>Date</th><th>Total Marks</th></tr></thead>
-            <tbody>
-            {% for exam in exams %}
-                <tr><td>{{ exam.title }}</td><td>{{ exam.batch.name }}</td><td>{{ exam.exam_date }}</td><td>{{ exam.total_marks }}</td></tr>
-            {% empty %}
-                <tr><td colspan="4">No exams found.</td></tr>
-            {% endfor %}
-            </tbody>
-        </table>
+
+        <a href="javascript:void(0);"
+           data-url="{% url 'teacher:exam_create' %}"
+           class="btn btn-gradient"
+           onclick="openExamWindow(this)">
+            <i class="bi bi-plus-circle"></i> New Exam
+        </a>
+    </div>
+
+    <div class="stat-grid">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-clipboard-check"></i></div>
+            <div class="stat-number">{{ total_exams }}</div>
+            <div class="stat-label">Total Exams</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-broadcast"></i></div>
+            <div class="stat-number">{{ published_exams }}</div>
+            <div class="stat-label">Published Exams</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-pencil-square"></i></div>
+            <div class="stat-number">{{ draft_exams }}</div>
+            <div class="stat-label">Draft Exams</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-person-check"></i></div>
+            <div class="stat-number">{{ total_attempts }}</div>
+            <div class="stat-label">Submitted Attempts</div>
+        </div>
+    </div>
+
+    <div class="filter-panel">
+        <div class="filter-title">
+            <i class="bi bi-funnel me-1"></i> Filter Exams
+        </div>
+
+        <form method="get" class="row g-3">
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label">Batch</label>
+                <select name="batch" class="form-select">
+                    <option value="">All Batches</option>
+                    {% for batch in batches %}
+                        <option value="{{ batch.pk }}" {% if batch_filter == batch.pk|stringformat:"s" %}selected{% endif %}>{{ batch.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="published" {% if status_filter == "published" %}selected{% endif %}>Published</option>
+                    <option value="draft" {% if status_filter == "draft" %}selected{% endif %}>Draft</option>
+                </select>
+            </div>
+
+            <div class="col-lg-4 col-md-12">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" placeholder="Search exam, batch or subject..." value="{{ search_query }}">
+            </div>
+
+            <div class="col-lg-2 col-md-12 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-gradient">
+                    <i class="bi bi-search"></i> Filter
+                </button>
+
+                <a href="{% url 'teacher:exams' %}" class="btn btn-reset border">
+                    <i class="bi bi-x-circle"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-card">
+        <div class="table-header">
+            <h5><i class="bi bi-list-ul me-1"></i> Exam Records</h5>
+            <span class="text-muted small">Only selected academic year exams are shown</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-modern align-middle">
+                <thead>
+                    <tr>
+                        <th>Exam</th>
+                        <th>Batch</th>
+                        <th>Subject</th>
+                        <th>Date</th>
+                        <th>Duration</th>
+                        <th>Questions</th>
+                        <th>Marks</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exam in exams %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="exam-avatar">{{ exam.title|slice:":1" }}</div>
+                                <div>
+                                    <strong class="exam-name">{{ exam.title }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ exam.academic_year.name }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ exam.batch.name }}</td>
+                        <td>{{ exam.subject.name|default:"General" }}</td>
+                        <td>{{ exam.exam_date }}</td>
+                        <td>{{ exam.duration_minutes }} min</td>
+                        <td>{{ exam.question_count }}</td>
+                        <td>{{ exam.marks_from_questions|default:0 }}</td>
+                        <td>
+                            {% if exam.is_published %}
+                                <span class="badge-soft badge-success-soft"><i class="bi bi-check-circle me-1"></i> Published</span>
+                            {% else %}
+                                <span class="badge-soft badge-muted-soft"><i class="bi bi-pencil me-1"></i> Draft</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group">
+                                <a href="javascript:void(0);"
+                                   data-url="{% url 'teacher:exam_update' exam.pk %}"
+                                   class="btn btn-sm btn-outline-warning action-btn"
+                                   onclick="openExamWindow(this)"
+                                   title="Edit">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                                <a class="btn btn-sm btn-outline-primary action-btn" href="{% url 'teacher:exam_questions' exam.pk %}" title="Questions">
+                                    <i class="bi bi-ui-checks-grid"></i>
+                                </a>
+                                <a class="btn btn-sm btn-outline-dark action-btn" href="{% url 'teacher:exam_submissions' exam.pk %}" title="Submissions">
+                                    <i class="bi bi-people"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9">
+                            <div class="empty-state">
+                                <i class="bi bi-clipboard-check"></i>
+                                <h5>No Exams Found</h5>
+                                <p>Create an exam for this academic year.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </main>
+
+<script>
+    function openExamWindow(element, customWidth = 920, customHeight = 760) {
+        const url = element.dataset.url;
+        const left = Math.max(0, (window.screen.width - customWidth) / 2);
+        const top = Math.max(0, (window.screen.height - customHeight) / 2);
+        const features = [
+            `width=${customWidth}`,
+            `height=${customHeight}`,
+            `left=${left}`,
+            `top=${top}`,
+            'scrollbars=yes',
+            'resizable=yes',
+            'location=no',
+            'menubar=no',
+            'toolbar=no',
+            'status=no'
+        ].join(',');
+
+        const newWindow = window.open(url, "examWindow", features);
+        if (newWindow) {
+            newWindow.focus();
+            const checkWindow = setInterval(function () {
+                if (newWindow.closed) {
+                    clearInterval(checkWindow);
+                    window.location.reload();
+                }
+            }, 500);
+        }
+        return false;
+    }
+</script>
 {% endblock content %}

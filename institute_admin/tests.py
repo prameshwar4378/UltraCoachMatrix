@@ -12,7 +12,7 @@ from django.urls import reverse
 from accountant.models import FeeCategory, FeeInvoice, Payment
 from student_parent.models import StudentAcademicSession, StudentEnrollment, StudentProfile
 from super_admin.models import Institute, UserProfile
-from teacher.models import Attendance, Homework
+from teacher.models import Attendance, Exam, Homework
 
 from .forms import PaymentUpdateForm, ReceiveFeeForm
 from .models import AcademicYear, Batch, Course, Notice
@@ -787,6 +787,22 @@ class TenantIsolationTests(TestCase):
             audience=Notice.Audience.EVERYONE,
             created_by=self.admin_b,
         )
+        self.exam_a = Exam.objects.create(
+            academic_year=self.year_a,
+            batch=self.batch_a,
+            course=self.course_a,
+            title="Institute A Exam",
+            exam_date=date(2026, 6, 10),
+            is_published=False,
+        )
+        self.exam_b = Exam.objects.create(
+            academic_year=self.year_b,
+            batch=self.batch_b,
+            course=self.course_b,
+            title="Institute B Exam",
+            exam_date=date(2026, 6, 10),
+            is_published=False,
+        )
         self.client.force_login(self.admin_a)
         session = self.client.session
         session["academic_year_id"] = self.year_a.pk
@@ -876,6 +892,25 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(b"SMIS-2026-27-0001", response.content)
         self.assertNotIn(b"Batch B", response.content)
+
+    def test_institute_admin_can_publish_exam_from_submissions(self):
+        response = self.client.get(reverse("institute_admin:institute_exam_submissions", args=[self.exam_a.pk]))
+
+        self.assertContains(response, "Exam Not Published")
+        self.assertContains(response, "Publish Exam")
+
+        response = self.client.post(reverse("institute_admin:institute_exam_publish", args=[self.exam_a.pk]))
+
+        self.assertRedirects(response, reverse("institute_admin:institute_exam_submissions", args=[self.exam_a.pk]))
+        self.exam_a.refresh_from_db()
+        self.assertTrue(self.exam_a.is_published)
+
+    def test_institute_admin_cannot_publish_other_institute_exam(self):
+        response = self.client.post(reverse("institute_admin:institute_exam_publish", args=[self.exam_b.pk]))
+
+        self.assertEqual(response.status_code, 404)
+        self.exam_b.refresh_from_db()
+        self.assertFalse(self.exam_b.is_published)
 
 
 class SessionAuditCommandTests(TestCase):

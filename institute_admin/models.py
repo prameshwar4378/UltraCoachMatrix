@@ -53,6 +53,32 @@ class Course(models.Model):
         return self.name
 
 
+class Subject(models.Model):
+    institute = models.ForeignKey(
+        "super_admin.Institute",
+        on_delete=models.CASCADE,
+        related_name="subjects",
+    )
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.PROTECT,
+        related_name="subjects",
+    )
+    name = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["academic_year__start_date", "name"]
+        unique_together = ["institute", "academic_year", "name"]
+        indexes = [
+            models.Index(fields=["institute", "academic_year", "is_active"], name="subject_inst_year_idx"),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class Batch(models.Model):
     institute = models.ForeignKey(
         "super_admin.Institute",

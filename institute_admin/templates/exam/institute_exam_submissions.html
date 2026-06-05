@@ -1,0 +1,493 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Exam Submissions{% endblock title %}
+
+{% block content %}
+<style>
+    .submission-page {
+        --primary: #2563eb;
+        --purple: #7c3aed;
+        --success: #16a34a;
+        --danger: #dc2626;
+        --warning: #f59e0b;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        --shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+        position: relative;
+    }
+
+    .submission-page::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+            radial-gradient(circle at 8% 10%, rgba(37, 99, 235, 0.13), transparent 28%),
+            radial-gradient(circle at 92% 18%, rgba(124, 58, 237, 0.10), transparent 30%),
+            linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+        z-index: -1;
+    }
+
+    .submission-hero,
+    .exam-publish-panel,
+    .result-panel,
+    .stat-card,
+    .table-card {
+        background: rgba(255, 255, 255, .94);
+        border: 1px solid rgba(226, 232, 240, .95);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(12px);
+    }
+
+    .submission-hero {
+        padding: 26px;
+        margin-bottom: 22px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 18px;
+    }
+
+    .result-panel {
+        padding: 20px 22px;
+        margin-bottom: 22px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 18px;
+    }
+
+    .exam-publish-panel {
+        padding: 20px 22px;
+        margin-bottom: 22px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 18px;
+    }
+
+    .exam-publish-panel.not-published {
+        background: #fff1f2;
+        border-color: #fecdd3;
+        box-shadow: 0 18px 45px rgba(220, 38, 38, 0.12);
+    }
+
+    .exam-publish-panel.published {
+        background: #f0fdf4;
+        border-color: #bbf7d0;
+        box-shadow: 0 18px 45px rgba(22, 163, 74, 0.10);
+    }
+
+    .exam-publish-title {
+        margin: 0 0 5px;
+        font-weight: 950;
+    }
+
+    .exam-publish-panel.not-published .exam-publish-title {
+        color: #b91c1c;
+    }
+
+    .exam-publish-panel.published .exam-publish-title {
+        color: #166534;
+    }
+
+    .exam-publish-copy {
+        color: var(--muted);
+        margin: 0;
+        font-weight: 700;
+    }
+
+    .result-title {
+        color: var(--text);
+        font-weight: 950;
+        margin: 0 0 5px;
+    }
+
+    .result-copy {
+        color: var(--muted);
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .page-title {
+        margin: 0;
+        color: var(--text);
+        font-weight: 950;
+        letter-spacing: -0.04em;
+    }
+
+    .page-subtitle {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-weight: 600;
+    }
+
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 22px;
+    }
+
+    .stat-card {
+        padding: 20px;
+    }
+
+    .stat-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 15px;
+        display: grid;
+        place-items: center;
+        margin-bottom: 12px;
+        background: #dbeafe;
+        color: var(--primary);
+        font-size: 1.2rem;
+    }
+
+    .stat-number {
+        color: var(--text);
+        font-size: 1.85rem;
+        line-height: 1;
+        font-weight: 950;
+    }
+
+    .stat-label {
+        color: var(--muted);
+        margin-top: 7px;
+        font-size: .86rem;
+        font-weight: 800;
+    }
+
+    .table-card {
+        overflow: hidden;
+    }
+
+    .table-header {
+        padding: 18px 22px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 60%, #eef2ff 100%);
+    }
+
+    .table-header h5 {
+        margin: 0;
+        color: var(--text);
+        font-weight: 950;
+    }
+
+    .table-modern {
+        margin: 0;
+    }
+
+    .table-modern thead th {
+        background: #f8fafc;
+        color: #475569;
+        border-bottom: 1px solid var(--border);
+        padding: 15px 18px;
+        font-size: .75rem;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        font-weight: 950;
+        white-space: nowrap;
+    }
+
+    .table-modern tbody td {
+        padding: 18px;
+        vertical-align: middle;
+        border-bottom: 1px solid #eef2f7;
+        color: #1e293b;
+    }
+
+    .student-avatar {
+        width: 46px;
+        height: 46px;
+        min-width: 46px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, var(--primary), var(--purple));
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-weight: 950;
+        box-shadow: 0 13px 24px rgba(37, 99, 235, .18);
+    }
+
+    .student-name {
+        color: var(--text);
+        font-weight: 950;
+    }
+
+    .student-sub {
+        color: var(--muted);
+        font-size: .82rem;
+        font-weight: 600;
+    }
+
+    .badge-soft {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: .78rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-orange { background: #ffedd5; color: #c2410c; }
+    .badge-gray { background: #e2e8f0; color: #334155; }
+    .badge-blue { background: #dbeafe; color: #1d4ed8; }
+
+    .upload-links a {
+        display: inline-flex;
+        margin: 2px 4px 2px 0;
+        text-decoration: none;
+    }
+
+    .action-stack {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .reset-form {
+        display: inline-flex;
+    }
+
+    @media(max-width: 992px) {
+        .submission-hero {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .result-panel {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .exam-publish-panel {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media(max-width: 576px) {
+        .stat-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<main id="main" class="main submission-page">
+    <div class="pagetitle">
+        <h1>Exam Submissions</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'institute_admin:institute_exams' %}">Exams</a></li>
+                <li class="breadcrumb-item active">Submissions</li>
+            </ol>
+        </nav>
+    </div>
+
+    <section class="submission-hero">
+        <div>
+            <h2 class="page-title">{{ exam.title }}</h2>
+            <p class="page-subtitle">
+                {{ exam.batch.name }} | {{ exam.subject.name|default:"General" }} | {{ exam.academic_year.name }}
+            </p>
+        </div>
+        <a class="btn btn-light border" href="{% url 'institute_admin:institute_exams' %}">
+            <i class="bi bi-arrow-left"></i> Back to Exams
+        </a>
+    </section>
+
+    <section class="exam-publish-panel {% if exam.is_published %}published{% else %}not-published{% endif %}">
+        <div>
+            <h5 class="exam-publish-title">
+                {% if exam.is_published %}
+                    <i class="bi bi-check-circle me-1"></i> Exam Published
+                {% else %}
+                    <i class="bi bi-exclamation-triangle me-1"></i> Exam Not Published
+                {% endif %}
+            </h5>
+            {% if exam.is_published %}
+                <p class="exam-publish-copy">Students can view and attempt this exam.</p>
+            {% else %}
+                <p class="exam-publish-copy">Students cannot view or attempt this exam until it is published.</p>
+            {% endif %}
+        </div>
+        {% if not exam.is_published %}
+            <form method="post"
+                  action="{% url 'institute_admin:institute_exam_publish' exam.pk %}"
+                  class="m-0"
+                  onsubmit="return confirm('Publish this exam to students? Students will be able to view and attempt it immediately.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-broadcast"></i> Publish Exam
+                </button>
+            </form>
+        {% endif %}
+    </section>
+
+    <section class="result-panel">
+        <div>
+            <h5 class="result-title">
+                <i class="bi bi-eye me-1"></i> Result Visibility
+            </h5>
+            {% if exam.show_result_after_submit %}
+                <p class="result-copy">Results are published. Students can view scores after submitting this exam.</p>
+            {% else %}
+                <p class="result-copy">Results are hidden. Review submissions here, then publish when ready.</p>
+            {% endif %}
+        </div>
+
+        <form method="post" action="{% url 'institute_admin:institute_exam_toggle_result_publish' exam.pk %}" class="m-0">
+            {% csrf_token %}
+            {% if exam.show_result_after_submit %}
+                <input type="hidden" name="action" value="hide">
+                <button type="submit" class="btn btn-outline-warning">
+                    <i class="bi bi-eye-slash"></i> Hide Results
+                </button>
+            {% else %}
+                <input type="hidden" name="action" value="publish">
+                <button type="submit" class="btn btn-success" {% if attempted_count == 0 %}disabled{% endif %}>
+                    <i class="bi bi-broadcast"></i> Publish Results
+                </button>
+            {% endif %}
+        </form>
+    </section>
+
+    <div class="stat-grid">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-people"></i></div>
+            <div class="stat-number">{{ total_students }}</div>
+            <div class="stat-label">Students</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+            <div class="stat-number">{{ attempted_count }}</div>
+            <div class="stat-label">Attempted</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
+            <div class="stat-number">{{ in_progress_count }}</div>
+            <div class="stat-label">In Progress</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-dash-circle"></i></div>
+            <div class="stat-number">{{ not_attempted_count }}</div>
+            <div class="stat-label">Not Attempted</div>
+        </div>
+    </div>
+
+    <div class="table-card">
+        <div class="table-header">
+            <h5><i class="bi bi-clipboard-data me-1"></i> Student Submission Status</h5>
+            <span class="text-muted small">Showing all active students for this exam batch</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-modern align-middle">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Status</th>
+                        <th>Submitted At</th>
+                        <th>Score</th>
+                        <th>Correct</th>
+                        <th>Wrong</th>
+                        <th>Unattempted</th>
+                        <th>Uploads</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="student-avatar">
+                                        {{ row.student.user.get_full_name|default:row.student.user.username|slice:":1" }}
+                                    </div>
+                                    <div>
+                                        <div class="student-name">{{ row.student.user.get_full_name|default:row.student.user.username }}</div>
+                                        <div class="student-sub">{{ row.academic_session.admission_number }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if row.status == "Attempted" %}
+                                    <span class="badge-soft badge-green"><i class="bi bi-check-circle"></i> Attempted</span>
+                                {% elif row.status == "In Progress" %}
+                                    <span class="badge-soft badge-orange"><i class="bi bi-hourglass-split"></i> In Progress</span>
+                                {% else %}
+                                    <span class="badge-soft badge-gray"><i class="bi bi-dash-circle"></i> Not Attempted</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ row.attempt.submitted_at|default:"-" }}</td>
+                            <td>
+                                {% if row.attempt %}
+                                    <span class="badge-soft badge-blue">{{ row.attempt.score }} / {{ row.attempt.total_marks }}</span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>{{ row.attempt.correct_count|default:"-" }}</td>
+                            <td>{{ row.attempt.wrong_count|default:"-" }}</td>
+                            <td>{{ row.attempt.unattempted_count|default:"-" }}</td>
+                            <td class="upload-links">
+                                {% if row.attempt %}
+                                    {% for upload in row.attempt.uploads.all %}
+                                        <a href="{{ upload.image.url }}" target="_blank" class="badge-soft badge-blue">Image {{ forloop.counter }}</a>
+                                    {% empty %}
+                                        -
+                                    {% endfor %}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if row.attempt %}
+                                    <div class="action-stack">
+                                        <a class="btn btn-sm btn-outline-primary" href="{% url 'institute_admin:institute_exam_attempt_manage' exam.pk row.attempt.pk %}">
+                                            <i class="bi bi-sliders"></i> Manage
+                                        </a>
+                                        <form method="post"
+                                              action="{% url 'institute_admin:institute_exam_attempt_reset' exam.pk row.attempt.pk %}"
+                                              class="reset-form"
+                                              onsubmit="return confirm('Reset this attempt? The student answers, uploads and activity logs for this attempt will be deleted, and the student can attend this exam again.');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-arrow-counterclockwise"></i> Reset
+                                            </button>
+                                        </form>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted small">No attempt yet</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-5">
+                                No active students found for this exam batch.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+{% endblock content %}

@@ -1,0 +1,17 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}{{ title }}{% endblock title %}
+
+{% block content %}
+<main id="main" class="main">
+    <div class="pagetitle"><h1>{{ title }}</h1></div>
+    <form method="post" class="card p-3">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary" type="submit">Save</button>
+            <a class="btn btn-light border" href="{% url 'institute_admin:institute_results' %}">Cancel</a>
+        </div>
+    </form>
+</main>
+{% endblock content %}

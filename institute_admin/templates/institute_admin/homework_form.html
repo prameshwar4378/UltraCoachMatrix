@@ -57,12 +57,13 @@
                 <div class="section-title-icon"><i class="bi bi-book"></i></div>
                 <div>
                     <h3>Homework Details</h3>
-                    <p>Subject is based on your courses, so it works for any institute subject.</p>
+                    <p>Select a subject separately, then choose a course from the selected batch.</p>
                 </div>
             </div>
             <div class="form-grid">
                 <div><label class="form-label"><i class="bi bi-collection"></i> Batch</label>{{ form.batch }}{{ form.batch.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-book"></i> Subject / Course</label>{{ form.course }}{{ form.course.errors }}<small class="text-muted">Optional. Leave blank for general homework.</small></div>
+                <div><label class="form-label"><i class="bi bi-book"></i> Subject</label>{{ form.subject }}{{ form.subject.errors }}<small class="text-muted">Optional. Leave blank for general homework.</small></div>
+                <div><label class="form-label"><i class="bi bi-journal-bookmark"></i> Course</label>{{ form.course }}{{ form.course.errors }}<small class="text-muted">Only courses in the selected batch are shown.</small></div>
                 <div style="grid-column: 1 / -1;"><label class="form-label"><i class="bi bi-card-heading"></i> Title</label>{{ form.title }}{{ form.title.errors }}</div>
                 <div><label class="form-label"><i class="bi bi-calendar-check"></i> Due Date</label>{{ form.due_date }}{{ form.due_date.errors }}</div>
                 <div style="grid-column: 1 / -1;">
@@ -143,7 +144,7 @@
         }
         const currentValue = keepValue ? courseSelect.value : "";
         const courses = batchCourseData[batchSelect.value] || [];
-        courseSelect.innerHTML = '<option value="">General homework</option>';
+        courseSelect.innerHTML = '<option value="">No course</option>';
         courses.forEach(function (course) {
             const option = document.createElement("option");
             option.value = course.id;

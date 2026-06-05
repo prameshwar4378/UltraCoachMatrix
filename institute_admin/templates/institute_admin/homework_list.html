@@ -48,7 +48,7 @@
     <div class="page-toolbar d-flex justify-content-between align-items-center">
         <div>
             <h2 class="page-title">Homework Planner</h2>
-            <p class="page-subtitle">Create work for any batch and subject/course from one institute panel.</p>
+            <p class="page-subtitle">Create work for any batch with separate subject and course details.</p>
         </div>
         <a href="javascript:void(0);" data-url="{% url 'institute_admin:homework_create' %}" class="btn btn-gradient" onclick="openHomeworkWindow(this)">
             <i class="bi bi-plus-circle"></i> New Homework
@@ -68,7 +68,7 @@
         <div class="stat-card" style="--stat-color:#6042c8; --stat-soft:#f1edff;"><div class="stat-icon"><i class="bi bi-journal-check"></i></div><div class="stat-number">{{ total_homework }}</div><div class="stat-label">Total Homework</div></div>
         <div class="stat-card" style="--stat-color:#16a34a; --stat-soft:#dcfce7;"><div class="stat-icon"><i class="bi bi-calendar-check"></i></div><div class="stat-number">{{ due_homework }}</div><div class="stat-label">Open / Upcoming</div></div>
         <div class="stat-card" style="--stat-color:#dc2626; --stat-soft:#fee2e2;"><div class="stat-icon"><i class="bi bi-exclamation-circle"></i></div><div class="stat-number">{{ expired_homework }}</div><div class="stat-label">Past Due</div></div>
-        <div class="stat-card" style="--stat-color:#2563eb; --stat-soft:#dbeafe;"><div class="stat-icon"><i class="bi bi-book"></i></div><div class="stat-number">{{ subject_count }}</div><div class="stat-label">Subjects / Courses</div></div>
+        <div class="stat-card" style="--stat-color:#2563eb; --stat-soft:#dbeafe;"><div class="stat-icon"><i class="bi bi-book"></i></div><div class="stat-number">{{ subject_count }}</div><div class="stat-label">Subjects</div></div>
     </div>
 
     <div class="filter-panel">
@@ -82,16 +82,25 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-lg-3 col-md-6">
-                <label class="form-label">Subject / Course</label>
-                <select name="course" class="form-select">
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">Subject</label>
+                <select name="subject" class="form-select">
                     <option value="">All Subjects</option>
+                    {% for subject in subjects %}
+                        <option value="{{ subject.pk }}" {% if subject_filter == subject.pk|stringformat:"s" %}selected{% endif %}>{{ subject.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">Course</label>
+                <select name="course" class="form-select">
+                    <option value="">All Courses</option>
                     {% for course in courses %}
                         <option value="{{ course.pk }}" {% if course_filter == course.pk|stringformat:"s" %}selected{% endif %}>{{ course.name }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-lg-4 col-md-12">
+            <div class="col-lg-3 col-md-12">
                 <label class="form-label">Search</label>
                 <input type="text" name="search" class="form-control" placeholder="Search homework, batch, subject..." value="{{ search_query }}">
             </div>
@@ -113,7 +122,8 @@
                     <tr>
                         <th>Homework</th>
                         <th>Batch</th>
-                        <th>Subject / Course</th>
+                        <th>Subject</th>
+                        <th>Course</th>
                         <th>Documents</th>
                         <th>Due Date</th>
                         <th>Created By</th>
@@ -130,7 +140,8 @@
                             <!-- <small class="text-muted">{{ homework.instructions|truncatechars:80|default:"No instructions" }}</small> -->
                         </td>
                         <td>{{ homework.batch.name }}</td>
-                        <td><span class="subject-pill">{{ homework.course.name|default:"General" }}</span></td>
+                        <td><span class="subject-pill">{{ homework.subject.name|default:"General" }}</span></td>
+                        <td>{{ homework.course.name|default:"-" }}</td>
                         <td>
                             <strong>{{ homework.attachments.count }}</strong>
                             <br>
@@ -151,7 +162,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="8"><div class="empty-state">No homework created yet.</div></td></tr>
+                    <tr><td colspan="9"><div class="empty-state">No homework created yet.</div></td></tr>
                     {% endfor %}
                 </tbody>
             </table>

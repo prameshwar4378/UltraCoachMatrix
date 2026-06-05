@@ -26,6 +26,10 @@ from Website import urls as website_urls
 urlpatterns = [
     path('api/mobile/attendance/', student_parent_views.mobile_attendance, name='mobile_attendance'),
     path('api/mobile/homework/', student_parent_views.mobile_homework_planner, name='mobile_homework_planner'),
+    path('api/mobile/exams/', student_parent_views.mobile_exams, name='mobile_exams'),
+    path('api/mobile/exams/<int:pk>/start/', student_parent_views.mobile_exam_start, name='mobile_exam_start'),
+    path('api/mobile/exam-attempts/<int:attempt_id>/submit/', student_parent_views.mobile_exam_submit, name='mobile_exam_submit'),
+    path('api/mobile/exam-attempts/<int:attempt_id>/result/', student_parent_views.mobile_exam_result, name='mobile_exam_result'),
     path('api/mobile/notices/', student_parent_views.mobile_notices, name='mobile_notices'),
     path('api/mobile/notices/<int:notice_id>/read/', student_parent_views.mobile_notice_mark_read, name='mobile_notice_mark_read'),
     path('api/mobile/devices/register/', student_parent_views.mobile_register_device, name='mobile_register_device'),

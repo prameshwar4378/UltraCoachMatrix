@@ -14324,11 +14324,19 @@
             </a>
         </li>
 
-        <li class="nav-item">
+          <li class="nav-item">
             <a class="nav-link"
                href="{% url 'institute_admin:course_list' %}">
                 <i class="bi bi-calendar-week-fill"></i>
                 <span>Courses</span>
+            </a>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link"
+               href="{% url 'institute_admin:subject_list' %}">
+                <i class="bi bi-book-fill"></i>
+                <span>Subjects</span>
             </a>
         </li>
 
@@ -14398,12 +14406,12 @@
                     </a>
                 </li>
                 <li>
-                    <a href="/admin/teacher/exam/" style="text-decoration:none;">
+                    <a href="{% url 'institute_admin:institute_exams' %}" style="text-decoration:none;">
                         <i class="bi bi-file-earmark-text" style="font-size:15px;"></i><span>Tests / Exams</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/admin/teacher/examresult/" style="text-decoration:none;">
+                    <a href="{% url 'institute_admin:institute_results' %}" style="text-decoration:none;">
                         <i class="bi bi-bar-chart-line" style="font-size:15px;"></i><span>Exam Results</span>
                     </a>
                 </li>

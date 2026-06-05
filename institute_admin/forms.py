@@ -19,7 +19,7 @@ from student_parent.models import (
 )
 from teacher.models import Homework, HomeworkAttachment, TeacherProfile
 
-from .models import AcademicYear, Batch, Course, Notice
+from .models import AcademicYear, Batch, Course, Notice, Subject
 
 
 def get_academic_year_label(today=None):
@@ -119,6 +119,32 @@ class CourseForm(forms.ModelForm):
         return fee_amount
 
 
+class SubjectForm(forms.ModelForm):
+    class Meta:
+        model = Subject
+        fields = ("name", "description", "is_active")
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self, *args, institute=None, academic_year=None, **kwargs):
+        self.institute = institute
+        self.academic_year = academic_year
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            css_class = "form-check-input" if isinstance(field.widget, forms.CheckboxInput) else "form-control"
+            field.widget.attrs.setdefault("class", css_class)
+
+    def clean_name(self):
+        name = self.cleaned_data["name"].strip()
+        queryset = Subject.objects.filter(institute=self.institute, academic_year=self.academic_year, name__iexact=name)
+        if self.instance and self.instance.pk:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if self.institute and self.academic_year and queryset.exists():
+            raise ValidationError("This subject already exists in the selected academic year.")
+        return name
+
+
 class FeeCategoryForm(forms.ModelForm):
     class Meta:
         model = FeeCategory
@@ -179,6 +205,12 @@ class BatchForm(forms.ModelForm):
             self.fields["teachers"].label_from_instance = lambda profile: (
                 profile.user.get_full_name() or profile.user.username
             )
+            if self.instance and self.instance.pk:
+                self.fields["teachers"].initial = UserProfile.objects.filter(
+                    institute=institute,
+                    role=UserProfile.Role.TEACHER,
+                    user__in=self.instance.teachers.all(),
+                )
         else:
             self.fields["courses"].queryset = Course.objects.none()
             self.fields["teachers"].queryset = UserProfile.objects.none()
@@ -931,7 +963,7 @@ class HomeworkForm(forms.ModelForm):
 
     class Meta:
         model = Homework
-        fields = ("batch", "course", "title", "instructions", "due_date")
+        fields = ("batch", "subject", "course", "title", "instructions", "due_date")
         widgets = {
             "instructions": forms.HiddenInput(),
             "due_date": forms.DateInput(attrs={"type": "date"}),
@@ -943,19 +975,27 @@ class HomeworkForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if institute:
             batches = Batch.objects.filter(institute=institute, is_active=True).prefetch_related("courses")
+            subjects = Subject.objects.filter(institute=institute, is_active=True)
             courses = Course.objects.filter(institute=institute, is_active=True)
             if academic_year:
                 batches = batches.filter(academic_year=academic_year)
+                subjects = subjects.filter(academic_year=academic_year)
                 courses = courses.filter(academic_year=academic_year)
             self.fields["batch"].queryset = batches
+            self.fields["subject"].queryset = subjects
             self.fields["course"].queryset = courses
         else:
             self.fields["batch"].queryset = Batch.objects.none()
+            self.fields["subject"].queryset = Subject.objects.none()
             self.fields["course"].queryset = Course.objects.none()
 
+        self.fields["subject"].required = False
         self.fields["course"].required = False
+        self.fields["subject"].empty_label = "General homework"
+        self.fields["course"].empty_label = "No course"
         self.fields["files"].widget.attrs.update({"multiple": True, "accept": ".pdf,.jpg,.jpeg,.png,.doc,.docx"})
         self.fields["batch"].label_from_instance = lambda batch: batch.name
+        self.fields["subject"].label_from_instance = lambda subject: subject.name
         self.fields["course"].label_from_instance = lambda course: course.name
 
         for field in self.fields.values():
@@ -968,9 +1008,12 @@ class HomeworkForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         batch = cleaned_data.get("batch")
+        subject = cleaned_data.get("subject")
         course = cleaned_data.get("course")
+        if batch and subject and subject.academic_year_id != batch.academic_year_id:
+            raise ValidationError("Selected subject must belong to the selected batch academic year.")
         if batch and course and not batch.courses.filter(pk=course.pk).exists():
-            raise ValidationError("Selected subject/course must belong to the selected batch.")
+            raise ValidationError("Selected course must belong to the selected batch.")
         return cleaned_data
 
     def clean_files(self):

@@ -6,6 +6,13 @@ app_name = "student_parent"
 
 urlpatterns = [
     path("download-app/", views.download_app, name="download_app"),
+    path("exams/", views.exams, name="exams"),
+    path("exams/<int:pk>/attempt/", views.exam_attempt, name="exam_attempt"),
+    path("exam-attempts/<int:pk>/result/", views.exam_result, name="exam_result"),
+    path("api/mobile/exams/", views.mobile_exams, name="mobile_exams"),
+    path("api/mobile/exams/<int:pk>/start/", views.mobile_exam_start, name="mobile_exam_start"),
+    path("api/mobile/exam-attempts/<int:attempt_id>/submit/", views.mobile_exam_submit, name="mobile_exam_submit"),
+    path("api/mobile/exam-attempts/<int:attempt_id>/result/", views.mobile_exam_result, name="mobile_exam_result"),
     path("api/mobile/attendance/", views.mobile_attendance, name="mobile_attendance"),
     path("api/mobile/homework/", views.mobile_homework_planner, name="mobile_homework_planner"),
     path("api/mobile/notices/", views.mobile_notices, name="mobile_notices"),

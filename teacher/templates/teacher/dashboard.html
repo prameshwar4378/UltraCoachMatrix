@@ -1,55 +1,632 @@
 {% extends "teacher_base.html" %}
 
-{% block title %}Teacher Dashboard{% endblock title %}
+{% block title %}Teacher Dashboard{% endblock %}
 
 {% block content %}
-<main id="main" class="main">
-    <div class="pagetitle">
-        <h1>Teacher Dashboard</h1>
+<style>
+  .teacher-dashboard {
+    --ink: #172033;
+    --muted: #647084;
+    --line: #e5eaf2;
+    --panel: #ffffff;
+    --soft: #f6f8fb;
+    color: var(--ink);
+    overflow-x: hidden;
+  }
+
+  .teacher-dashboard .pagetitle {
+    margin-bottom: 14px;
+  }
+
+  .teacher-dashboard .pagetitle h1 {
+    color: #0d175d;
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 2px;
+  }
+
+  .dashboard-header {
+    background:
+      linear-gradient(135deg, rgba(24, 94, 194, 0.94), rgba(21, 123, 128, 0.92)),
+      radial-gradient(circle at top right, rgba(255, 255, 255, 0.22), transparent 36%);
+    border-radius: 8px;
+    color: #fff;
+    padding: 24px;
+    box-shadow: 0 18px 40px rgba(23, 32, 51, 0.12);
+  }
+
+  .dashboard-header h1 {
+    font-size: clamp(1.55rem, 2vw, 2.15rem);
+    line-height: 1.15;
+    margin: 0;
+    letter-spacing: 0;
+  }
+
+  .dashboard-header .subtext {
+    color: rgba(255, 255, 255, 0.78);
+    margin: 8px 0 0;
+  }
+
+  .quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .quick-actions .btn {
+    border-radius: 8px;
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .metric-card,
+  .dashboard-panel,
+  .batch-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 10px 26px rgba(23, 32, 51, 0.06);
+  }
+
+  .metric-card {
+    min-height: 126px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .metric-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .metric-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    font-size: 1.15rem;
+  }
+
+  .metric-label {
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
+  .metric-value {
+    font-size: 1.9rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-top: 10px;
+  }
+
+  .metric-note {
+    color: var(--muted);
+    font-size: 0.88rem;
+    margin-top: 8px;
+  }
+
+  .tone-blue {
+    background: #e9f2ff;
+    color: #185ec2;
+  }
+
+  .tone-green {
+    background: #e8f7ef;
+    color: #18764a;
+  }
+
+  .tone-amber {
+    background: #fff4db;
+    color: #996106;
+  }
+
+  .tone-red {
+    background: #ffecec;
+    color: #b42318;
+  }
+
+  .tone-cyan {
+    background: #e7f8fb;
+    color: #157b80;
+  }
+
+  .tone-slate {
+    background: #eef2f7;
+    color: #405069;
+  }
+
+  .dashboard-panel {
+    padding: 20px;
+  }
+
+  .panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .panel-heading h2 {
+    font-size: 1.02rem;
+    line-height: 1.2;
+    margin: 0;
+    font-weight: 800;
+  }
+
+  .panel-link {
+    color: #185ec2;
+    font-size: 0.88rem;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+  }
+
+  .stat-pill {
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .stat-pill strong {
+    display: block;
+    font-size: 1.35rem;
+    line-height: 1;
+  }
+
+  .stat-pill span {
+    color: var(--muted);
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin-top: 7px;
+    text-transform: uppercase;
+  }
+
+  .attendance-ring {
+    width: 132px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background:
+      conic-gradient(#18764a calc(var(--rate, 0) * 1%), #edf1f7 0);
+    display: grid;
+    place-items: center;
+    margin: 0 auto 18px;
+  }
+
+  .attendance-ring-inner {
+    width: 94px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: #fff;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  .attendance-ring-inner strong {
+    display: block;
+    font-size: 1.45rem;
+    line-height: 1;
+  }
+
+  .attendance-ring-inner span {
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .batch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+
+  .batch-card {
+    padding: 16px;
+  }
+
+  .batch-card h3 {
+    font-size: 1rem;
+    font-weight: 800;
+    margin: 0 0 12px;
+  }
+
+  .batch-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .batch-meta span,
+  .mini-badge {
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: #405069;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 6px 9px;
+  }
+
+  .activity-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .activity-item {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 13px;
+    display: grid;
+    gap: 8px;
+  }
+
+  .activity-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .activity-title strong {
+    font-size: 0.96rem;
+    line-height: 1.25;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .activity-meta {
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    font-size: 0.84rem;
+  }
+
+  .empty-state {
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    color: var(--muted);
+    padding: 22px;
+    text-align: center;
+  }
+
+  @media (max-width: 767.98px) {
+    .dashboard-header {
+      padding: 20px;
+    }
+
+    .quick-actions .btn {
+      flex: 1 1 46%;
+      justify-content: center;
+      min-width: 132px;
+    }
+
+    .panel-heading {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+</style>
+
+<main id="main" class="main teacher-dashboard">
+  <div class="pagetitle">
+    <h1>Dashboard</h1>
+    <nav>
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+        <li class="breadcrumb-item active">Dashboard</li>
+      </ol>
+    </nav>
+  </div>
+
+  <section class="dashboard-header mb-4">
+    <div class="row g-3 align-items-center">
+      <div class="col-lg-7">
+        <p class="mb-2 fw-semibold text-white-50">Teacher Workspace{% if selected_academic_year %} · {{ selected_academic_year }}{% endif %}</p>
+        <h1>{{ teacher_name }}</h1>
+        <p class="subtext">Assigned batches, attendance, homework, exams, and results in one place.</p>
+      </div>
+      <div class="col-lg-5">
+        <div class="quick-actions justify-content-lg-end">
+          <a class="btn btn-light text-primary fw-bold" href="{% url 'teacher:attendance' %}" title="Attendance">
+            <i class="bi bi-calendar-check"></i>
+            Attendance
+          </a>
+          <a class="btn btn-outline-light fw-bold" href="{% url 'teacher:homework_create' %}" title="Create homework">
+            <i class="bi bi-journal-plus"></i>
+            Homework
+          </a>
+          <a class="btn btn-outline-light fw-bold" href="{% url 'teacher:exams' %}" title="Exams">
+            <i class="bi bi-file-earmark-text"></i>
+            Exams
+          </a>
+          <a class="btn btn-outline-light fw-bold" href="{% url 'teacher:results' %}" title="Results">
+            <i class="bi bi-bar-chart"></i>
+            Results
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="row g-3 mb-4">
+    <div class="col-6 col-xl-3">
+      <div class="metric-card">
+        <div>
+          <div class="metric-top">
+            <span class="metric-label">Batches</span>
+            <span class="metric-icon tone-blue"><i class="bi bi-collection"></i></span>
+          </div>
+          <div class="metric-value">{{ batch_count }}</div>
+        </div>
+        <div class="metric-note">Assigned to you</div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="metric-card">
+        <div>
+          <div class="metric-top">
+            <span class="metric-label">Students</span>
+            <span class="metric-icon tone-green"><i class="bi bi-people"></i></span>
+          </div>
+          <div class="metric-value">{{ student_count }}</div>
+        </div>
+        <div class="metric-note">Active enrolments</div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="metric-card">
+        <div>
+          <div class="metric-top">
+            <span class="metric-label">Homework</span>
+            <span class="metric-icon tone-amber"><i class="bi bi-journal-text"></i></span>
+          </div>
+          <div class="metric-value">{{ homework_count }}</div>
+        </div>
+        <div class="metric-note">{{ open_homework_count }} open · {{ overdue_homework_count }} overdue</div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="metric-card">
+        <div>
+          <div class="metric-top">
+            <span class="metric-label">Exams</span>
+            <span class="metric-icon tone-cyan"><i class="bi bi-clipboard2-check"></i></span>
+          </div>
+          <div class="metric-value">{{ exam_count }}</div>
+        </div>
+        <div class="metric-note">{{ upcoming_exam_count }} upcoming · {{ published_exam_count }} published</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="row g-3 mb-4">
+    <div class="col-lg-4">
+      <div class="dashboard-panel h-100">
+        <div class="panel-heading">
+          <h2>Today Attendance</h2>
+          <a class="panel-link" href="{% url 'teacher:attendance' %}">Open</a>
+        </div>
+        <div class="attendance-ring" style="--rate: {{ attendance_rate|default:0 }};">
+          <div class="attendance-ring-inner">
+            <div>
+              <strong>{{ attendance_rate|default:0 }}%</strong>
+              <span>Present</span>
+            </div>
+          </div>
+        </div>
+        <div class="stat-strip">
+          <div class="stat-pill">
+            <strong>{{ present_today }}</strong>
+            <span>Present</span>
+          </div>
+          <div class="stat-pill">
+            <strong>{{ absent_today }}</strong>
+            <span>Absent</span>
+          </div>
+          <div class="stat-pill">
+            <strong>{{ late_today }}</strong>
+            <span>Late</span>
+          </div>
+        </div>
+        <p class="metric-note mb-0 mt-3">{{ today_attendance_count }} records marked today.</p>
+      </div>
     </div>
 
-    <section class="section dashboard">
-        <div class="row g-3">
-            <div class="col-md-3"><div class="card info-card p-3"><h6>Batches</h6><h3>{{ batch_count }}</h3></div></div>
-            <div class="col-md-3"><div class="card info-card p-3"><h6>Students</h6><h3>{{ student_count }}</h3></div></div>
-            <div class="col-md-3"><div class="card info-card p-3"><h6>Homework</h6><h3>{{ homework_count }}</h3></div></div>
-            <div class="col-md-3"><div class="card info-card p-3"><h6>Exams</h6><h3>{{ exam_count }}</h3></div></div>
+    <div class="col-lg-4">
+      <div class="dashboard-panel h-100">
+        <div class="panel-heading">
+          <h2>Homework Pulse</h2>
+          <a class="panel-link" href="{% url 'teacher:homework' %}">View All</a>
         </div>
+        <div class="stat-strip">
+          <div class="stat-pill">
+            <strong>{{ open_homework_count }}</strong>
+            <span>Open</span>
+          </div>
+          <div class="stat-pill">
+            <strong>{{ due_soon_homework_count }}</strong>
+            <span>Due Soon</span>
+          </div>
+          <div class="stat-pill">
+            <strong>{{ overdue_homework_count }}</strong>
+            <span>Overdue</span>
+          </div>
+        </div>
+        <div class="mt-3 d-flex flex-wrap gap-2">
+          <span class="mini-badge"><i class="bi bi-journal-plus"></i>{{ homework_count }} total</span>
+          <span class="mini-badge"><i class="bi bi-calendar-week"></i>{{ today }} to {{ week_end }}</span>
+        </div>
+      </div>
+    </div>
 
-        <div class="row g-3 mt-1">
-            <div class="col-lg-6">
-                <div class="card p-3">
-                    <h5>Recent Homework</h5>
-                    <div class="table-responsive">
-                        <table class="table">
-                            <tbody>
-                            {% for item in recent_homework %}
-                                <tr><td>{{ item.title }}</td><td>{{ item.batch.name }}</td><td>{{ item.due_date|default:"-" }}</td></tr>
-                            {% empty %}
-                                <tr><td>No homework created yet.</td></tr>
-                            {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-6">
-                <div class="card p-3">
-                    <h5>Upcoming Exams</h5>
-                    <div class="table-responsive">
-                        <table class="table">
-                            <tbody>
-                            {% for exam in recent_exams %}
-                                <tr><td>{{ exam.title }}</td><td>{{ exam.batch.name }}</td><td>{{ exam.exam_date }}</td></tr>
-                            {% empty %}
-                                <tr><td>No exams created yet.</td></tr>
-                            {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+    <div class="col-lg-4">
+      <div class="dashboard-panel h-100">
+        <div class="panel-heading">
+          <h2>Exam Snapshot</h2>
+          <a class="panel-link" href="{% url 'teacher:exams' %}">Manage</a>
         </div>
-    </section>
+        <div class="stat-strip">
+          <div class="stat-pill">
+            <strong>{{ upcoming_exam_count }}</strong>
+            <span>Upcoming</span>
+          </div>
+          <div class="stat-pill">
+            <strong>{{ draft_exam_count }}</strong>
+            <span>Draft</span>
+          </div>
+          <div class="stat-pill">
+            <strong>{{ result_count }}</strong>
+            <span>Results</span>
+          </div>
+        </div>
+        <div class="mt-3 d-flex flex-wrap gap-2">
+          <span class="mini-badge"><i class="bi bi-send-check"></i>{{ submitted_attempt_count }} submitted</span>
+          <span class="mini-badge"><i class="bi bi-broadcast"></i>{{ published_exam_count }} published</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="dashboard-panel mb-4">
+    <div class="panel-heading">
+      <h2>Assigned Batches</h2>
+      <span class="mini-badge"><i class="bi bi-person-check"></i>{{ batch_count }} active</span>
+    </div>
+    {% if assigned_batches %}
+      <div class="batch-grid">
+        {% for batch in assigned_batches %}
+          <div class="batch-card">
+            <h3>{{ batch.name }}</h3>
+            <div class="batch-meta">
+              <span><i class="bi bi-people"></i>{{ batch.active_students }} students</span>
+              <span><i class="bi bi-book"></i>{{ batch.course_total }} courses</span>
+              {% if batch.start_date %}
+                <span><i class="bi bi-calendar3"></i>{{ batch.start_date }}</span>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">No assigned batches found.</div>
+    {% endif %}
+  </section>
+
+  <section class="row g-3">
+    <div class="col-xl-4">
+      <div class="dashboard-panel h-100">
+        <div class="panel-heading">
+          <h2>Due Homework</h2>
+          <a class="panel-link" href="{% url 'teacher:homework' %}">View</a>
+        </div>
+        {% if due_homework %}
+          <div class="activity-list">
+            {% for item in due_homework %}
+              <div class="activity-item">
+                <div class="activity-title">
+                  <strong>{{ item.title }}</strong>
+                  {% if item.due_date %}
+                    <span class="mini-badge"><i class="bi bi-clock"></i>{{ item.due_date }}</span>
+                  {% endif %}
+                </div>
+                <div class="activity-meta">
+                  <span>{{ item.batch.name }}</span>
+                  {% if item.subject %}<span>{{ item.subject.name }}</span>{% endif %}
+                  {% if item.course %}<span>{{ item.course.name }}</span>{% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">No homework due in your assigned batches.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-xl-4">
+      <div class="dashboard-panel h-100">
+        <div class="panel-heading">
+          <h2>Upcoming Exams</h2>
+          <a class="panel-link" href="{% url 'teacher:exams' %}">Open</a>
+        </div>
+        {% if recent_exams %}
+          <div class="activity-list">
+            {% for exam in recent_exams %}
+              <div class="activity-item">
+                <div class="activity-title">
+                  <strong>{{ exam.title }}</strong>
+                  {% if exam.is_published %}
+                    <span class="mini-badge"><i class="bi bi-check-circle"></i>Published</span>
+                  {% else %}
+                    <span class="mini-badge"><i class="bi bi-pencil"></i>Draft</span>
+                  {% endif %}
+                </div>
+                <div class="activity-meta">
+                  <span>{{ exam.batch.name }}</span>
+                  {% if exam.subject %}<span>{{ exam.subject.name }}</span>{% endif %}
+                  {% if exam.exam_date %}<span>{{ exam.exam_date }}</span>{% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">No upcoming exams for your assigned batches.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-xl-4">
+      <div class="dashboard-panel h-100">
+        <div class="panel-heading">
+          <h2>Recent Results</h2>
+          <a class="panel-link" href="{% url 'teacher:results' %}">Review</a>
+        </div>
+        {% if recent_results %}
+          <div class="activity-list">
+            {% for result in recent_results %}
+              <div class="activity-item">
+                <div class="activity-title">
+                  <strong>{{ result.student.user.get_full_name|default:result.student }}</strong>
+                  <span class="mini-badge"><i class="bi bi-award"></i>{{ result.score }}</span>
+                </div>
+                <div class="activity-meta">
+                  <span>{{ result.exam.title }}</span>
+                  <span>{{ result.exam.batch.name }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">No results recorded yet.</div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
 </main>
-{% endblock content %}
+{% endblock %}

@@ -1,6 +1,19 @@
 from django.contrib import admin
 
-from .models import Attendance, Exam, ExamResult, Homework, HomeworkAttachment, TeacherProfile
+from .models import (
+    Attendance,
+    Exam,
+    ExamAttempt,
+    ExamAttemptActivity,
+    ExamAttemptUpload,
+    ExamQuestion,
+    ExamQuestionAttempt,
+    ExamQuestionOption,
+    ExamResult,
+    Homework,
+    HomeworkAttachment,
+    TeacherProfile,
+)
 
 
 @admin.register(TeacherProfile)
@@ -25,8 +38,8 @@ class AttendanceAdmin(admin.ModelAdmin):
 
 @admin.register(Homework)
 class HomeworkAdmin(admin.ModelAdmin):
-    list_display = ("title", "batch", "course", "due_date", "created_by", "created_at")
-    list_filter = ("batch", "course", "due_date", "created_at")
+    list_display = ("title", "batch", "subject", "course", "due_date", "created_by", "created_at")
+    list_filter = ("batch", "subject", "course", "due_date", "created_at")
     search_fields = ("title", "instructions")
 
 
@@ -41,12 +54,30 @@ class ExamResultInline(admin.TabularInline):
     extra = 0
 
 
+class ExamQuestionOptionInline(admin.TabularInline):
+    model = ExamQuestionOption
+    extra = 4
+
+
+class ExamQuestionInline(admin.TabularInline):
+    model = ExamQuestion
+    extra = 0
+
+
 @admin.register(Exam)
 class ExamAdmin(admin.ModelAdmin):
-    list_display = ("title", "batch", "exam_date", "total_marks", "created_by")
-    list_filter = ("batch", "exam_date")
+    list_display = ("title", "academic_year", "batch", "subject", "exam_date", "total_marks", "is_published", "created_by")
+    list_filter = ("academic_year", "batch", "subject", "is_published", "exam_date")
     search_fields = ("title", "batch__name")
-    inlines = [ExamResultInline]
+    inlines = [ExamQuestionInline, ExamResultInline]
+
+
+@admin.register(ExamQuestion)
+class ExamQuestionAdmin(admin.ModelAdmin):
+    list_display = ("exam", "order", "marks")
+    list_filter = ("exam__academic_year", "exam")
+    search_fields = ("text", "exam__title")
+    inlines = [ExamQuestionOptionInline]
 
 
 @admin.register(ExamResult)
@@ -54,3 +85,29 @@ class ExamResultAdmin(admin.ModelAdmin):
     list_display = ("exam", "student", "marks_obtained")
     list_filter = ("exam",)
     search_fields = ("student__academic_sessions__admission_number", "student__user__username", "exam__title")
+
+
+@admin.register(ExamAttempt)
+class ExamAttemptAdmin(admin.ModelAdmin):
+    list_display = ("exam", "student", "academic_session", "score", "total_marks", "submitted_at")
+    list_filter = ("exam__academic_year", "exam", "submitted_at")
+    search_fields = ("exam__title", "student__user__username", "academic_session__admission_number")
+
+
+@admin.register(ExamQuestionAttempt)
+class ExamQuestionAttemptAdmin(admin.ModelAdmin):
+    list_display = ("attempt", "question", "selected_option", "is_correct", "marks_awarded")
+    list_filter = ("is_correct",)
+
+
+@admin.register(ExamAttemptUpload)
+class ExamAttemptUploadAdmin(admin.ModelAdmin):
+    list_display = ("attempt", "question", "image", "uploaded_at")
+    list_filter = ("uploaded_at",)
+
+
+@admin.register(ExamAttemptActivity)
+class ExamAttemptActivityAdmin(admin.ModelAdmin):
+    list_display = ("attempt", "event_type", "detail", "occurred_at")
+    list_filter = ("event_type", "occurred_at")
+    search_fields = ("attempt__exam__title", "attempt__student__user__username", "detail")

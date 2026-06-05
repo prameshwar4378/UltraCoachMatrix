@@ -3,28 +3,219 @@
 {% block title %}Teacher Homework{% endblock title %}
 
 {% block content %}
-<main id="main" class="main">
-    <div class="pagetitle"><h1>Homework</h1></div>
-    <div class="card p-3">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <form method="get" class="d-flex gap-2">
-                <input class="form-control" name="search" value="{{ search }}" placeholder="Search homework">
-                <button class="btn btn-outline-primary" type="submit">Search</button>
-            </form>
-            <a class="btn btn-primary" href="{% url 'teacher:homework_create' %}">New Homework</a>
+<style>
+    .homework-page { --primary: #6042c8; --dark: #442c9f; --surface: #fff; --border: #e5e7eb; --text: #111827; --muted: #6b7280; }
+    .page-toolbar, .filter-panel, .table-card, .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 12px 30px rgba(16, 24, 40, .06); }
+    .page-toolbar { padding: 22px; margin-bottom: 20px; }
+    .page-title { font-size: 1.7rem; font-weight: 900; color: var(--text); margin: 0; }
+    .page-subtitle { color: var(--muted); margin: 6px 0 0; font-weight: 700; }
+    .btn-gradient { background: linear-gradient(135deg, var(--primary), var(--dark)); color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-weight: 800; }
+    .btn-gradient:hover { color: #fff; transform: translateY(-1px); }
+    .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .stat-card { padding: 18px; border-top: 4px solid var(--stat-color); }
+    .stat-icon { width: 42px; height: 42px; border-radius: 8px; background: var(--stat-soft); color: var(--stat-color); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-bottom: 12px; }
+    .stat-number { font-size: 1.7rem; font-weight: 950; color: var(--text); line-height: 1; }
+    .stat-label { color: var(--muted); font-size: .85rem; margin-top: 8px; font-weight: 750; }
+    .filter-panel { padding: 20px; margin-bottom: 20px; }
+    .form-control, .form-select { border-radius: 8px; border: 1px solid var(--border); padding: 10px 13px; }
+    .table-card { overflow: hidden; }
+    .table-header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .table-header h5 { margin: 0; font-weight: 900; }
+    .table-modern { margin: 0; }
+    .table-modern thead th { background: #f8fafc; color: #475467; border-bottom: 1px solid var(--border); padding: 14px 16px; font-size: .76rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 900; }
+    .table-modern tbody td { padding: 16px; vertical-align: middle; border-bottom: 1px solid #f1f5f9; color: var(--text); }
+    .subject-pill { display: inline-flex; padding: 7px 10px; border-radius: 999px; background: #f1edff; color: var(--primary); font-weight: 850; font-size: .78rem; }
+    .status-pill { display: inline-flex; padding: 7px 10px; border-radius: 999px; font-weight: 850; font-size: .78rem; }
+    .status-open { background: #dcfce7; color: #166534; }
+    .status-overdue { background: #fee2e2; color: #991b1b; }
+    .action-btn { width: 34px; height: 34px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; }
+    .empty-state { padding: 50px 20px; text-align: center; color: var(--muted); font-weight: 750; }
+    @media(max-width: 992px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media(max-width: 576px) { .stat-grid { grid-template-columns: 1fr; } .page-toolbar, .table-header { flex-direction: column; align-items: flex-start !important; } }
+</style>
+
+<main id="main" class="main homework-page">
+    <div class="pagetitle">
+        <h1>Homework</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item active">Homework</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="page-toolbar d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="page-title">Homework Planner</h2>
+            <p class="page-subtitle">Create work for assigned batches with separate subject and course details.</p>
+        </div>
+        <a href="javascript:void(0);" data-url="{% url 'teacher:homework_create' %}" class="btn btn-gradient" onclick="openHomeworkWindow(this)">
+            <i class="bi bi-plus-circle"></i> New Homework
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="stat-grid">
+        <div class="stat-card" style="--stat-color:#6042c8; --stat-soft:#f1edff;"><div class="stat-icon"><i class="bi bi-journal-check"></i></div><div class="stat-number">{{ total_homework }}</div><div class="stat-label">Total Homework</div></div>
+        <div class="stat-card" style="--stat-color:#16a34a; --stat-soft:#dcfce7;"><div class="stat-icon"><i class="bi bi-calendar-check"></i></div><div class="stat-number">{{ due_homework }}</div><div class="stat-label">Open / Upcoming</div></div>
+        <div class="stat-card" style="--stat-color:#dc2626; --stat-soft:#fee2e2;"><div class="stat-icon"><i class="bi bi-exclamation-circle"></i></div><div class="stat-number">{{ expired_homework }}</div><div class="stat-label">Past Due</div></div>
+        <div class="stat-card" style="--stat-color:#2563eb; --stat-soft:#dbeafe;"><div class="stat-icon"><i class="bi bi-book"></i></div><div class="stat-number">{{ subject_count }}</div><div class="stat-label">Subjects</div></div>
+    </div>
+
+    <div class="filter-panel">
+        <form method="get" class="row g-3">
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label">Batch</label>
+                <select name="batch" class="form-select">
+                    <option value="">All Batches</option>
+                    {% for batch in batches %}
+                        <option value="{{ batch.pk }}" {% if batch_filter == batch.pk|stringformat:"s" %}selected{% endif %}>{{ batch.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">Subject</label>
+                <select name="subject" class="form-select">
+                    <option value="">All Subjects</option>
+                    {% for subject in subjects %}
+                        <option value="{{ subject.pk }}" {% if subject_filter == subject.pk|stringformat:"s" %}selected{% endif %}>{{ subject.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">Course</label>
+                <select name="course" class="form-select">
+                    <option value="">All Courses</option>
+                    {% for course in courses %}
+                        <option value="{{ course.pk }}" {% if course_filter == course.pk|stringformat:"s" %}selected{% endif %}>{{ course.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-12">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" placeholder="Search homework, batch, subject..." value="{{ search_query }}">
+            </div>
+            <div class="col-lg-2 col-md-12 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-gradient"><i class="bi bi-search"></i> Filter</button>
+                <a href="{% url 'teacher:homework' %}" class="btn btn-light border"><i class="bi bi-x-circle"></i></a>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-card">
+        <div class="table-header">
+            <h5><i class="bi bi-list-task me-1"></i> Homework Records</h5>
+            <span class="text-muted small">Batch and subject wise assignments</span>
         </div>
         <div class="table-responsive">
-            <table class="table">
-                <thead><tr><th>Title</th><th>Batch</th><th>Course</th><th>Due Date</th></tr></thead>
+            <table class="table table-modern align-middle">
+                <thead>
+                    <tr>
+                        <th>Homework</th>
+                        <th>Batch</th>
+                        <th>Subject</th>
+                        <th>Course</th>
+                        <th>Documents</th>
+                        <th>Due Date</th>
+                        <th>Created By</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
                 <tbody>
-                {% for item in homework_list %}
-                    <tr><td>{{ item.title }}</td><td>{{ item.batch.name }}</td><td>{{ item.course|default:"-" }}</td><td>{{ item.due_date|default:"-" }}</td></tr>
-                {% empty %}
-                    <tr><td colspan="4">No homework found.</td></tr>
-                {% endfor %}
+                    {% for homework in homework_list %}
+                    <tr>
+                        <td>
+                            <strong>{{ homework.title }}</strong>
+                            <!-- <br> -->
+                            <!-- <small class="text-muted">{{ homework.instructions|truncatechars:80|default:"No instructions" }}</small> -->
+                        </td>
+                        <td>{{ homework.batch.name }}</td>
+                        <td><span class="subject-pill">{{ homework.subject.name|default:"General" }}</span></td>
+                        <td>{{ homework.course.name|default:"-" }}</td>
+                        <td>
+                            <strong>{{ homework.attachments.count }}</strong>
+                            <br>
+                            <small class="text-muted">file(s)</small>
+                        </td>
+                        <td>{{ homework.due_date|default:"No due date" }}</td>
+                        <td>{{ homework.created_by.get_full_name|default:homework.created_by.username|default:"System" }}</td>
+                        <td>
+                            {% if homework.due_date and homework.due_date < today %}
+                                <span class="status-pill status-overdue">Past Due</span>
+                            {% else %}
+                                <span class="status-pill status-open">Open</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="javascript:void(0);" data-url="{% url 'teacher:homework_update' homework.pk %}" class="btn btn-sm btn-outline-warning action-btn" onclick="openHomeworkWindow(this)" title="Edit"><i class="bi bi-pencil-square"></i></a>
+                            <button type="button" class="btn btn-sm btn-outline-danger action-btn" data-delete-url="{% url 'teacher:homework_delete' homework.pk %}" data-homework-title="{{ homework.title }}" onclick="openDeleteHomeworkModal(this)" title="Delete"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="9"><div class="empty-state">No homework created yet.</div></td></tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 </main>
+
+<div class="modal fade" id="deleteHomeworkModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i> Delete Homework</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <h6 class="fw-bold mb-2">Delete this homework?</h6>
+                <p class="mb-0"><strong id="deleteHomeworkTitle"></strong> will be removed.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" id="deleteHomeworkForm" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openHomeworkWindow(element, customWidth = 900, customHeight = 720) {
+        const url = element.dataset.url;
+        const left = Math.max(0, (window.screen.width - customWidth) / 2);
+        const top = Math.max(0, (window.screen.height - customHeight) / 2);
+        const features = [`width=${customWidth}`, `height=${customHeight}`, `left=${left}`, `top=${top}`, 'scrollbars=yes', 'resizable=yes', 'location=no', 'menubar=no', 'toolbar=no', 'status=no'].join(',');
+        const newWindow = window.open(url, "homeworkWindow", features);
+        if (newWindow) {
+            newWindow.focus();
+            const checkWindow = setInterval(function () {
+                if (newWindow.closed) {
+                    clearInterval(checkWindow);
+                    window.location.reload();
+                }
+            }, 500);
+        }
+        return false;
+    }
+
+    function openDeleteHomeworkModal(button) {
+        document.getElementById("deleteHomeworkForm").action = button.dataset.deleteUrl;
+        document.getElementById("deleteHomeworkTitle").textContent = button.dataset.homeworkTitle || "This homework";
+        const modal = new bootstrap.Modal(document.getElementById("deleteHomeworkModal"));
+        modal.show();
+    }
+</script>
 {% endblock content %}

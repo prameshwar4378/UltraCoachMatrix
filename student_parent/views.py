@@ -1,10 +1,12 @@
 import json
 from datetime import date, timedelta
 
+from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.html import strip_tags
-from django.utils.dateparse import parse_date
+from django.utils.dateparse import parse_date, parse_datetime
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 from django.views.decorators.http import require_POST
@@ -13,7 +15,16 @@ from institute_admin.models import Notice, NoticeRead
 from super_admin.decorators import student_parent_required
 from super_admin.mobile_auth import bearer_user
 from super_admin.models import UserProfile
-from teacher.models import Attendance, Homework
+from teacher.models import (
+    Attendance,
+    Exam,
+    ExamAttempt,
+    ExamAttemptActivity,
+    ExamAttemptUpload,
+    ExamQuestionAttempt,
+    ExamResult,
+    Homework,
+)
 
 from .models import PushNotification, StudentAcademicSession, StudentEnrollment, StudentProfile, UserDevice
 
@@ -32,6 +43,505 @@ def _selected_academic_session(student, request):
 @student_parent_required
 def download_app(request):
     return render(request, "student_parent/download_app.html")
+
+
+def _student_from_web_user(request):
+    return getattr(request.user, "student_profile", None)
+
+
+def _student_exam_session(request, student):
+    selected = _selected_academic_session(student, request)
+    if selected:
+        return selected
+    return (
+        StudentAcademicSession.objects.filter(student=student, status=StudentAcademicSession.Status.ACTIVE)
+        .select_related("academic_year", "institute")
+        .order_by("-academic_year__start_date", "-pk")
+        .first()
+    )
+
+
+def _student_exam_queryset(student, academic_session):
+    if not academic_session:
+        return Exam.objects.none()
+    enrollment_batches = StudentEnrollment.objects.filter(
+        academic_session=academic_session,
+        status=StudentEnrollment.Status.ACTIVE,
+    ).values_list("batch_id", flat=True)
+    return (
+        Exam.objects.filter(
+            batch_id__in=enrollment_batches,
+            academic_year=academic_session.academic_year,
+            is_published=True,
+        )
+        .select_related("batch", "academic_year", "subject", "created_by")
+        .prefetch_related("questions", "questions__options")
+    )
+
+
+def _student_exam_session_for_exam(student, exam):
+    enrollment = (
+        StudentEnrollment.objects.filter(
+            student=student,
+            batch=exam.batch,
+            academic_session__academic_year=exam.academic_year,
+            academic_session__status=StudentAcademicSession.Status.ACTIVE,
+            status=StudentEnrollment.Status.ACTIVE,
+        )
+        .select_related("academic_session", "academic_session__academic_year")
+        .order_by("-academic_session__academic_year__start_date", "-academic_session_id")
+        .first()
+    )
+    return enrollment.academic_session if enrollment else None
+
+
+@student_parent_required
+def exams(request):
+    student = _student_from_web_user(request)
+    if not student:
+        messages.error(request, "No student profile is linked to this account.")
+        return redirect("student_parent:download_app")
+    sessions = StudentAcademicSession.objects.filter(student=student).select_related("academic_year")
+    academic_session = _student_exam_session(request, student)
+    exam_list = _student_exam_queryset(student, academic_session)
+    attempts = {
+        attempt.exam_id: attempt
+        for attempt in ExamAttempt.objects.filter(academic_session=academic_session, exam__in=exam_list)
+    } if academic_session else {}
+    rows = [{"exam": exam, "attempt": attempts.get(exam.pk)} for exam in exam_list]
+    return render(
+        request,
+        "student_parent/exams.html",
+        {
+            "student": student,
+            "sessions": sessions,
+            "selected_session": academic_session,
+            "rows": rows,
+        },
+    )
+
+
+@student_parent_required
+def exam_attempt(request, pk):
+    student = _student_from_web_user(request)
+    if not student:
+        messages.error(request, "No student profile is linked to this account.")
+        return redirect("student_parent:download_app")
+    academic_session = _student_exam_session(request, student)
+    exam = get_object_or_404(_student_exam_queryset(student, academic_session), pk=pk)
+    attempt, _created = ExamAttempt.objects.get_or_create(
+        exam=exam,
+        academic_session=academic_session,
+        defaults={"student": student, "total_marks": exam.total_marks},
+    )
+    if attempt.is_submitted:
+        return redirect("student_parent:exam_result", pk=attempt.pk)
+    questions = list(exam.questions.prefetch_related("options"))
+    if request.method == "POST":
+        score = 0
+        correct_count = 0
+        wrong_count = 0
+        unattempted_count = 0
+        total_marks = sum(question.marks for question in questions)
+        for question in questions:
+            option_id = request.POST.get(f"question_{question.pk}")
+            selected_option = question.options.filter(pk=option_id).first() if option_id else None
+            is_correct = bool(selected_option and selected_option.is_correct)
+            marks_awarded = question.marks if is_correct else 0
+            if selected_option is None:
+                unattempted_count += 1
+            elif is_correct:
+                correct_count += 1
+                score += question.marks
+            else:
+                wrong_count += 1
+            ExamQuestionAttempt.objects.update_or_create(
+                attempt=attempt,
+                question=question,
+                defaults={
+                    "selected_option": selected_option,
+                    "is_correct": is_correct,
+                    "marks_awarded": marks_awarded,
+                },
+            )
+            if exam.allow_rough_work_uploads:
+                for image in request.FILES.getlist(f"rough_work_{question.pk}"):
+                    ExamAttemptUpload.objects.create(attempt=attempt, question=question, image=image)
+        attempt.score = score
+        attempt.total_marks = total_marks
+        attempt.correct_count = correct_count
+        attempt.wrong_count = wrong_count
+        attempt.unattempted_count = unattempted_count
+        attempt.submitted_at = timezone.now()
+        attempt.save()
+        ExamResult.objects.update_or_create(
+            exam=exam,
+            student=student,
+            defaults={
+                "marks_obtained": score,
+                "remark": "Generated automatically from MCQ exam.",
+            },
+        )
+        messages.success(request, "Exam submitted successfully.")
+        return redirect("student_parent:exam_result", pk=attempt.pk)
+    return render(
+        request,
+        "student_parent/exam_attempt.html",
+        {"exam": exam, "attempt": attempt, "questions": questions, "selected_session": academic_session},
+    )
+
+
+@student_parent_required
+def exam_result(request, pk):
+    student = _student_from_web_user(request)
+    attempt = get_object_or_404(
+        ExamAttempt.objects.select_related("exam", "exam__batch", "academic_session", "student", "student__user")
+        .prefetch_related("question_attempts", "question_attempts__question", "question_attempts__selected_option", "uploads"),
+        pk=pk,
+        student=student,
+    )
+    if not attempt.exam.show_result_after_submit:
+        messages.info(request, "Result is not available yet.")
+        return redirect("student_parent:exams")
+    return render(request, "student_parent/exam_result.html", {"attempt": attempt})
+
+
+def _absolute_media_url(request, field_file):
+    if not field_file:
+        return ""
+    try:
+        return request.build_absolute_uri(field_file.url)
+    except ValueError:
+        return ""
+
+
+def _mobile_exam_item(exam, attempt=None):
+    is_submitted = bool(attempt and attempt.is_submitted)
+    return {
+        "id": exam.pk,
+        "title": exam.title,
+        "exam_date": _date(exam.exam_date),
+        "duration_minutes": exam.duration_minutes,
+        "total_marks": exam.total_marks,
+        "question_count": exam.questions.count(),
+        "instructions": strip_tags(exam.instructions or "").strip(),
+        "show_result_after_submit": exam.show_result_after_submit,
+        "batch": {
+            "id": exam.batch_id,
+            "name": exam.batch.name,
+        },
+        "subject": {
+            "id": exam.subject_id,
+            "name": exam.subject.name if exam.subject_id else "General",
+        },
+        "academic_year": {
+            "id": exam.academic_year_id,
+            "name": exam.academic_year.name if exam.academic_year_id else "",
+        },
+        "attempt": {
+            "id": attempt.pk if attempt else None,
+            "status": "submitted" if is_submitted else "in_progress" if attempt else "not_started",
+            "started_at": _datetime(attempt.started_at) if attempt else None,
+            "submitted_at": _datetime(attempt.submitted_at) if attempt and attempt.submitted_at else None,
+            "score": str(attempt.score) if attempt else None,
+            "total_marks": str(attempt.total_marks) if attempt else None,
+            "can_view_result": bool(is_submitted and exam.show_result_after_submit),
+        },
+    }
+
+
+def _mobile_attempt_payload(request, attempt):
+    exam = attempt.exam
+    questions = []
+    for question in exam.questions.prefetch_related("options"):
+        questions.append(
+            {
+                "id": question.pk,
+                "text": question.text,
+                "image_url": _absolute_media_url(request, question.image),
+                "marks": question.marks,
+                "order": question.order,
+                "options": [
+                    {
+                        "id": option.pk,
+                        "text": option.text,
+                        "order": option.order,
+                    }
+                    for option in question.options.all()
+                ],
+            }
+        )
+    return {
+        "attempt": {
+            "id": attempt.pk,
+            "started_at": _datetime(attempt.started_at),
+            "submitted_at": _datetime(attempt.submitted_at) if attempt.submitted_at else None,
+        },
+        "exam": _mobile_exam_item(exam, attempt),
+        "questions": questions,
+    }
+
+
+def _mobile_result_payload(request, attempt):
+    question_attempts = {
+        item.question_id: item
+        for item in attempt.question_attempts.select_related("selected_option", "question").all()
+    }
+    questions = []
+    for question in attempt.exam.questions.prefetch_related("options"):
+        question_attempt = question_attempts.get(question.pk)
+        correct_option = question.correct_option
+        questions.append(
+            {
+                "id": question.pk,
+                "text": question.text,
+                "image_url": _absolute_media_url(request, question.image),
+                "marks": question.marks,
+                "order": question.order,
+                "selected_option_id": question_attempt.selected_option_id if question_attempt else None,
+                "correct_option_id": correct_option.pk if correct_option else None,
+                "is_correct": bool(question_attempt and question_attempt.is_correct),
+                "marks_awarded": str(question_attempt.marks_awarded) if question_attempt else "0",
+                "options": [
+                    {
+                        "id": option.pk,
+                        "text": option.text,
+                        "order": option.order,
+                    }
+                    for option in question.options.all()
+                ],
+            }
+        )
+    return {
+        "attempt": {
+            "id": attempt.pk,
+            "submitted_at": _datetime(attempt.submitted_at) if attempt.submitted_at else None,
+            "score": str(attempt.score),
+            "total_marks": str(attempt.total_marks),
+            "correct_count": attempt.correct_count,
+            "wrong_count": attempt.wrong_count,
+            "unattempted_count": attempt.unattempted_count,
+            "can_view_result": attempt.exam.show_result_after_submit,
+        },
+        "exam": _mobile_exam_item(attempt.exam, attempt),
+        "questions": questions,
+    }
+
+
+def _json_body(request):
+    try:
+        return json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return None
+
+
+def _request_data(request):
+    data = _json_body(request)
+    return data if isinstance(data, dict) else {}
+
+
+@require_GET
+def mobile_exams(request):
+    student, error = _student_for_request(request)
+    if error:
+        return error
+    academic_session = _student_exam_session(request, student)
+    exam_list = _student_exam_queryset(student, academic_session)
+    attempts = {
+        attempt.exam_id: attempt
+        for attempt in ExamAttempt.objects.filter(academic_session=academic_session, exam__in=exam_list)
+    } if academic_session else {}
+    exams_payload = [_mobile_exam_item(exam, attempts.get(exam.pk)) for exam in exam_list]
+    return JsonResponse(
+        {
+            "student": {
+                "id": student.pk,
+                "name": student.user.get_full_name() or student.user.username,
+                "username": student.user.username,
+                "admission_number": student.admission_number,
+            },
+            "academic_session": {
+                "id": academic_session.pk if academic_session else None,
+                "admission_number": academic_session.admission_number if academic_session else "",
+                "academic_year": academic_session.academic_year.name if academic_session else "",
+            },
+            "summary": {
+                "exam_count": len(exams_payload),
+                "submitted_count": sum(1 for item in exams_payload if item["attempt"]["status"] == "submitted"),
+                "pending_count": sum(1 for item in exams_payload if item["attempt"]["status"] != "submitted"),
+            },
+            "exams": exams_payload,
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def mobile_exam_start(request, pk):
+    student, error = _student_for_request(request)
+    if error:
+        return error
+    payload = _request_data(request)
+    exam = (
+        Exam.objects.filter(pk=pk, is_published=True)
+        .select_related("batch", "academic_year", "subject", "created_by")
+        .prefetch_related("questions", "questions__options")
+        .first()
+    )
+    if not exam:
+        return JsonResponse({"detail": "Exam is not available."}, status=404)
+    academic_session = None
+    academic_session_id = payload.get("academic_session_id")
+    if academic_session_id:
+        academic_session = (
+            StudentAcademicSession.objects.filter(
+                pk=academic_session_id,
+                student=student,
+                academic_year=exam.academic_year,
+                status=StudentAcademicSession.Status.ACTIVE,
+                enrollments__batch=exam.batch,
+                enrollments__status=StudentEnrollment.Status.ACTIVE,
+            )
+            .select_related("academic_year")
+            .first()
+        )
+    academic_session = academic_session or _student_exam_session_for_exam(student, exam)
+    if not academic_session:
+        return JsonResponse({"detail": "This exam is not assigned to your selected academic session."}, status=404)
+    attempt, _created = ExamAttempt.objects.get_or_create(
+        exam=exam,
+        academic_session=academic_session,
+        defaults={"student": student, "total_marks": exam.total_marks},
+    )
+    if attempt.student_id != student.pk:
+        return JsonResponse({"detail": "This attempt belongs to another student."}, status=403)
+    if attempt.is_submitted:
+        return JsonResponse({"detail": "This exam has already been submitted."}, status=400)
+    return JsonResponse(_mobile_attempt_payload(request, attempt))
+
+
+@csrf_exempt
+@require_POST
+def mobile_exam_submit(request, attempt_id):
+    student, error = _student_for_request(request)
+    if error:
+        return error
+    payload = _json_body(request)
+    if payload is None:
+        return JsonResponse({"detail": "Invalid JSON payload."}, status=400)
+    attempt = get_object_or_404(
+        ExamAttempt.objects.select_related("exam", "academic_session", "student"),
+        pk=attempt_id,
+        student=student,
+    )
+    if attempt.is_submitted:
+        return JsonResponse({"detail": "This exam has already been submitted."}, status=400)
+
+    questions = list(attempt.exam.questions.prefetch_related("options"))
+    answer_map = {}
+    for answer in payload.get("answers", []):
+        if not isinstance(answer, dict):
+            continue
+        question_id = answer.get("question_id")
+        option_id = answer.get("option_id")
+        if question_id is not None:
+            answer_map[str(question_id)] = option_id
+
+    score = 0
+    correct_count = 0
+    wrong_count = 0
+    unattempted_count = 0
+    total_marks = sum(question.marks for question in questions)
+    for question in questions:
+        option_id = answer_map.get(str(question.pk))
+        selected_option = question.options.filter(pk=option_id).first() if option_id else None
+        is_correct = bool(selected_option and selected_option.is_correct)
+        marks_awarded = question.marks if is_correct else 0
+        if selected_option is None:
+            unattempted_count += 1
+        elif is_correct:
+            correct_count += 1
+            score += question.marks
+        else:
+            wrong_count += 1
+        ExamQuestionAttempt.objects.update_or_create(
+            attempt=attempt,
+            question=question,
+            defaults={
+                "selected_option": selected_option,
+                "is_correct": is_correct,
+                "marks_awarded": marks_awarded,
+            },
+        )
+
+    activities = []
+    for event in payload.get("activities", []):
+        if not isinstance(event, dict):
+            continue
+        event_type = str(event.get("event_type") or "").strip()[:50]
+        if not event_type:
+            continue
+        occurred_at = parse_datetime(str(event.get("occurred_at") or "")) or timezone.now()
+        if timezone.is_naive(occurred_at):
+            occurred_at = timezone.make_aware(occurred_at)
+        activities.append(
+            ExamAttemptActivity(
+                attempt=attempt,
+                event_type=event_type,
+                detail=str(event.get("detail") or "").strip()[:255],
+                occurred_at=occurred_at,
+            )
+        )
+    if activities:
+        ExamAttemptActivity.objects.bulk_create(activities)
+
+    attempt.score = score
+    attempt.total_marks = total_marks
+    attempt.correct_count = correct_count
+    attempt.wrong_count = wrong_count
+    attempt.unattempted_count = unattempted_count
+    attempt.submitted_at = timezone.now()
+    attempt.save()
+    ExamResult.objects.update_or_create(
+        exam=attempt.exam,
+        student=student,
+        defaults={
+            "marks_obtained": score,
+            "remark": "Generated automatically from MCQ exam.",
+        },
+    )
+    return JsonResponse(
+        {
+            "attempt": {
+                "id": attempt.pk,
+                "submitted_at": _datetime(attempt.submitted_at),
+                "score": str(attempt.score),
+                "total_marks": str(attempt.total_marks),
+                "correct_count": attempt.correct_count,
+                "wrong_count": attempt.wrong_count,
+                "unattempted_count": attempt.unattempted_count,
+                "activity_count": len(activities),
+                "can_view_result": attempt.exam.show_result_after_submit,
+            }
+        }
+    )
+
+
+@require_GET
+def mobile_exam_result(request, attempt_id):
+    student, error = _student_for_request(request)
+    if error:
+        return error
+    attempt = get_object_or_404(
+        ExamAttempt.objects.select_related("exam", "exam__batch", "exam__academic_year", "exam__subject", "student")
+        .prefetch_related("exam__questions", "exam__questions__options", "question_attempts"),
+        pk=attempt_id,
+        student=student,
+        submitted_at__isnull=False,
+    )
+    if not attempt.exam.show_result_after_submit:
+        return JsonResponse({"detail": "Result is not published yet."}, status=403)
+    return JsonResponse(_mobile_result_payload(request, attempt))
 
 
 def _api_user(request):
@@ -374,15 +884,18 @@ def _student_homework_queryset(student, request):
     )
     academic_year_id = request.GET.get("academic_year_id")
     batch_id = request.GET.get("batch_id")
-    subject_id = request.GET.get("course_id")
+    subject_id = request.GET.get("subject_id")
+    course_id = request.GET.get("course_id")
     if academic_year_id:
         queryset = queryset.filter(batch__academic_year_id=academic_year_id)
     if batch_id:
         queryset = queryset.filter(batch_id=batch_id)
     if subject_id:
-        queryset = queryset.filter(course_id=subject_id)
+        queryset = queryset.filter(subject_id=subject_id)
+    if course_id:
+        queryset = queryset.filter(course_id=course_id)
     return (
-        queryset.select_related("batch", "batch__academic_year", "course", "created_by")
+        queryset.select_related("batch", "batch__academic_year", "subject", "course", "created_by")
         .prefetch_related("attachments")
         .distinct()
         .order_by("due_date", "-created_at")
@@ -415,8 +928,12 @@ def _homework_payload(homework, request):
             "academic_year": homework.batch.academic_year.name if homework.batch.academic_year_id else "",
         },
         "subject": {
+            "id": homework.subject_id or homework.course_id,
+            "name": homework.subject.name if homework.subject_id else homework.course.name if homework.course_id else "General",
+        },
+        "course": {
             "id": homework.course_id,
-            "name": homework.course.name if homework.course_id else "General",
+            "name": homework.course.name if homework.course_id else "",
         },
         "attachments": [_attachment_payload(attachment, request) for attachment in homework.attachments.all()],
     }

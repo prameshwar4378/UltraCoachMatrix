@@ -1,0 +1,433 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Exam Questions{% endblock title %}
+
+{% block content %}
+
+<style>
+    .exam-question-page {
+        --primary: #4f46e5;
+        --primary-dark: #312e81;
+        --accent: #06b6d4;
+        --success: #16a34a;
+        --surface: #ffffff;
+        --surface-soft: #f8fafc;
+        --border: #e5e7eb;
+        --text: #0f172a;
+        --muted: #64748b;
+        --shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+        position: relative;
+    }
+
+    .exam-question-page::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+            radial-gradient(circle at 12% 10%, rgba(79, 70, 229, 0.14), transparent 28%),
+            radial-gradient(circle at 90% 18%, rgba(6, 182, 212, 0.13), transparent 28%),
+            linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255, 255, 255, 0.65));
+        z-index: -1;
+    }
+
+    .page-toolbar,
+    .stat-card,
+    .question-card {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(12px);
+    }
+
+    .page-toolbar {
+        padding: 26px;
+        margin-bottom: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .page-title {
+        font-size: clamp(1.55rem, 2.4vw, 2.15rem);
+        font-weight: 900;
+        color: var(--text);
+        margin: 0;
+    }
+
+    .page-subtitle {
+        color: var(--muted);
+        margin-top: 8px;
+        font-weight: 500;
+    }
+
+    .btn-gradient {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        border: none;
+        border-radius: 14px;
+        padding: 11px 18px;
+        font-weight: 800;
+        box-shadow: 0 14px 28px rgba(79, 70, 229, 0.28);
+    }
+
+    .btn-gradient:hover {
+        color: #fff;
+        transform: translateY(-2px);
+    }
+
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 24px;
+    }
+
+    .stat-card {
+        padding: 22px;
+    }
+
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.13), rgba(6, 182, 212, 0.14));
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        margin-bottom: 16px;
+    }
+
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 900;
+        color: var(--text);
+    }
+
+    .stat-label {
+        color: var(--muted);
+        font-weight: 700;
+        font-size: .9rem;
+    }
+
+    .question-card {
+        overflow: hidden;
+        margin-bottom: 22px;
+        transition: .2s ease;
+    }
+
+    .question-card:hover {
+        transform: translateY(-3px);
+    }
+
+    .question-header {
+        padding: 20px 22px;
+        background: linear-gradient(135deg, #f8fafc, #ffffff);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .question-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+    }
+
+    .marks-badge {
+        background: #eef2ff;
+        color: #4f46e5;
+        border-radius: 999px;
+        padding: 7px 13px;
+        font-weight: 900;
+        font-size: .78rem;
+    }
+
+    .question-body {
+        padding: 24px;
+    }
+
+    .option-box {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px 16px;
+        background: #fff;
+        min-height: 54px;
+    }
+
+    .option-correct {
+        border-color: #22c55e;
+        background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
+        color: #166534;
+        font-weight: 700;
+    }
+
+    .action-btn {
+        border-radius: 12px !important;
+        font-weight: 700;
+    }
+
+    .empty-state {
+        background: rgba(255,255,255,.9);
+        border: 2px dashed #cbd5e1;
+        border-radius: 24px;
+        padding: 55px 20px;
+        text-align: center;
+    }
+
+    .bulk-import-panel {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 18px;
+    }
+
+    .template-steps {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--muted);
+        font-weight: 600;
+    }
+
+    .template-steps li + li {
+        margin-top: 6px;
+    }
+
+    @media(max-width: 768px) {
+        .stat-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .page-toolbar,
+        .question-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .page-toolbar .btn,
+        .question-header .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+
+<main id="main" class="main exam-question-page">
+
+    <div class="pagetitle">
+        <h1>Exam Questions</h1>
+    </div>
+
+    <div class="page-toolbar d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="page-title">{{ exam.title }}</h2>
+            <p class="page-subtitle">Manage exam questions, answer options and correct answers.</p>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <button type="button"
+                    class="btn btn-outline-primary action-btn"
+                    data-toggle="modal"
+                    data-target="#bulkQuestionImportModal">
+                <i class="bi bi-file-earmark-arrow-up"></i> Import Bulk Questions
+            </button>
+
+            <a href="javascript:void(0);"
+               data-url="{% url 'institute_admin:institute_exam_question_create' exam.pk %}"
+               class="btn btn-gradient"
+               onclick="openQuestionWindow(this)">
+                <i class="bi bi-plus-circle"></i> Add Question
+            </a>
+
+            <a class="btn btn-light border action-btn" href="{% url 'institute_admin:institute_exams' %}">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+
+    <div class="stat-grid">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-people"></i></div>
+            <div class="stat-number">{{ exam.batch.name }}</div>
+            <div class="stat-label">Batch</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-book"></i></div>
+            <div class="stat-number">{{ exam.subject.name|default:"General" }}</div>
+            <div class="stat-label">Subject</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-award"></i></div>
+            <div class="stat-number">{{ exam.total_marks }}</div>
+            <div class="stat-label">Total Marks</div>
+        </div>
+    </div>
+
+    {% for question in exam.questions.all %}
+        <div class="question-card">
+            <div class="question-header">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="question-avatar">{{ forloop.counter }}</div>
+                    <div>
+                        <h5 class="mb-1 fw-bold">Question {{ forloop.counter }}</h5>
+                        <span class="marks-badge">{{ question.marks }} mark(s)</span>
+                    </div>
+                </div>
+
+                <a href="javascript:void(0);"
+                   data-url="{% url 'institute_admin:institute_exam_question_update' exam.pk question.pk %}"
+                   class="btn btn-outline-primary btn-sm action-btn"
+                   onclick="openQuestionWindow(this)">
+                    <i class="bi bi-pencil-square me-1"></i> Edit
+                </a>
+            </div>
+
+            <div class="question-body">
+                {% if question.text %}
+                    <p class="fs-6 text-dark mb-3">{{ question.text|linebreaksbr }}</p>
+                {% endif %}
+
+                {% if question.image %}
+                    <img src="{{ question.image.url }}"
+                         alt="Question image"
+                         class="img-fluid border rounded-4 mb-4"
+                         style="max-height:360px;">
+                {% endif %}
+
+                <div class="row g-3">
+                    {% for option in question.options.all %}
+                        <div class="col-md-6">
+                            <div class="option-box {% if option.is_correct %}option-correct{% endif %}">
+                                {% if option.is_correct %}
+                                    <i class="bi bi-check-circle-fill me-1"></i> Correct:
+                                {% endif %}
+                                {{ option.text }}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <div class="empty-state">
+            <i class="bi bi-patch-question display-4 text-primary"></i>
+            <h5 class="fw-bold mt-3">No Questions Added Yet</h5>
+            <p class="text-muted">Start building this exam by adding your first question.</p>
+
+            <a href="javascript:void(0);"
+               data-url="{% url 'institute_admin:institute_exam_question_create' exam.pk %}"
+               class="btn btn-gradient"
+               onclick="openQuestionWindow(this)">
+                <i class="bi bi-plus-circle"></i> Add First Question
+            </a>
+        </div>
+    {% endfor %}
+
+</main>
+
+<div class="modal fade" id="bulkQuestionImportModal" tabindex="-1" role="dialog" aria-labelledby="bulkQuestionImportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold" id="bulkQuestionImportModalLabel">Import Bulk Questions</h5>
+                    <p class="text-muted mb-0">Upload MCQs with four options and one correct answer.</p>
+                </div>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <form method="post"
+                  action="{% url 'institute_admin:institute_exam_question_bulk_import' exam.pk %}"
+                  enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="bulk-import-panel mb-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                            <div>
+                                <h6 class="fw-bold mb-1">Excel Template</h6>
+                                <p class="text-muted mb-0">Template includes sample questions and A/B/C/D answer dropdown.</p>
+                            </div>
+                            <a class="btn btn-light border action-btn"
+                               href="{% url 'institute_admin:institute_exam_question_import_template' exam.pk %}">
+                                <i class="bi bi-download me-1"></i> Download Template
+                            </a>
+                        </div>
+                    </div>
+
+                    <ol class="template-steps mb-3">
+                        <li>Fill Question Text, Option A, Option B, Option C, Option D and Marks.</li>
+                        <li>Select Correct Answer from A, B, C or D in the dropdown column.</li>
+                        <li>Keep one question per row and upload the completed .xlsx file.</li>
+                    </ol>
+
+                    <label class="form-label fw-bold" for="bulkQuestionFile">Completed Template</label>
+                    <input type="file"
+                           class="form-control"
+                           id="bulkQuestionFile"
+                           name="question_file"
+                           accept=".xlsx"
+                           required>
+                </div>
+
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light border action-btn" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-gradient">
+                        <i class="bi bi-cloud-arrow-up me-1"></i> Import Questions
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openQuestionWindow(element, customWidth = 960, customHeight = 760) {
+        const url = element.dataset.url;
+        const left = Math.max(0, (window.screen.width - customWidth) / 2);
+        const top = Math.max(0, (window.screen.height - customHeight) / 2);
+
+        const features = [
+            `width=${customWidth}`,
+            `height=${customHeight}`,
+            `left=${left}`,
+            `top=${top}`,
+            'scrollbars=yes',
+            'resizable=yes',
+            'location=no',
+            'menubar=no',
+            'toolbar=no',
+            'status=no'
+        ].join(',');
+
+        const newWindow = window.open(url, "questionWindow", features);
+
+        if (newWindow) {
+            newWindow.focus();
+
+            const checkWindow = setInterval(function () {
+                if (newWindow.closed) {
+                    clearInterval(checkWindow);
+                    window.location.reload();
+                }
+            }, 500);
+        }
+
+        return false;
+    }
+</script>
+
+{% endblock content %}

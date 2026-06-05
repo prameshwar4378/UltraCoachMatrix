@@ -14339,7 +14339,7 @@
         </li>
 
         <li class="nav-item">
-            <a class="nav-link {% if current_url != 'exams' and current_url != 'exam_create' %}collapsed{% endif %}" href="{% url 'teacher:exams' %}">
+            <a class="nav-link {% if current_url != 'exams' and current_url != 'exam_create' and current_url != 'exam_update' and current_url != 'exam_questions' and current_url != 'exam_question_create' and current_url != 'exam_question_update' and current_url != 'exam_submissions' %}collapsed{% endif %}" href="{% url 'teacher:exams' %}">
                 <i class="bi bi-file-earmark-text"></i>
                 <span>Exams</span>
             </a>

@@ -1,13 +1,24 @@
 from datetime import date
 from decimal import Decimal
+import json
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import Client, TestCase
+from django.utils import timezone
 
 from institute_admin.models import AcademicYear, Batch, Course, Notice
 from super_admin.mobile_auth import create_access_token
 from super_admin.models import Institute, UserProfile
-from teacher.models import Attendance, Exam, ExamResult, Homework
+from teacher.models import (
+    Attendance,
+    Exam,
+    ExamAttempt,
+    ExamAttemptActivity,
+    ExamQuestion,
+    ExamQuestionOption,
+    ExamResult,
+    Homework,
+)
 
 from .models import PushNotification, StudentAcademicSession, StudentEnrollment, StudentProfile, UserDevice
 from .notifications import notify_result_declared
@@ -181,6 +192,193 @@ class MobileHomeworkPlannerTests(TestCase):
         response = self.client.get("/api/mobile/attendance/")
 
         self.assertEqual(response.status_code, 401)
+
+    def test_student_exam_list_shows_result_pending_when_teacher_hides_results(self):
+        exam = Exam.objects.create(
+            academic_year=self.academic_year,
+            batch=self.batch,
+            course=self.math,
+            title="Hidden Result Exam",
+            exam_date=date(2026, 6, 10),
+            total_marks=10,
+            is_published=True,
+            show_result_after_submit=False,
+        )
+        ExamAttempt.objects.create(
+            exam=exam,
+            academic_session=self.session,
+            student=self.student,
+            submitted_at=timezone.now(),
+            score=8,
+            total_marks=10,
+        )
+        self.client.login(username="student", password="password")
+
+        response = self.client.get(f"/student/exams/?academic_session_id={self.session.pk}")
+
+        self.assertContains(response, "Result pending")
+        self.assertNotContains(response, ">Result</a>")
+
+    def test_mobile_exam_api_lists_starts_and_submits_attempt_with_activity(self):
+        exam = Exam.objects.create(
+            academic_year=self.academic_year,
+            batch=self.batch,
+            course=self.math,
+            title="Mobile MCQ Exam",
+            exam_date=date(2026, 6, 11),
+            total_marks=1,
+            duration_minutes=30,
+            is_published=True,
+            show_result_after_submit=False,
+        )
+        question = ExamQuestion.objects.create(exam=exam, text="2 + 2 equals?", marks=1, order=1)
+        ExamQuestionOption.objects.create(question=question, text="3", order=1)
+        correct_option = ExamQuestionOption.objects.create(question=question, text="4", order=2, is_correct=True)
+        ExamQuestionOption.objects.create(question=question, text="5", order=3)
+        ExamQuestionOption.objects.create(question=question, text="6", order=4)
+
+        listing = self.client.get(
+            f"/api/mobile/exams/?academic_session_id={self.session.pk}",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(listing.status_code, 200)
+        listing_data = listing.json()
+        self.assertEqual(listing_data["summary"]["exam_count"], 1)
+        self.assertEqual(listing_data["exams"][0]["title"], "Mobile MCQ Exam")
+
+        started = self.client.post(
+            f"/api/mobile/exams/{exam.pk}/start/",
+            data={},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(started.status_code, 200)
+        start_data = started.json()
+        attempt_id = start_data["attempt"]["id"]
+        self.assertEqual(start_data["questions"][0]["options"][1]["text"], "4")
+        self.assertNotIn("is_correct", start_data["questions"][0]["options"][1])
+
+        submitted = self.client.post(
+            f"/api/mobile/exam-attempts/{attempt_id}/submit/",
+            data=json.dumps(
+                {
+                    "answers": [
+                        {"question_id": question.pk, "option_id": correct_option.pk},
+                    ],
+                    "activities": [
+                        {
+                            "event_type": "app_backgrounded",
+                            "detail": "Student left exam screen",
+                            "occurred_at": timezone.now().isoformat(),
+                        }
+                    ],
+                }
+            ),
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(submitted.status_code, 200)
+        submit_data = submitted.json()
+        self.assertEqual(submit_data["attempt"]["score"], "1")
+        self.assertFalse(submit_data["attempt"]["can_view_result"])
+        self.assertEqual(ExamAttemptActivity.objects.filter(attempt_id=attempt_id).count(), 1)
+
+        hidden_result = self.client.get(
+            f"/api/mobile/exam-attempts/{attempt_id}/result/",
+            **self.auth_headers(),
+        )
+        self.assertEqual(hidden_result.status_code, 403)
+
+        exam.show_result_after_submit = True
+        exam.save(update_fields=["show_result_after_submit"])
+        published_result = self.client.get(
+            f"/api/mobile/exam-attempts/{attempt_id}/result/",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(published_result.status_code, 200)
+        result_data = published_result.json()
+        self.assertEqual(result_data["attempt"]["score"], "1.00")
+        self.assertEqual(result_data["questions"][0]["selected_option_id"], correct_option.pk)
+        self.assertEqual(result_data["questions"][0]["correct_option_id"], correct_option.pk)
+        self.assertTrue(result_data["questions"][0]["is_correct"])
+
+    def test_mobile_exam_start_is_csrf_exempt_for_token_auth(self):
+        exam = Exam.objects.create(
+            academic_year=self.academic_year,
+            batch=self.batch,
+            course=self.math,
+            title="CSRF Safe Exam",
+            exam_date=date(2026, 6, 12),
+            total_marks=0,
+            duration_minutes=30,
+            is_published=True,
+        )
+        csrf_client = Client(enforce_csrf_checks=True)
+
+        response = csrf_client.post(
+            f"/api/mobile/exams/{exam.pk}/start/",
+            data={},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_mobile_exam_start_uses_exam_year_even_when_student_has_newer_session(self):
+        next_year = AcademicYear.objects.create(
+            institute=self.institute,
+            name="2027-28",
+            start_date=date(2027, 4, 1),
+            end_date=date(2028, 3, 31),
+        )
+        next_course = Course.objects.create(
+            institute=self.institute,
+            academic_year=next_year,
+            name="Advanced Mathematics",
+            fee_amount=Decimal("1000.00"),
+        )
+        next_batch = Batch.objects.create(
+            institute=self.institute,
+            academic_year=next_year,
+            name="Evening",
+        )
+        next_batch.courses.add(next_course)
+        next_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_year=next_year,
+            admission_number="ADM-002",
+        )
+        StudentEnrollment.objects.create(
+            student=self.student,
+            academic_session=next_session,
+            batch=next_batch,
+        )
+        exam = Exam.objects.create(
+            academic_year=self.academic_year,
+            batch=self.batch,
+            course=self.math,
+            title="Older Session Exam",
+            exam_date=date(2026, 6, 13),
+            total_marks=0,
+            duration_minutes=30,
+            is_published=True,
+        )
+
+        response = self.client.post(
+            f"/api/mobile/exams/{exam.pk}/start/",
+            data=json.dumps({"academic_session_id": self.session.pk}),
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        attempt = ExamAttempt.objects.get(exam=exam, student=self.student)
+        self.assertEqual(attempt.academic_session, self.session)
 
     def test_mobile_notices_returns_targeted_active_notices(self):
         response = self.client.get("/api/mobile/notices/", **self.auth_headers())

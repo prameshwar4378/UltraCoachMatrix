@@ -7,7 +7,8 @@ def academic_year_context(request):
     if not request.user.is_authenticated:
         return {}
     profile = getattr(request.user, "profile", None)
-    if not profile or profile.role != UserProfile.Role.INSTITUTE_ADMIN or not profile.institute_id:
+    allowed_roles = {UserProfile.Role.INSTITUTE_ADMIN, UserProfile.Role.TEACHER}
+    if not profile or profile.role not in allowed_roles or not profile.institute_id:
         return {}
 
     institute = profile.institute
