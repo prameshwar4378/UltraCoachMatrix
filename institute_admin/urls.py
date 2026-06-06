@@ -34,6 +34,7 @@ urlpatterns = [
     path("students/export/", views.student_export, name="student_export"),
     path("students/promote/", views.student_promote, name="student_promote"),
     path("students/create/", views.student_create, name="student_create"),
+    path("students/bulk-delete/", views.student_bulk_delete, name="student_bulk_delete"),
     path("students/<int:pk>/", views.student_dashboard, name="student_dashboard"),
     path("students/<int:pk>/add-fee/", views.student_add_fee, name="student_add_fee"),
     path("students/<int:pk>/receive-fee/", views.student_receive_fee, name="student_receive_fee"),

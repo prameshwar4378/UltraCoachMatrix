@@ -1,6 +1,6 @@
 from datetime import date
 from decimal import Decimal
-from io import StringIO
+from io import BytesIO, StringIO
 
 from django.contrib.auth.models import User
 from django.core.management import call_command
@@ -8,6 +8,7 @@ from django.core.management.base import CommandError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
+from openpyxl import load_workbook
 
 from accountant.models import FeeCategory, FeeInvoice, Payment
 from student_parent.models import StudentAcademicSession, StudentEnrollment, StudentProfile
@@ -202,6 +203,130 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertContains(response, "12th Batch")
         self.assertNotContains(response, "SMIS-2026-27-0001")
         self.assertNotContains(response, "11th Batch")
+
+    def test_student_list_can_filter_by_batch(self):
+        matching_sessions = [self.session_2026]
+        for index in range(2, 4):
+            user = User.objects.create_user(
+                username=f"student-{index}",
+                password="pass12345",
+                first_name="Student",
+                last_name=str(index),
+            )
+            UserProfile.objects.create(
+                user=user,
+                institute=self.institute,
+                role=UserProfile.Role.STUDENT_PARENT,
+                phone=f"922222222{index}",
+            )
+            student = StudentProfile.objects.create(
+                institute=self.institute,
+                user=user,
+                academic_year=self.year_2026,
+                admission_number=f"SMIS-2026-27-000{index}",
+                is_active=True,
+            )
+            student_session = StudentAcademicSession.objects.create(
+                institute=self.institute,
+                student=student,
+                academic_year=self.year_2026,
+                admission_number=f"SMIS-2026-27-000{index}",
+                status=StudentAcademicSession.Status.ACTIVE,
+            )
+            enrollment = StudentEnrollment.objects.create(
+                academic_session=student_session,
+                student=student,
+                batch=self.batch_2026,
+                enrolled_on=date(2026, 4, 8),
+                custom_fee_amount=Decimal("1000.00"),
+            )
+            enrollment.courses.add(self.course)
+            matching_sessions.append(student_session)
+
+        other_user = User.objects.create_user(
+            username="student-four",
+            password="pass12345",
+            first_name="Student",
+            last_name="Four",
+        )
+        UserProfile.objects.create(
+            user=other_user,
+            institute=self.institute,
+            role=UserProfile.Role.STUDENT_PARENT,
+            phone="9222222224",
+        )
+        other_student = StudentProfile.objects.create(
+            institute=self.institute,
+            user=other_user,
+            academic_year=self.year_2026,
+            admission_number="SMIS-2026-27-0004",
+            is_active=True,
+        )
+        other_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=other_student,
+            academic_year=self.year_2026,
+            admission_number="SMIS-2026-27-0004",
+            status=StudentAcademicSession.Status.ACTIVE,
+        )
+        other_batch = Batch.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            name="Evening Batch",
+            is_active=True,
+        )
+        other_batch.courses.add(self.course)
+        other_enrollment = StudentEnrollment.objects.create(
+            academic_session=other_session,
+            student=other_student,
+            batch=other_batch,
+            enrolled_on=date(2026, 4, 8),
+            custom_fee_amount=Decimal("1000.00"),
+        )
+        other_enrollment.courses.add(self.course)
+
+        self.select_year(self.year_2026)
+        response = self.client.get(reverse("institute_admin:student_list"), {"batch": self.batch_2026.pk})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "SMIS-2026-27-0001")
+        self.assertContains(response, "SMIS-2026-27-0002")
+        self.assertContains(response, "SMIS-2026-27-0003")
+        self.assertNotContains(response, "SMIS-2026-27-0004")
+        self.assertEqual(response.context["batch_filter"], str(self.batch_2026.pk))
+        self.assertIn(self.batch_2026, list(response.context["batches"]))
+        self.assertNotIn(self.batch_2027, list(response.context["batches"]))
+        self.assertEqual(response.context["total_students"], 3)
+        self.assertEqual(response.context["active_students"], 3)
+        self.assertEqual(response.context["inactive_students"], 0)
+        self.assertEqual(response.context["total_enrollments"], 3)
+        self.assertEqual(response.context["filtered_total_fee_amount"], Decimal("3000.00"))
+        self.assertEqual(response.context["filtered_paid_amount"], Decimal("250.00"))
+        self.assertEqual(response.context["filtered_due_amount"], Decimal("2750.00"))
+
+    def test_student_export_uses_selected_fields_with_batch_and_fee_columns(self):
+        self.select_year(self.year_2026)
+
+        response = self.client.get(
+            reverse("institute_admin:student_export"),
+            {
+                "fields": ["name", "mobile", "batch", "total_fees", "paid_amount", "due_amount"],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        workbook = load_workbook(BytesIO(response.content), data_only=True)
+        sheet = workbook["Students"]
+        headers = [sheet.cell(row=3, column=column).value for column in range(1, 7)]
+        values = [sheet.cell(row=4, column=column).value for column in range(1, 7)]
+
+        self.assertEqual(headers, ["Name", "Mobile", "Batch", "Total Fees", "Paid Amount", "Due Amount"])
+        self.assertEqual(values[0], "Student One")
+        self.assertEqual(values[1], "9111111111")
+        self.assertEqual(values[2], "11th Batch")
+        self.assertEqual(Decimal(str(values[3])), Decimal("1000"))
+        self.assertEqual(Decimal(str(values[4])), Decimal("250"))
+        self.assertEqual(Decimal(str(values[5])), Decimal("750"))
 
     def test_student_dashboard_context_is_limited_to_selected_session(self):
         self.select_year(self.year_2026)
@@ -609,13 +734,36 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertFalse(StudentEnrollment.objects.filter(batch=new_batch).exists())
         self.assertContains(response, "Select a valid choice", status_code=200)
 
-    def test_student_promotion_creates_only_new_student_session(self):
-        self.session_2027.delete()
-        self.enrollment_2027.delete()
-        self.invoice_2027.delete()
-        self.attendance_2027.delete()
+    def test_student_promotion_choices_are_scoped_to_selected_sessions(self):
         self.select_year(self.year_2026)
-        enrollment_count = StudentEnrollment.objects.count()
+
+        response = self.client.get(
+            reverse("institute_admin:student_promote"),
+            {
+                "source_year": self.year_2026.pk,
+                "target_year": self.year_2027.pk,
+                "source_course": self.course.pk,
+                "source_batch": self.batch_2026.pk,
+                "target_course": self.course_2027.pk,
+                "target_batch": self.batch_2027.pk,
+                "load_students": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self.course, list(response.context["source_courses"]))
+        self.assertNotIn(self.course_2027, list(response.context["source_courses"]))
+        self.assertIn(self.course_2027, list(response.context["target_courses"]))
+        self.assertNotIn(self.course, list(response.context["target_courses"]))
+        self.assertIn(self.batch_2026, list(response.context["source_batches"]))
+        self.assertNotIn(self.batch_2027, list(response.context["source_batches"]))
+        self.assertIn(self.batch_2027, list(response.context["target_batches"]))
+        self.assertNotIn(self.batch_2026, list(response.context["target_batches"]))
+        self.assertContains(response, self.session_2026.admission_number)
+
+    def test_student_promotion_creates_target_session_and_selected_enrollment(self):
+        self.session_2027.delete()
+        self.select_year(self.year_2026)
         invoice_count = FeeInvoice.objects.count()
         payment_count = Payment.objects.count()
         attendance_count = Attendance.objects.count()
@@ -624,11 +772,12 @@ class AcademicSessionIsolationTests(TestCase):
             reverse("institute_admin:student_promote"),
             data={
                 "source_year": self.year_2026.pk,
-                "target_year_name": "2027-28",
+                "target_year": self.year_2027.pk,
+                "source_course": self.course.pk,
+                "source_batch": self.batch_2026.pk,
+                "target_course": self.course_2027.pk,
+                "target_batch": self.batch_2027.pk,
                 "students": [str(self.student.pk)],
-                "target_class": "12th",
-                "target_school_name": "Should Not Copy",
-                "target_school_address": "Should Not Copy",
             },
         )
 
@@ -637,15 +786,64 @@ class AcademicSessionIsolationTests(TestCase):
             student=self.student,
             academic_year=self.year_2027,
         )
-        self.assertEqual(promoted_session.previous_class, "")
-        self.assertEqual(promoted_session.current_school_name, "")
-        self.assertEqual(StudentEnrollment.objects.count(), enrollment_count)
+        promoted_enrollment = StudentEnrollment.objects.get(academic_session=promoted_session)
+        self.assertEqual(promoted_enrollment.batch, self.batch_2027)
+        self.assertQuerySetEqual(promoted_enrollment.courses.all(), [self.course_2027])
         self.assertEqual(FeeInvoice.objects.count(), invoice_count)
         self.assertEqual(Payment.objects.count(), payment_count)
         self.assertEqual(Attendance.objects.count(), attendance_count)
-        self.assertFalse(StudentEnrollment.objects.filter(academic_session=promoted_session).exists())
         self.assertFalse(FeeInvoice.objects.filter(academic_session=promoted_session).exists())
         self.assertFalse(Attendance.objects.filter(academic_session=promoted_session).exists())
+
+    def test_student_promotion_requires_target_batch(self):
+        self.session_2027.delete()
+        self.select_year(self.year_2026)
+
+        response = self.client.post(
+            reverse("institute_admin:student_promote"),
+            data={
+                "source_year": self.year_2026.pk,
+                "target_year": self.year_2027.pk,
+                "source_course": self.course.pk,
+                "source_batch": self.batch_2026.pk,
+                "target_course": self.course_2027.pk,
+                "students": [str(self.student.pk)],
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Select a valid target batch")
+        self.assertFalse(
+            StudentAcademicSession.objects.filter(
+                student=self.student,
+                academic_year=self.year_2027,
+            ).exists()
+        )
+
+    def test_student_promotion_repairs_existing_target_session_allocation(self):
+        self.enrollment_2027.delete()
+        self.select_year(self.year_2026)
+
+        response = self.client.post(
+            reverse("institute_admin:student_promote"),
+            data={
+                "source_year": self.year_2026.pk,
+                "target_year": self.year_2027.pk,
+                "source_course": self.course.pk,
+                "source_batch": self.batch_2026.pk,
+                "target_course": self.course_2027.pk,
+                "target_batch": self.batch_2027.pk,
+                "students": [str(self.student.pk)],
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        repaired_enrollment = StudentEnrollment.objects.get(
+            academic_session=self.session_2027,
+            batch=self.batch_2027,
+        )
+        self.assertQuerySetEqual(repaired_enrollment.courses.all(), [self.course_2027])
 
 
 class TenantIsolationTests(TestCase):
@@ -881,6 +1079,59 @@ class TenantIsolationTests(TestCase):
             for text in forbidden_text:
                 with self.subTest(url=url, text=text):
                     self.assertNotContains(response, text)
+
+    def test_bulk_student_delete_deletes_selected_students_without_invoices(self):
+        deletable_student = self.create_student(
+            institute=self.institute_a,
+            academic_year=self.year_a,
+            username="student-delete",
+            admission_number="AA-2026-27-0002",
+        )
+
+        response = self.client.post(
+            reverse("institute_admin:student_bulk_delete"),
+            data={"student_ids": [str(deletable_student["profile"].pk)]},
+        )
+
+        self.assertRedirects(response, reverse("institute_admin:student_list"))
+        self.assertFalse(User.objects.filter(pk=deletable_student["user"].pk).exists())
+        self.assertFalse(StudentProfile.objects.filter(pk=deletable_student["profile"].pk).exists())
+
+    def test_bulk_student_delete_skips_students_with_fee_invoices(self):
+        deletable_student = self.create_student(
+            institute=self.institute_a,
+            academic_year=self.year_a,
+            username="student-delete",
+            admission_number="AA-2026-27-0002",
+        )
+
+        response = self.client.post(
+            reverse("institute_admin:student_bulk_delete"),
+            data={"student_ids": [str(self.student_a["profile"].pk), str(deletable_student["profile"].pk)]},
+        )
+
+        self.assertRedirects(response, reverse("institute_admin:student_list"))
+        self.assertTrue(User.objects.filter(pk=self.student_a["user"].pk).exists())
+        self.assertTrue(StudentProfile.objects.filter(pk=self.student_a["profile"].pk).exists())
+        self.assertFalse(User.objects.filter(pk=deletable_student["user"].pk).exists())
+
+    def test_bulk_student_delete_ignores_other_institute_students(self):
+        deletable_student = self.create_student(
+            institute=self.institute_a,
+            academic_year=self.year_a,
+            username="student-delete",
+            admission_number="AA-2026-27-0002",
+        )
+
+        response = self.client.post(
+            reverse("institute_admin:student_bulk_delete"),
+            data={"student_ids": [str(deletable_student["profile"].pk), str(self.student_b["profile"].pk)]},
+        )
+
+        self.assertRedirects(response, reverse("institute_admin:student_list"))
+        self.assertFalse(User.objects.filter(pk=deletable_student["user"].pk).exists())
+        self.assertTrue(User.objects.filter(pk=self.student_b["user"].pk).exists())
+        self.assertTrue(StudentProfile.objects.filter(pk=self.student_b["profile"].pk).exists())
 
     def test_attendance_export_does_not_include_other_institute_records(self):
         response = self.client.get(reverse("institute_admin:attendance_export"), {"format": "excel"})

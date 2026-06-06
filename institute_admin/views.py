@@ -1083,6 +1083,17 @@ def student_list(request):
 
     search_query = request.GET.get("search", "").strip()
     status_filter = request.GET.get("status", "").strip()
+    batch_filter = request.GET.get("batch", "").strip()
+    batch_queryset = Batch.objects.filter(institute=institute, is_active=True) if institute else Batch.objects.none()
+    if academic_year:
+        batch_queryset = batch_queryset.filter(academic_year=academic_year)
+    selected_batch = batch_queryset.filter(pk=batch_filter).first() if batch_filter else None
+
+    if batch_filter:
+        if selected_batch:
+            sessions = sessions.filter(enrollments__batch=selected_batch).distinct()
+        else:
+            sessions = sessions.none()
 
     if search_query:
         sessions = sessions.filter(
@@ -1101,6 +1112,15 @@ def student_list(request):
     elif status_filter == "inactive":
         sessions = sessions.exclude(status=StudentAcademicSession.Status.ACTIVE, student__is_active=True)
 
+    filtered_total_fee_amount = Decimal("0.00")
+    filtered_paid_amount = Decimal("0.00")
+    filtered_due_amount = Decimal("0.00")
+    for summary_session in sessions.prefetch_related("enrollments__courses", "fee_invoices__payments"):
+        session_total_fee, session_paid_amount, session_due_amount = get_student_session_fee_summary(summary_session)
+        filtered_total_fee_amount += session_total_fee
+        filtered_paid_amount += session_paid_amount
+        filtered_due_amount += session_due_amount
+
     paginator = Paginator(sessions, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
     sessions_page = page_obj.object_list
@@ -1109,31 +1129,14 @@ def student_list(request):
     pagination_query = query_params.urlencode()
 
     for session in sessions_page:
-        student = session.student
         fee_enrollments = session.enrollments.exclude(status=StudentEnrollment.Status.CANCELLED)
-        invoices = session.fee_invoices.exclude(status=FeeInvoice.Status.CANCELLED)
-        enrollment_fee_amount = sum(enrollment.total_course_fee for enrollment in fee_enrollments)
-        invoiced_amount = Decimal("0.00")
-        additional_fee_amount = Decimal("0.00")
-        paid_amount = Decimal("0.00")
-        for invoice in invoices:
-            invoiced_amount += invoice.amount
-            if not invoice.enrollment_id:
-                additional_fee_amount += invoice.amount
-            paid_amount += sum(payment.amount for payment in invoice.payments.filter(status=Payment.Status.ACTIVE))
-        total_fee_amount = enrollment_fee_amount + additional_fee_amount if enrollment_fee_amount > 0 else invoiced_amount
-        due_amount = total_fee_amount - paid_amount
-        if due_amount < 0:
-            due_amount = Decimal("0.00")
-        session.total_fee_amount = total_fee_amount
-        session.paid_amount = paid_amount
-        session.due_amount = due_amount
+        session_total_fee_amount, session_paid_amount, session_due_amount = get_student_session_fee_summary(session)
+        session.total_fee_amount = session_total_fee_amount
+        session.paid_amount = session_paid_amount
+        session.due_amount = session_due_amount
         session.display_enrollments = list(fee_enrollments.select_related("batch")[:2])
         session.display_enrollment_count = fee_enrollments.count()
 
-    base_queryset = StudentAcademicSession.objects.filter(institute=institute) if institute else StudentAcademicSession.objects.all()
-    if academic_year:
-        base_queryset = base_queryset.filter(academic_year=academic_year)
     context = {
         "students": sessions_page,
         "page_obj": page_obj,
@@ -1141,40 +1144,26 @@ def student_list(request):
         "pagination_query": pagination_query,
         "search_query": search_query,
         "status_filter": status_filter,
-        "total_students": base_queryset.count(),
-        "active_students": base_queryset.filter(
+        "batch_filter": batch_filter,
+        "batches": batch_queryset,
+        "selected_batch": selected_batch,
+        "student_export_field_options": STUDENT_EXPORT_FIELD_OPTIONS,
+        "student_export_default_fields": STUDENT_EXPORT_DEFAULT_FIELDS,
+        "total_students": sessions.count(),
+        "active_students": sessions.filter(
             status=StudentAcademicSession.Status.ACTIVE,
             student__is_active=True,
         ).count(),
-        "inactive_students": base_queryset.exclude(
+        "inactive_students": sessions.exclude(
             status=StudentAcademicSession.Status.ACTIVE,
             student__is_active=True,
         ).count(),
-        "total_enrollments": StudentEnrollment.objects.filter(academic_session__in=base_queryset).count()
-        if institute
-        else StudentEnrollment.objects.count(),
+        "total_enrollments": StudentEnrollment.objects.filter(academic_session__in=sessions).count(),
+        "filtered_total_fee_amount": filtered_total_fee_amount,
+        "filtered_paid_amount": filtered_paid_amount,
+        "filtered_due_amount": filtered_due_amount,
     }
     return render(request, "institute_admin/student_list.html", context)
-
-
-def get_next_academic_year_name(source_year):
-    try:
-        start_year = int(str(source_year.name).split("-", 1)[0])
-    except (AttributeError, TypeError, ValueError):
-        today = timezone.localdate()
-        start_year = today.year if today.month >= 4 else today.year - 1
-    next_start = start_year + 1
-    return f"{next_start}-{str(next_start + 1)[-2:]}"
-
-
-def is_valid_academic_year_name(year_name):
-    try:
-        start_part, end_part = str(year_name).split("-", 1)
-        start_year = int(start_part)
-        end_year = int(end_part)
-    except (TypeError, ValueError):
-        return False
-    return len(start_part) == 4 and len(end_part) == 2 and int(str(start_year + 1)[-2:]) == end_year
 
 
 @institute_admin_required
@@ -1185,91 +1174,216 @@ def student_promote(request):
         messages.error(request, "Select an institute before promoting students.")
         return redirect("institute_admin:student_list")
 
-    academic_years = AcademicYear.objects.filter(institute=institute, is_active=True)
-    source_year_id = request.POST.get("source_year") or request.GET.get("source_year") or current_year.pk
-    source_year = academic_years.filter(pk=source_year_id).first() or current_year
-    target_year_name = (
-        request.POST.get("target_year_name")
-        or request.GET.get("target_year_name")
-        or get_next_academic_year_name(source_year)
-    ).strip()
+    academic_years = AcademicYear.objects.filter(institute=institute, is_active=True).order_by("start_date")
+    source_year_id = request.POST.get("source_year") or request.GET.get("source_year")
+    source_year = academic_years.filter(pk=source_year_id).first() if source_year_id else current_year
+    source_year = source_year or academic_years.first()
 
-    source_sessions = (
-        StudentAcademicSession.objects.filter(
-            institute=institute,
-            academic_year=source_year,
-            status=StudentAcademicSession.Status.ACTIVE,
-            student__is_active=True,
-        )
-        .select_related("student", "student__user", "student__user__profile")
-        .prefetch_related("student__guardians")
-        .order_by("admission_number")
-    )
-    existing_target_year = AcademicYear.objects.filter(
-        institute=institute,
-        name=target_year_name,
-        is_active=True,
-    ).first()
-    already_promoted_student_ids = set()
-    if existing_target_year:
-        already_promoted_student_ids = set(
+    target_year_id = request.POST.get("target_year") or request.GET.get("target_year")
+    target_year = academic_years.filter(pk=target_year_id).first() if target_year_id else None
+    if not target_year and source_year:
+        target_year = academic_years.filter(start_date__gt=source_year.start_date).first()
+    if not target_year and source_year:
+        target_year = academic_years.exclude(pk=source_year.pk).first()
+
+    all_courses = Course.objects.filter(institute=institute, is_active=True).select_related("academic_year")
+    all_batches = Batch.objects.filter(institute=institute, is_active=True).prefetch_related("courses")
+    source_courses = all_courses.filter(academic_year=source_year) if source_year else Course.objects.none()
+    target_courses = all_courses.filter(academic_year=target_year) if target_year else Course.objects.none()
+
+    source_course_id = request.POST.get("source_course") or request.GET.get("source_course")
+    target_course_id = request.POST.get("target_course") or request.GET.get("target_course")
+    source_course = source_courses.filter(pk=source_course_id).first() if source_course_id else None
+    target_course = target_courses.filter(pk=target_course_id).first() if target_course_id else None
+
+    source_batches = Batch.objects.none()
+    if source_year:
+        source_batches = all_batches.filter(academic_year=source_year)
+        if source_course:
+            source_batches = source_batches.filter(courses=source_course)
+    target_batches = Batch.objects.none()
+    if target_year:
+        target_batches = all_batches.filter(academic_year=target_year)
+        if target_course:
+            target_batches = target_batches.filter(courses=target_course)
+
+    source_batch_id = request.POST.get("source_batch") or request.GET.get("source_batch")
+    target_batch_id = request.POST.get("target_batch") or request.GET.get("target_batch")
+    source_batch = source_batches.filter(pk=source_batch_id).first() if source_batch_id else None
+    target_batch = target_batches.filter(pk=target_batch_id).first() if target_batch_id else None
+    promotion_loaded = request.method == "POST" or request.GET.get("load_students") == "1"
+
+    source_sessions = StudentAcademicSession.objects.none()
+    if source_year and source_course and source_year != target_year:
+        enrollment_filters = {
+            "enrollments__courses": source_course,
+            "enrollments__status": StudentEnrollment.Status.ACTIVE,
+        }
+        if source_batch:
+            enrollment_filters["enrollments__batch"] = source_batch
+        source_sessions = (
             StudentAcademicSession.objects.filter(
                 institute=institute,
-                academic_year=existing_target_year,
+                academic_year=source_year,
+                status=StudentAcademicSession.Status.ACTIVE,
+                student__is_active=True,
+                **enrollment_filters,
+            )
+            .select_related("student", "student__user", "student__user__profile")
+            .prefetch_related("student__guardians", "enrollments__batch", "enrollments__courses")
+            .distinct()
+            .order_by("admission_number")
+        )
+
+    fully_promoted_student_ids = set()
+    if target_year and target_course and target_batch:
+        fully_promoted_student_ids = set(
+            StudentAcademicSession.objects.filter(
+                institute=institute,
+                academic_year=target_year,
+                enrollments__batch=target_batch,
+                enrollments__courses=target_course,
+                enrollments__status=StudentEnrollment.Status.ACTIVE,
             ).values_list("student_id", flat=True)
         )
 
+    if promotion_loaded:
+        for source_session in source_sessions:
+            matching_enrollments = source_session.enrollments.filter(
+                courses=source_course,
+                status=StudentEnrollment.Status.ACTIVE,
+            ).select_related("batch")
+            if source_batch:
+                matching_enrollments = matching_enrollments.filter(batch=source_batch)
+            source_session.promotion_source_enrollment = matching_enrollments.first()
+
     if request.method == "POST":
         selected_ids = [student_id for student_id in request.POST.getlist("students") if student_id.isdigit()]
+        redirect_params = (
+            f"?source_year={source_year.pk if source_year else ''}"
+            f"&target_year={target_year.pk if target_year else ''}"
+            f"&source_course={source_course.pk if source_course else ''}"
+            f"&target_course={target_course.pk if target_course else ''}"
+            f"&source_batch={source_batch.pk if source_batch else ''}"
+            f"&target_batch={target_batch.pk if target_batch else ''}"
+            "&load_students=1"
+        )
+        error_message = None
+        if not source_year or not target_year:
+            error_message = "Select source and target academic sessions."
+        elif source_year == target_year:
+            error_message = "Target academic session must be different from source academic session."
+        elif not source_course:
+            error_message = "Select a valid source course from the source academic session."
+        elif not target_course:
+            error_message = "Select a valid target course from the target academic session."
+        elif not source_batch:
+            error_message = "Select a valid source batch for the chosen source course."
+        elif not target_batch:
+            error_message = "Select a valid target batch for the chosen target course."
+        elif not selected_ids:
+            error_message = "Select at least one student to promote."
+        if error_message:
+            messages.error(request, error_message)
+            return redirect(reverse("institute_admin:student_promote") + redirect_params)
 
-        if not selected_ids:
-            messages.error(request, "Select at least one student to promote.")
-            return redirect(f"{reverse('institute_admin:student_promote')}?source_year={source_year.pk}&target_year_name={target_year_name}")
-        if not is_valid_academic_year_name(target_year_name):
-            messages.error(request, "Enter target academic year in format like 2027-28.")
-            return redirect(f"{reverse('institute_admin:student_promote')}?source_year={source_year.pk}")
-        if target_year_name == source_year.name:
-            messages.error(request, "Target academic year must be different from source academic year.")
-            return redirect(f"{reverse('institute_admin:student_promote')}?source_year={source_year.pk}&target_year_name={target_year_name}")
-
-        target_year = get_or_create_academic_year(institute, target_year_name)
         selected_sessions = source_sessions.filter(student_id__in=selected_ids)
         created_count = 0
+        enrollment_count = 0
         skipped_count = 0
 
         with transaction.atomic():
             for source_session in selected_sessions:
-                exists = StudentAcademicSession.objects.filter(
+                promoted_session = StudentAcademicSession.objects.filter(
                     student=source_session.student,
                     academic_year=target_year,
-                ).exists()
-                if exists:
-                    skipped_count += 1
-                    continue
-                StudentAcademicSession.objects.create(
-                    institute=institute,
+                ).first()
+                if not promoted_session:
+                    promoted_session = StudentAcademicSession.objects.create(
+                        institute=institute,
+                        student=source_session.student,
+                        academic_year=target_year,
+                        admission_number=generate_student_admission_number(institute, target_year),
+                        joined_on=timezone.localdate(),
+                        status=StudentAcademicSession.Status.ACTIVE,
+                    )
+                    created_count += 1
+
+                enrollment, enrollment_created = StudentEnrollment.objects.get_or_create(
                     student=source_session.student,
-                    academic_year=target_year,
-                    admission_number=generate_student_admission_number(institute, target_year),
-                    joined_on=timezone.localdate(),
-                    status=StudentAcademicSession.Status.ACTIVE,
+                    academic_session=promoted_session,
+                    batch=target_batch,
+                    defaults={
+                        "enrolled_on": timezone.localdate(),
+                        "status": StudentEnrollment.Status.ACTIVE,
+                    },
                 )
-                created_count += 1
+                course_already_assigned = enrollment.courses.filter(pk=target_course.pk).exists()
+                if enrollment.status != StudentEnrollment.Status.ACTIVE:
+                    enrollment.status = StudentEnrollment.Status.ACTIVE
+                    enrollment.save(update_fields=["status"])
+                enrollment.courses.add(target_course)
+                if enrollment_created or not course_already_assigned:
+                    enrollment_count += 1
+                else:
+                    skipped_count += 1
 
         request.session["academic_year_id"] = target_year.pk
-        if created_count:
-            messages.success(request, f"{created_count} student(s) promoted to {target_year.name}. No enrollments, batches, courses, fees, or attendance were copied.")
+        if created_count or enrollment_count:
+            messages.success(
+                request,
+                f"{created_count} target admission(s) created and {enrollment_count} student(s) allocated to "
+                f"{target_batch.name} / {target_course.name} in {target_year.name}.",
+            )
         if skipped_count:
-            messages.warning(request, f"{skipped_count} student(s) already had a session in {target_year.name}.")
+            messages.warning(request, f"{skipped_count} student(s) were already allocated to the selected target batch and course.")
         return redirect("institute_admin:student_list")
 
+    choice_data = {}
+    for year in academic_years:
+        year_courses = all_courses.filter(academic_year=year)
+        year_batches = all_batches.filter(academic_year=year)
+        choice_data[str(year.pk)] = {
+            "courses": [{"id": course.pk, "name": course.name} for course in year_courses],
+            "batches": [
+                {
+                    "id": batch.pk,
+                    "name": batch.name,
+                    "course_ids": [course.pk for course in batch.courses.all()],
+                }
+                for batch in year_batches
+            ],
+        }
+
+    promotion_ready = bool(
+        promotion_loaded
+        and source_year
+        and target_year
+        and source_course
+        and target_course
+        and source_batch
+        and target_batch
+        and source_year != target_year
+    )
+    visible_students = source_sessions if promotion_ready else StudentAcademicSession.objects.none()
     context = {
         "academic_years": academic_years,
         "source_year": source_year,
-        "target_year_name": target_year_name,
-        "students": source_sessions,
-        "already_promoted_student_ids": already_promoted_student_ids,
-        "available_count": source_sessions.exclude(student_id__in=already_promoted_student_ids).count(),
+        "target_year": target_year,
+        "source_courses": source_courses,
+        "target_courses": target_courses,
+        "source_course": source_course,
+        "target_course": target_course,
+        "source_batches": source_batches,
+        "target_batches": target_batches,
+        "source_batch": source_batch,
+        "target_batch": target_batch,
+        "students": visible_students,
+        "promotion_loaded": promotion_loaded,
+        "promotion_ready": promotion_ready,
+        "already_promoted_student_ids": fully_promoted_student_ids,
+        "available_count": visible_students.exclude(student_id__in=fully_promoted_student_ids).count(),
+        "choice_data": choice_data,
     }
     return render(request, "institute_admin/student_promote.html", context)
 
@@ -1316,6 +1430,69 @@ def student_import_columns():
         "Guardian Email",
         "Active",
     ]
+
+
+STUDENT_EXPORT_FIELD_OPTIONS = [
+    ("admission_number", "Admission Number"),
+    ("name", "Name"),
+    ("mobile", "Mobile"),
+    ("batch", "Batch"),
+    ("total_fees", "Total Fees"),
+    ("paid_amount", "Paid Amount"),
+    ("due_amount", "Due Amount"),
+    ("status", "Status"),
+    ("first_name", "First Name"),
+    ("last_name", "Last Name"),
+    ("username", "Username"),
+    ("email", "Email"),
+    ("date_of_birth", "Date of Birth"),
+    ("joined_on", "Joined On"),
+    ("guardian_name", "Guardian Name"),
+    ("guardian_relation", "Guardian Relation"),
+    ("guardian_phone", "Guardian Phone"),
+    ("guardian_email", "Guardian Email"),
+    ("address", "Address"),
+    ("current_school_name", "Current School / College"),
+    ("current_school_address", "Current School Address"),
+    ("previous_school_name", "Previous School / College"),
+    ("previous_class", "Previous Class"),
+]
+
+STUDENT_EXPORT_DEFAULT_FIELDS = [
+    "admission_number",
+    "name",
+    "mobile",
+    "batch",
+    "total_fees",
+    "paid_amount",
+    "due_amount",
+    "status",
+]
+
+
+def get_student_session_fee_summary(session):
+    fee_enrollments = session.enrollments.exclude(status=StudentEnrollment.Status.CANCELLED)
+    invoices = session.fee_invoices.exclude(status=FeeInvoice.Status.CANCELLED)
+    enrollment_fee_amount = sum(enrollment.total_course_fee for enrollment in fee_enrollments)
+    invoiced_amount = Decimal("0.00")
+    additional_fee_amount = Decimal("0.00")
+    paid_amount = Decimal("0.00")
+    for invoice in invoices:
+        invoiced_amount += invoice.amount
+        if not invoice.enrollment_id:
+            additional_fee_amount += invoice.amount
+        paid_amount += sum(payment.amount for payment in invoice.payments.filter(status=Payment.Status.ACTIVE))
+    total_fee_amount = enrollment_fee_amount + additional_fee_amount if enrollment_fee_amount > 0 else invoiced_amount
+    due_amount = total_fee_amount - paid_amount
+    if due_amount < 0:
+        due_amount = Decimal("0.00")
+    return total_fee_amount, paid_amount, due_amount
+
+
+def get_student_export_field_keys(request):
+    allowed_fields = {key for key, _label in STUDENT_EXPORT_FIELD_OPTIONS}
+    requested_fields = [field for field in request.GET.getlist("fields") if field in allowed_fields]
+    return requested_fields or STUDENT_EXPORT_DEFAULT_FIELDS
 
 
 def parse_excel_date_value(value):
@@ -1539,13 +1716,28 @@ def student_export(request):
         "student__user",
         "student__user__profile",
         "academic_year",
-    ).prefetch_related("student__guardians")
+    ).prefetch_related(
+        "student__guardians",
+        "enrollments__batch",
+        "enrollments__courses",
+        "fee_invoices__payments",
+    )
     if institute:
         sessions = sessions.filter(institute=institute)
     if academic_year:
         sessions = sessions.filter(academic_year=academic_year)
     search_query = request.GET.get("search", "").strip()
     status_filter = request.GET.get("status", "").strip()
+    batch_filter = request.GET.get("batch", "").strip()
+    batch_queryset = Batch.objects.filter(institute=institute, is_active=True) if institute else Batch.objects.none()
+    if academic_year:
+        batch_queryset = batch_queryset.filter(academic_year=academic_year)
+    selected_batch = batch_queryset.filter(pk=batch_filter).first() if batch_filter else None
+    if batch_filter:
+        if selected_batch:
+            sessions = sessions.filter(enrollments__batch=selected_batch).distinct()
+        else:
+            sessions = sessions.none()
     if search_query:
         sessions = sessions.filter(
             Q(admission_number__icontains=search_query)
@@ -1562,21 +1754,9 @@ def student_export(request):
     elif status_filter == "inactive":
         sessions = sessions.exclude(status=StudentAcademicSession.Status.ACTIVE, student__is_active=True)
 
-    columns = [
-        "Admission Number",
-        "First Name",
-        "Last Name",
-        "Username",
-        "Email",
-        "Phone",
-        "Date of Birth",
-        "Joined On",
-        "Guardian Name",
-        "Guardian Relation",
-        "Guardian Phone",
-        "Guardian Email",
-        "Active",
-    ]
+    selected_fields = get_student_export_field_keys(request)
+    field_labels = dict(STUDENT_EXPORT_FIELD_OPTIONS)
+    columns = [field_labels[field] for field in selected_fields]
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Students"
@@ -1588,21 +1768,36 @@ def student_export(request):
         student = session.student
         profile = getattr(student.user, "profile", None)
         guardian = student.guardians.filter(is_primary=True).first() or student.guardians.first()
-        values = [
-            session.admission_number,
-            student.user.first_name,
-            student.user.last_name,
-            student.user.username,
-            student.user.email,
-            profile.phone if profile else "",
-            student.date_of_birth.isoformat() if student.date_of_birth else "",
-            session.joined_on.isoformat() if session.joined_on else "",
-            guardian.name if guardian else "",
-            guardian.relation if guardian else "",
-            guardian.phone if guardian else "",
-            guardian.email if guardian else "",
-            "Yes" if session.status == StudentAcademicSession.Status.ACTIVE and student.is_active else "No",
-        ]
+        active_enrollments = session.enrollments.exclude(status=StudentEnrollment.Status.CANCELLED).select_related("batch")
+        batch_names = ", ".join(enrollment.batch.name for enrollment in active_enrollments if enrollment.batch_id)
+        total_fee_amount, paid_amount, due_amount = get_student_session_fee_summary(session)
+        full_name = student.user.get_full_name() or student.user.username
+        field_values = {
+            "admission_number": session.admission_number,
+            "name": full_name,
+            "mobile": profile.phone if profile else "",
+            "batch": batch_names,
+            "total_fees": total_fee_amount,
+            "paid_amount": paid_amount,
+            "due_amount": due_amount,
+            "status": "Active" if session.status == StudentAcademicSession.Status.ACTIVE and student.is_active else "Inactive",
+            "first_name": student.user.first_name,
+            "last_name": student.user.last_name,
+            "username": student.user.username,
+            "email": student.user.email,
+            "date_of_birth": student.date_of_birth.isoformat() if student.date_of_birth else "",
+            "joined_on": session.joined_on.isoformat() if session.joined_on else "",
+            "guardian_name": guardian.name if guardian else "",
+            "guardian_relation": guardian.relation if guardian else "",
+            "guardian_phone": guardian.phone if guardian else "",
+            "guardian_email": guardian.email if guardian else "",
+            "address": student.address,
+            "current_school_name": session.current_school_name,
+            "current_school_address": session.current_school_address,
+            "previous_school_name": session.previous_school_name,
+            "previous_class": session.previous_class,
+        }
+        values = [field_values[field] for field in selected_fields]
         for col, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=col, value=value)
             cell.border = border
@@ -1695,7 +1890,6 @@ def student_bulk_import(request):
                 UserProfile.objects.create(
                     user=user,
                     institute=institute,
-                    academic_year=academic_year,
                     role=UserProfile.Role.STUDENT_PARENT,
                     phone=str(row["Phone"] or "").strip(),
                 )
@@ -2497,6 +2691,47 @@ def student_delete(request, pk):
         else:
             student.user.delete()
             messages.success(request, "Student deleted successfully.")
+
+    return redirect("institute_admin:student_list")
+
+
+@institute_admin_required
+@require_POST
+def student_bulk_delete(request):
+    institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
+    selected_ids = {int(student_id) for student_id in request.POST.getlist("student_ids") if student_id.isdigit()}
+
+    if not selected_ids:
+        messages.error(request, "Select at least one student to delete.")
+        return redirect("institute_admin:student_list")
+
+    sessions = StudentAcademicSession.objects.select_related("student", "student__user")
+    if institute:
+        sessions = sessions.filter(institute=institute)
+    if academic_year:
+        sessions = sessions.filter(academic_year=academic_year)
+    sessions = sessions.filter(student_id__in=selected_ids).distinct()
+
+    available_student_ids = set(sessions.values_list("student_id", flat=True))
+    unavailable_count = len(selected_ids - available_student_ids)
+    blocked_sessions = sessions.filter(fee_invoices__isnull=False).distinct()
+    blocked_count = blocked_sessions.count()
+    blocked_student_ids = set(blocked_sessions.values_list("student_id", flat=True))
+    deletable_sessions = sessions.exclude(student_id__in=blocked_student_ids)
+    user_ids = list(deletable_sessions.values_list("student__user_id", flat=True).distinct())
+    deleted_count = len(user_ids)
+
+    if user_ids:
+        with transaction.atomic():
+            User.objects.filter(pk__in=user_ids).delete()
+        messages.success(request, f"{deleted_count} student(s) deleted successfully.")
+    if blocked_count:
+        messages.warning(request, f"{blocked_count} selected student(s) have fee invoices and were not deleted. Mark them inactive instead.")
+    if unavailable_count:
+        messages.warning(request, f"{unavailable_count} selected student(s) were not available in the current admission list.")
+    if not deleted_count and not blocked_count and not unavailable_count:
+        messages.error(request, "No matching students were found to delete.")
 
     return redirect("institute_admin:student_list")
 
