@@ -9,6 +9,7 @@ from django.core.management.base import CommandError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from openpyxl import load_workbook
 
 from accountant.models import FeeCategory, FeeInvoice, Payment
@@ -19,7 +20,7 @@ from super_admin.models import (
     SubscriptionPayment,
     UserProfile,
 )
-from teacher.models import Attendance, Exam, Homework
+from teacher.models import Attendance, Exam, ExamAttempt, ExamAttemptUpload, ExamResult, Homework
 
 from .forms import BatchForm, PaymentUpdateForm, ReceiveFeeForm
 from .models import AcademicYear, Batch, Course, Lead, Notice, SupportTicket, Visitor
@@ -2333,12 +2334,252 @@ class TenantIsolationTests(TestCase):
         self.exam_a.refresh_from_db()
         self.assertTrue(self.exam_a.is_published)
 
+    def test_exam_submissions_shows_upload_count_and_uniform_actions(self):
+        attempt = ExamAttempt.objects.create(
+            exam=self.exam_a,
+            academic_session=self.student_a["session"],
+            student=self.student_a["profile"],
+            total_marks=Decimal("20.00"),
+        )
+        ExamAttemptUpload.objects.create(
+            attempt=attempt,
+            image="exams/rough-work/private-upload-one.png",
+        )
+        ExamAttemptUpload.objects.create(
+            attempt=attempt,
+            image="exams/rough-work/private-upload-two.png",
+        )
+
+        response = self.client.get(
+            reverse("institute_admin:institute_exam_submissions", args=[self.exam_a.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        attempt_row = next(row for row in response.context["rows"] if row["attempt"] == attempt)
+        self.assertEqual(attempt_row["upload_count"], 2)
+        self.assertNotContains(response, "private-upload-one.png")
+        self.assertNotContains(response, "private-upload-two.png")
+        self.assertContains(response, 'class="submission-action manage"')
+        self.assertContains(response, 'class="submission-action reset"')
+
     def test_institute_admin_cannot_publish_other_institute_exam(self):
         response = self.client.post(reverse("institute_admin:institute_exam_publish", args=[self.exam_b.pk]))
 
         self.assertEqual(response.status_code, 404)
         self.exam_b.refresh_from_db()
         self.assertFalse(self.exam_b.is_published)
+
+
+class ExamResultsReportTests(TestCase):
+    def setUp(self):
+        self.institute = Institute.objects.create(
+            name="Result Institute",
+            code="result-institute",
+            status=Institute.Status.ACTIVE,
+        )
+        self.year = AcademicYear.objects.create(
+            institute=self.institute,
+            name="2026-27",
+            start_date=date(2026, 4, 1),
+            end_date=date(2027, 3, 31),
+        )
+        self.course = Course.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            name="Mathematics",
+        )
+        self.batch = Batch.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            name="Batch Result",
+        )
+        self.batch.courses.add(self.course)
+        self.exam = Exam.objects.create(
+            academic_year=self.year,
+            batch=self.batch,
+            course=self.course,
+            title="Ranked Mathematics Exam",
+            exam_date=date(2026, 6, 5),
+            total_marks=100,
+        )
+        self.admin = User.objects.create_user(username="result-admin", password="pass12345")
+        UserProfile.objects.create(
+            user=self.admin,
+            institute=self.institute,
+            role=UserProfile.Role.INSTITUTE_ADMIN,
+        )
+        self.client.force_login(self.admin)
+        session = self.client.session
+        session["academic_year_id"] = self.year.pk
+        session.save()
+
+        self.attempts = [
+            self.create_attempt("rank-one", "RI-001", Decimal("90.00")),
+            self.create_attempt("rank-two-a", "RI-002", Decimal("75.00")),
+            self.create_attempt("rank-two-b", "RI-003", Decimal("75.00")),
+            self.create_attempt("needs-help", "RI-004", Decimal("35.00")),
+        ]
+
+    def create_attempt(self, username, admission_number, score):
+        user = User.objects.create_user(username=username, password="pass12345", first_name=username)
+        UserProfile.objects.create(
+            user=user,
+            institute=self.institute,
+            role=UserProfile.Role.STUDENT_PARENT,
+        )
+        student = StudentProfile.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            user=user,
+            admission_number=admission_number,
+            is_active=True,
+        )
+        academic_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=student,
+            academic_year=self.year,
+            admission_number=admission_number,
+            status=StudentAcademicSession.Status.ACTIVE,
+        )
+        StudentEnrollment.objects.create(
+            student=student,
+            academic_session=academic_session,
+            batch=self.batch,
+            status=StudentEnrollment.Status.ACTIVE,
+        )
+        return ExamAttempt.objects.create(
+            exam=self.exam,
+            academic_session=academic_session,
+            student=student,
+            submitted_at=timezone.now(),
+            score=score,
+            total_marks=Decimal("100.00"),
+            correct_count=int(score),
+            wrong_count=100 - int(score),
+            unattempted_count=0,
+        )
+
+    def test_results_are_generated_from_submitted_attempts_with_exam_ranks(self):
+        manual_user = User.objects.create_user(username="manual-only", password="pass12345")
+        UserProfile.objects.create(
+            user=manual_user,
+            institute=self.institute,
+            role=UserProfile.Role.STUDENT_PARENT,
+        )
+        manual_student = StudentProfile.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            user=manual_user,
+            admission_number="RI-MANUAL",
+        )
+        ExamResult.objects.create(
+            exam=self.exam,
+            student=manual_student,
+            marks_obtained=Decimal("99.00"),
+            remark="Manual result must not appear",
+        )
+
+        response = self.client.get(reverse("institute_admin:institute_results"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Add Result")
+        self.assertNotContains(response, "manual-only")
+        ranks = {
+            row["attempt"].student.user.username: row["rank"]
+            for row in response.context["rows"]
+        }
+        self.assertEqual(ranks["rank-one"], 1)
+        self.assertEqual(ranks["rank-two-a"], 2)
+        self.assertEqual(ranks["rank-two-b"], 2)
+        self.assertEqual(ranks["needs-help"], 4)
+
+    def test_result_filters_apply_to_page_and_exports(self):
+        query = {
+            "exam": str(self.exam.pk),
+            "performance": "failed",
+            "min_percentage": "30",
+            "max_percentage": "40",
+            "student": "needs-help",
+        }
+        response = self.client.get(reverse("institute_admin:institute_results"), query)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["result_count"], 1)
+        self.assertContains(response, "needs-help")
+        self.assertNotContains(response, "rank-one")
+
+        excel_response = self.client.get(
+            reverse("institute_admin:institute_results_export"),
+            {**query, "format": "excel"},
+        )
+        self.assertEqual(excel_response.status_code, 200)
+        workbook = load_workbook(BytesIO(excel_response.content))
+        sheet = workbook["Exam Results"]
+        values = [cell.value for row in sheet.iter_rows() for cell in row]
+        self.assertIn("needs-help", values)
+        self.assertNotIn("rank-one", values)
+
+        pdf_response = self.client.get(
+            reverse("institute_admin:institute_results_export"),
+            {**query, "format": "pdf"},
+        )
+        self.assertEqual(pdf_response.status_code, 200)
+        self.assertEqual(pdf_response["Content-Type"], "application/pdf")
+        self.assertIn(b"needs-help", pdf_response.content)
+        self.assertNotIn(b"rank-one", pdf_response.content)
+
+    def test_results_do_not_include_other_institute_attempts(self):
+        other_institute = Institute.objects.create(name="Other Result Institute", code="other-results")
+        other_year = AcademicYear.objects.create(
+            institute=other_institute,
+            name="2026-27",
+            start_date=date(2026, 4, 1),
+            end_date=date(2027, 3, 31),
+        )
+        other_course = Course.objects.create(
+            institute=other_institute,
+            academic_year=other_year,
+            name="Private Course",
+        )
+        other_batch = Batch.objects.create(
+            institute=other_institute,
+            academic_year=other_year,
+            name="Private Batch",
+        )
+        other_batch.courses.add(other_course)
+        other_exam = Exam.objects.create(
+            academic_year=other_year,
+            batch=other_batch,
+            course=other_course,
+            title="PRIVATE EXAM RESULT",
+            exam_date=date(2026, 6, 5),
+        )
+        other_user = User.objects.create_user(username="private-result-user", password="pass12345")
+        other_student = StudentProfile.objects.create(
+            institute=other_institute,
+            academic_year=other_year,
+            user=other_user,
+            admission_number="PRIVATE-001",
+        )
+        other_session = StudentAcademicSession.objects.create(
+            institute=other_institute,
+            student=other_student,
+            academic_year=other_year,
+            admission_number="PRIVATE-001",
+        )
+        ExamAttempt.objects.create(
+            exam=other_exam,
+            academic_session=other_session,
+            student=other_student,
+            submitted_at=timezone.now(),
+            score=Decimal("100.00"),
+            total_marks=Decimal("100.00"),
+        )
+
+        response = self.client.get(reverse("institute_admin:institute_results"))
+
+        self.assertNotContains(response, "PRIVATE EXAM RESULT")
+        self.assertNotContains(response, "private-result-user")
 
 
 class SessionAuditCommandTests(TestCase):

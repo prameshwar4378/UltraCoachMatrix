@@ -244,20 +244,55 @@
     .badge-gray { background: #e2e8f0; color: #334155; }
     .badge-blue { background: #dbeafe; color: #1d4ed8; }
 
-    .upload-links a {
+    .upload-count {
+        min-width: 42px;
+        height: 34px;
+        padding: 0 11px;
+        border: 1px solid #bfdbfe;
+        border-radius: 9px;
+        background: #eff6ff;
+        color: #1d4ed8;
         display: inline-flex;
-        margin: 2px 4px 2px 0;
-        text-decoration: none;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: .82rem;
+        font-weight: 900;
     }
 
     .action-stack {
         display: flex;
         gap: 8px;
-        flex-wrap: wrap;
+        align-items: center;
+        flex-wrap: nowrap;
     }
 
     .reset-form {
         display: inline-flex;
+        margin: 0;
+    }
+
+    .submission-action {
+        min-width: 92px;
+        height: 36px;
+        padding: 0 12px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: .8rem;
+        font-weight: 850;
+        line-height: 1;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .submission-action.manage { border-color:#bfdbfe; background:#eff6ff; color:#1d4ed8; }
+    .submission-action.manage:hover { border-color:#2563eb; background:#2563eb; color:#fff; }
+    .submission-action.reset { border-color:#fecaca; background:#fff1f2; color:#b91c1c; }
+    .submission-action.reset:hover { border-color:#dc2626; background:#dc2626; color:#fff; }
     }
 
     @media(max-width: 992px) {
@@ -446,21 +481,16 @@
                             <td>{{ row.attempt.correct_count|default:"-" }}</td>
                             <td>{{ row.attempt.wrong_count|default:"-" }}</td>
                             <td>{{ row.attempt.unattempted_count|default:"-" }}</td>
-                            <td class="upload-links">
-                                {% if row.attempt %}
-                                    {% for upload in row.attempt.uploads.all %}
-                                        <a href="{{ upload.image.url }}" target="_blank" class="badge-soft badge-blue">Image {{ forloop.counter }}</a>
-                                    {% empty %}
-                                        -
-                                    {% endfor %}
-                                {% else %}
-                                    -
-                                {% endif %}
+                            <td>
+                                <span class="upload-count" title="{{ row.upload_count }} uploaded document{{ row.upload_count|pluralize }}">
+                                    <i class="bi bi-paperclip"></i>
+                                    {{ row.upload_count }}
+                                </span>
                             </td>
                             <td>
                                 {% if row.attempt %}
                                     <div class="action-stack">
-                                        <a class="btn btn-sm btn-outline-primary" href="{% url 'teacher:exam_attempt_manage' exam.pk row.attempt.pk %}">
+                                        <a class="submission-action manage" href="{% url 'teacher:exam_attempt_manage' exam.pk row.attempt.pk %}">
                                             <i class="bi bi-sliders"></i> Manage
                                         </a>
                                         <form method="post"
@@ -468,7 +498,7 @@
                                               class="reset-form"
                                               onsubmit="return confirm('Reset this attempt? The student answers, uploads and activity logs for this attempt will be deleted, and the student can attend this exam again.');">
                                             {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <button type="submit" class="submission-action reset">
                                                 <i class="bi bi-arrow-counterclockwise"></i> Reset
                                             </button>
                                         </form>

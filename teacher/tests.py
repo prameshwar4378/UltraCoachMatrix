@@ -11,7 +11,7 @@ from institute_admin.models import AcademicYear, Batch, Course, Subject
 from student_parent.models import StudentAcademicSession, StudentEnrollment, StudentProfile
 from super_admin.models import Institute, UserProfile
 from teacher.forms import TeacherExamForm, TeacherHomeworkForm
-from teacher.models import Attendance, Exam, ExamAttempt, ExamQuestion, ExamQuestionAttempt, ExamQuestionOption, ExamResult, Homework
+from teacher.models import Attendance, Exam, ExamAttempt, ExamAttemptUpload, ExamQuestion, ExamQuestionAttempt, ExamQuestionOption, ExamResult, Homework
 
 
 class ExamYearScopeTests(TestCase):
@@ -362,8 +362,22 @@ class ExamYearScopeTests(TestCase):
         self.assertFalse(Exam.objects.filter(title="Forbidden Exam").exists())
 
     def test_teacher_results_are_limited_to_assigned_batch_exams(self):
-        ExamResult.objects.create(exam=self.exam_a, student=self.student, marks_obtained=8)
-        ExamResult.objects.create(exam=self.unassigned_exam, student=self.unassigned_student, marks_obtained=9)
+        ExamAttempt.objects.create(
+            exam=self.exam_a,
+            academic_session=self.session_a,
+            student=self.student,
+            submitted_at=timezone.now(),
+            score=8,
+            total_marks=10,
+        )
+        ExamAttempt.objects.create(
+            exam=self.unassigned_exam,
+            academic_session=self.unassigned_session,
+            student=self.unassigned_student,
+            submitted_at=timezone.now(),
+            score=9,
+            total_marks=10,
+        )
         self.client.login(username="teacher", password="pass")
         session = self.client.session
         session["academic_year_id"] = self.year_a.pk
@@ -373,25 +387,48 @@ class ExamYearScopeTests(TestCase):
 
         self.assertContains(response, "Year A Exam")
         self.assertNotContains(response, "Unassigned Exam")
+        self.assertNotContains(response, "Add Result")
 
-    def test_teacher_result_form_rejects_unassigned_exam(self):
+    def test_teacher_result_filters_and_exports_use_assigned_attempts(self):
+        ExamAttempt.objects.create(
+            exam=self.exam_a,
+            academic_session=self.session_a,
+            student=self.student,
+            submitted_at=timezone.now(),
+            score=8,
+            total_marks=10,
+            correct_count=8,
+            wrong_count=2,
+        )
         self.client.login(username="teacher", password="pass")
         session = self.client.session
         session["academic_year_id"] = self.year_a.pk
         session.save()
 
-        response = self.client.post(
-            reverse("teacher:result_create"),
-            {
-                "exam": str(self.unassigned_exam.pk),
-                "student": str(self.unassigned_student.pk),
-                "marks_obtained": "5",
-                "remark": "Forbidden",
-            },
-        )
+        query = {"exam": str(self.exam_a.pk), "performance": "passed", "student": "student"}
+        response = self.client.get(reverse("teacher:results"), query)
 
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(ExamResult.objects.filter(exam=self.unassigned_exam, remark="Forbidden").exists())
+        self.assertEqual(response.context["result_count"], 1)
+        self.assertContains(response, "student")
+
+        excel_response = self.client.get(
+            reverse("teacher:results_export"),
+            {**query, "format": "excel"},
+        )
+        self.assertEqual(excel_response.status_code, 200)
+        workbook = load_workbook(BytesIO(excel_response.content))
+        values = [cell.value for row in workbook["Exam Results"].iter_rows() for cell in row]
+        self.assertIn("student", values)
+        self.assertNotIn("Unassigned Exam", values)
+
+        pdf_response = self.client.get(
+            reverse("teacher:results_export"),
+            {**query, "format": "pdf"},
+        )
+        self.assertEqual(pdf_response.status_code, 200)
+        self.assertIn(b"student", pdf_response.content)
+        self.assertNotIn(b"Unassigned Exam", pdf_response.content)
 
     def test_student_exams_use_selected_academic_session_year(self):
         self.client.login(username="student", password="pass")
@@ -405,7 +442,7 @@ class ExamYearScopeTests(TestCase):
         self.assertNotContains(response, "Year A Exam")
 
     def test_exam_submissions_show_attempted_and_not_attempted_students(self):
-        ExamAttempt.objects.create(
+        attempt = ExamAttempt.objects.create(
             exam=self.exam_a,
             academic_session=self.session_a,
             student=self.student,
@@ -413,6 +450,10 @@ class ExamYearScopeTests(TestCase):
             score=1,
             total_marks=1,
             correct_count=1,
+        )
+        ExamAttemptUpload.objects.create(
+            attempt=attempt,
+            image="exams/rough-work/teacher-private-upload.png",
         )
         self.client.login(username="teacher", password="pass")
         session = self.client.session
@@ -425,6 +466,11 @@ class ExamYearScopeTests(TestCase):
         self.assertContains(response, "student-two")
         self.assertContains(response, "Attempted")
         self.assertContains(response, "Not Attempted")
+        attempt_row = next(row for row in response.context["rows"] if row["attempt"] == attempt)
+        self.assertEqual(attempt_row["upload_count"], 1)
+        self.assertNotContains(response, "teacher-private-upload.png")
+        self.assertContains(response, 'class="submission-action manage"')
+        self.assertContains(response, 'class="submission-action reset"')
 
     def test_bulk_question_template_download_contains_samples(self):
         self.client.login(username="teacher", password="pass")

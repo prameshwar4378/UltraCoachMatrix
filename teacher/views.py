@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from decimal import Decimal
 from io import BytesIO
 
 from django.contrib import messages
@@ -18,9 +19,8 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from institute_admin.forms import get_or_create_academic_year
 from institute_admin.models import Batch, Course, Subject
 from student_parent.models import StudentAcademicSession, StudentEnrollment
-from student_parent.notifications import notify_result_declared
 from super_admin.decorators import teacher_required
-from .forms import ExamQuestionForm, ExamQuestionOptionFormSet, TeacherExamForm, TeacherExamResultForm, TeacherHomeworkForm
+from .forms import ExamQuestionForm, ExamQuestionOptionFormSet, TeacherExamForm, TeacherHomeworkForm
 from .models import (
     Attendance,
     Exam,
@@ -170,12 +170,15 @@ def dashboard(request):
         "draft_exam_count": exam_qs.filter(is_published=False).count(),
         "upcoming_exam_count": exam_qs.filter(exam_date__gte=today).count(),
         "submitted_attempt_count": ExamAttempt.objects.filter(exam__in=exam_qs, submitted_at__isnull=False).count(),
-        "result_count": ExamResult.objects.filter(exam__in=exam_qs).count(),
+        "result_count": ExamAttempt.objects.filter(exam__in=exam_qs, submitted_at__isnull=False).count(),
         "assigned_batches": assigned_batches,
         "recent_homework": homework_qs.select_related("batch", "subject", "course").order_by("-created_at")[:6],
         "due_homework": due_homework,
         "recent_exams": upcoming_exams,
-        "recent_results": ExamResult.objects.filter(exam__in=exam_qs).select_related("exam", "exam__batch", "student", "student__user").order_by("-pk")[:6],
+        "recent_results": ExamAttempt.objects.filter(
+            exam__in=exam_qs,
+            submitted_at__isnull=False,
+        ).select_related("exam", "exam__batch", "student", "student__user").order_by("-submitted_at")[:6],
         "today": today,
         "week_end": week_end,
         "selected_academic_year": teacher_selected_academic_year(request),
@@ -1133,6 +1136,7 @@ def exam_submissions(request, pk):
                 "academic_session": enrollment.academic_session,
                 "student": enrollment.student,
                 "attempt": attempt,
+                "upload_count": len(attempt.uploads.all()) if attempt else 0,
                 "status": "Attempted" if attempt and attempt.is_submitted else "In Progress" if attempt else "Not Attempted",
             }
         )
@@ -1145,6 +1149,7 @@ def exam_submissions(request, pk):
                 "academic_session": attempt.academic_session,
                 "student": attempt.student,
                 "attempt": attempt,
+                "upload_count": len(attempt.uploads.all()),
                 "status": "Attempted" if attempt.is_submitted else "In Progress",
             }
         )
@@ -1271,27 +1276,296 @@ def exam_toggle_result_publish(request, pk):
 
 @teacher_required
 def results(request):
-    batches = teacher_batches(request)
-    exams_qs = Exam.objects.filter(batch__in=batches)
-    result_qs = ExamResult.objects.filter(exam__in=exams_qs).select_related("exam", "student", "student__user")
-    return render(request, "teacher/results.html", {"results": result_qs})
+    return render(request, "teacher/results.html", get_teacher_result_report(request))
+
+
+def teacher_attempt_percentage(attempt):
+    if not attempt.total_marks:
+        return Decimal("0.00")
+    return (attempt.score / attempt.total_marks * Decimal("100")).quantize(Decimal("0.01"))
+
+
+def teacher_attempt_ranks(attempts):
+    ranks = {}
+    grouped = {}
+    for attempt in attempts:
+        grouped.setdefault(attempt.exam_id, []).append(attempt)
+    for exam_attempts in grouped.values():
+        previous_score = None
+        rank = 0
+        for position, attempt in enumerate(
+            sorted(exam_attempts, key=lambda item: (-item.score, item.submitted_at, item.pk)),
+            start=1,
+        ):
+            if previous_score is None or attempt.score != previous_score:
+                rank = position
+                previous_score = attempt.score
+            ranks[attempt.pk] = rank
+    return ranks
+
+
+def get_teacher_result_report(request):
+    profile = request.user.profile
+    academic_year = teacher_selected_academic_year(request)
+    batches = teacher_batches(request).order_by("name")
+    exams = Exam.objects.filter(batch__in=batches).select_related(
+        "batch", "course", "subject", "academic_year"
+    )
+    all_attempts = list(
+        ExamAttempt.objects.filter(exam__in=exams, submitted_at__isnull=False)
+        .select_related(
+            "exam",
+            "exam__batch",
+            "exam__course",
+            "exam__subject",
+            "academic_session",
+            "student",
+            "student__user",
+        )
+        .order_by("-submitted_at")
+    )
+    ranks = teacher_attempt_ranks(all_attempts)
+    selected = {
+        "batch": request.GET.get("batch", "").strip(),
+        "course": request.GET.get("course", "").strip(),
+        "subject": request.GET.get("subject", "").strip(),
+        "exam": request.GET.get("exam", "").strip(),
+        "student": request.GET.get("student", "").strip(),
+        "date_from": request.GET.get("date_from", "").strip(),
+        "date_to": request.GET.get("date_to", "").strip(),
+        "performance": request.GET.get("performance", "").strip(),
+        "min_percentage": request.GET.get("min_percentage", "").strip(),
+        "max_percentage": request.GET.get("max_percentage", "").strip(),
+    }
+    date_from = parse_date(selected["date_from"])
+    date_to = parse_date(selected["date_to"])
+    try:
+        minimum = Decimal(selected["min_percentage"]) if selected["min_percentage"] else None
+    except (ValueError, ArithmeticError):
+        minimum = None
+    try:
+        maximum = Decimal(selected["max_percentage"]) if selected["max_percentage"] else None
+    except (ValueError, ArithmeticError):
+        maximum = None
+
+    rows = []
+    for attempt in all_attempts:
+        percentage = teacher_attempt_percentage(attempt)
+        student_name = attempt.student.user.get_full_name() or attempt.student.user.username
+        search_text = f"{student_name} {attempt.student.user.username} {attempt.academic_session.admission_number}"
+        submitted_date = timezone.localtime(attempt.submitted_at).date()
+        if selected["batch"] and str(attempt.exam.batch_id) != selected["batch"]:
+            continue
+        if selected["course"] and str(attempt.exam.course_id or "") != selected["course"]:
+            continue
+        if selected["subject"] and str(attempt.exam.subject_id or "") != selected["subject"]:
+            continue
+        if selected["exam"] and str(attempt.exam_id) != selected["exam"]:
+            continue
+        if selected["student"] and selected["student"].lower() not in search_text.lower():
+            continue
+        if date_from and submitted_date < date_from:
+            continue
+        if date_to and submitted_date > date_to:
+            continue
+        if minimum is not None and percentage < minimum:
+            continue
+        if maximum is not None and percentage > maximum:
+            continue
+        if selected["performance"] == "passed" and percentage < Decimal("40"):
+            continue
+        if selected["performance"] == "failed" and percentage >= Decimal("40"):
+            continue
+        rows.append(
+            {
+                "attempt": attempt,
+                "student_name": student_name,
+                "percentage": percentage,
+                "rank": ranks[attempt.pk],
+                "performance": "Passed" if percentage >= Decimal("40") else "Needs improvement",
+            }
+        )
+
+    rows.sort(key=lambda row: (row["attempt"].exam.title.lower(), row["rank"], row["student_name"].lower()))
+    percentages = [row["percentage"] for row in rows]
+    passed_count = sum(1 for value in percentages if value >= Decimal("40"))
+    courses = Course.objects.filter(
+        institute=profile.institute,
+        academic_year=academic_year,
+        exams__in=exams,
+    ).distinct().order_by("name")
+    subjects = Subject.objects.filter(
+        institute=profile.institute,
+        academic_year=academic_year,
+        exams__in=exams,
+    ).distinct().order_by("name")
+    filters = teacher_result_filter_labels(selected, batches, courses, subjects, exams)
+    average = sum(percentages, Decimal("0.00")) / len(percentages) if percentages else Decimal("0.00")
+    return {
+        "institute": profile.institute,
+        "academic_year": academic_year,
+        "rows": rows,
+        "batches": batches,
+        "courses": courses,
+        "subjects": subjects,
+        "exams": exams.order_by("-exam_date", "title"),
+        "filters": selected,
+        "filter_labels": filters,
+        "result_count": len(rows),
+        "passed_count": passed_count,
+        "needs_improvement_count": len(rows) - passed_count,
+        "average_percentage": average.quantize(Decimal("0.01")),
+        "highest_percentage": max(percentages, default=Decimal("0.00")),
+    }
+
+
+def teacher_result_filter_labels(selected, batches, courses, subjects, exams):
+    def label(queryset, selected_id):
+        item = queryset.filter(pk=selected_id).first() if selected_id else None
+        return str(item) if item else "All"
+    performance = {
+        "passed": "Passed (40% and above)",
+        "failed": "Needs improvement (below 40%)",
+    }
+    return [
+        f"Batch: {label(batches, selected['batch'])}",
+        f"Course: {label(courses, selected['course'])}",
+        f"Subject: {label(subjects, selected['subject'])}",
+        f"Exam: {label(exams, selected['exam'])}",
+        f"Student: {selected['student'] or 'All'}",
+        f"Submitted: {selected['date_from'] or 'Any'} to {selected['date_to'] or 'Any'}",
+        f"Percentage: {selected['min_percentage'] or '0'} to {selected['max_percentage'] or '100'}",
+        f"Performance: {performance.get(selected['performance'], 'All')}",
+    ]
+
+
+def build_teacher_results_excel(report):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Exam Results"
+    columns = [
+        "Rank", "Exam", "Exam Date", "Student", "Admission No.", "Batch", "Course",
+        "Subject", "Score", "Total Marks", "Percentage", "Correct", "Wrong",
+        "Unattempted", "Performance", "Submitted At",
+    ]
+    thin = Side(style="thin", color="CBD5E1")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    center = Alignment(horizontal="center", vertical="center")
+    sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(columns))
+    title = sheet.cell(1, 1, "Teacher Exam Results Report")
+    title.fill = PatternFill("solid", fgColor="7C3AED")
+    title.font = Font(size=18, bold=True, color="FFFFFF")
+    title.alignment = center
+    sheet.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(columns))
+    sheet.cell(
+        2, 1,
+        f"{report['institute'].name} | Academic Year: {report['academic_year']} | Generated {timezone.localtime().strftime('%d-%m-%Y %I:%M %p')}",
+    ).alignment = center
+    summary = [
+        ("Results", report["result_count"]), ("Passed", report["passed_count"]),
+        ("Needs Improvement", report["needs_improvement_count"]),
+        ("Average", f"{report['average_percentage']}%"), ("Highest", f"{report['highest_percentage']}%"),
+    ]
+    for index, (label, value) in enumerate(summary, start=1):
+        sheet.cell(4, index, label).font = Font(bold=True)
+        sheet.cell(4, index).fill = PatternFill("solid", fgColor="EDE9FE")
+        sheet.cell(5, index, value).font = Font(size=13, bold=True)
+        sheet.cell(4, index).alignment = sheet.cell(5, index).alignment = center
+    sheet.merge_cells(start_row=7, start_column=1, end_row=7, end_column=len(columns))
+    sheet.cell(7, 1, "Filters: " + " | ".join(report["filter_labels"])).font = Font(italic=True, color="64748B")
+    for index, column in enumerate(columns, start=1):
+        cell = sheet.cell(9, index, column)
+        cell.fill = PatternFill("solid", fgColor="0F172A")
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = center
+        cell.border = border
+    for row_index, row in enumerate(report["rows"], start=10):
+        attempt = row["attempt"]
+        values = [
+            row["rank"], attempt.exam.title, attempt.exam.exam_date.strftime("%d-%m-%Y"),
+            row["student_name"], attempt.academic_session.admission_number, attempt.exam.batch.name,
+            attempt.exam.course.name if attempt.exam.course else "",
+            attempt.exam.subject.name if attempt.exam.subject else "",
+            float(attempt.score), float(attempt.total_marks), float(row["percentage"]),
+            attempt.correct_count, attempt.wrong_count, attempt.unattempted_count,
+            row["performance"], timezone.localtime(attempt.submitted_at).strftime("%d-%m-%Y %I:%M %p"),
+        ]
+        for col_index, value in enumerate(values, start=1):
+            cell = sheet.cell(row_index, col_index, value)
+            cell.border = border
+            cell.alignment = center
+    widths = [8, 28, 13, 25, 18, 20, 20, 20, 11, 12, 12, 10, 10, 13, 20, 22]
+    for index, width in enumerate(widths, start=1):
+        sheet.column_dimensions[get_column_letter(index)].width = width
+    sheet.freeze_panes = "A10"
+    sheet.auto_filter.ref = f"A9:P{max(10, 9 + len(report['rows']))}"
+    buffer = BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def build_teacher_results_pdf(report):
+    widths = [34, 112, 132, 86, 92, 60, 44, 28, 28, 28, 92]
+    headers = ["Rank", "Exam", "Student", "Adm No", "Batch", "Score", "%", "C", "W", "U", "Status"]
+    chunks = [report["rows"][i:i + 16] for i in range(0, len(report["rows"]), 16)] or [[]]
+    pages = []
+    for page_number, chunk in enumerate(chunks, start=1):
+        stream = pdf_rect(0, 545, 842, 50, "0.486 0.227 0.929")
+        stream += pdf_text(30, 570, "Teacher Exam Results Report", 18, "F2", "1 1 1")
+        stream += pdf_text(30, 552, f"{report['institute'].name} | Academic Year: {report['academic_year']}", 8, "F1", "1 1 1")
+        stream += pdf_text(730, 552, f"Page {page_number}/{len(chunks)}", 8, "F1", "1 1 1")
+        summary = [
+            ("Results", report["result_count"]), ("Passed", report["passed_count"]),
+            ("Needs Improvement", report["needs_improvement_count"]),
+            ("Average", f"{report['average_percentage']}%"), ("Highest", f"{report['highest_percentage']}%"),
+        ]
+        x = 30
+        for label, value in summary:
+            stream += pdf_rect(x, 502, 145, 31, "0.95 0.94 1")
+            stream += pdf_text(x + 7, 520, label, 7, "F1", "0.39 0.45 0.55")
+            stream += pdf_text(x + 7, 507, value, 11, "F2", "0.06 0.09 0.16")
+            x += 155
+        stream += pdf_text(30, 481, ("Filters: " + " | ".join(report["filter_labels"]))[:150], 7, "F1", "0.39 0.45 0.55")
+        y, start_x = 452, 30
+        stream += pdf_rect(start_x, y - 6, sum(widths), 22, "0.06 0.09 0.16")
+        x = start_x
+        for header, width in zip(headers, widths):
+            stream += pdf_text(x + 3, y, header, 7, "F2", "1 1 1")
+            x += width
+        y -= 24
+        for row in chunk:
+            attempt = row["attempt"]
+            values = [
+                row["rank"], attempt.exam.title[:17], row["student_name"][:20],
+                attempt.academic_session.admission_number[:13], attempt.exam.batch.name[:14],
+                f"{attempt.score}/{attempt.total_marks}", row["percentage"], attempt.correct_count,
+                attempt.wrong_count, attempt.unattempted_count, row["performance"][:15],
+            ]
+            stream += pdf_rect(start_x, y - 5, sum(widths), 20, "0.98 0.99 1")
+            x = start_x
+            for value, width in zip(values, widths):
+                stream += pdf_text(x + 3, y, value, 6.5, "F1", "0.06 0.09 0.16")
+                x += width
+            y -= 21
+        stream += pdf_text(30, 28, "C = Correct | W = Wrong | U = Unattempted | Rank is within each exam", 8, "F1", "0.39 0.45 0.55")
+        pages.append(stream)
+    return build_pdf_document(pages, width=842, height=595)
 
 
 @teacher_required
-def result_create(request):
-    batches = teacher_batches(request)
-    exams_qs = Exam.objects.filter(batch__in=batches)
-    students_qs = teacher_students_for_batches(batches).values_list("student_id", flat=True)
-    from student_parent.models import StudentProfile
-
-    form = TeacherExamResultForm(
-        request.POST or None,
-        exams=exams_qs,
-        students=StudentProfile.objects.filter(pk__in=students_qs).select_related("user"),
-    )
-    if request.method == "POST" and form.is_valid():
-        result = form.save()
-        notify_result_declared(result)
-        messages.success(request, "Result saved successfully.")
-        return redirect("teacher:results")
-    return render(request, "teacher/result_form.html", {"form": form, "title": "Add Result"})
+def results_export(request):
+    report = get_teacher_result_report(request)
+    file_format = request.GET.get("format", "excel").lower()
+    stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
+    if file_format == "pdf":
+        response = HttpResponse(build_teacher_results_pdf(report), content_type="application/pdf")
+        extension = "pdf"
+    else:
+        response = HttpResponse(
+            build_teacher_results_excel(report),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        extension = "xlsx"
+    response["Content-Disposition"] = f'attachment; filename="teacher_exam_results_{stamp}.{extension}"'
+    return response

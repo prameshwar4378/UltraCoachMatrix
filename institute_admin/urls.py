@@ -112,5 +112,5 @@ urlpatterns = [
     ),
     path("exams/<int:pk>/results/visibility/", views.exam_toggle_result_publish, name="institute_exam_toggle_result_publish"),
     path("results/", views.results, name="institute_results"),
-    path("results/create/", views.result_create, name="institute_result_create"),
+    path("results/export/", views.results_export, name="institute_results_export"),
 ]

@@ -14252,41 +14252,6 @@
                     </li> -->
 
                     <li class="profile-menu-list">
-                        <a class="dropdown-item profile-menu-item" href=" ">
-                            <i class="bi bi-building-gear"></i>
-                            <span class="profile-menu-copy">
-                                Institute Profile
-                                <small>Manage institute identity and contact details</small>
-                            </span>
-                        </a>
-
-                        <a class="dropdown-item profile-menu-item" href=" ">
-                            <i class="bi bi-credit-card"></i>
-                            <span class="profile-menu-copy">
-                                Subscription & Billing
-                                <small>Plan, trial, invoices, and payments</small>
-                            </span>
-                        </a>
- 
-
-                        <a class="dropdown-item profile-menu-item" href=" ">
-                            <i class="bi bi-shield-lock"></i>
-                            <span class="profile-menu-copy">
-                                Security Settings
-                                <small>Password, sessions, and account access</small>
-                            </span>
-                        </a>
-
-                        <a class="dropdown-item profile-menu-item" href="#">
-                            <i class="bi bi-life-preserver"></i>
-                            <span class="profile-menu-copy">
-                                Help & Support
-                                <small>Guides, support requests, and product help</small>
-                            </span>
-                        </a>
-
-                        <div class="profile-menu-divider"></div>
-
                         <a class="dropdown-item profile-menu-item profile-logout" href="#" data-bs-toggle="modal" data-bs-target="#logout_model" data-toggle="modal" data-target="#logout_model">
                             <i class="bi bi-box-arrow-right"></i>
                             <span class="profile-menu-copy">
@@ -14337,7 +14302,7 @@
         </li>
 
         <li class="nav-item">
-            <a class="nav-link {% if current_url != 'results' and current_url != 'result_create' %}collapsed{% endif %}" href="{% url 'teacher:results' %}">
+            <a class="nav-link {% if current_url != 'results' %}collapsed{% endif %}" href="{% url 'teacher:results' %}">
                 <i class="bi bi-bar-chart-line"></i>
                 <span>Results</span>
             </a>
