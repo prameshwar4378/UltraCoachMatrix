@@ -124,6 +124,13 @@
         color: var(--ink);
         font-weight: 650;
     }
+    #promotionChoiceForm .form-select:not(.is-invalid) {
+        border-color: #cbd5e1 !important;
+        box-shadow: none;
+    }
+    #promotionChoiceForm.was-validated .form-select:invalid {
+        border-color: #dc3545 !important;
+    }
     .summary-strip {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -259,7 +266,7 @@
                 <div class="row g-3">
                     <div class="col-12">
                         <label class="form-label">Academic Session</label>
-                        <select name="source_year" id="sourceYear" class="form-select" required>
+                        <select name="source_year" id="sourceYear" class="form-select" data-searchable="false" required>
                             {% for year in academic_years %}
                                 <option value="{{ year.pk }}" {% if source_year and year.pk == source_year.pk %}selected{% endif %}>{{ year.name }}</option>
                             {% endfor %}
@@ -267,7 +274,7 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Course</label>
-                        <select name="source_course" id="sourceCourse" class="form-select" required>
+                        <select name="source_course" id="sourceCourse" class="form-select" data-searchable="false" required>
                             <option value="">Select course</option>
                             {% for course in source_courses %}
                                 <option value="{{ course.pk }}" {% if source_course and course.pk == source_course.pk %}selected{% endif %}>{{ course.name }}</option>
@@ -276,7 +283,7 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Batch</label>
-                        <select name="source_batch" id="sourceBatch" class="form-select" required>
+                        <select name="source_batch" id="sourceBatch" class="form-select" data-searchable="false" required>
                             <option value="">Select batch</option>
                             {% for batch in source_batches %}
                                 <option value="{{ batch.pk }}" {% if source_batch and batch.pk == source_batch.pk %}selected{% endif %}>{{ batch.name }}</option>
@@ -293,7 +300,7 @@
                 <div class="row g-3">
                     <div class="col-12">
                         <label class="form-label">Academic Session</label>
-                        <select name="target_year" id="targetYear" class="form-select" required>
+                        <select name="target_year" id="targetYear" class="form-select" data-searchable="false" required>
                             {% for year in academic_years %}
                                 <option value="{{ year.pk }}" {% if target_year and year.pk == target_year.pk %}selected{% endif %}>{{ year.name }}</option>
                             {% endfor %}
@@ -301,7 +308,7 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Course</label>
-                        <select name="target_course" id="targetCourse" class="form-select" required>
+                        <select name="target_course" id="targetCourse" class="form-select" data-searchable="false" required>
                             <option value="">Select course</option>
                             {% for course in target_courses %}
                                 <option value="{{ course.pk }}" {% if target_course and course.pk == target_course.pk %}selected{% endif %}>{{ course.name }}</option>
@@ -310,7 +317,7 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Batch</label>
-                        <select name="target_batch" id="targetBatch" class="form-select" required>
+                        <select name="target_batch" id="targetBatch" class="form-select" data-searchable="false" required>
                             <option value="">Select batch</option>
                             {% for batch in target_batches %}
                                 <option value="{{ batch.pk }}" {% if target_batch and batch.pk == target_batch.pk %}selected{% endif %}>{{ batch.name }}</option>
@@ -429,6 +436,7 @@
     const targetCourse = document.getElementById("targetCourse");
     const sourceBatch = document.getElementById("sourceBatch");
     const targetBatch = document.getElementById("targetBatch");
+    const promotionChoiceForm = document.getElementById("promotionChoiceForm");
 
     function replaceOptions(select, options, placeholder, selectedValue) {
         select.innerHTML = "";
@@ -443,6 +451,7 @@
             element.selected = String(option.id) === String(selectedValue || "");
             select.appendChild(element);
         });
+        select.classList.remove("is-invalid");
     }
 
     function coursesForYear(yearId) {
@@ -498,6 +507,17 @@
     });
     targetCourse.addEventListener("change", function() {
         replaceOptions(targetBatch, batchesForCourse(targetYear.value, targetCourse.value), "Select batch", "");
+    });
+    promotionChoiceForm.addEventListener("submit", function(event) {
+        promotionChoiceForm.classList.add("was-validated");
+        if (!promotionChoiceForm.checkValidity()) {
+            event.preventDefault();
+        }
+    });
+    promotionChoiceForm.querySelectorAll(".form-select").forEach(function(select) {
+        select.addEventListener("change", function() {
+            select.classList.remove("is-invalid");
+        });
     });
     preventSameAcademicSession();
 

@@ -9,10 +9,6 @@
     <meta content="" name="description">
     <meta content="" name="keywords">
 
-    <!-- Favicons -->
-    <link href="assets/img/favicon.png" rel="icon">
-    <link href="assets/img/apple-touch-icon.png" rel="apple-touch-icon">
-
     <!-- Google Fonts -->
     <link href="https://fonts.gstatic.com" rel="preconnect">
     <link
@@ -18237,7 +18233,7 @@
         if (typeof Choices === "undefined") return;
 
         (root || document).querySelectorAll("select").forEach(function(select) {
-            if (select.dataset.searchReady === "true") return;
+            if (select.dataset.searchReady === "true" || select.dataset.searchable === "false") return;
 
             new Choices(select, {
                 searchEnabled: true,
@@ -18313,10 +18309,10 @@
         var dashboardContent = document.getElementById('dashboard-content');
 
         // Hide the loader
-        loaderWrapper.style.display = 'none';
+        if (loaderWrapper) loaderWrapper.style.display = 'none';
 
         // Show the dashboard content
-        dashboardContent.style.display = 'block';
+        if (dashboardContent) dashboardContent.style.display = 'block';
     });
  </script>
 
