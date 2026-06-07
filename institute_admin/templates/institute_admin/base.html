@@ -13608,9 +13608,103 @@
                 box-shadow: 0 10px 24px rgba(13, 23, 93, .22);
             }
 
-            .sidebar-nav .nav-content a.active i {
-                color: #fff;
-            }
+.sidebar-nav .nav-content a.active i {
+    color: #fff;
+}
+
+.sidebar-menu-search {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    padding: 6px 4px 14px;
+    background: #fff;
+}
+
+.sidebar-menu-search .search-shell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid #c7d2fe;
+    border-radius: 24px;
+    background: #f8faff;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.08);
+}
+
+.sidebar-menu-search i {
+    flex: 0 0 auto;
+    color: #5265ff;
+    font-size: 16px;
+}
+
+.sidebar-menu-search input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #172033;
+    font-size: 14px;
+}
+
+.sidebar-menu-search input::placeholder {
+    color: #7c879d;
+}
+
+.sidebar-nav .nav-link > i:first-child,
+.sidebar-nav .nav-content a > i:first-child {
+    color: var(--menu-icon-color, #667085) !important;
+}
+
+.sidebar-nav .nav-link:hover > i:first-child,
+.sidebar-nav .nav-link.collapsed:hover > i:first-child,
+.sidebar-nav .nav-content a:hover > i:first-child {
+    color: var(--menu-icon-color, #667085) !important;
+}
+
+.sidebar-nav .nav-content a.active > i:first-child {
+    color: #fff !important;
+}
+
+.menu-blue { --menu-icon-color: #3b82f6; }
+.menu-indigo { --menu-icon-color: #6366f1; }
+.menu-violet { --menu-icon-color: #8b5cf6; }
+.menu-pink { --menu-icon-color: #ec4899; }
+.menu-teal { --menu-icon-color: #14b8a6; }
+.menu-cyan { --menu-icon-color: #06b6d4; }
+.menu-green { --menu-icon-color: #22c55e; }
+.menu-orange { --menu-icon-color: #f59e0b; }
+.menu-red { --menu-icon-color: #ef4444; }
+.menu-slate { --menu-icon-color: #64748b; }
+
+.sidebar-nav .menu-search-hidden {
+    display: none !important;
+}
+
+.sidebar-menu-empty {
+    display: none;
+    padding: 16px 12px;
+    color: #7c879d;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.sidebar-logout-item {
+    margin-top: 12px;
+    padding-top: 12px !important;
+    border-top: 1px solid #e8edf5;
+}
+
+.sidebar-logout-item .nav-link {
+    color: #dc2626;
+}
+
+.sidebar-logout-item .nav-link:hover {
+    color: #b91c1c;
+    background: #fff1f2;
+}
 
             /*--------------------------------------------------------------
         # Dashboard
@@ -14250,7 +14344,7 @@
                     </li> -->
 
                     <li class="profile-menu-list">
-                        <a class="dropdown-item profile-menu-item" href=" ">
+                        <a class="dropdown-item profile-menu-item" href="{% url 'institute_profile' %}">
                             <i class="bi bi-building-gear"></i>
                             <span class="profile-menu-copy">
                                 Institute Profile
@@ -14258,23 +14352,15 @@
                             </span>
                         </a>
 
-                        <a class="dropdown-item profile-menu-item" href=" ">
+                        <a class="dropdown-item profile-menu-item" href="{% url 'subscription_billing' %}">
                             <i class="bi bi-credit-card"></i>
                             <span class="profile-menu-copy">
                                 Subscription & Billing
                                 <small>Plan, trial, invoices, and payments</small>
                             </span>
                         </a>
-
-                        <a class="dropdown-item profile-menu-item" href="#">
-                            <i class="bi bi-speedometer2"></i>
-                            <span class="profile-menu-copy">
-                                Usage & Limits
-                                <small>Staff, batches, courses, students, and reports</small>
-                            </span>
-                        </a>
-
-                        <a class="dropdown-item profile-menu-item" href=" ">
+ 
+                        <a class="dropdown-item profile-menu-item" href="{% url 'security_settings' %}">
                             <i class="bi bi-shield-lock"></i>
                             <span class="profile-menu-copy">
                                 Security Settings
@@ -14282,7 +14368,7 @@
                             </span>
                         </a>
 
-                        <a class="dropdown-item profile-menu-item" href="#">
+                        <a class="dropdown-item profile-menu-item" href="{% url 'help_support' %}">
                             <i class="bi bi-life-preserver"></i>
                             <span class="profile-menu-copy">
                                 Help & Support
@@ -14313,182 +14399,206 @@
 
     {% with current_url=request.resolver_match.url_name %}
     <ul class="sidebar-nav" id="sidebar-nav">
-        <li class="nav-item">
+        <li class="sidebar-menu-search">
+            <label class="search-shell" for="sidebarMenuSearch">
+                <i class="bi bi-search"></i>
+                <input id="sidebarMenuSearch" type="search" placeholder="Search menu..." autocomplete="off">
+            </label>
+        </li>
+
+        <li class="nav-item menu-blue">
             <a class="nav-link {% if current_url != 'school_dashboard' %}collapsed{% endif %}" href="{% url 'school_dashboard' %}">
-                <i class="bi bi-speedometer2"></i>
+                <i class="bi bi-grid"></i>
                 <span>Dashboard</span>
             </a>
         </li>
 
-          <li class="nav-item">
+          <li class="nav-item menu-indigo">
             <a class="nav-link"
                href="{% url 'institute_admin:course_list' %}">
-                <i class="bi bi-calendar-week-fill"></i>
+                <i class="bi bi-journals"></i>
                 <span>Courses</span>
             </a>
         </li>
 
-        <li class="nav-item">
+        <li class="nav-item menu-cyan">
             <a class="nav-link"
                href="{% url 'institute_admin:subject_list' %}">
-                <i class="bi bi-book-fill"></i>
+                <i class="bi bi-book"></i>
                 <span>Subjects</span>
             </a>
         </li>
 
-        <li class="nav-item">
+        <li class="nav-item menu-violet">
             <a class="nav-link"
                href="{% url 'institute_admin:batch_list' %}">
-                <i class="bi bi-collection-fill"></i>
+                <i class="bi bi-layers"></i>
                 <span>Batches</span>
             </a>
         </li>
 
-        <li class="nav-item">
+        <li class="nav-item menu-orange">
+            <a class="nav-link collapsed" data-bs-target="#front-office-nav" data-bs-toggle="collapse" href="#">
+                <i class="bi bi-clipboard2-check"></i>
+                <span>Front Office</span>
+                <i class="bi bi-chevron-down ms-auto"></i>
+            </a>
+            <ul id="front-office-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+                <li>
+                    <a href="{% url 'institute_admin:lead_list' %}" class="menu-orange" style="text-decoration:none;">
+                        <i class="bi bi-person-plus" style="font-size:15px;"></i><span>Lead</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'institute_admin:visitor_list' %}" class="menu-teal" style="text-decoration:none;">
+                        <i class="bi bi-person-bounding-box" style="font-size:15px;"></i><span>Visitor</span>
+                    </a>
+                </li> 
+            </ul>
+        </li>
+
+        <li class="nav-item menu-blue">
             <a class="nav-link collapsed" data-bs-target="#staff-nav" data-bs-toggle="collapse" href="#">
-                <i class="bi bi-people-fill"></i>
+                <i class="bi bi-people"></i>
                 <span>Staff & Roles</span>
                 <i class="bi bi-chevron-down ms-auto"></i>
             </a>
             <ul id="staff-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                 <li>
-                    <a href="{% url 'institute_admin:user_list' %}" style="text-decoration:none;">
+                    <a href="{% url 'institute_admin:user_list' %}" class="menu-blue" style="text-decoration:none;">
                         <i class="bi bi-person-badge" style="font-size:15px;"></i><span>All Users & Roles</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'institute_admin:teacher_list' %}" style="text-decoration:none;">
+                    <a href="{% url 'institute_admin:teacher_list' %}" class="menu-violet" style="text-decoration:none;">
                         <i class="bi bi-person-workspace" style="font-size:15px;"></i><span>Teachers</span>
                     </a>
                 </li>
             </ul>
         </li>
 
-        <li class="nav-item">
+        <li class="nav-item menu-teal">
             <a class="nav-link collapsed" data-bs-target="#student-nav" data-bs-toggle="collapse" href="#">
-                <i class="bi bi-mortarboard-fill"></i>
+                <i class="bi bi-person-hearts"></i>
                 <span>Students & Parents</span>
                 <i class="bi bi-chevron-down ms-auto"></i>
             </a>
             <ul id="student-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                 <li>
-                    <a href="{% url 'institute_admin:student_list' %}" style="text-decoration:none;">
+                    <a href="{% url 'institute_admin:student_list' %}" class="menu-teal" style="text-decoration:none;">
                         <i class="bi bi-person-vcard" style="font-size:15px;"></i><span>Students</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'institute_admin:enrollment_list' %}" style="text-decoration:none;">
+                    <a href="{% url 'institute_admin:enrollment_list' %}" class="menu-indigo" style="text-decoration:none;">
                         <i class="bi bi-diagram-3" style="font-size:15px;"></i><span>Enrollments</span>
                     </a>
                 </li>
             </ul>
         </li>
 
-        <li class="nav-item">
+        <li class="nav-item menu-green">
             <a class="nav-link collapsed" data-bs-target="#academic-nav" data-bs-toggle="collapse" href="#">
-                <i class="bi bi-journal-check"></i>
+                <i class="bi bi-mortarboard"></i>
                 <span>Academic Work</span>
                 <i class="bi bi-chevron-down ms-auto"></i>
             </a>
             <ul id="academic-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                 <li>
-                    <a href="{% url 'institute_admin:attendance_list' %}" style="text-decoration:none;">
-                        <i class="bi bi-check2-square" style="font-size:15px;"></i><span>Attendance</span>
+                    <a href="{% url 'institute_admin:attendance_list' %}" class="menu-green" style="text-decoration:none;">
+                        <i class="bi bi-person-check" style="font-size:15px;"></i><span>Attendance</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'institute_admin:homework_list' %}" style="text-decoration:none;">
-                        <i class="bi bi-pencil-square" style="font-size:15px;"></i><span>Homework</span>
+                    <a href="{% url 'institute_admin:homework_list' %}" class="menu-orange" style="text-decoration:none;">
+                        <i class="bi bi-journal-text" style="font-size:15px;"></i><span>Homework</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'institute_admin:institute_exams' %}" style="text-decoration:none;">
-                        <i class="bi bi-file-earmark-text" style="font-size:15px;"></i><span>Tests / Exams</span>
+                    <a href="{% url 'institute_admin:institute_exams' %}" class="menu-indigo" style="text-decoration:none;">
+                        <i class="bi bi-file-earmark-check" style="font-size:15px;"></i><span>Tests / Exams</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'institute_admin:institute_results' %}" style="text-decoration:none;">
-                        <i class="bi bi-bar-chart-line" style="font-size:15px;"></i><span>Exam Results</span>
+                    <a href="{% url 'institute_admin:institute_results' %}" class="menu-pink" style="text-decoration:none;">
+                        <i class="bi bi-award" style="font-size:15px;"></i><span>Exam Results</span>
                     </a>
                 </li>
             </ul>
         </li>
 
-        <li class="nav-item">
-            <a class="nav-link collapsed" data-bs-target="#fees-nav" data-bs-toggle="collapse" href="#">
-                <i class="bi bi-cash-coin"></i>
+        <li class="nav-item menu-indigo">
+            <a class="nav-link collapsed" data-bs-target="#accounts-nav" data-bs-toggle="collapse" href="#">
+                <i class="bi bi-wallet2"></i>
                 <span>Fees & Accounts</span>
                 <i class="bi bi-chevron-down ms-auto"></i>
             </a>
-            <ul id="fees-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
+            <ul id="accounts-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                 <li>
-                    <a href="{% url 'institute_admin:fee_category_list' %}" style="text-decoration:none;">
-                        <i class="bi bi-tags" style="font-size:15px;"></i><span>Fee Categories</span>
+                    <a href="{% url 'institute_admin:fee_category_list' %}" class="menu-indigo" style="text-decoration:none;">
+                        <i class="bi bi-receipt" style="font-size:15px;"></i><span>Fee Categories</span>
                     </a>
                 </li> 
                 <li>
-                    <a href="/admin/accountant/expense/" style="text-decoration:none;">
+                    <a href="/admin/accountant/expense/" class="menu-red" style="text-decoration:none;">
                         <i class="bi bi-graph-down-arrow" style="font-size:15px;"></i><span>Expenses</span>
                     </a>
                 </li>
             </ul>
         </li>
 
-        <li class="nav-item">
+        <li class="nav-item menu-orange">
             <a class="nav-link"
                href="{% url 'institute_admin:notice_list' %}">
-                <i class="bi bi-megaphone-fill"></i>
+                <i class="bi bi-megaphone"></i>
                 <span>Notices</span>
             </a>
         </li>
 
-        <li class="nav-item">
+        <li class="nav-item menu-cyan">
             <a class="nav-link"
                href="#">
-                <i class="bi bi-clipboard-data-fill"></i>
+                <i class="bi bi-bar-chart"></i>
                 <span>Reports</span>
             </a>
         </li>
  
-        <li class="nav-item">
-            <a class="nav-link {% if current_url == 'institute_profile' or current_url == 'subscription_billing' or current_url == 'security_settings' %}{% else %}collapsed{% endif %}" data-bs-target="#account-nav" data-bs-toggle="collapse" href="#">
-                <i class="bi bi-person-gear"></i>
+        <li class="nav-item menu-slate">
+            <a class="nav-link {% if current_url == 'institute_profile' or current_url == 'subscription_billing' or current_url == 'security_settings' or current_url == 'help_support' or current_url == 'software_tour' %}{% else %}collapsed{% endif %}" data-bs-target="#account-nav" data-bs-toggle="collapse" href="#">
+                <i class="bi bi-gear"></i>
                 <span>Account & Support</span>
                 <i class="bi bi-chevron-down ms-auto"></i>
             </a>
-            <ul id="account-nav" class="nav-content collapse {% if current_url == 'institute_profile' or current_url == 'subscription_billing' or current_url == 'security_settings' %}show{% endif %}" data-bs-parent="#sidebar-nav">
+            <ul id="account-nav" class="nav-content collapse {% if current_url == 'institute_profile' or current_url == 'subscription_billing' or current_url == 'security_settings' or current_url == 'help_support' or current_url == 'software_tour' %}show{% endif %}" data-bs-parent="#sidebar-nav">
                 <li>
-                    <a href="{% url 'institute_profile' %}" class="{% if current_url == 'institute_profile' %}active{% endif %}" style="text-decoration:none;">
+                    <a href="{% url 'institute_profile' %}" class="menu-blue {% if current_url == 'institute_profile' %}active{% endif %}" style="text-decoration:none;">
                         <i class="bi bi-building-gear" style="font-size:15px;"></i><span>Institute Profile</span>
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'subscription_billing' %}" class="{% if current_url == 'subscription_billing' %}active{% endif %}" style="text-decoration:none;">
+                    <a href="{% url 'subscription_billing' %}" class="menu-indigo {% if current_url == 'subscription_billing' %}active{% endif %}" style="text-decoration:none;">
                         <i class="bi bi-credit-card" style="font-size:15px;"></i><span>Subscription & Billing</span>
                     </a>
-                </li>
+                </li> 
                 <li>
-                    <a href="#" style="text-decoration:none;">
-                        <i class="bi bi-speedometer2" style="font-size:15px;"></i><span>Usage & Limits</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="{% url 'security_settings' %}" class="{% if current_url == 'security_settings' %}active{% endif %}" style="text-decoration:none;">
+                    <a href="{% url 'security_settings' %}" class="menu-violet {% if current_url == 'security_settings' %}active{% endif %}" style="text-decoration:none;">
                         <i class="bi bi-shield-lock" style="font-size:15px;"></i><span>Security Settings</span>
                     </a>
                 </li>
                 <li>
-                    <a href="#" style="text-decoration:none;">
+                    <a href="{% url 'help_support' %}" class="menu-green {% if current_url == 'help_support' %}active{% endif %}" style="text-decoration:none;">
                         <i class="bi bi-life-preserver" style="font-size:15px;"></i><span>Help & Support</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="#" data-bs-toggle="modal" data-bs-target="#logout_model" data-toggle="modal" data-target="#logout_model" style="text-decoration:none;">
-                        <i class="bi bi-box-arrow-right" style="font-size:15px;"></i><span>Logout</span>
                     </a>
                 </li>
             </ul>
         </li>
+        <li class="nav-item menu-red sidebar-logout-item">
+            <a class="nav-link collapsed" href="#" data-bs-toggle="modal" data-bs-target="#logout_model" data-toggle="modal" data-target="#logout_model">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Logout</span>
+            </a>
+        </li>
+        <li class="sidebar-menu-empty" id="sidebarMenuEmpty">No matching menu found.</li>
     </ul>
     {% endwith %}
     
@@ -18250,6 +18360,92 @@
 
     document.addEventListener("DOMContentLoaded", function() {
         window.initSearchableDropdowns(document);
+    });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var sidebar = document.getElementById("sidebar-nav");
+        var searchInput = document.getElementById("sidebarMenuSearch");
+        var emptyState = document.getElementById("sidebarMenuEmpty");
+        if (!sidebar || !searchInput) return;
+
+        var menuItems = Array.prototype.filter.call(sidebar.children, function(item) {
+            return item.classList.contains("nav-item");
+        });
+        var searchActive = false;
+
+        function setGroupState(group, expanded) {
+            var trigger = sidebar.querySelector('[data-bs-target="#' + group.id + '"]');
+            group.classList.toggle("show", expanded);
+            if (trigger) {
+                trigger.classList.toggle("collapsed", !expanded);
+                trigger.setAttribute("aria-expanded", expanded ? "true" : "false");
+            }
+        }
+
+        function restoreGroups() {
+            sidebar.querySelectorAll(".nav-content.collapse[id]").forEach(function(group) {
+                if (group.dataset.searchWasOpen !== undefined) {
+                    setGroupState(group, group.dataset.searchWasOpen === "true");
+                    delete group.dataset.searchWasOpen;
+                }
+            });
+        }
+
+        function filterMenu() {
+            var query = searchInput.value.trim().toLowerCase();
+            var hasMatches = false;
+
+            if (query && !searchActive) {
+                sidebar.querySelectorAll(".nav-content.collapse[id]").forEach(function(group) {
+                    group.dataset.searchWasOpen = group.classList.contains("show") ? "true" : "false";
+                });
+                searchActive = true;
+            }
+
+            menuItems.forEach(function(item) {
+                var parentLink = Array.prototype.find.call(item.children, function(child) {
+                    return child.matches && child.matches("a.nav-link");
+                });
+                var parentMatches = parentLink && parentLink.textContent.toLowerCase().includes(query);
+                var childItems = Array.prototype.slice.call(item.querySelectorAll(".nav-content > li"));
+                var childMatched = false;
+
+                childItems.forEach(function(child) {
+                    var matches = child.textContent.toLowerCase().includes(query);
+                    child.classList.toggle("menu-search-hidden", Boolean(query) && !parentMatches && !matches);
+                    childMatched = childMatched || matches;
+                });
+
+                var itemMatches = !query || parentMatches || childMatched;
+                item.classList.toggle("menu-search-hidden", !itemMatches);
+                hasMatches = hasMatches || itemMatches;
+
+                var group = item.querySelector(".nav-content.collapse[id]");
+                if (query && group && itemMatches) {
+                    setGroupState(group, true);
+                }
+            });
+
+            if (!query && searchActive) {
+                restoreGroups();
+                searchActive = false;
+            }
+
+            if (emptyState) {
+                emptyState.style.display = query && !hasMatches ? "block" : "none";
+            }
+        }
+
+        searchInput.addEventListener("input", filterMenu);
+        searchInput.addEventListener("keydown", function(event) {
+            if (event.key === "Escape") {
+                searchInput.value = "";
+                filterMenu();
+                searchInput.blur();
+            }
+        });
     });
 </script>
 

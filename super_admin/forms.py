@@ -1,9 +1,15 @@
+from datetime import timedelta
+
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.db import transaction
+from django.utils import timezone
 
-from .models import Institute, UserProfile
+from .models import Institute, InstituteSubscription, UserProfile
+
+
+FREE_TRIAL_DAYS = 14
 
 
 class InstituteSignupForm(UserCreationForm):
@@ -62,6 +68,14 @@ class InstituteSignupForm(UserCreationForm):
                 institute=institute,
                 role=UserProfile.Role.INSTITUTE_ADMIN,
                 phone=self.cleaned_data["phone"],
+                onboarding_completed_at=None,
+            )
+            trial_starts_on = timezone.localdate()
+            InstituteSubscription.objects.create(
+                institute=institute,
+                plan=InstituteSubscription.Plan.FREE_TRIAL,
+                starts_on=trial_starts_on,
+                ends_on=trial_starts_on + timedelta(days=FREE_TRIAL_DAYS),
             )
 
         return user

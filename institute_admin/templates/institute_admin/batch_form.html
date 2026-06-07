@@ -63,6 +63,192 @@
             border-left: 5px solid var(--primary-color);
         }
 
+        .timetable-section {
+            background: #fff;
+            border: 1px solid #dfe4f2;
+            border-left: 5px solid var(--primary-color);
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .timetable-toggle {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            padding: 22px 24px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            color: var(--text-primary);
+            text-align: left;
+        }
+
+        .timetable-toggle:hover {
+            background: #f8f9ff;
+        }
+
+        .timetable-toggle-copy {
+            flex: 1;
+        }
+
+        .timetable-toggle-copy strong {
+            display: block;
+            font-size: 1.08rem;
+        }
+
+        .timetable-toggle-copy small {
+            color: var(--text-secondary);
+        }
+
+        .timetable-expand-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: #fff;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            box-shadow: 0 8px 18px rgba(102,126,234,.25);
+            transition: transform .2s ease;
+        }
+
+        .timetable-toggle[aria-expanded="true"] .timetable-expand-icon {
+            transform: rotate(45deg);
+        }
+
+        .timetable-builder {
+            border-top: 1px solid #e6e9f2;
+            padding: 22px 24px 26px;
+        }
+
+        .timetable-builder[hidden] {
+            display: none;
+        }
+
+        .timetable-day-list {
+            display: grid;
+            gap: 14px;
+        }
+
+        .timetable-day {
+            min-height: 74px;
+            border: 1px solid #dfe4ec;
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: grid;
+            grid-template-columns: minmax(180px, 1fr) auto;
+            align-items: center;
+            gap: 22px;
+            background: #fff;
+            transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
+        }
+
+        .timetable-day.is-enabled {
+            border-color: #c9ceff;
+            background: #f8f8ff;
+            box-shadow: 0 4px 12px rgba(102,126,234,.08);
+        }
+
+        .day-control {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-weight: 700;
+            color: #bcc5d3;
+        }
+
+        .timetable-day.is-enabled .day-control {
+            color: #253452;
+        }
+
+        .day-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            flex: 0 0 auto;
+        }
+
+        .day-switch input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .day-switch-track {
+            position: absolute;
+            inset: 0;
+            cursor: pointer;
+            border-radius: 999px;
+            background: #edf0f5;
+            transition: background .2s ease;
+        }
+
+        .day-switch-track::after {
+            content: "";
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 2px;
+            left: 2px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(15,23,42,.18);
+            transition: transform .2s ease;
+        }
+
+        .day-switch input:checked + .day-switch-track {
+            background: #6865ff;
+        }
+
+        .day-switch input:checked + .day-switch-track::after {
+            transform: translateX(20px);
+        }
+
+        .day-time-range {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .time-field {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid #d8deea;
+            border-radius: 10px;
+            background: #fff;
+            padding: 8px 12px;
+        }
+
+        .time-field label {
+            color: #8390a7;
+            font-size: .72rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .time-field input {
+            width: 108px;
+            border: 0;
+            background: #f7f7fb;
+            color: #6765ff;
+            font-weight: 800;
+            padding: 7px 8px;
+            outline: 0;
+        }
+
+        .time-arrow {
+            color: #c8d1df;
+            font-size: 1.2rem;
+        }
+
+        .timetable-error {
+            margin-top: 12px;
+            color: #dc3545;
+            font-size: .88rem;
+            font-weight: 600;
+        }
+
         .section-title {
             display: flex;
             align-items: center;
@@ -158,6 +344,11 @@
             .form-header, .form-body { padding: 24px 18px; }
             .form-actions { flex-direction: column; align-items: stretch; }
             .btn { width: 100%; justify-content: center; }
+            .timetable-day { grid-template-columns: 1fr; gap: 14px; padding: 16px; }
+            .day-time-range { flex-wrap: wrap; }
+            .time-arrow { display: none; }
+            .time-field { flex: 1 1 145px; }
+            .time-field input { width: 100%; }
         }
     </style>
 </head>
@@ -171,6 +362,7 @@
 
     <form method="POST" class="form-body">
         {% csrf_token %}
+        {{ form.weekly_timetable }}
 
         {% if form.non_field_errors %}
             <div class="alert alert-danger">{{ form.non_field_errors }}</div>
@@ -233,6 +425,38 @@
             </div>
         </div>
 
+        {% if show_timetable_builder %}
+        <div class="form-section timetable-section" id="timetableSection">
+            <button
+                class="timetable-toggle"
+                id="timetableToggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="timetableBuilder"
+            >
+                <span class="section-title-icon"><i class="bi bi-calendar-week"></i></span>
+                <span class="timetable-toggle-copy">
+                    <strong>Weekly Timetable <span class="badge text-bg-light ms-1">Optional</span></strong>
+                    <small>Create this batch's weekly class timing now, or skip it and continue.</small>
+                </span>
+                <span class="timetable-expand-icon" aria-hidden="true"><i class="bi bi-plus-lg"></i></span>
+            </button>
+
+            <div
+                class="timetable-builder"
+                id="timetableBuilder"
+                data-has-errors="{% if form.weekly_timetable.errors %}true{% else %}false{% endif %}"
+                hidden
+            >
+                <div class="timetable-day-list" id="timetableDayList"></div>
+                <div class="timetable-error" id="timetableClientError" role="alert" hidden></div>
+                {% if form.weekly_timetable.errors %}
+                    <div class="timetable-error">{{ form.weekly_timetable.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
         <div class="form-actions">
             <div class="text-muted">
                 <i class="bi bi-info-circle me-1"></i>
@@ -255,10 +479,173 @@
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function(){
-    if(typeof Choices === "undefined") return;
-    document.querySelectorAll("select").forEach(function(select){
-        new Choices(select, {searchEnabled:true, shouldSort:false, itemSelectText:"", allowHTML:false, searchPlaceholderValue:"Search..."});
+    if(typeof Choices !== "undefined") {
+        document.querySelectorAll("select").forEach(function(select){
+            new Choices(select, {searchEnabled:true, shouldSort:false, itemSelectText:"", allowHTML:false, searchPlaceholderValue:"Search..."});
+        });
+    }
+
+    const toggle = document.getElementById("timetableToggle");
+    const builder = document.getElementById("timetableBuilder");
+    const dayList = document.getElementById("timetableDayList");
+    const scheduleInput = document.getElementById("id_weekly_timetable");
+    const form = document.querySelector("form.form-body");
+    const errorBox = document.getElementById("timetableClientError");
+
+    if(!toggle || !builder || !dayList || !scheduleInput || !form) return;
+
+    const days = [
+        ["monday", "Monday"],
+        ["tuesday", "Tuesday"],
+        ["wednesday", "Wednesday"],
+        ["thursday", "Thursday"],
+        ["friday", "Friday"],
+        ["saturday", "Saturday"],
+        ["sunday", "Sunday"]
+    ];
+
+    let initialSchedule = {};
+    try {
+        initialSchedule = JSON.parse(scheduleInput.value || "{}") || {};
+    } catch(error) {
+        initialSchedule = {};
+    }
+
+    function setExpanded(expanded) {
+        toggle.setAttribute("aria-expanded", String(expanded));
+        builder.hidden = !expanded;
+    }
+
+    function createTimeField(dayKey, type, label, value) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "time-field";
+
+        const fieldLabel = document.createElement("label");
+        fieldLabel.htmlFor = `${dayKey}-${type}`;
+        fieldLabel.textContent = label;
+
+        const input = document.createElement("input");
+        input.type = "time";
+        input.id = `${dayKey}-${type}`;
+        input.dataset.timeType = type;
+        input.value = value;
+        input.step = "300";
+
+        wrapper.append(fieldLabel, input);
+        return wrapper;
+    }
+
+    days.forEach(function(day) {
+        const dayKey = day[0];
+        const dayLabel = day[1];
+        const savedSlot = initialSchedule[dayKey] || {};
+        const row = document.createElement("div");
+        row.className = "timetable-day";
+        row.dataset.day = dayKey;
+
+        const dayControl = document.createElement("div");
+        dayControl.className = "day-control";
+
+        const switchLabel = document.createElement("label");
+        switchLabel.className = "day-switch";
+        switchLabel.setAttribute("aria-label", `Enable ${dayLabel}`);
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = Boolean(initialSchedule[dayKey]);
+
+        const switchTrack = document.createElement("span");
+        switchTrack.className = "day-switch-track";
+        switchLabel.append(checkbox, switchTrack);
+
+        const name = document.createElement("span");
+        name.textContent = dayLabel;
+        dayControl.append(switchLabel, name);
+
+        const range = document.createElement("div");
+        range.className = "day-time-range";
+        range.append(
+            createTimeField(dayKey, "start", "Starts", savedSlot.start || "09:00")
+        );
+
+        const arrow = document.createElement("i");
+        arrow.className = "bi bi-arrow-right time-arrow";
+        arrow.setAttribute("aria-hidden", "true");
+        range.append(arrow);
+        range.append(
+            createTimeField(dayKey, "end", "Ends", savedSlot.end || "11:00")
+        );
+
+        row.append(dayControl, range);
+        dayList.append(row);
+
+        function updateRowState() {
+            row.classList.toggle("is-enabled", checkbox.checked);
+            range.hidden = !checkbox.checked;
+            range.querySelectorAll("input").forEach(function(input) {
+                input.disabled = !checkbox.checked;
+            });
+            serializeSchedule();
+        }
+
+        checkbox.addEventListener("change", updateRowState);
+        range.querySelectorAll("input").forEach(function(input) {
+            input.addEventListener("input", serializeSchedule);
+        });
+        updateRowState();
     });
+
+    function serializeSchedule() {
+        const schedule = {};
+        dayList.querySelectorAll(".timetable-day").forEach(function(row) {
+            const enabled = row.querySelector('input[type="checkbox"]').checked;
+            if(!enabled) return;
+            schedule[row.dataset.day] = {
+                start: row.querySelector('[data-time-type="start"]').value,
+                end: row.querySelector('[data-time-type="end"]').value
+            };
+        });
+        scheduleInput.value = JSON.stringify(schedule);
+        return schedule;
+    }
+
+    function validateSchedule() {
+        const schedule = serializeSchedule();
+        let message = "";
+        Object.entries(schedule).some(function(entry) {
+            const day = entry[0];
+            const slot = entry[1];
+            if(!slot.start || !slot.end) {
+                message = `Select both start and end time for ${day}.`;
+                return true;
+            }
+            if(slot.start >= slot.end) {
+                message = `End time must be after start time for ${day}.`;
+                return true;
+            }
+            return false;
+        });
+
+        errorBox.textContent = message;
+        errorBox.hidden = !message;
+        return !message;
+    }
+
+    toggle.addEventListener("click", function() {
+        setExpanded(toggle.getAttribute("aria-expanded") !== "true");
+    });
+
+    form.addEventListener("submit", function(event) {
+        if(!validateSchedule()) {
+            event.preventDefault();
+            setExpanded(true);
+            errorBox.scrollIntoView({behavior: "smooth", block: "center"});
+        }
+    });
+
+    if(Object.keys(initialSchedule).length || builder.dataset.hasErrors === "true") {
+        setExpanded(true);
+    }
 });
 </script>
 </body>

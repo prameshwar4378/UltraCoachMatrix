@@ -13,4 +13,6 @@ def role_redirect_url(user):
         return reverse_lazy("teacher:dashboard")
     if role == UserProfile.Role.STUDENT_PARENT:
         return reverse_lazy("student_parent:download_app")
+    if role == UserProfile.Role.INSTITUTE_ADMIN and not profile.onboarding_completed_at:
+        return reverse_lazy("institute_admin:software_tour")
     return reverse_lazy("institute_admin:dashboard")

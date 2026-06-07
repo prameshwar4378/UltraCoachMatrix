@@ -1,0 +1,647 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Help & Support{% endblock title %}
+
+{% block content %}
+<style>
+    .support-page {
+        --ink:#0f172a;
+        --muted:#64748b;
+        --line:#e2e8f0;
+        --soft:#f8fafc;
+        --primary:#2563eb;
+        --primary-dark:#1d4ed8;
+        --success:#16a34a;
+        --warning:#f59e0b;
+        --danger:#dc2626;
+        --radius:18px;
+        --shadow:0 18px 45px rgba(15,23,42,.08);
+        color:var(--ink);
+    }
+
+    .support-page * {
+        box-sizing:border-box;
+    }
+
+    .support-hero {
+        position:relative;
+        overflow:hidden;
+        margin-bottom:22px;
+        padding:30px;
+        border-radius:24px;
+        color:#fff;
+        background:
+            radial-gradient(circle at 85% 10%, rgba(255,255,255,.22), transparent 28%),
+            radial-gradient(circle at 15% 95%, rgba(96,165,250,.28), transparent 35%),
+            linear-gradient(135deg, #0f172a 0%, #1e3a8a 45%, #2563eb 100%);
+        box-shadow:var(--shadow);
+    }
+
+    .support-hero::before {
+        content:"";
+        position:absolute;
+        right:-80px;
+        bottom:-90px;
+        width:260px;
+        height:260px;
+        border-radius:50%;
+        background:rgba(255,255,255,.12);
+    }
+
+    .support-hero-content {
+        position:relative;
+        z-index:1;
+        display:flex;
+        justify-content:space-between;
+        align-items:flex-start;
+        gap:20px;
+        flex-wrap:wrap;
+    }
+
+    .support-hero h1 {
+        margin:0;
+        font-size:clamp(1.6rem,3vw,2.35rem);
+        font-weight:950;
+        letter-spacing:-.04em;
+    }
+
+    .support-hero p {
+        max-width:650px;
+        margin:10px 0 0;
+        color:rgba(255,255,255,.78);
+        line-height:1.6;
+    }
+
+    .support-badge {
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding:10px 15px;
+        border:1px solid rgba(255,255,255,.24);
+        border-radius:999px;
+        background:rgba(255,255,255,.13);
+        backdrop-filter:blur(14px);
+        font-weight:900;
+        white-space:nowrap;
+    }
+
+    .support-page .breadcrumb {
+        margin-top:15px;
+        margin-bottom:0;
+    }
+
+    .support-page .breadcrumb a,
+    .support-page .breadcrumb .active {
+        color:rgba(255,255,255,.86);
+    }
+
+    .support-summary {
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:16px;
+        margin-bottom:22px;
+    }
+
+    .support-card,
+    .support-panel {
+        background:rgba(255,255,255,.96);
+        border:1px solid rgba(226,232,240,.95);
+        border-radius:var(--radius);
+        box-shadow:0 14px 34px rgba(15,23,42,.06);
+    }
+
+    .support-card {
+        position:relative;
+        overflow:hidden;
+        padding:22px;
+        transition:.25s ease;
+    }
+
+    .support-card:hover {
+        transform:translateY(-4px);
+        box-shadow:var(--shadow);
+    }
+
+    .support-card::after {
+        content:"";
+        position:absolute;
+        right:-35px;
+        top:-35px;
+        width:110px;
+        height:110px;
+        border-radius:50%;
+        background:rgba(37,99,235,.10);
+    }
+
+    .support-card-icon {
+        width:46px;
+        height:46px;
+        display:grid;
+        place-items:center;
+        margin-bottom:15px;
+        border-radius:15px;
+        background:linear-gradient(135deg, rgba(37,99,235,.16), rgba(14,165,233,.12));
+        color:var(--primary);
+        font-size:1.25rem;
+    }
+
+    .support-card strong {
+        display:block;
+        color:var(--ink);
+        font-size:1rem;
+        font-weight:950;
+    }
+
+    .support-card span {
+        display:block;
+        margin-top:6px;
+        color:var(--muted);
+        font-size:.9rem;
+        line-height:1.5;
+    }
+
+    .support-grid {
+        display:grid;
+        grid-template-columns:minmax(0,1.15fr) minmax(330px,.85fr);
+        gap:22px;
+        align-items:start;
+    }
+
+    .support-panel {
+        padding:22px;
+        margin-bottom:20px;
+    }
+
+    .panel-header {
+        display:flex;
+        align-items:flex-start;
+        gap:12px;
+        margin-bottom:18px;
+    }
+
+    .panel-icon {
+        width:42px;
+        height:42px;
+        flex:0 0 42px;
+        display:grid;
+        place-items:center;
+        border-radius:14px;
+        background:#eff6ff;
+        color:var(--primary);
+        font-size:1.15rem;
+    }
+
+    .support-panel h2 {
+        margin:0;
+        color:var(--ink);
+        font-size:1.1rem;
+        font-weight:950;
+        letter-spacing:-.02em;
+    }
+
+    .support-panel p {
+        margin:5px 0 0;
+        color:var(--muted);
+        line-height:1.58;
+        font-size:.92rem;
+    }
+
+    .guide-grid {
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:14px;
+    }
+
+    .guide {
+        position:relative;
+        overflow:hidden;
+        padding:16px;
+        border:1px solid #e2e8f0;
+        border-radius:16px;
+        background:linear-gradient(135deg,#ffffff,#f8fafc);
+        transition:.22s ease;
+    }
+
+    .guide:hover {
+        transform:translateY(-3px);
+        border-color:#bfdbfe;
+        box-shadow:0 12px 26px rgba(37,99,235,.09);
+    }
+
+    .guide h3 {
+        margin:0 0 7px;
+        color:var(--ink);
+        font-size:.96rem;
+        font-weight:950;
+    }
+
+    .guide p {
+        margin:0;
+        color:var(--muted);
+        font-size:.86rem;
+        line-height:1.55;
+    }
+
+    .support-steps {
+        margin:0;
+        padding:0;
+        list-style:none;
+        counter-reset:step;
+    }
+
+    .support-steps li {
+        counter-increment:step;
+        position:relative;
+        margin:12px 0;
+        padding:13px 13px 13px 52px;
+        border:1px solid #e2e8f0;
+        border-radius:14px;
+        background:#fff;
+        color:#334155;
+        line-height:1.5;
+    }
+
+    .support-steps li::before {
+        content:counter(step);
+        position:absolute;
+        left:14px;
+        top:12px;
+        width:26px;
+        height:26px;
+        display:grid;
+        place-items:center;
+        border-radius:50%;
+        background:#dbeafe;
+        color:#1d4ed8;
+        font-size:.78rem;
+        font-weight:950;
+    }
+
+    .support-field {
+        margin-bottom:15px;
+    }
+
+    .support-field label {
+        display:block;
+        margin-bottom:7px;
+        color:#334155;
+        font-weight:850;
+        font-size:.88rem;
+    }
+
+    .support-field input,
+    .support-field select,
+    .support-field textarea {
+        width:100%;
+        min-height:44px;
+        padding:10px 13px;
+        border:1px solid #dbe4f0;
+        border-radius:13px;
+        background:#fff;
+        color:var(--ink);
+        outline:none;
+        transition:.2s ease;
+    }
+
+    .support-field textarea {
+        min-height:125px;
+        resize:vertical;
+    }
+
+    .support-field input:focus,
+    .support-field select:focus,
+    .support-field textarea:focus {
+        border-color:var(--primary);
+        box-shadow:0 0 0 4px rgba(37,99,235,.12);
+    }
+
+    .support-field ul.errorlist {
+        margin:7px 0 0;
+        padding:0;
+        list-style:none;
+        color:#b91c1c;
+        font-size:.84rem;
+        font-weight:700;
+    }
+
+    .support-button {
+        width:100%;
+        min-height:45px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:8px;
+        padding:11px 16px;
+        border:0;
+        border-radius:13px;
+        background:linear-gradient(135deg,var(--primary),#1d4ed8);
+        color:#fff;
+        font-weight:950;
+        cursor:pointer;
+        box-shadow:0 14px 24px rgba(37,99,235,.23);
+        transition:.22s ease;
+    }
+
+    .support-button:hover {
+        transform:translateY(-2px);
+        box-shadow:0 18px 30px rgba(37,99,235,.28);
+    }
+
+    .ticket {
+        position:relative;
+        padding:16px;
+        margin-bottom:13px;
+        border:1px solid #e2e8f0;
+        border-radius:16px;
+        background:linear-gradient(135deg,#fff,#f8fafc);
+        transition:.22s ease;
+    }
+
+    .ticket:hover {
+        border-color:#bfdbfe;
+        box-shadow:0 12px 26px rgba(15,23,42,.06);
+    }
+
+    .ticket:last-child {
+        margin-bottom:0;
+    }
+
+    .ticket-head {
+        display:flex;
+        justify-content:space-between;
+        align-items:flex-start;
+        gap:12px;
+    }
+
+    .ticket-title {
+        color:var(--ink);
+        font-weight:950;
+        line-height:1.4;
+    }
+
+    .ticket-meta,
+    .ticket-message {
+        margin-top:7px;
+        color:var(--muted);
+        font-size:.87rem;
+        line-height:1.55;
+    }
+
+    .ticket-status {
+        display:inline-flex;
+        align-items:center;
+        padding:6px 10px;
+        border-radius:999px;
+        background:#dbeafe;
+        color:#1d4ed8;
+        font-weight:950;
+        font-size:.76rem;
+        white-space:nowrap;
+    }
+
+    .ticket-response {
+        margin-top:12px;
+        padding:13px;
+        border:1px solid #bbf7d0;
+        border-left:4px solid #22c55e;
+        border-radius:13px;
+        background:#f0fdf4;
+        color:#166534;
+        font-size:.88rem;
+        line-height:1.55;
+    }
+
+    .support-hours-card {
+        padding:16px;
+        border:1px solid #fde68a;
+        border-radius:16px;
+        background:linear-gradient(135deg,#fffbeb,#fff);
+    }
+
+    .support-hours-card h3 {
+        margin:0 0 7px;
+        color:#92400e;
+        font-size:.96rem;
+        font-weight:950;
+    }
+
+    .support-hours-card p {
+        margin:0;
+        color:#92400e;
+        font-size:.88rem;
+    }
+
+    @media(max-width:992px) {
+        .support-grid {
+            grid-template-columns:1fr;
+        }
+    }
+
+    @media(max-width:768px) {
+        .support-hero {
+            padding:23px;
+            border-radius:19px;
+        }
+
+        .support-summary,
+        .guide-grid {
+            grid-template-columns:1fr;
+        }
+
+        .support-panel {
+            padding:18px;
+        }
+
+        .ticket-head {
+            flex-direction:column;
+        }
+    }
+
+    @media(max-width:520px) {
+        .support-badge {
+            width:100%;
+            justify-content:center;
+        }
+    }
+</style>
+
+<main id="main" class="main support-page">
+    <div class="support-hero">
+        <div class="support-hero-content">
+            <div>
+                <h1>Help & Support</h1>
+                <p>Find quick solutions, submit support requests, and track previous issues from one clean support center.</p>
+                <nav>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+                        <li class="breadcrumb-item active">Help & Support</li>
+                    </ol>
+                </nav>
+            </div>
+            <div class="support-badge">
+                <i class="bi bi-headset"></i>
+                Support Center
+            </div>
+        </div>
+    </div>
+
+    <div class="support-summary">
+        <section class="support-card">
+            <div class="support-card-icon"><i class="bi bi-telephone-fill"></i></div>
+            <strong>Call Support</strong>
+            <span>+91 7776824564</span>
+        </section>
+
+        <section class="support-card">
+            <div class="support-card-icon"><i class="bi bi-envelope-fill"></i></div>
+            <strong>Email Support</strong>
+            <span>ultoxy.tech@gmail.com</span>
+        </section>
+
+        <section class="support-card">
+            <div class="support-card-icon"><i class="bi bi-ticket-detailed-fill"></i></div>
+            <strong>Open Requests</strong>
+            <span>{{ open_ticket_count }} active support request{{ open_ticket_count|pluralize }}</span>
+        </section>
+    </div>
+
+    <div class="support-grid">
+        <div>
+            <section class="support-panel">
+                <div class="panel-header">
+                    <div class="panel-icon"><i class="bi bi-lightbulb-fill"></i></div>
+                    <div>
+                        <h2>Quick Help Topics</h2>
+                        <p>Use these checks before raising a support request.</p>
+                    </div>
+                </div>
+
+                <div class="guide-grid">
+                    <article class="guide">
+                        <h3>Account & Login</h3>
+                        <p>Reset passwords, review active devices, and verify that the user account is active.</p>
+                    </article>
+
+                    <article class="guide">
+                        <h3>Institute Setup</h3>
+                        <p>Complete institute profile, academic year, courses, subjects, batches, and staff logins.</p>
+                    </article>
+
+                    <article class="guide">
+                        <h3>Students & Admissions</h3>
+                        <p>Create students, assign courses and batches, import records, and manage academic sessions.</p>
+                    </article>
+
+                    <article class="guide">
+                        <h3>Fees & Payments</h3>
+                        <p>Check fee categories, student fee assignment, payment receipts, dues, and reports.</p>
+                    </article>
+
+                    <article class="guide">
+                        <h3>Attendance</h3>
+                        <p>Confirm the selected academic year, batch, date, and enrolled students before marking attendance.</p>
+                    </article>
+
+                    <article class="guide">
+                        <h3>Exams & Results</h3>
+                        <p>Create the exam, assign subject and students, enter marks, and publish the result.</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="support-panel">
+                <div class="panel-header">
+                    <div class="panel-icon"><i class="bi bi-check2-square"></i></div>
+                    <div>
+                        <h2>Before You Submit</h2>
+                        <p>This information helps the support team resolve the issue faster.</p>
+                    </div>
+                </div>
+
+                <ol class="support-steps">
+                    <li>Refresh the page and try the action once more.</li>
+                    <li>Confirm the correct academic year, course, batch, or student is selected.</li>
+                    <li>Write the page name and the exact message shown on screen.</li>
+                    <li>Explain what you clicked and what result you expected.</li>
+                    <li>Do not include passwords, OTPs, bank PINs, or other secret information.</li>
+                </ol>
+            </section>
+
+            <section class="support-panel">
+                <div class="panel-header">
+                    <div class="panel-icon"><i class="bi bi-clock-history"></i></div>
+                    <div>
+                        <h2>Recent Support Requests</h2>
+                        <p>Your institute can only see its own requests.</p>
+                    </div>
+                </div>
+
+                {% for ticket in tickets %}
+                    <article class="ticket">
+                        <div class="ticket-head">
+                            <div class="ticket-title">#{{ ticket.pk }} · {{ ticket.subject }}</div>
+                            <div class="ticket-status">{{ ticket.get_status_display }}</div>
+                        </div>
+                        <div class="ticket-meta">
+                            {{ ticket.get_category_display }} · {{ ticket.created_at|date:"d M Y, h:i A" }} · {{ ticket.get_priority_display }}
+                        </div>
+                        <div class="ticket-message">{{ ticket.message|linebreaksbr }}</div>
+
+                        {% if ticket.admin_response %}
+                            <div class="ticket-response">
+                                <strong>Support response:</strong><br>
+                                {{ ticket.admin_response|linebreaksbr }}
+                            </div>
+                        {% endif %}
+                    </article>
+                {% empty %}
+                    <p>No support requests submitted yet.</p>
+                {% endfor %}
+            </section>
+        </div>
+
+        <div>
+            <section class="support-panel">
+                <div class="panel-header">
+                    <div class="panel-icon"><i class="bi bi-send-fill"></i></div>
+                    <div>
+                        <h2>Submit a Support Request</h2>
+                        <p>Describe one issue per request so its progress is easy to track.</p>
+                    </div>
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    {% for field in ticket_form %}
+                        <div class="support-field">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {{ field.errors }}
+                        </div>
+                    {% endfor %}
+
+                    <button class="support-button" type="submit">
+                        <i class="bi bi-send"></i>
+                        Submit Request
+                    </button>
+                </form>
+            </section>
+
+            <section class="support-panel">
+                <div class="panel-header">
+                    <div class="panel-icon"><i class="bi bi-calendar2-week-fill"></i></div>
+                    <div>
+                        <h2>Support Hours</h2>
+                        <p>Monday to Saturday, 9:30 AM to 6:30 PM.</p>
+                    </div>
+                </div>
+
+                <div class="support-hours-card">
+                    <h3>Urgent issue</h3>
+                    <p>Use urgent priority only when login, payments, or essential institute operations are blocked.</p>
+                </div>
+            </section>
+        </div>
+    </div>
+</main>
+{% endblock content %}

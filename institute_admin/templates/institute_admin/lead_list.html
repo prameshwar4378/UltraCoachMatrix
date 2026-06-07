@@ -1,0 +1,980 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Leads{% endblock title %}
+
+{% block content %}
+<style>
+    .leads-page {
+        --primary: #4f46e5;
+        --primary-dark: #312e81;
+        --primary-soft: #eef2ff;
+        --accent: #06b6d4;
+        --accent-soft: #ecfeff;
+        --success: #16a34a;
+        --danger: #dc2626;
+        --warning: #f59e0b;
+        --surface: rgba(255, 255, 255, 0.94);
+        --surface-strong: #ffffff;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        --shadow: 0 20px 55px rgba(15, 23, 42, 0.10);
+        position: relative;
+        isolation: isolate;
+        padding-bottom: 36px;
+    }
+
+    .leads-page::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: -1;
+        background:
+            radial-gradient(circle at 12% 12%, rgba(79, 70, 229, 0.16), transparent 30%),
+            radial-gradient(circle at 88% 8%, rgba(6, 182, 212, 0.14), transparent 26%),
+            linear-gradient(180deg, #f8fafc 0%, #eef2ff 42%, #f8fafc 100%);
+    }
+
+    .pagetitle h1 {
+        font-weight: 900;
+        letter-spacing: -0.04em;
+        color: var(--text);
+    }
+
+    .breadcrumb {
+        background: transparent;
+        margin-bottom: 0;
+    }
+
+    .page-toolbar,
+    .filter-panel,
+    .table-card,
+    .stat-card {
+        background: var(--surface);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(14px);
+    }
+
+    .page-toolbar {
+        position: relative;
+        overflow: hidden;
+        padding: 26px;
+        margin-bottom: 24px;
+        background:
+            linear-gradient(135deg, rgba(255,255,255,0.94), rgba(238,242,255,0.90)),
+            linear-gradient(135deg, rgba(79,70,229,0.10), rgba(6,182,212,0.08));
+    }
+
+    .page-toolbar::after {
+        content: "";
+        position: absolute;
+        width: 220px;
+        height: 220px;
+        right: -90px;
+        top: -110px;
+        background: radial-gradient(circle, rgba(79,70,229,0.22), transparent 68%);
+        border-radius: 999px;
+    }
+
+    .page-toolbar > * {
+        position: relative;
+        z-index: 1;
+    }
+
+    .page-title {
+        font-size: clamp(1.65rem, 2vw, 2.15rem);
+        font-weight: 900;
+        color: var(--text);
+        margin: 0;
+        letter-spacing: -0.045em;
+    }
+
+    .page-subtitle {
+        color: var(--muted);
+        margin: 8px 0 0;
+        font-weight: 500;
+    }
+
+    .btn-gradient {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        border: none;
+        border-radius: 14px;
+        padding: 12px 18px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        box-shadow: 0 14px 28px rgba(79, 70, 229, 0.28);
+        transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+        white-space: nowrap;
+    }
+
+    .btn-gradient:hover,
+    .btn-gradient:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        filter: saturate(1.06);
+        box-shadow: 0 18px 34px rgba(79, 70, 229, 0.35);
+    }
+
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 24px;
+    }
+
+    .stat-card {
+        position: relative;
+        overflow: hidden;
+        padding: 24px;
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .stat-card::after {
+        content: "";
+        position: absolute;
+        inset: auto -48px -58px auto;
+        width: 140px;
+        height: 140px;
+        border-radius: 999px;
+        background: rgba(79, 70, 229, 0.08);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+    }
+
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 17px;
+        background: linear-gradient(135deg, var(--primary-soft), var(--accent-soft));
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        margin-bottom: 16px;
+        box-shadow: inset 0 0 0 1px rgba(79, 70, 229, 0.10);
+    }
+
+    .stat-number {
+        font-size: 2.15rem;
+        font-weight: 900;
+        color: var(--text);
+        line-height: 1;
+        letter-spacing: -0.05em;
+    }
+
+    .stat-label {
+        color: var(--muted);
+        font-size: .92rem;
+        margin-top: 9px;
+        font-weight: 700;
+    }
+
+    .filter-panel {
+        padding: 24px;
+        margin-bottom: 24px;
+        overflow: visible !important;
+    }
+
+    .filter-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 900;
+        color: var(--text);
+        margin-bottom: 18px;
+        letter-spacing: -0.02em;
+    }
+
+    .form-label {
+        color: #334155;
+        font-size: .84rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+    .form-control,
+    .form-select {
+        min-height: 46px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        padding: 11px 14px;
+        background-color: #fff;
+        color: var(--text);
+        box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+        transition: border-color .2s ease, box-shadow .2s ease;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: rgba(79, 70, 229, 0.65);
+        box-shadow: 0 0 0 .22rem rgba(79, 70, 229, 0.12);
+    }
+
+    .table-card {
+        overflow: hidden;
+    }
+
+    .table-header {
+        padding: 22px 24px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+    }
+
+    .table-header h5 {
+        margin: 0;
+        font-weight: 900;
+        color: var(--text);
+        letter-spacing: -0.02em;
+    }
+
+    .table-modern {
+        margin: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .table-modern thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #f8fafc;
+        color: #475569;
+        border-bottom: 1px solid var(--border);
+        padding: 16px 18px;
+        font-size: .76rem;
+        text-transform: uppercase;
+        letter-spacing: .075em;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .table-modern tbody td {
+        padding: 18px;
+        vertical-align: middle;
+        border-bottom: 1px solid #eef2f7;
+        color: #1e293b;
+    }
+
+    .table-modern tbody tr {
+        transition: background .2s ease;
+    }
+
+    .table-modern tbody tr:hover {
+        background: #f8fafc;
+    }
+
+    .lead-avatar {
+        width: 44px;
+        min-width: 44px;
+        height: 44px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        box-shadow: 0 12px 24px rgba(79, 70, 229, 0.26);
+        text-transform: uppercase;
+    }
+
+    .badge-soft {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: .78rem;
+        font-weight: 800;
+        border: 1px solid transparent;
+        white-space: nowrap;
+    }
+
+    .badge-primary-soft {
+        background: #eef2ff;
+        color: #3730a3;
+        border-color: #c7d2fe;
+    }
+
+    .badge-success-soft {
+        background: #dcfce7;
+        color: #166534;
+        border-color: #bbf7d0;
+    }
+
+    .badge-warning-soft {
+        background: #fef3c7;
+        color: #92400e;
+        border-color: #fde68a;
+    }
+
+    .badge-danger-soft {
+        background: #fee2e2;
+        color: #991b1b;
+        border-color: #fecaca;
+    }
+
+    .badge-muted-soft {
+        background: #f1f5f9;
+        color: #475569;
+        border-color: #e2e8f0;
+    }
+
+    .action-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px !important;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 5px;
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+    }
+
+    .convert-btn {
+        border-radius: 12px;
+        font-weight: 800;
+        padding: 8px 12px;
+        border: none;
+        background: linear-gradient(135deg, #16a34a, #15803d);
+        color: #fff;
+        box-shadow: 0 10px 22px rgba(22, 163, 74, 0.22);
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .convert-btn:hover {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 14px 26px rgba(22, 163, 74, 0.30);
+    }
+
+    .empty-state {
+        padding: 64px 20px;
+        text-align: center;
+        color: var(--muted);
+    }
+
+    .empty-state i {
+        font-size: 3.4rem;
+        color: #c7d2fe;
+        margin-bottom: 14px;
+    }
+
+    .pagination {
+        margin: 18px 24px 22px;
+    }
+
+    .page-link {
+        border-radius: 12px;
+        margin-left: 6px;
+        color: var(--primary);
+        border-color: var(--border);
+        font-weight: 800;
+    }
+
+    .page-item.active .page-link {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        border-color: transparent;
+    }
+
+    .modal-content {
+        border-radius: 22px;
+        overflow: hidden;
+        border: 0;
+        box-shadow: 0 25px 70px rgba(15, 23, 42, 0.22);
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        border-bottom: 0;
+        padding: 20px 24px;
+    }
+
+    .modal-title {
+        font-weight: 900;
+        letter-spacing: -0.02em;
+    }
+
+    .btn-close {
+        filter: invert(1) grayscale(100%) brightness(200%);
+    }
+
+    .modal-body {
+        padding: 26px;
+    }
+
+    .modal-footer {
+        border-top: 1px solid var(--border);
+        padding: 18px 24px;
+    }
+
+    .conversion-box {
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px;
+    }
+
+    .conversion-box dt {
+        color: var(--muted);
+        font-size: .82rem;
+        font-weight: 900;
+    }
+
+    .conversion-box dd {
+        color: var(--text);
+        font-weight: 800;
+        margin-bottom: 12px;
+    }
+
+    .premium-alert {
+        border-radius: 16px;
+        border: 1px solid #fde68a;
+        background: #fffbeb;
+        color: #92400e;
+        font-weight: 700;
+    }
+
+    .delete-modal .modal-header {
+        background: linear-gradient(135deg, #dc2626, #991b1b);
+    }
+
+    .delete-warning-icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 18px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fee2e2;
+        color: var(--danger);
+        font-size: 1.8rem;
+    }
+
+    .delete-lead-name {
+        display: inline-block;
+        padding: 7px 12px;
+        border-radius: 10px;
+        background: #f1f5f9;
+        color: var(--text);
+        font-weight: 900;
+    }
+
+    @media(max-width: 992px) {
+        .stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .page-toolbar {
+            gap: 18px;
+        }
+    }
+
+    @media(max-width: 576px) {
+        .stat-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .page-toolbar,
+        .table-header {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 14px;
+        }
+
+        .btn-gradient,
+        .filter-panel .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .filter-actions {
+            flex-direction: column;
+            align-items: stretch !important;
+        }
+
+        .lead-action-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+    }
+</style>
+
+<main id="main" class="main leads-page">
+    <div class="pagetitle">
+        <h1>Leads</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'institute_admin:dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item">Front Office</li>
+                <li class="breadcrumb-item active">Leads</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="page-toolbar d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="page-title">Lead Management</h2>
+            <p class="page-subtitle">Track enquiries, manage follow-ups, and convert interested leads into students.</p>
+        </div>
+
+        <a href="javascript:void(0);"
+           data-url="{% url 'institute_admin:lead_create' %}"
+           class="btn btn-gradient"
+           onclick="openLeadWindow(this)">
+            <i class="bi bi-plus-circle"></i> Add Lead
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <section class="section">
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="bi bi-people"></i></div>
+                <div class="stat-number">{{ total_leads }}</div>
+                <div class="stat-label">Total Leads</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon"><i class="bi bi-stars"></i></div>
+                <div class="stat-number">{{ new_leads }}</div>
+                <div class="stat-label">New Leads</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon"><i class="bi bi-telephone-outbound"></i></div>
+                <div class="stat-number">{{ follow_up_leads }}</div>
+                <div class="stat-label">Follow Up</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon"><i class="bi bi-person-check"></i></div>
+                <div class="stat-number">{{ converted_leads }}</div>
+                <div class="stat-label">Converted</div>
+            </div>
+        </div>
+
+        <div class="filter-panel">
+            <div class="filter-title">
+                <i class="bi bi-funnel me-1"></i> Filter Leads
+            </div>
+
+            <form method="get" class="row g-3">
+                <div class="col-lg-6 col-md-12">
+                    <label class="form-label">Search</label>
+                    <input type="text" name="search" value="{{ search_query }}" class="form-control" placeholder="Search name, phone, email or course">
+                </div>
+
+                <div class="col-lg-3 col-md-6">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="">All Status</option>
+                        {% for value, label in status_choices %}
+                            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-lg-3 col-md-6 d-flex align-items-end gap-2 filter-actions">
+                    <button type="submit" class="btn btn-gradient">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
+                    <a href="{% url 'institute_admin:lead_list' %}" class="btn btn-light border">
+                        <i class="bi bi-x-circle"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-card">
+            <div class="table-header">
+                <h5><i class="bi bi-list-ul me-1"></i> Lead Records</h5>
+                <span class="text-muted small">Showing latest lead enquiries</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-modern align-middle">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Contact</th>
+                            <th>Interest</th>
+                            <th>Source</th>
+                            <th>Status</th>
+                            <th>Follow Up</th>
+                            <th>Created</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for lead in leads %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="lead-avatar">
+                                            {{ lead.full_name|slice:":1" }}
+                                        </div>
+                                        <div>
+                                            <strong>{{ lead.full_name }}</strong>
+                                            {% if lead.message %}
+                                                <div class="small text-muted">{{ lead.message|truncatechars:60 }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <div class="fw-bold">{{ lead.mobile_number }}</div>
+                                    <div class="small text-muted">{{ lead.email|default:"-" }}</div>
+                                </td>
+
+                                <td>
+                                    <div class="fw-bold">{{ lead.interested_class|default:"-" }}</div>
+                                    <div class="small text-muted">Batch: {{ lead.interested_batch|default:"Not selected" }}</div>
+                                </td>
+
+                                <td>
+                                    <span class="badge-soft badge-primary-soft">
+                                        <i class="bi bi-megaphone"></i> {{ lead.get_source_display }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    {% if lead.status == "CONVERTED" or lead.converted_student %}
+                                        <span class="badge-soft badge-success-soft">
+                                            <i class="bi bi-check-circle"></i> {{ lead.get_status_display }}
+                                        </span>
+                                        {% if lead.converted_student %}
+                                            <div class="small text-success fw-bold mt-1">Student created</div>
+                                        {% endif %}
+                                    {% elif lead.status == "FOLLOW_UP" %}
+                                        <span class="badge-soft badge-warning-soft">
+                                            <i class="bi bi-telephone"></i> {{ lead.get_status_display }}
+                                        </span>
+                                    {% elif lead.status == "NEW" %}
+                                        <span class="badge-soft badge-primary-soft">
+                                            <i class="bi bi-stars"></i> {{ lead.get_status_display }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge-soft badge-muted-soft">
+                                            <i class="bi bi-circle"></i> {{ lead.get_status_display }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    <span class="fw-bold">{{ lead.follow_up_on|date:"d M Y"|default:"-" }}</span>
+                                </td>
+
+                                <td>
+                                    <span class="fw-bold">{{ lead.created_at|date:"d M Y" }}</span>
+                                </td>
+
+                                <td class="text-end text-nowrap">
+                                    <div class="lead-action-wrap">
+                                        {% if lead.status != "CONVERTED" and not lead.converted_student %}
+                                            {% if lead.interested_class and lead.interested_batch %}
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm convert-btn"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#convertLeadModal"
+                                                    data-convert-url="{% url 'institute_admin:lead_convert' lead.pk %}"
+                                                    data-lead-name="{{ lead.full_name }}"
+                                                    data-mobile-number="{{ lead.mobile_number }}"
+                                                    data-class-name="{{ lead.interested_class.name }}"
+                                                    data-batch-name="{{ lead.interested_batch.name }}"
+                                                    onclick="prepareLeadConversion(this)"
+                                                >
+                                                    <i class="bi bi-person-check"></i> Convert
+                                                </button>
+                                            {% else %}
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Add interested class and batch first">
+                                                    <i class="bi bi-lock"></i> Unavailable
+                                                </button>
+                                            {% endif %}
+                                        {% endif %}
+
+                                        <a href="javascript:void(0);"
+                                           data-url="{% url 'institute_admin:lead_update' lead.pk %}"
+                                           class="btn btn-sm btn-outline-warning action-btn"
+                                           onclick="openLeadWindow(this)"
+                                           title="Edit">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </a>
+
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger action-btn"
+                                                data-delete-url="{% url 'institute_admin:lead_delete' lead.pk %}"
+                                                data-lead-name="{{ lead.full_name }}"
+                                                onclick="openDeleteLeadModal(this)"
+                                                title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="8">
+                                    <div class="empty-state">
+                                        <i class="bi bi-people"></i>
+                                        <h5>No Leads Found</h5>
+                                        <p>New enquiries and admission leads will appear here.</p>
+                                        <a href="javascript:void(0);"
+                                           data-url="{% url 'institute_admin:lead_create' %}"
+                                           class="btn btn-gradient mt-2"
+                                           onclick="openLeadWindow(this)">
+                                            <i class="bi bi-plus-circle"></i> Add First Lead
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page_obj.has_other_pages %}
+                <nav>
+                    <ul class="pagination justify-content-end">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ search_query }}&status={{ status_filter }}">
+                                    Previous
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_obj.number }}</span>
+                        </li>
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ search_query }}&status={{ status_filter }}">
+                                    Next
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        </div>
+    </section>
+</main>
+
+<div class="modal fade" id="convertLeadModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-person-check me-2"></i> Convert Lead to Student
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <p class="text-muted fw-semibold mb-3">
+                    Confirm the student and enrollment details below.
+                </p>
+
+                <div class="conversion-box">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Student</dt>
+                        <dd class="col-sm-8" id="convertLeadName"></dd>
+
+                        <dt class="col-sm-4">Class</dt>
+                        <dd class="col-sm-8" id="convertClassName"></dd>
+
+                        <dt class="col-sm-4">Batch</dt>
+                        <dd class="col-sm-8" id="convertBatchName"></dd>
+
+                        <dt class="col-sm-4">Username</dt>
+                        <dd class="col-sm-8"><code id="convertUsername"></code></dd>
+
+                        <dt class="col-sm-4">Password</dt>
+                        <dd class="col-sm-8"><code>Student@123</code></dd>
+                    </dl>
+                </div>
+
+                <div class="alert premium-alert mt-3 mb-0">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    This creates the student account, academic session, and enrollment, then marks the lead as converted.
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </button>
+
+                <form method="post" id="convertLeadForm">
+                    {% csrf_token %}
+                    <button type="submit" class="btn convert-btn">
+                        <i class="bi bi-check-circle"></i> Confirm Conversion
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade delete-modal" id="deleteLeadModal" tabindex="-1" aria-labelledby="deleteLeadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteLeadModalLabel">
+                    <i class="bi bi-trash3 me-2"></i> Delete Lead
+                </h5>
+                <button type="button" class="btn-close" data-dismiss="modal" data-bs-dismiss="modal" onclick="closeDeleteLeadModal()" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body text-center">
+                <div class="delete-warning-icon">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+                <h5 class="fw-bold mb-2">Are you sure?</h5>
+                <p class="text-muted mb-3">This lead record will be permanently deleted.</p>
+                <span class="delete-lead-name" id="deleteLeadName"></span>
+            </div>
+
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-light border" data-dismiss="modal" data-bs-dismiss="modal" onclick="closeDeleteLeadModal()">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </button>
+                <form method="post" id="deleteLeadForm" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash3"></i> Delete Lead
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openLeadWindow(element, customWidth = 960, customHeight = 780) {
+    const url = element.dataset.url;
+    const left = Math.max(0, (window.screen.width - customWidth) / 2);
+    const top = Math.max(0, (window.screen.height - customHeight) / 2);
+    const features = [
+        `width=${customWidth}`,
+        `height=${customHeight}`,
+        `left=${left}`,
+        `top=${top}`,
+        "scrollbars=yes",
+        "resizable=yes",
+        "location=no",
+        "menubar=no",
+        "toolbar=no",
+        "status=no"
+    ].join(",");
+    const leadWindow = window.open(url, "leadWindow", features);
+
+    if (leadWindow) {
+        leadWindow.focus();
+        const checkWindow = setInterval(function() {
+            if (leadWindow.closed) {
+                clearInterval(checkWindow);
+                window.location.reload();
+            }
+        }, 500);
+    }
+
+    return false;
+}
+
+function prepareLeadConversion(button) {
+    document.getElementById("convertLeadForm").action = button.dataset.convertUrl;
+    document.getElementById("convertLeadName").textContent = button.dataset.leadName;
+    document.getElementById("convertClassName").textContent = button.dataset.className;
+    document.getElementById("convertBatchName").textContent = button.dataset.batchName;
+    document.getElementById("convertUsername").textContent = button.dataset.mobileNumber;
+}
+
+function openDeleteLeadModal(button) {
+    const deleteForm = document.getElementById("deleteLeadForm");
+    const deleteName = document.getElementById("deleteLeadName");
+    const modalElement = document.getElementById("deleteLeadModal");
+
+    deleteForm.action = button.dataset.deleteUrl;
+    deleteName.textContent =
+        button.dataset.leadName || "This lead";
+
+    if (window.jQuery && typeof window.jQuery.fn.modal === "function") {
+        window.jQuery(modalElement).modal("show");
+        return;
+    }
+
+    if (window.bootstrap && window.bootstrap.Modal) {
+        window.bootstrap.Modal.getOrCreateInstance(modalElement).show();
+        return;
+    }
+
+    modalElement.classList.add("show");
+    modalElement.style.display = "block";
+    modalElement.removeAttribute("aria-hidden");
+    modalElement.setAttribute("aria-modal", "true");
+    document.body.classList.add("modal-open");
+
+    let backdrop = document.getElementById("deleteLeadModalBackdrop");
+    if (!backdrop) {
+        backdrop = document.createElement("div");
+        backdrop.id = "deleteLeadModalBackdrop";
+        backdrop.className = "modal-backdrop fade show";
+        backdrop.addEventListener("click", closeDeleteLeadModal);
+        document.body.appendChild(backdrop);
+    }
+}
+
+function closeDeleteLeadModal() {
+    const modalElement = document.getElementById("deleteLeadModal");
+    const backdrop = document.getElementById("deleteLeadModalBackdrop");
+
+    if (window.jQuery && typeof window.jQuery.fn.modal === "function") {
+        window.jQuery(modalElement).modal("hide");
+    } else if (window.bootstrap && window.bootstrap.Modal) {
+        const modal = window.bootstrap.Modal.getInstance(modalElement);
+        if (modal) modal.hide();
+    } else {
+        modalElement.classList.remove("show");
+        modalElement.style.display = "none";
+        modalElement.setAttribute("aria-hidden", "true");
+        modalElement.removeAttribute("aria-modal");
+        document.body.classList.remove("modal-open");
+        if (backdrop) backdrop.remove();
+    }
+}
+</script>
+{% endblock content %}

@@ -1,13 +1,20 @@
+from decimal import Decimal
+
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
 
 class Institute(models.Model):
     class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending approval"
         TRIAL = "TRIAL", "Trial"
         ACTIVE = "ACTIVE", "Active"
         SUSPENDED = "SUSPENDED", "Suspended"
+        EXPIRED = "EXPIRED", "Expired"
+        CANCELLED = "CANCELLED", "Cancelled"
 
     name = models.CharField(max_length=160)
     code = models.SlugField(max_length=40, unique=True)
@@ -15,56 +22,121 @@ class Institute(models.Model):
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
     address = models.TextField(blank=True)
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.TRIAL)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.TRIAL,
+        help_text="Use Active or Trial to allow access. Suspended and Cancelled block access.",
+    )
+    internal_notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["name"]
-
-    def __str__(self):
-        return self.name
-
-
-class SubscriptionPlan(models.Model):
-    name = models.CharField(max_length=80)
-    monthly_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    max_students = models.PositiveIntegerField(default=100)
-    max_teachers = models.PositiveIntegerField(default=10)
-    is_active = models.BooleanField(default=True)
-
-    class Meta:
-        ordering = ["monthly_price", "name"]
+        verbose_name = "Institute account"
+        verbose_name_plural = "Institute accounts"
 
     def __str__(self):
         return self.name
 
 
 class InstituteSubscription(models.Model):
-    class Status(models.TextChoices):
-        TRIAL = "TRIAL", "Trial"
-        ACTIVE = "ACTIVE", "Active"
-        EXPIRED = "EXPIRED", "Expired"
-        CANCELLED = "CANCELLED", "Cancelled"
+    class Plan(models.TextChoices):
+        FREE_TRIAL = "FREE_TRIAL", "Free Trial"
+        PREMIUM = "PREMIUM", "Premium"
 
     institute = models.OneToOneField(
         Institute,
         on_delete=models.CASCADE,
         related_name="subscription",
     )
-    plan = models.ForeignKey(
-        SubscriptionPlan,
-        on_delete=models.PROTECT,
-        related_name="subscriptions",
+    plan = models.CharField(
+        max_length=20,
+        choices=Plan.choices,
+        default=Plan.FREE_TRIAL,
+        help_text="Choose Free Trial for trial access or Premium for paid access.",
     )
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.TRIAL)
-    starts_on = models.DateField(null=True, blank=True)
-    ends_on = models.DateField(null=True, blank=True)
+    starts_on = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Access start date",
+        help_text="The school can use the software from this date.",
+    )
+    ends_on = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Access expiry date",
+        help_text="Access is blocked automatically after this date.",
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Optional internal notes about renewal or subscription.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["institute__name"]
+        verbose_name = "Software subscription"
+        verbose_name_plural = "Software subscriptions"
 
     def __str__(self):
-        return f"{self.institute} - {self.plan}"
+        return f"{self.institute} - {self.get_plan_display()}"
+
+    def clean(self):
+        super().clean()
+        if self.starts_on and self.ends_on and self.ends_on < self.starts_on:
+            raise ValidationError({"ends_on": "Expiry date cannot be before the start date."})
+
+    @property
+    def expiry_date(self):
+        return self.ends_on
+
+    @property
+    def is_expired(self):
+        return bool(self.expiry_date and self.expiry_date < timezone.localdate())
+
+    @property
+    def is_active(self):
+        today = timezone.localdate()
+        return (
+            (not self.starts_on or self.starts_on <= today)
+            and (not self.ends_on or self.ends_on >= today)
+        )
+
+
+class SubscriptionPayment(models.Model):
+    class Method(models.TextChoices):
+        CASH = "CASH", "Cash"
+        UPI = "UPI", "UPI"
+        CARD = "CARD", "Card"
+        BANK_TRANSFER = "BANK_TRANSFER", "Bank transfer"
+        OTHER = "OTHER", "Other"
+
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name="subscription_payments",
+    )
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    paid_on = models.DateField(default=timezone.localdate)
+    method = models.CharField(max_length=30, choices=Method.choices)
+    transaction_id = models.CharField(max_length=120, blank=True)
+    notes = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-paid_on", "-pk"]
+        verbose_name = "Subscription payment"
+        verbose_name_plural = "Subscription payment history"
+
+    def __str__(self):
+        return f"{self.institute} - {self.amount}"
 
 
 class UserProfile(models.Model):
@@ -85,12 +157,20 @@ class UserProfile(models.Model):
     )
     role = models.CharField(max_length=30, choices=Role.choices)
     phone = models.CharField(max_length=20, blank=True)
+    onboarding_completed_at = models.DateTimeField(default=timezone.now, null=True, blank=True)
 
     class Meta:
         ordering = ["user__username"]
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
+
+
+class InstituteRegistration(UserProfile):
+    class Meta:
+        proxy = True
+        verbose_name = "Institute registration"
+        verbose_name_plural = "Institute registrations"
 
 
 class MobileRefreshToken(models.Model):

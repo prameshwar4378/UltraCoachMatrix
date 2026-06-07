@@ -1,0 +1,707 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Security Settings{% endblock title %}
+
+{% block content %}
+<style>
+    .security-page {
+        --ink:#0f172a;
+        --muted:#64748b;
+        --line:#e2e8f0;
+        --soft:#f8fafc;
+        --primary:#4f46e5;
+        --primary-dark:#3730a3;
+        --danger:#dc2626;
+        --success:#16a34a;
+        --warning:#f59e0b;
+        --radius:18px;
+        --shadow:0 18px 45px rgba(15,23,42,.08);
+        color:var(--ink);
+    }
+
+    .security-page * {
+        box-sizing:border-box;
+    }
+
+    .security-hero {
+        position:relative;
+        overflow:hidden;
+        border-radius:24px;
+        padding:28px;
+        margin-bottom:22px;
+        background:
+            radial-gradient(circle at top right, rgba(99,102,241,.32), transparent 34%),
+            linear-gradient(135deg, #111827 0%, #312e81 48%, #4f46e5 100%);
+        box-shadow:var(--shadow);
+        color:#fff;
+    }
+
+    .security-hero::before {
+        content:"";
+        position:absolute;
+        inset:auto -70px -90px auto;
+        width:250px;
+        height:250px;
+        border-radius:50%;
+        background:rgba(255,255,255,.12);
+    }
+
+    .security-hero-content {
+        position:relative;
+        z-index:1;
+        display:flex;
+        justify-content:space-between;
+        align-items:flex-start;
+        gap:18px;
+        flex-wrap:wrap;
+    }
+
+    .security-hero h1 {
+        margin:0;
+        font-size:clamp(1.55rem, 3vw, 2.3rem);
+        font-weight:900;
+        letter-spacing:-.04em;
+    }
+
+    .security-hero p {
+        max-width:620px;
+        margin:9px 0 0;
+        color:rgba(255,255,255,.78);
+        font-size:.96rem;
+    }
+
+    .security-hero-badge {
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding:10px 14px;
+        border:1px solid rgba(255,255,255,.22);
+        border-radius:999px;
+        background:rgba(255,255,255,.12);
+        backdrop-filter:blur(12px);
+        font-weight:800;
+        white-space:nowrap;
+    }
+
+    .security-page .breadcrumb {
+        margin-top:14px;
+        margin-bottom:0;
+    }
+
+    .security-page .breadcrumb a,
+    .security-page .breadcrumb .active {
+        color:rgba(255,255,255,.85);
+    }
+
+    .security-summary {
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:16px;
+        margin-bottom:20px;
+    }
+
+    .security-card,
+    .security-panel {
+        background:rgba(255,255,255,.95);
+        border:1px solid rgba(226,232,240,.9);
+        border-radius:var(--radius);
+        box-shadow:0 14px 34px rgba(15,23,42,.06);
+    }
+
+    .security-card {
+        position:relative;
+        overflow:hidden;
+        padding:22px;
+        transition:.25s ease;
+    }
+
+    .security-card:hover {
+        transform:translateY(-4px);
+        box-shadow:var(--shadow);
+    }
+
+    .security-card::after {
+        content:"";
+        position:absolute;
+        right:-30px;
+        top:-30px;
+        width:100px;
+        height:100px;
+        border-radius:50%;
+        background:rgba(79,70,229,.1);
+    }
+
+    .security-card-icon {
+        width:44px;
+        height:44px;
+        display:grid;
+        place-items:center;
+        border-radius:14px;
+        background:linear-gradient(135deg, rgba(79,70,229,.16), rgba(14,165,233,.12));
+        color:var(--primary);
+        font-size:1.25rem;
+        margin-bottom:15px;
+    }
+
+    .security-label {
+        color:var(--muted);
+        font-size:.74rem;
+        font-weight:900;
+        text-transform:uppercase;
+        letter-spacing:.08em;
+    }
+
+    .security-value {
+        margin-top:7px;
+        color:var(--ink);
+        font-size:1.65rem;
+        line-height:1;
+        font-weight:950;
+        letter-spacing:-.04em;
+    }
+
+    .security-grid {
+        display:grid;
+        grid-template-columns:minmax(310px,.85fr) minmax(0,1.3fr);
+        gap:20px;
+        align-items:start;
+    }
+
+    .security-panel {
+        padding:22px;
+        margin-bottom:20px;
+    }
+
+    .panel-header {
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:14px;
+        margin-bottom:18px;
+    }
+
+    .panel-title-wrap {
+        display:flex;
+        gap:12px;
+        align-items:flex-start;
+    }
+
+    .panel-icon {
+        width:42px;
+        height:42px;
+        flex:0 0 42px;
+        display:grid;
+        place-items:center;
+        border-radius:14px;
+        background:#eef2ff;
+        color:var(--primary);
+        font-size:1.15rem;
+    }
+
+    .security-panel h2 {
+        margin:0;
+        color:var(--ink);
+        font-size:1.08rem;
+        font-weight:900;
+        letter-spacing:-.02em;
+    }
+
+    .security-panel p {
+        margin:5px 0 0;
+        color:var(--muted);
+        font-size:.92rem;
+        line-height:1.55;
+    }
+
+    .security-field {
+        margin-bottom:15px;
+    }
+
+    .security-field label {
+        display:block;
+        margin-bottom:7px;
+        color:#334155;
+        font-weight:800;
+        font-size:.88rem;
+    }
+
+    .security-field input,
+    .security-field select,
+    .security-field textarea {
+        width:100%;
+        min-height:44px;
+        border:1px solid #dbe4f0;
+        border-radius:12px;
+        padding:10px 13px;
+        background:#fff;
+        color:var(--ink);
+        outline:none;
+        transition:.2s ease;
+    }
+
+    .security-field input:focus,
+    .security-field select:focus,
+    .security-field textarea:focus {
+        border-color:var(--primary);
+        box-shadow:0 0 0 4px rgba(79,70,229,.12);
+    }
+
+    .security-field ul.errorlist {
+        margin:7px 0 0;
+        padding:0;
+        list-style:none;
+        color:#b91c1c;
+        font-size:.83rem;
+        font-weight:700;
+    }
+
+    .security-button {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:8px;
+        min-height:42px;
+        padding:10px 16px;
+        border:0;
+        border-radius:12px;
+        background:linear-gradient(135deg, var(--primary), #7c3aed);
+        color:#fff;
+        font-weight:900;
+        cursor:pointer;
+        box-shadow:0 12px 22px rgba(79,70,229,.22);
+        transition:.22s ease;
+    }
+
+    .security-button:hover {
+        transform:translateY(-2px);
+        box-shadow:0 16px 28px rgba(79,70,229,.28);
+    }
+
+    .security-button.secondary {
+        border:1px solid rgba(220,38,38,.25);
+        background:#fff;
+        color:#b91c1c;
+        box-shadow:none;
+    }
+
+    .security-button.secondary:hover {
+        background:#fef2f2;
+    }
+
+    .security-note {
+        margin-top:15px;
+        padding:14px;
+        border:1px solid #e2e8f0;
+        border-radius:14px;
+        background:linear-gradient(135deg, #f8fafc, #ffffff);
+        color:#475569;
+        font-size:.88rem;
+        line-height:1.55;
+    }
+
+    .security-table-wrap {
+        width:100%;
+        overflow-x:auto;
+        border:1px solid #e5edf7;
+        border-radius:16px;
+    }
+
+    .security-table {
+        width:100%;
+        border-collapse:separate;
+        border-spacing:0;
+        min-width:720px;
+    }
+
+    .security-table th,
+    .security-table td {
+        padding:14px 15px;
+        border-bottom:1px solid #edf2f7;
+        text-align:left;
+        vertical-align:middle;
+    }
+
+    .security-table th {
+        position:sticky;
+        top:0;
+        background:#f8fafc;
+        color:#475569;
+        font-size:.72rem;
+        text-transform:uppercase;
+        letter-spacing:.08em;
+        font-weight:950;
+        z-index:1;
+    }
+
+    .security-table tr:last-child td {
+        border-bottom:0;
+    }
+
+    .security-table tbody tr {
+        transition:.18s ease;
+    }
+
+    .security-table tbody tr:hover {
+        background:#fafbff;
+    }
+
+    .security-status {
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        padding:6px 10px;
+        border-radius:999px;
+        font-size:.78rem;
+        font-weight:900;
+        white-space:nowrap;
+    }
+
+    .security-status.active {
+        background:#dcfce7;
+        color:#166534;
+    }
+
+    .security-status.inactive {
+        background:#fee2e2;
+        color:#991b1b;
+    }
+
+    .security-link {
+        color:var(--primary);
+        font-weight:900;
+        text-decoration:none;
+    }
+
+    .security-link:hover {
+        text-decoration:underline;
+    }
+
+    .security-sessions {
+        margin-top:0;
+    }
+
+    .device-name {
+        display:flex;
+        align-items:center;
+        flex-wrap:wrap;
+        gap:8px;
+        color:var(--ink);
+        font-weight:950;
+    }
+
+    .device-meta {
+        margin-top:4px;
+        color:var(--muted);
+        font-size:.84rem;
+    }
+
+    .current-device {
+        display:inline-flex;
+        padding:4px 9px;
+        border-radius:999px;
+        background:#dcfce7;
+        color:#166534;
+        font-size:.7rem;
+        font-weight:950;
+    }
+
+    .session-signout {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        padding:8px 12px;
+        border:1px solid rgba(220,38,38,.28);
+        border-radius:10px;
+        background:#fff;
+        color:#b91c1c;
+        font-size:.8rem;
+        font-weight:900;
+        cursor:pointer;
+        white-space:nowrap;
+        transition:.2s ease;
+    }
+
+    .session-signout:hover {
+        background:#fef2f2;
+        transform:translateY(-1px);
+    }
+
+    .user-cell strong {
+        display:block;
+        color:var(--ink);
+        font-weight:950;
+    }
+
+    .user-cell small {
+        color:var(--muted);
+        font-weight:700;
+    }
+
+    .danger-panel {
+        border-color:rgba(220,38,38,.16);
+        background:linear-gradient(135deg, #fff, #fff7f7);
+    }
+
+    @media(max-width:992px) {
+        .security-grid {
+            grid-template-columns:1fr;
+        }
+    }
+
+    @media(max-width:768px) {
+        .security-hero {
+            padding:22px;
+            border-radius:18px;
+        }
+
+        .security-summary {
+            grid-template-columns:1fr;
+        }
+
+        .security-panel {
+            padding:18px;
+        }
+
+        .panel-header {
+            flex-direction:column;
+        }
+    }
+
+    @media(max-width:520px) {
+        .security-hero-badge {
+            width:100%;
+            justify-content:center;
+        }
+
+        .security-button,
+        .security-button.secondary {
+            width:100%;
+        }
+    }
+</style>
+
+<main id="main" class="main security-page">
+    <div class="security-hero">
+        <div class="security-hero-content">
+            <div>
+                <h1>Security Settings</h1>
+                <p>Manage password protection, logged-in devices, active sessions, and institute account access from one secure dashboard.</p>
+                <nav>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+                        <li class="breadcrumb-item active">Security Settings</li>
+                    </ol>
+                </nav>
+            </div>
+            <div class="security-hero-badge">
+                <i class="bi bi-shield-lock-fill"></i>
+                Secure Control Panel
+            </div>
+        </div>
+    </div>
+
+    <div class="security-summary">
+        <section class="security-card">
+            <div class="security-card-icon"><i class="bi bi-person-check-fill"></i></div>
+            <div class="security-label">Active Accounts</div>
+            <div class="security-value">{{ active_user_count }}</div>
+        </section>
+
+        <section class="security-card">
+            <div class="security-card-icon"><i class="bi bi-person-x-fill"></i></div>
+            <div class="security-label">Inactive Accounts</div>
+            <div class="security-value">{{ inactive_user_count }}</div>
+        </section>
+
+        <section class="security-card">
+            <div class="security-card-icon"><i class="bi bi-laptop-fill"></i></div>
+            <div class="security-label">Your Active Sessions</div>
+            <div class="security-value">{{ session_count }}</div>
+        </section>
+    </div>
+
+    <section class="security-panel security-sessions">
+        <div class="panel-header">
+            <div class="panel-title-wrap">
+                <div class="panel-icon"><i class="bi bi-display"></i></div>
+                <div>
+                    <h2>Logged In Devices</h2>
+                    <p>Review browser sessions using your account and remove any device you do not recognize.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="security-table-wrap">
+            <table class="security-table">
+                <thead>
+                    <tr>
+                        <th>Device</th>
+                        <th>IP Address</th>
+                        <th>Login Time</th>
+                        <th>Last Activity</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in web_sessions %}
+                        <tr>
+                            <td>
+                                <div class="device-name">
+                                    {{ session.browser }}
+                                    {% if session.is_current %}<span class="current-device">Current</span>{% endif %}
+                                </div>
+                                <div class="device-meta">{{ session.operating_system }} · {{ session.device_type }}</div>
+                            </td>
+                            <td>{{ session.ip_address }}</td>
+                            <td>{{ session.login_at|date:"d M Y, h:i A"|default:"Not recorded" }}</td>
+                            <td>{{ session.last_activity|date:"d M Y, h:i A"|default:"Not recorded" }}</td>
+                            <td>
+                                {% if session.is_current %}
+                                    <span class="security-status active">In use</span>
+                                {% else %}
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="logout_session">
+                                        <input type="hidden" name="session_identifier" value="{{ session.identifier }}">
+                                        <button class="session-signout" type="submit">Sign Out</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5">No active browser sessions found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="security-note">
+            Device and browser names are detected from the browser information provided during use.
+            IP addresses may represent a shared network or internet provider.
+        </div>
+    </section>
+
+    <div class="security-grid">
+        <div>
+            <section class="security-panel">
+                <div class="panel-header">
+                    <div class="panel-title-wrap">
+                        <div class="panel-icon"><i class="bi bi-key-fill"></i></div>
+                        <div>
+                            <h2>Change Password</h2>
+                            <p>Use a strong password that is not shared with another account.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="change_password">
+
+                    <div class="security-field">
+                        {{ password_form.current_password.label_tag }}
+                        {{ password_form.current_password }}
+                        {{ password_form.current_password.errors }}
+                    </div>
+
+                    <div class="security-field">
+                        {{ password_form.new_password.label_tag }}
+                        {{ password_form.new_password }}
+                        {{ password_form.new_password.errors }}
+                    </div>
+
+                    <div class="security-field">
+                        {{ password_form.confirm_password.label_tag }}
+                        {{ password_form.confirm_password }}
+                        {{ password_form.confirm_password.errors }}
+                    </div>
+
+                    <button class="security-button" type="submit">
+                        <i class="bi bi-shield-check"></i>
+                        Change Password
+                    </button>
+                </form>
+
+                <div class="security-note">Changing your password keeps this browser signed in.</div>
+            </section>
+
+            <section class="security-panel danger-panel">
+                <div class="panel-header">
+                    <div class="panel-title-wrap">
+                        <div class="panel-icon"><i class="bi bi-box-arrow-right"></i></div>
+                        <div>
+                            <h2>Browser Sessions</h2>
+                            <p>Sign out your account from every other browser or device.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="logout_other_sessions">
+                    <button class="security-button secondary" type="submit">
+                        <i class="bi bi-power"></i>
+                        Sign Out Other Sessions
+                    </button>
+                </form>
+
+                <div class="security-note">
+                    Current login: {{ request.user.username }}<br>
+                    Last login: {{ request.user.last_login|date:"d M Y, h:i A"|default:"Not available" }}
+                </div>
+            </section>
+        </div>
+
+        <section class="security-panel">
+            <div class="panel-header">
+                <div class="panel-title-wrap">
+                    <div class="panel-icon"><i class="bi bi-people-fill"></i></div>
+                    <div>
+                        <h2>Institute Account Access</h2>
+                        <p>Review who can sign in to {{ institute.name }}.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="security-table-wrap">
+                <table class="security-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th>Last Login</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for profile in institute_users %}
+                            <tr>
+                                <td class="user-cell">
+                                    <strong>{{ profile.user.get_full_name|default:profile.user.username }}</strong>
+                                    <small>@{{ profile.user.username }}</small>
+                                </td>
+                                <td>{{ profile.get_role_display }}</td>
+                                <td>{{ profile.user.last_login|date:"d M Y, h:i A"|default:"Never" }}</td>
+                                <td>
+                                    {% if profile.user.is_active %}
+                                        <span class="security-status active">Active</span>
+                                    {% else %}
+                                        <span class="security-status inactive">Inactive</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="4">No institute users found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="security-note">
+                Account activation and role changes are managed from
+                <a class="security-link" href="{% url 'institute_admin:user_list' %}">User Management</a>.
+            </div>
+        </section>
+    </div>
+</main>
+{% endblock content %}

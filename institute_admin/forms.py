@@ -3,13 +3,14 @@ from datetime import date
 import re
 
 from django import forms
+from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from django.db.models import Sum
 from django.utils import timezone
 
 from accountant.models import FeeCategory, FeeInvoice, Payment, PaymentActivity
-from super_admin.models import UserProfile
+from super_admin.models import Institute, UserProfile
 from student_parent.models import (
     GuardianProfile,
     StudentAcademicSession,
@@ -19,7 +20,153 @@ from student_parent.models import (
 )
 from teacher.models import Homework, HomeworkAttachment, TeacherProfile
 
-from .models import AcademicYear, Batch, Course, Notice, Subject
+from .models import AcademicYear, Batch, Course, Lead, Notice, Subject, SupportTicket, Visitor
+
+
+class SecurityPasswordChangeForm(forms.Form):
+    current_password = forms.CharField(
+        label="Current password",
+        strip=False,
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-control",
+                "autocomplete": "current-password",
+                "placeholder": "Enter current password",
+            }
+        ),
+    )
+    new_password = forms.CharField(
+        label="New password",
+        strip=False,
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-control",
+                "autocomplete": "new-password",
+                "placeholder": "Enter new password",
+            }
+        ),
+    )
+    confirm_password = forms.CharField(
+        label="Confirm new password",
+        strip=False,
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-control",
+                "autocomplete": "new-password",
+                "placeholder": "Confirm new password",
+            }
+        ),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    def clean_current_password(self):
+        current_password = self.cleaned_data["current_password"]
+        if not self.user or not self.user.check_password(current_password):
+            raise ValidationError("Current password is incorrect.")
+        return current_password
+
+    def clean(self):
+        cleaned_data = super().clean()
+        new_password = cleaned_data.get("new_password")
+        confirm_password = cleaned_data.get("confirm_password")
+
+        if new_password and confirm_password and new_password != confirm_password:
+            self.add_error("confirm_password", "New passwords do not match.")
+
+        if new_password and self.user:
+            if self.user.check_password(new_password):
+                self.add_error("new_password", "Choose a password different from your current password.")
+            else:
+                try:
+                    password_validation.validate_password(new_password, self.user)
+                except ValidationError as error:
+                    self.add_error("new_password", error)
+
+        return cleaned_data
+
+    def save(self):
+        self.user.set_password(self.cleaned_data["new_password"])
+        self.user.save(update_fields=["password"])
+        return self.user
+
+
+class SupportTicketForm(forms.ModelForm):
+    class Meta:
+        model = SupportTicket
+        fields = ("category", "priority", "subject", "message")
+        widgets = {
+            "message": forms.Textarea(
+                attrs={
+                    "rows": 5,
+                    "placeholder": "Explain what happened, where it happened, and what you expected.",
+                }
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["subject"].widget.attrs["placeholder"] = "Short issue title"
+        for field in self.fields.values():
+            field.widget.attrs.setdefault(
+                "class",
+                "form-select" if isinstance(field.widget, forms.Select) else "form-control",
+            )
+
+    def clean_subject(self):
+        return self.cleaned_data["subject"].strip()
+
+    def clean_message(self):
+        message = self.cleaned_data["message"].strip()
+        if len(message) < 15:
+            raise ValidationError("Please provide a little more detail about the issue.")
+        return message
+
+
+class InstituteProfileForm(forms.ModelForm):
+    class Meta:
+        model = Institute
+        fields = ("name", "code", "owner_name", "phone", "email", "address")
+        widgets = {
+            "address": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        placeholders = {
+            "name": "Institute name",
+            "code": "Unique institute code",
+            "owner_name": "Owner or director name",
+            "phone": "Primary contact number",
+            "email": "Primary email address",
+            "address": "Institute address",
+        }
+        for field_name, field in self.fields.items():
+            field.widget.attrs.setdefault("class", "form-control")
+            field.widget.attrs.setdefault("placeholder", placeholders[field_name])
+
+    def clean_name(self):
+        return self.cleaned_data["name"].strip()
+
+    def clean_code(self):
+        code = self.cleaned_data["code"].strip().lower()
+        queryset = Institute.objects.filter(code__iexact=code)
+        if self.instance.pk:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise ValidationError("This institute code is already in use.")
+        return code
+
+    def clean_owner_name(self):
+        return self.cleaned_data["owner_name"].strip()
+
+    def clean_phone(self):
+        return self.cleaned_data["phone"].strip()
+
+    def clean_address(self):
+        return self.cleaned_data["address"].strip()
 
 
 def get_academic_year_label(today=None):
@@ -176,6 +323,17 @@ class FeeCategoryForm(forms.ModelForm):
 
 
 class BatchForm(forms.ModelForm):
+    timetable_days = {
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+    }
+    timetable_time_pattern = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+
     teachers = forms.ModelMultipleChoiceField(
         queryset=UserProfile.objects.none(),
         required=False,
@@ -183,10 +341,20 @@ class BatchForm(forms.ModelForm):
 
     class Meta:
         model = Batch
-        fields = ("courses", "name", "teachers", "start_date", "end_date", "timing", "is_active")
+        fields = (
+            "courses",
+            "name",
+            "teachers",
+            "start_date",
+            "end_date",
+            "timing",
+            "weekly_timetable",
+            "is_active",
+        )
         widgets = {
             "start_date": forms.DateInput(attrs={"type": "date"}),
             "end_date": forms.DateInput(attrs={"type": "date"}),
+            "weekly_timetable": forms.HiddenInput(),
         }
 
     def __init__(self, *args, institute=None, academic_year=None, **kwargs):
@@ -255,6 +423,150 @@ class BatchForm(forms.ModelForm):
             if invalid_courses.exists():
                 raise ValidationError("Selected courses must belong to the selected academic year.")
 
+        return cleaned_data
+
+    def clean_weekly_timetable(self):
+        timetable = self.cleaned_data.get("weekly_timetable") or {}
+        if not isinstance(timetable, dict):
+            raise ValidationError("Weekly timetable must be a valid schedule.")
+
+        normalized = {}
+        for day, slot in timetable.items():
+            if day not in self.timetable_days or not isinstance(slot, dict):
+                raise ValidationError("Weekly timetable contains an invalid day.")
+
+            start = slot.get("start")
+            end = slot.get("end")
+            if (
+                not isinstance(start, str)
+                or not isinstance(end, str)
+                or not self.timetable_time_pattern.fullmatch(start)
+                or not self.timetable_time_pattern.fullmatch(end)
+            ):
+                raise ValidationError("Each timetable day needs valid start and end times.")
+            if start >= end:
+                raise ValidationError("Timetable end time must be after the start time.")
+
+            normalized[day] = {"start": start, "end": end}
+
+        return normalized
+
+
+class LeadForm(forms.ModelForm):
+    class Meta:
+        model = Lead
+        fields = (
+            "first_name",
+            "last_name",
+            "mobile_number",
+            "email",
+            "interested_class",
+            "interested_batch",
+            "source",
+            "status",
+            "follow_up_on",
+            "message",
+        )
+        widgets = {
+            "follow_up_on": forms.DateInput(attrs={"type": "date"}),
+            "message": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self, *args, institute=None, academic_year=None, **kwargs):
+        self.institute = institute
+        self.academic_year = academic_year
+        super().__init__(*args, **kwargs)
+        classes = Course.objects.none()
+        batches = Batch.objects.none()
+        if institute:
+            classes = Course.objects.filter(institute=institute, is_active=True)
+            batches = Batch.objects.filter(institute=institute, is_active=True)
+            if academic_year:
+                classes = classes.filter(academic_year=academic_year)
+                batches = batches.filter(academic_year=academic_year)
+        self.fields["interested_class"].queryset = classes
+        self.fields["interested_batch"].queryset = batches.prefetch_related("courses")
+        self.fields["interested_class"].widget.attrs["data-searchable"] = "false"
+        self.fields["interested_batch"].widget.attrs["data-searchable"] = "false"
+
+        for field in self.fields.values():
+            field.widget.attrs.setdefault(
+                "class",
+                "form-select" if isinstance(field.widget, forms.Select) else "form-control",
+            )
+
+    def clean_mobile_number(self):
+        mobile_number = self.cleaned_data["mobile_number"].strip()
+        if len(mobile_number) < 7:
+            raise ValidationError("Enter a valid phone number.")
+        return mobile_number
+
+    def clean(self):
+        cleaned_data = super().clean()
+        interested_class = cleaned_data.get("interested_class")
+        interested_batch = cleaned_data.get("interested_batch")
+
+        if interested_batch and interested_batch.institute_id != getattr(self.institute, "pk", None):
+            raise ValidationError("Select a batch from this institute.")
+        if (
+            interested_class
+            and interested_batch
+            and not interested_batch.courses.filter(pk=interested_class.pk).exists()
+        ):
+            raise ValidationError("Selected batch must include the interested class.")
+        return cleaned_data
+
+    def clean_interested_class(self):
+        course = self.cleaned_data.get("interested_class")
+        if course and course.institute_id != getattr(self.institute, "pk", None):
+            raise ValidationError("Select a course from this institute.")
+        return course
+
+
+class VisitorForm(forms.ModelForm):
+    class Meta:
+        model = Visitor
+        fields = (
+            "visitor_name",
+            "phone_number",
+            "id_card_number",
+            "meeting_with",
+            "total_person",
+            "visit_date",
+            "entry_time",
+            "exit_time",
+            "purpose",
+            "attachment",
+        )
+        widgets = {
+            "visit_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "entry_time": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
+            "exit_time": forms.TimeInput(attrs={"type": "time"}, format="%H:%M"),
+            "purpose": forms.Textarea(attrs={"rows": 4}),
+            "attachment": forms.FileInput(attrs={"accept": "image/*,.pdf"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["visit_date"].input_formats = ("%Y-%m-%d",)
+        self.fields["entry_time"].input_formats = ("%H:%M",)
+        self.fields["exit_time"].input_formats = ("%H:%M",)
+
+        for field in self.fields.values():
+            field.widget.attrs.setdefault("class", "form-control")
+
+    def clean_phone_number(self):
+        phone_number = self.cleaned_data["phone_number"].strip()
+        if len(phone_number) < 7:
+            raise ValidationError("Enter a valid phone number.")
+        return phone_number
+
+    def clean(self):
+        cleaned_data = super().clean()
+        entry_time = cleaned_data.get("entry_time")
+        exit_time = cleaned_data.get("exit_time")
+        if entry_time and exit_time and exit_time < entry_time:
+            raise ValidationError("Exit time cannot be earlier than entry time.")
         return cleaned_data
 
 

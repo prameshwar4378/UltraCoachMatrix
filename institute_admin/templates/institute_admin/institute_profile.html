@@ -1,0 +1,530 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Institute Profile{% endblock title %}
+
+{% block content %}
+<style>
+    .institute-profile-page{
+        --ink:#0f172a;
+        --muted:#64748b;
+        --line:#dbe4f0;
+        --soft:#f8fafc;
+        --primary:#2563eb;
+        --secondary:#7c3aed;
+        --cyan:#06b6d4;
+        --success:#16a34a;
+    }
+
+    .profile-shell{
+        max-width:1050px;
+    }
+
+    .profile-hero{
+        position:relative;
+        overflow:hidden;
+        margin-bottom:22px;
+        padding:26px 28px;
+        border-radius:24px;
+        color:#fff;
+        background:linear-gradient(135deg,#0f172a,#2563eb 58%,#06b6d4);
+        box-shadow:0 24px 60px rgba(37,99,235,.22);
+        isolation:isolate;
+    }
+
+    .profile-hero:before,
+    .profile-hero:after{
+        content:"";
+        position:absolute;
+        border-radius:50%;
+        opacity:.28;
+        z-index:-1;
+    }
+
+    .profile-hero:before{
+        width:230px;
+        height:230px;
+        right:-80px;
+        top:-90px;
+        background:#93c5fd;
+    }
+
+    .profile-hero:after{
+        width:180px;
+        height:180px;
+        right:230px;
+        bottom:-105px;
+        background:#c084fc;
+    }
+
+    .profile-hero-inner{
+        display:flex;
+        justify-content:space-between;
+        gap:20px;
+        align-items:center;
+    }
+
+    .profile-kicker{
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding:7px 12px;
+        border-radius:999px;
+        background:rgba(255,255,255,.14);
+        border:1px solid rgba(255,255,255,.22);
+        font-size:.76rem;
+        font-weight:900;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+        margin-bottom:12px;
+    }
+
+    .profile-kicker span{
+        width:9px;
+        height:9px;
+        border-radius:50%;
+        background:#22c55e;
+        box-shadow:0 0 0 7px rgba(34,197,94,.16);
+    }
+
+    .profile-hero h2{
+        margin:0;
+        font-size:clamp(1.6rem,3vw,2.45rem);
+        line-height:1.08;
+        font-weight:950;
+        letter-spacing:-.04em;
+    }
+
+    .profile-hero p{
+        max-width:690px;
+        margin:10px 0 0;
+        color:rgba(255,255,255,.82);
+        line-height:1.65;
+    }
+
+    .profile-avatar{
+        width:86px;
+        height:86px;
+        border-radius:26px;
+        background:rgba(255,255,255,.16);
+        border:1px solid rgba(255,255,255,.28);
+        display:grid;
+        place-items:center;
+        color:#fff;
+        font-size:2.3rem;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
+        flex:0 0 auto;
+    }
+
+    .profile-card{
+        max-width:1050px;
+        background:#fff;
+        border:1px solid var(--line);
+        border-radius:24px;
+        box-shadow:0 18px 45px rgba(15,23,42,.08);
+        overflow:hidden;
+    }
+
+    .profile-card-header{
+        padding:22px 24px;
+        border-bottom:1px solid var(--line);
+        background:
+            radial-gradient(circle at top right,rgba(37,99,235,.08),transparent 32%),
+            linear-gradient(180deg,#fff,#f8fafc);
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:16px;
+    }
+
+    .profile-card-title{
+        display:flex;
+        align-items:center;
+        gap:13px;
+    }
+
+    .profile-card-icon{
+        width:46px;
+        height:46px;
+        border-radius:16px;
+        display:grid;
+        place-items:center;
+        color:#fff;
+        font-size:1.35rem;
+        background:linear-gradient(135deg,var(--primary),var(--secondary));
+        box-shadow:0 12px 24px rgba(37,99,235,.20);
+        flex:0 0 auto;
+    }
+
+    .profile-card-header h2{
+        margin:0;
+        color:var(--ink);
+        font-size:1.22rem;
+        font-weight:950;
+    }
+
+    .profile-card-header p{
+        margin:5px 0 0;
+        color:var(--muted);
+        line-height:1.5;
+    }
+
+    .profile-status-badge{
+        padding:9px 13px;
+        border-radius:999px;
+        background:#ecfdf5;
+        color:#15803d;
+        font-size:.82rem;
+        font-weight:900;
+        white-space:nowrap;
+    }
+
+    .profile-form{
+        padding:24px;
+    }
+
+    .profile-meta{
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:14px;
+        margin-bottom:24px;
+    }
+
+    .profile-meta-item{
+        position:relative;
+        overflow:hidden;
+        background:#f8fafc;
+        border:1px solid var(--line);
+        border-radius:18px;
+        padding:16px;
+        color:var(--muted);
+        display:flex;
+        align-items:center;
+        gap:12px;
+    }
+
+    .profile-meta-item:before{
+        content:"";
+        position:absolute;
+        left:0;
+        top:0;
+        bottom:0;
+        width:5px;
+        background:linear-gradient(180deg,var(--primary),var(--cyan));
+    }
+
+    .profile-meta-icon{
+        width:40px;
+        height:40px;
+        border-radius:14px;
+        display:grid;
+        place-items:center;
+        color:#fff;
+        background:linear-gradient(135deg,var(--primary),var(--cyan));
+        flex:0 0 auto;
+    }
+
+    .profile-meta-item span{
+        display:block;
+        font-size:.76rem;
+        font-weight:900;
+        text-transform:uppercase;
+        letter-spacing:.05em;
+        color:var(--muted);
+    }
+
+    .profile-meta-item strong{
+        display:block;
+        color:var(--ink);
+        margin-top:3px;
+        font-size:1rem;
+    }
+
+    .profile-grid{
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:20px;
+    }
+
+    .profile-field-wide{
+        grid-column:1 / -1;
+    }
+
+    .profile-field{
+        padding:16px;
+        border:1px solid #e2e8f0;
+        border-radius:18px;
+        background:#fff;
+        transition:.25s ease;
+    }
+
+    .profile-field:hover{
+        border-color:#bfdbfe;
+        box-shadow:0 12px 28px rgba(37,99,235,.07);
+    }
+
+    .profile-form .form-label{
+        color:var(--ink);
+        font-weight:900;
+        margin-bottom:8px;
+        display:flex;
+        align-items:center;
+        gap:8px;
+    }
+
+    .profile-form .form-label i{
+        color:var(--primary);
+        font-size:1rem;
+    }
+
+    .profile-form .form-control,
+    .profile-form input,
+    .profile-form textarea,
+    .profile-form select{
+        border:1px solid #cbd5e1;
+        border-radius:12px;
+        padding:11px 13px;
+        width:100%;
+        color:var(--ink);
+        background:#fff;
+        transition:.2s ease;
+    }
+
+    .profile-form textarea{
+        min-height:110px;
+        resize:vertical;
+    }
+
+    .profile-form .form-control:focus,
+    .profile-form input:focus,
+    .profile-form textarea:focus,
+    .profile-form select:focus{
+        border-color:var(--primary);
+        box-shadow:0 0 0 4px rgba(37,99,235,.12);
+        outline:none;
+    }
+
+    .profile-actions{
+        display:flex;
+        justify-content:flex-end;
+        align-items:center;
+        gap:12px;
+        margin-top:24px;
+        padding-top:22px;
+        border-top:1px solid var(--line);
+    }
+
+    .profile-actions .btn{
+        min-width:165px;
+        font-weight:900;
+        border-radius:14px;
+        padding:11px 18px;
+        box-shadow:0 12px 24px rgba(37,99,235,.20);
+    }
+
+    .errorlist{
+        color:#b91c1c;
+        margin:8px 0 0;
+        padding-left:18px;
+        font-size:.88rem;
+    }
+
+    @media(max-width:800px){
+        .profile-hero-inner,
+        .profile-card-header{
+            flex-direction:column;
+            align-items:flex-start;
+        }
+
+        .profile-avatar{
+            width:72px;
+            height:72px;
+            font-size:2rem;
+        }
+
+        .profile-grid,
+        .profile-meta{
+            grid-template-columns:1fr;
+        }
+
+        .profile-field-wide{
+            grid-column:auto;
+        }
+    }
+
+    @media(max-width:520px){
+        .profile-hero{
+            padding:22px;
+            border-radius:20px;
+        }
+
+        .profile-form{
+            padding:18px;
+        }
+
+        .profile-field{
+            padding:14px;
+        }
+
+        .profile-actions{
+            align-items:stretch;
+        }
+
+        .profile-actions .btn{
+            width:100%;
+        }
+    }
+</style>
+
+<main id="main" class="main institute-profile-page">
+    <div class="pagetitle">
+        <h1>Institute Profile</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item active">Institute Profile</li>
+            </ol>
+        </nav>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="profile-shell">
+        <section class="profile-hero">
+            <div class="profile-hero-inner">
+                <div>
+                    <div class="profile-kicker">
+                        <span></span>
+                        Institute Control Center
+                    </div>
+                    <h2>{{ institute.name|default:"Institute Profile" }}</h2>
+                    <p>
+                        Manage your institute identity, contact details, owner information and official address used across the UltraCoachMatrix panel.
+                    </p>
+                </div>
+
+                <div class="profile-avatar">
+                    <i class="bi bi-building-check"></i>
+                </div>
+            </div>
+        </section>
+
+        <section class="profile-card">
+            <div class="profile-card-header">
+                <div class="profile-card-title">
+                    <div class="profile-card-icon">
+                        <i class="bi bi-pencil-square"></i>
+                    </div>
+                    <div>
+                        <h2>Institute Details</h2>
+                        <p>Update the identity and contact information used across the institute panel.</p>
+                    </div>
+                </div>
+
+                <div class="profile-status-badge">
+                    {{ institute.get_status_display }}
+                </div>
+            </div>
+
+            <form method="post" class="profile-form">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                {% endif %}
+
+                <div class="profile-meta">
+                    <div class="profile-meta-item">
+                        <div class="profile-meta-icon">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                        <div>
+                            <span>Status</span>
+                            <strong>{{ institute.get_status_display }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="profile-meta-item">
+                        <div class="profile-meta-icon">
+                            <i class="bi bi-calendar2-check"></i>
+                        </div>
+                        <div>
+                            <span>Created</span>
+                            <strong>{{ institute.created_at|date:"d M Y" }}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-grid">
+                    <div class="profile-field">
+                        <label class="form-label" for="{{ form.name.id_for_label }}">
+                            <i class="bi bi-building"></i>
+                            Institute Name
+                        </label>
+                        {{ form.name }}
+                        {{ form.name.errors }}
+                    </div>
+
+                    <div class="profile-field">
+                        <label class="form-label" for="{{ form.code.id_for_label }}">
+                            <i class="bi bi-upc-scan"></i>
+                            Institute Code
+                        </label>
+                        {{ form.code }}
+                        {{ form.code.errors }}
+                    </div>
+
+                    <div class="profile-field">
+                        <label class="form-label" for="{{ form.owner_name.id_for_label }}">
+                            <i class="bi bi-person-badge"></i>
+                            Owner / Director Name
+                        </label>
+                        {{ form.owner_name }}
+                        {{ form.owner_name.errors }}
+                    </div>
+
+                    <div class="profile-field">
+                        <label class="form-label" for="{{ form.phone.id_for_label }}">
+                            <i class="bi bi-telephone"></i>
+                            Phone
+                        </label>
+                        {{ form.phone }}
+                        {{ form.phone.errors }}
+                    </div>
+
+                    <div class="profile-field profile-field-wide">
+                        <label class="form-label" for="{{ form.email.id_for_label }}">
+                            <i class="bi bi-envelope"></i>
+                            Email
+                        </label>
+                        {{ form.email }}
+                        {{ form.email.errors }}
+                    </div>
+
+                    <div class="profile-field profile-field-wide">
+                        <label class="form-label" for="{{ form.address.id_for_label }}">
+                            <i class="bi bi-geo-alt"></i>
+                            Address
+                        </label>
+                        {{ form.address }}
+                        {{ form.address.errors }}
+                    </div>
+                </div>
+
+                <div class="profile-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Save Profile
+                    </button>
+                </div>
+            </form>
+        </section>
+    </div>
+</main>
+{% endblock content %}

@@ -1,0 +1,627 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Subscription & Billing{% endblock title %}
+
+{% block content %}
+<style>
+    .billing-page{
+        --ink:#0f172a;
+        --muted:#64748b;
+        --line:#dbe4f0;
+        --soft:#f8fafc;
+        --primary:#2563eb;
+        --secondary:#7c3aed;
+        --success:#16a34a;
+        --warning:#f59e0b;
+        --danger:#dc2626;
+        --cyan:#06b6d4;
+    }
+
+    .billing-hero{
+        position:relative;
+        overflow:hidden;
+        margin-bottom:24px;
+        padding:26px 28px;
+        border-radius:24px;
+        color:#fff;
+        background:linear-gradient(135deg,#0f172a,#2563eb 58%,#06b6d4);
+        box-shadow:0 24px 60px rgba(37,99,235,.22);
+        isolation:isolate;
+    }
+
+    .billing-hero:before,
+    .billing-hero:after{
+        content:"";
+        position:absolute;
+        border-radius:50%;
+        opacity:.28;
+        z-index:-1;
+    }
+
+    .billing-hero:before{
+        width:230px;
+        height:230px;
+        right:-80px;
+        top:-90px;
+        background:#93c5fd;
+    }
+
+    .billing-hero:after{
+        width:180px;
+        height:180px;
+        right:230px;
+        bottom:-105px;
+        background:#c084fc;
+    }
+
+    .billing-hero-top{
+        display:flex;
+        justify-content:space-between;
+        gap:18px;
+        align-items:flex-start;
+    }
+
+    .billing-kicker{
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding:7px 12px;
+        border-radius:999px;
+        background:rgba(255,255,255,.14);
+        border:1px solid rgba(255,255,255,.22);
+        font-size:.76rem;
+        font-weight:900;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+        margin-bottom:12px;
+    }
+
+    .billing-kicker span{
+        width:9px;
+        height:9px;
+        border-radius:50%;
+        background:#22c55e;
+        box-shadow:0 0 0 7px rgba(34,197,94,.16);
+    }
+
+    .billing-hero h1{
+        margin:0;
+        font-size:clamp(1.7rem,3vw,2.5rem);
+        line-height:1.08;
+        font-weight:950;
+        letter-spacing:-.04em;
+    }
+
+    .billing-hero p{
+        max-width:720px;
+        margin:10px 0 0;
+        color:rgba(255,255,255,.82);
+        line-height:1.65;
+    }
+
+    .billing-status-pill{
+        padding:12px 16px;
+        border-radius:18px;
+        background:rgba(255,255,255,.14);
+        border:1px solid rgba(255,255,255,.24);
+        backdrop-filter:blur(12px);
+        min-width:190px;
+        text-align:right;
+    }
+
+    .billing-status-pill small{
+        display:block;
+        color:rgba(255,255,255,.72);
+        font-weight:800;
+        text-transform:uppercase;
+        letter-spacing:.05em;
+        font-size:.72rem;
+        margin-bottom:5px;
+    }
+
+    .billing-status-pill strong{
+        display:block;
+        font-size:1.15rem;
+        font-weight:950;
+    }
+
+    .billing-grid{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:16px;
+        margin-bottom:22px;
+    }
+
+    .billing-card,
+    .billing-panel{
+        background:#fff;
+        border:1px solid var(--line);
+        border-radius:20px;
+        box-shadow:0 14px 34px rgba(15,23,42,.06);
+    }
+
+    .billing-card{
+        position:relative;
+        overflow:hidden;
+        padding:20px;
+        transition:.28s ease;
+    }
+
+    .billing-card:hover{
+        transform:translateY(-4px);
+        box-shadow:0 22px 45px rgba(37,99,235,.12);
+    }
+
+    .billing-card:before{
+        content:"";
+        position:absolute;
+        top:0;
+        left:0;
+        right:0;
+        height:5px;
+        background:linear-gradient(90deg,var(--primary),var(--secondary),var(--cyan));
+    }
+
+    .billing-card-head{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+    }
+
+    .billing-icon{
+        width:46px;
+        height:46px;
+        border-radius:16px;
+        display:grid;
+        place-items:center;
+        color:#fff;
+        font-size:1.3rem;
+        background:linear-gradient(135deg,var(--primary),var(--secondary));
+        box-shadow:0 12px 24px rgba(37,99,235,.20);
+    }
+
+    .billing-label{
+        color:var(--muted);
+        font-size:.75rem;
+        font-weight:900;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+    }
+
+    .billing-value{
+        margin-top:10px;
+        color:var(--ink);
+        font-size:1.22rem;
+        font-weight:950;
+        line-height:1.25;
+    }
+
+    .billing-note{
+        margin-top:7px;
+        color:var(--muted);
+        font-size:.84rem;
+        line-height:1.45;
+    }
+
+    .billing-panel{
+        overflow:hidden;
+    }
+
+    .billing-panel-header{
+        padding:20px 22px;
+        border-bottom:1px solid var(--line);
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:16px;
+        background:
+            radial-gradient(circle at top right,rgba(37,99,235,.08),transparent 30%),
+            linear-gradient(180deg,#fff,#f8fafc);
+    }
+
+    .billing-panel-title{
+        display:flex;
+        align-items:center;
+        gap:13px;
+    }
+
+    .billing-panel-icon{
+        width:44px;
+        height:44px;
+        border-radius:15px;
+        display:grid;
+        place-items:center;
+        color:#fff;
+        font-size:1.25rem;
+        background:linear-gradient(135deg,#2563eb,#06b6d4);
+        box-shadow:0 12px 25px rgba(37,99,235,.20);
+        flex:0 0 auto;
+    }
+
+    .billing-panel-header h2{
+        margin:0;
+        font-size:1.15rem;
+        font-weight:950;
+        color:var(--ink);
+    }
+
+    .billing-panel-header p{
+        margin:5px 0 0;
+        color:var(--muted);
+        line-height:1.45;
+    }
+
+    .billing-count{
+        padding:9px 13px;
+        border-radius:999px;
+        background:#eff6ff;
+        color:#1d4ed8;
+        font-size:.82rem;
+        font-weight:900;
+        white-space:nowrap;
+    }
+
+    .billing-table-wrap{
+        overflow-x:auto;
+    }
+
+    .billing-table{
+        width:100%;
+        border-collapse:separate;
+        border-spacing:0;
+    }
+
+    .billing-table th,
+    .billing-table td{
+        padding:15px 16px;
+        border-bottom:1px solid #edf2f7;
+        text-align:left;
+        vertical-align:middle;
+    }
+
+    .billing-table th{
+        background:#f8fafc;
+        color:#475569;
+        font-size:.74rem;
+        text-transform:uppercase;
+        letter-spacing:.05em;
+        font-weight:900;
+        white-space:nowrap;
+    }
+
+    .billing-table td{
+        color:var(--ink);
+        font-weight:650;
+    }
+
+    .billing-table tbody tr{
+        transition:.22s ease;
+    }
+
+    .billing-table tbody tr:hover{
+        background:#f8fbff;
+    }
+
+    .amount-badge{
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        padding:7px 10px;
+        border-radius:999px;
+        background:#ecfdf5;
+        color:#15803d;
+        font-weight:950;
+        white-space:nowrap;
+    }
+
+    .method-badge{
+        display:inline-flex;
+        padding:7px 10px;
+        border-radius:999px;
+        background:#f1f5f9;
+        color:#334155;
+        font-size:.82rem;
+        font-weight:850;
+        white-space:nowrap;
+    }
+
+    .transaction-text{
+        color:#475569;
+        font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+        font-size:.84rem;
+    }
+
+    .notes-cell{
+        max-width:220px;
+        color:#64748b;
+    }
+
+    .billing-action{
+        display:inline-flex;
+        align-items:center;
+        gap:7px;
+        padding:8px 12px;
+        border:1px solid var(--primary);
+        border-radius:999px;
+        color:var(--primary);
+        font-size:.82rem;
+        font-weight:900;
+        text-decoration:none;
+        white-space:nowrap;
+        transition:.25s ease;
+        background:#fff;
+    }
+
+    .billing-action:hover{
+        background:var(--primary);
+        color:#fff;
+        transform:translateY(-2px);
+        box-shadow:0 10px 22px rgba(37,99,235,.20);
+    }
+
+    .billing-empty{
+        padding:44px 20px;
+        text-align:center;
+        color:var(--muted);
+    }
+
+    .billing-empty-icon{
+        width:62px;
+        height:62px;
+        border-radius:20px;
+        display:grid;
+        place-items:center;
+        margin:0 auto 14px;
+        background:#eff6ff;
+        color:#2563eb;
+        font-size:1.7rem;
+    }
+
+    .billing-empty strong{
+        display:block;
+        color:var(--ink);
+        font-size:1.05rem;
+        margin-bottom:5px;
+    }
+
+    .billing-help{
+        margin-top:18px;
+        padding:18px 20px;
+        background:linear-gradient(135deg,#eff6ff,#f5f3ff);
+        border:1px solid #bfdbfe;
+        border-radius:18px;
+        color:#1e3a8a;
+        display:flex;
+        align-items:center;
+        gap:12px;
+        box-shadow:0 12px 28px rgba(37,99,235,.07);
+    }
+
+    .billing-help i{
+        width:38px;
+        height:38px;
+        border-radius:13px;
+        display:grid;
+        place-items:center;
+        color:#fff;
+        background:linear-gradient(135deg,#2563eb,#7c3aed);
+        flex:0 0 auto;
+    }
+
+    .billing-help strong{
+        display:block;
+        margin-bottom:2px;
+        color:#172554;
+    }
+
+    @media(max-width:992px){
+        .billing-grid{
+            grid-template-columns:repeat(2,minmax(0,1fr));
+        }
+
+        .billing-hero-top{
+            flex-direction:column;
+        }
+
+        .billing-status-pill{
+            text-align:left;
+        }
+    }
+
+    @media(max-width:600px){
+        .billing-grid{
+            grid-template-columns:1fr;
+        }
+
+        .billing-hero{
+            padding:22px;
+            border-radius:20px;
+        }
+
+        .billing-panel-header{
+            flex-direction:column;
+            align-items:flex-start;
+        }
+
+        .billing-table{
+            min-width:760px;
+        }
+
+        .billing-help{
+            align-items:flex-start;
+        }
+    }
+</style>
+
+<main id="main" class="main billing-page">
+    <div class="pagetitle">
+        <h1>Subscription & Billing</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item active">Subscription & Billing</li>
+            </ol>
+        </nav>
+    </div>
+
+    <section class="billing-hero">
+        <div class="billing-hero-top">
+            <div>
+                <div class="billing-kicker">
+                    <span></span>
+                    Billing Center
+                </div>
+                <h1>Manage your subscription and payment history</h1>
+                <p>
+                    Review your current plan, account access, renewal timeline, and every recorded UltraCoachMatrix subscription payment in one clean dashboard.
+                </p>
+            </div>
+
+            <div class="billing-status-pill">
+                <small>Access Status</small>
+                <strong>{{ access_status }}</strong>
+            </div>
+        </div>
+    </section>
+
+    <div class="billing-grid">
+        <section class="billing-card">
+            <div class="billing-card-head">
+                <div>
+                    <div class="billing-label">Current Plan</div>
+                    <div class="billing-value">
+                        {% if subscription %}{{ subscription.get_plan_display }}{% else %}Not configured{% endif %}
+                    </div>
+                </div>
+                <div class="billing-icon">
+                    <i class="bi bi-gem"></i>
+                </div>
+            </div>
+        </section>
+
+        <section class="billing-card">
+            <div class="billing-card-head">
+                <div>
+                    <div class="billing-label">Account Status</div>
+                    <div class="billing-value">{{ institute.get_status_display }}</div>
+                    <div class="billing-note">Access: {{ access_status }}</div>
+                </div>
+                <div class="billing-icon">
+                    <i class="bi bi-shield-check"></i>
+                </div>
+            </div>
+        </section>
+
+        <section class="billing-card">
+            <div class="billing-card-head">
+                <div>
+                    <div class="billing-label">Start Date</div>
+                    <div class="billing-value">
+                        {% if subscription and subscription.starts_on %}{{ subscription.starts_on|date:"d M Y" }}{% else %}Not set{% endif %}
+                    </div>
+                </div>
+                <div class="billing-icon">
+                    <i class="bi bi-calendar2-check"></i>
+                </div>
+            </div>
+        </section>
+
+        <section class="billing-card">
+            <div class="billing-card-head">
+                <div>
+                    <div class="billing-label">Expiry Date</div>
+                    <div class="billing-value">
+                        {% if subscription and subscription.ends_on %}{{ subscription.ends_on|date:"d M Y" }}{% else %}Not set{% endif %}
+                    </div>
+                    {% if days_remaining is not None %}
+                        <div class="billing-note">{{ days_remaining }} day{{ days_remaining|pluralize }} remaining</div>
+                    {% endif %}
+                </div>
+                <div class="billing-icon">
+                    <i class="bi bi-hourglass-split"></i>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <section class="billing-panel">
+        <div class="billing-panel-header">
+            <div class="billing-panel-title">
+                <div class="billing-panel-icon">
+                    <i class="bi bi-receipt-cutoff"></i>
+                </div>
+                <div>
+                    <h2>Payment History</h2>
+                    <p>Subscription payments recorded by UltraCoachMatrix administration.</p>
+                </div>
+            </div>
+
+            {% if payments %}
+                <div class="billing-count">
+                    {{ payments|length }} payment{{ payments|length|pluralize }}
+                </div>
+            {% endif %}
+        </div>
+
+        {% if payments %}
+            <div class="billing-table-wrap">
+                <table class="billing-table">
+                    <thead>
+                        <tr>
+                            <th>Payment Date</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Transaction ID</th>
+                            <th>Notes</th>
+                            <th>Bill</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                            <tr>
+                                <td>{{ payment.paid_on|date:"d M Y" }}</td>
+                                <td>
+                                    <span class="amount-badge">
+                                        <i class="bi bi-currency-rupee"></i>
+                                        {{ payment.amount }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="method-badge">{{ payment.get_method_display }}</span>
+                                </td>
+                                <td>
+                                    <span class="transaction-text">{{ payment.transaction_id|default:"-" }}</span>
+                                </td>
+                                <td class="notes-cell">{{ payment.notes|default:"-" }}</td>
+                                <td>
+                                    <a class="billing-action" href="{% url 'institute_admin:subscription_payment_bill' payment.pk %}">
+                                        <i class="bi bi-file-earmark-text"></i>
+                                        View Bill
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="billing-empty">
+                <div class="billing-empty-icon">
+                    <i class="bi bi-receipt"></i>
+                </div>
+                <strong>No payments recorded yet</strong>
+                <span>No subscription payments have been recorded by administration.</span>
+            </div>
+        {% endif %}
+    </section>
+
+    <div class="billing-help">
+        <i class="bi bi-info-circle"></i>
+        <div>
+            <strong>Need subscription changes?</strong>
+            Plan changes, renewals and expiry extensions are handled by UltraCoachMatrix administration.
+        </div>
+    </div>
+</main>
+{% endblock content %}

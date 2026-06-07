@@ -1,0 +1,767 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Visitors{% endblock title %}
+
+{% block content %}
+<style>
+    .visitor-page {
+        --primary: #4f46e5;
+        --primary-dark: #312e81;
+        --primary-soft: #eef2ff;
+        --accent: #06b6d4;
+        --accent-soft: #ecfeff;
+        --success: #16a34a;
+        --danger: #dc2626;
+        --warning: #f59e0b;
+        --surface: rgba(255, 255, 255, 0.94);
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        --shadow: 0 20px 55px rgba(15, 23, 42, 0.10);
+        position: relative;
+        isolation: isolate;
+        padding-bottom: 36px;
+    }
+
+    .visitor-page::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: -1;
+        background:
+            radial-gradient(circle at 12% 12%, rgba(79, 70, 229, 0.16), transparent 30%),
+            radial-gradient(circle at 88% 8%, rgba(6, 182, 212, 0.14), transparent 26%),
+            linear-gradient(180deg, #f8fafc 0%, #eef2ff 42%, #f8fafc 100%);
+    }
+
+    .pagetitle h1 {
+        font-weight: 900;
+        letter-spacing: -0.04em;
+        color: var(--text);
+    }
+
+    .breadcrumb {
+        background: transparent;
+        margin-bottom: 0;
+    }
+
+    .page-toolbar,
+    .filter-panel,
+    .table-card,
+    .mini-stat-card {
+        background: var(--surface);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(14px);
+    }
+
+    .page-toolbar {
+        position: relative;
+        overflow: hidden;
+        padding: 26px;
+        margin-bottom: 24px;
+        background:
+            linear-gradient(135deg, rgba(255,255,255,0.94), rgba(238,242,255,0.90)),
+            linear-gradient(135deg, rgba(79,70,229,0.10), rgba(6,182,212,0.08));
+    }
+
+    .page-toolbar::after {
+        content: "";
+        position: absolute;
+        width: 220px;
+        height: 220px;
+        right: -90px;
+        top: -110px;
+        background: radial-gradient(circle, rgba(79,70,229,0.22), transparent 68%);
+        border-radius: 999px;
+    }
+
+    .page-toolbar > * {
+        position: relative;
+        z-index: 1;
+    }
+
+    .page-title {
+        font-size: clamp(1.65rem, 2vw, 2.15rem);
+        font-weight: 900;
+        color: var(--text);
+        margin: 0;
+        letter-spacing: -0.045em;
+    }
+
+    .page-subtitle {
+        color: var(--muted);
+        margin: 8px 0 0;
+        font-weight: 500;
+    }
+
+    .btn-gradient {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        border: none;
+        border-radius: 14px;
+        padding: 12px 18px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        box-shadow: 0 14px 28px rgba(79, 70, 229, 0.28);
+        transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+        white-space: nowrap;
+    }
+
+    .btn-gradient:hover,
+    .btn-gradient:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        filter: saturate(1.06);
+        box-shadow: 0 18px 34px rgba(79, 70, 229, 0.35);
+    }
+
+    .mini-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 24px;
+    }
+
+    .mini-stat-card {
+        position: relative;
+        overflow: hidden;
+        padding: 22px 24px;
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .mini-stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+    }
+
+    .mini-stat-card::after {
+        content: "";
+        position: absolute;
+        inset: auto -48px -58px auto;
+        width: 140px;
+        height: 140px;
+        border-radius: 999px;
+        background: rgba(79, 70, 229, 0.08);
+    }
+
+    .mini-stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 17px;
+        background: linear-gradient(135deg, var(--primary-soft), var(--accent-soft));
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        margin-bottom: 14px;
+        box-shadow: inset 0 0 0 1px rgba(79, 70, 229, 0.10);
+    }
+
+    .mini-stat-title {
+        color: var(--muted);
+        font-size: .9rem;
+        font-weight: 800;
+    }
+
+    .mini-stat-value {
+        color: var(--text);
+        font-weight: 900;
+        font-size: 1.3rem;
+        margin-top: 4px;
+        letter-spacing: -0.03em;
+    }
+
+    .filter-panel {
+        padding: 24px;
+        margin-bottom: 24px;
+        overflow: visible !important;
+    }
+
+    .filter-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 900;
+        color: var(--text);
+        margin-bottom: 18px;
+        letter-spacing: -0.02em;
+    }
+
+    .form-label {
+        color: #334155;
+        font-size: .84rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+    .form-control,
+    .form-select {
+        min-height: 46px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        padding: 11px 14px;
+        background-color: #fff;
+        color: var(--text);
+        box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+        transition: border-color .2s ease, box-shadow .2s ease;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: rgba(79, 70, 229, 0.65);
+        box-shadow: 0 0 0 .22rem rgba(79, 70, 229, 0.12);
+    }
+
+    .table-card {
+        overflow: hidden;
+    }
+
+    .table-header {
+        padding: 22px 24px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+    }
+
+    .table-header h5 {
+        margin: 0;
+        font-weight: 900;
+        color: var(--text);
+        letter-spacing: -0.02em;
+    }
+
+    .table-modern {
+        margin: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .table-modern thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #f8fafc;
+        color: #475569;
+        border-bottom: 1px solid var(--border);
+        padding: 16px 18px;
+        font-size: .76rem;
+        text-transform: uppercase;
+        letter-spacing: .075em;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .table-modern tbody td {
+        padding: 18px;
+        vertical-align: middle;
+        border-bottom: 1px solid #eef2f7;
+        color: #1e293b;
+    }
+
+    .table-modern tbody tr {
+        transition: background .2s ease;
+    }
+
+    .table-modern tbody tr:hover {
+        background: #f8fafc;
+    }
+
+    .visitor-avatar {
+        width: 44px;
+        min-width: 44px;
+        height: 44px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        box-shadow: 0 12px 24px rgba(79, 70, 229, 0.26);
+        text-transform: uppercase;
+    }
+
+    .badge-soft {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: .78rem;
+        font-weight: 800;
+        border: 1px solid transparent;
+        white-space: nowrap;
+    }
+
+    .badge-primary-soft {
+        background: #eef2ff;
+        color: #3730a3;
+        border-color: #c7d2fe;
+    }
+
+    .badge-success-soft {
+        background: #dcfce7;
+        color: #166534;
+        border-color: #bbf7d0;
+    }
+
+    .badge-warning-soft {
+        background: #fef3c7;
+        color: #92400e;
+        border-color: #fde68a;
+    }
+
+    .badge-muted-soft {
+        background: #f1f5f9;
+        color: #475569;
+        border-color: #e2e8f0;
+    }
+
+    .action-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px !important;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 5px;
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+    }
+
+    .attachment-link {
+        text-decoration: none;
+    }
+
+    .empty-state {
+        padding: 64px 20px;
+        text-align: center;
+        color: var(--muted);
+    }
+
+    .empty-state i {
+        font-size: 3.4rem;
+        color: #c7d2fe;
+        margin-bottom: 14px;
+    }
+
+    .pagination {
+        margin: 18px 24px 22px;
+    }
+
+    .page-link {
+        border-radius: 12px;
+        margin-left: 6px;
+        color: var(--primary);
+        border-color: var(--border);
+        font-weight: 800;
+    }
+
+    .page-item.disabled .page-link {
+        color: var(--muted);
+        background: #f8fafc;
+    }
+
+    @media(max-width: 992px) {
+        .mini-stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media(max-width: 576px) {
+        .mini-stat-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .page-toolbar,
+        .table-header {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 14px;
+        }
+
+        .btn-gradient,
+        .filter-panel .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .filter-actions {
+            flex-direction: column;
+            align-items: stretch !important;
+        }
+
+        .visitor-action-wrap {
+            display: flex;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+    }
+</style>
+
+<main id="main" class="main visitor-page">
+    <div class="pagetitle">
+        <h1>Visitor Log</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item active">Visitors</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="page-toolbar d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="page-title">Visitor Management</h2>
+            <p class="page-subtitle">Track campus visitors, meetings, entry time, exit time and attachments.</p>
+        </div>
+
+        <a href="javascript:void(0);"
+           data-url="{% url 'institute_admin:visitor_create' %}"
+           class="btn btn-gradient"
+           onclick="openVisitorWindow(this)">
+            <i class="bi bi-plus-circle"></i> Add Visitor
+        </a>
+    </div>
+
+    <section class="section">
+        <div class="mini-stat-grid">
+            <div class="mini-stat-card">
+                <div class="mini-stat-icon"><i class="bi bi-person-badge"></i></div>
+                <div class="mini-stat-title">Visitor Records</div>
+                <div class="mini-stat-value">Campus Entry Log</div>
+            </div>
+
+            <div class="mini-stat-card">
+                <div class="mini-stat-icon"><i class="bi bi-calendar-check"></i></div>
+                <div class="mini-stat-title">Date Filter</div>
+                <div class="mini-stat-value">{{ visit_date_filter|default:"All Dates" }}</div>
+            </div>
+
+            <div class="mini-stat-card">
+                <div class="mini-stat-icon"><i class="bi bi-search"></i></div>
+                <div class="mini-stat-title">Current Search</div>
+                <div class="mini-stat-value">{{ search_query|default:"All Visitors" }}</div>
+            </div>
+        </div>
+
+        <div class="filter-panel">
+            <div class="filter-title">
+                <i class="bi bi-funnel me-1"></i> Filter Visitors
+            </div>
+
+            <form method="get" class="row g-3">
+                <div class="col-lg-6 col-md-12">
+                    <label for="visitorSearch" class="form-label">Search</label>
+                    <input
+                        id="visitorSearch"
+                        type="search"
+                        name="search"
+                        value="{{ search_query }}"
+                        class="form-control"
+                        placeholder="Name, phone, ID number, meeting person or purpose"
+                    >
+                </div>
+
+                <div class="col-lg-3 col-md-6">
+                    <label for="visitorDate" class="form-label">Visit Date</label>
+                    <input id="visitorDate" type="date" name="visit_date" value="{{ visit_date_filter }}" class="form-control">
+                </div>
+
+                <div class="col-lg-3 col-md-6 d-flex align-items-end gap-2 filter-actions">
+                    <button type="submit" class="btn btn-gradient">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
+                    <a href="{% url 'institute_admin:visitor_list' %}" class="btn btn-light border">
+                        <i class="bi bi-x-circle"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-card">
+            <div class="table-header">
+                <h5><i class="bi bi-list-ul me-1"></i> Visitor Records</h5>
+                <span class="text-muted small">Showing latest visitor entries</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-modern align-middle">
+                    <thead>
+                        <tr>
+                            <th>Visitor</th>
+                            <th>Phone / ID</th>
+                            <th>Meeting With</th>
+                            <th>Persons</th>
+                            <th>Visit Date</th>
+                            <th>Entry / Exit</th>
+                            <th>Purpose</th>
+                            <th>Attachment</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for visitor in visitors %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="visitor-avatar">
+                                            {{ visitor.visitor_name|slice:":1" }}
+                                        </div>
+                                        <div>
+                                            <strong>{{ visitor.visitor_name }}</strong>
+                                            <div class="small text-muted">Visitor</div>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <div class="fw-bold">{{ visitor.phone_number }}</div>
+                                    {% if visitor.id_card_number %}
+                                        <div class="small text-muted">{{ visitor.id_card_number }}</div>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    <span class="badge-soft badge-primary-soft">
+                                        <i class="bi bi-person-workspace"></i> {{ visitor.meeting_with }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <span class="badge-soft badge-muted-soft">
+                                        <i class="bi bi-people"></i> {{ visitor.total_person }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <span class="fw-bold">{{ visitor.visit_date|date:"d M Y" }}</span>
+                                </td>
+
+                                <td>
+                                    <span class="badge-soft badge-success-soft">
+                                        <i class="bi bi-box-arrow-in-right"></i> {{ visitor.entry_time|time:"h:i A" }}
+                                    </span>
+                                    <div class="mt-1">
+                                        {% if visitor.exit_time %}
+                                            <span class="badge-soft badge-warning-soft">
+                                                <i class="bi bi-box-arrow-right"></i> {{ visitor.exit_time|time:"h:i A" }}
+                                            </span>
+                                        {% else %}
+                                            <span class="small text-muted">Exit: -</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+
+                                <td>{{ visitor.purpose|default:"-"|truncatechars:60 }}</td>
+
+                                <td>
+                                    {% if visitor.attachment %}
+                                        <a href="{{ visitor.attachment.url }}" target="_blank" rel="noopener" class="badge-soft badge-primary-soft attachment-link">
+                                            <i class="bi bi-paperclip"></i> View
+                                        </a>
+                                    {% else %}
+                                        <span class="badge-soft badge-muted-soft">-</span>
+                                    {% endif %}
+                                </td>
+
+                                <td class="text-end text-nowrap">
+                                    <div class="visitor-action-wrap">
+                                        <a href="javascript:void(0);"
+                                           data-url="{% url 'institute_admin:visitor_update' visitor.pk %}"
+                                           class="btn btn-sm btn-outline-warning action-btn"
+                                           onclick="openVisitorWindow(this)"
+                                           title="Edit">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </a>
+
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-danger action-btn"
+                                            data-delete-url="{% url 'institute_admin:visitor_delete' visitor.pk %}"
+                                            data-visitor-name="{{ visitor.visitor_name }}"
+                                            onclick="openDeleteVisitorModal(this)"
+                                            title="Delete"
+                                        >
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="9">
+                                    <div class="empty-state">
+                                        <i class="bi bi-person-badge"></i>
+                                        <h5>No Visitor Records Found</h5>
+                                        <p>Visitor entries will appear here after adding campus visits.</p>
+                                        <a href="javascript:void(0);"
+                                           data-url="{% url 'institute_admin:visitor_create' %}"
+                                           class="btn btn-gradient mt-2"
+                                           onclick="openVisitorWindow(this)">
+                                            <i class="bi bi-plus-circle"></i> Add First Visitor
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page_obj.paginator.num_pages > 1 %}
+                <nav aria-label="Visitor pagination">
+                    <ul class="pagination justify-content-end">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ search_query|urlencode }}&visit_date={{ visit_date_filter|urlencode }}">
+                                    Previous
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        <li class="page-item disabled">
+                            <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                        </li>
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ search_query|urlencode }}&visit_date={{ visit_date_filter|urlencode }}">
+                                    Next
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        </div>
+    </section>
+</main>
+
+<div class="modal fade" id="deleteVisitorModal" tabindex="-1" aria-labelledby="deleteVisitorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteVisitorModalLabel">
+                    <i class="bi bi-trash3 text-danger me-2"></i> Delete Visitor
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" data-dismiss="modal" onclick="closeDeleteVisitorModal()" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="text-danger mb-3" style="font-size: 3rem;">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+                <h5 class="fw-bold">Are you sure?</h5>
+                <p class="text-muted mb-2">This visitor record will be permanently deleted.</p>
+                <strong id="deleteVisitorName"></strong>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal" data-dismiss="modal" onclick="closeDeleteVisitorModal()">
+                    Cancel
+                </button>
+                <form method="post" id="deleteVisitorForm" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash3 me-1"></i> Delete Visitor
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openVisitorWindow(element, customWidth = 1050, customHeight = 820) {
+    const url = element.dataset.url;
+    const left = Math.max(0, (window.screen.width - customWidth) / 2);
+    const top = Math.max(0, (window.screen.height - customHeight) / 2);
+    const features = [
+        `width=${customWidth}`,
+        `height=${customHeight}`,
+        `left=${left}`,
+        `top=${top}`,
+        "scrollbars=yes",
+        "resizable=yes",
+        "location=no",
+        "menubar=no",
+        "toolbar=no",
+        "status=no"
+    ].join(",");
+    const visitorWindow = window.open(url, "visitorWindow", features);
+
+    if (visitorWindow) {
+        visitorWindow.focus();
+        const checkWindow = setInterval(function() {
+            if (visitorWindow.closed) {
+                clearInterval(checkWindow);
+                window.location.reload();
+            }
+        }, 500);
+    }
+
+    return false;
+}
+
+function openDeleteVisitorModal(button) {
+    const modalElement = document.getElementById("deleteVisitorModal");
+    document.getElementById("deleteVisitorForm").action = button.dataset.deleteUrl;
+    document.getElementById("deleteVisitorName").textContent =
+        button.dataset.visitorName || "This visitor";
+
+    if (window.jQuery && typeof window.jQuery.fn.modal === "function") {
+        window.jQuery(modalElement).modal("show");
+        return;
+    }
+
+    if (window.bootstrap && window.bootstrap.Modal) {
+        window.bootstrap.Modal.getOrCreateInstance(modalElement).show();
+        return;
+    }
+
+    modalElement.classList.add("show");
+    modalElement.style.display = "block";
+    modalElement.removeAttribute("aria-hidden");
+    modalElement.setAttribute("aria-modal", "true");
+    document.body.classList.add("modal-open");
+
+    let backdrop = document.getElementById("deleteVisitorModalBackdrop");
+    if (!backdrop) {
+        backdrop = document.createElement("div");
+        backdrop.id = "deleteVisitorModalBackdrop";
+        backdrop.className = "modal-backdrop fade show";
+        backdrop.addEventListener("click", closeDeleteVisitorModal);
+        document.body.appendChild(backdrop);
+    }
+}
+
+function closeDeleteVisitorModal() {
+    const modalElement = document.getElementById("deleteVisitorModal");
+    const backdrop = document.getElementById("deleteVisitorModalBackdrop");
+
+    if (window.jQuery && typeof window.jQuery.fn.modal === "function") {
+        window.jQuery(modalElement).modal("hide");
+    } else if (window.bootstrap && window.bootstrap.Modal) {
+        const modal = window.bootstrap.Modal.getInstance(modalElement);
+        if (modal) modal.hide();
+    } else {
+        modalElement.classList.remove("show");
+        modalElement.style.display = "none";
+        modalElement.setAttribute("aria-hidden", "true");
+        modalElement.removeAttribute("aria-modal");
+        document.body.classList.remove("modal-open");
+        if (backdrop) backdrop.remove();
+    }
+}
+</script>
+{% endblock content %}

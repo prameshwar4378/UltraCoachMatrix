@@ -1,15 +1,102 @@
 import json
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
+from django.contrib import admin
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 
+from accountant.models import FeeInvoice
 from institute_admin.models import AcademicYear, Batch, Course
 from student_parent.models import GuardianProfile, StudentAcademicSession, StudentEnrollment, StudentProfile
 
-from .models import Institute, UserProfile
+from .models import (
+    Institute,
+    InstituteRegistration,
+    InstituteSubscription,
+    SubscriptionPayment,
+    UserProfile,
+)
+
+
+class SaaSAdminTests(TestCase):
+    def test_admin_contains_only_saas_control_models_and_users(self):
+        registered_models = set(admin.site._registry)
+
+        self.assertIn(User, registered_models)
+        self.assertIn(Institute, registered_models)
+        self.assertNotIn(InstituteRegistration, registered_models)
+        self.assertNotIn(UserProfile, registered_models)
+        self.assertNotIn(InstituteSubscription, registered_models)
+        self.assertIn(SubscriptionPayment, registered_models)
+        self.assertNotIn(Course, registered_models)
+        self.assertNotIn(StudentProfile, registered_models)
+        self.assertNotIn(FeeInvoice, registered_models)
+
+
+class SaaSBillingModelTests(TestCase):
+    def setUp(self):
+        self.institute = Institute.objects.create(
+            name="Billing Institute",
+            code="billing-institute",
+            status=Institute.Status.ACTIVE,
+        )
+        self.subscription = InstituteSubscription.objects.create(
+            institute=self.institute,
+            starts_on=date.today(),
+            ends_on=date.today() + timedelta(days=30),
+        )
+
+    def test_subscription_uses_end_date_as_expiry(self):
+        self.assertEqual(self.subscription.plan, InstituteSubscription.Plan.FREE_TRIAL)
+        self.assertEqual(self.subscription.expiry_date, self.subscription.ends_on)
+        self.assertFalse(self.subscription.is_expired)
+        self.assertTrue(self.subscription.is_active)
+
+    def test_invalid_subscription_date_range_is_rejected(self):
+        self.subscription.ends_on = date.today() - timedelta(days=1)
+
+        with self.assertRaises(ValidationError):
+            self.subscription.full_clean()
+
+    def test_payment_history_is_stored_directly_against_school(self):
+        payment = SubscriptionPayment.objects.create(
+            institute=self.institute,
+            amount=Decimal("500.00"),
+            method=SubscriptionPayment.Method.UPI,
+            transaction_id="TXN-500",
+        )
+
+        self.assertEqual(payment.institute, self.institute)
+        self.assertEqual(payment.transaction_id, "TXN-500")
+
+    def test_expired_school_is_blocked_from_web_and_api_login(self):
+        self.subscription.ends_on = date.today() - timedelta(days=1)
+        self.subscription.save(update_fields=["ends_on"])
+        user = User.objects.create_user(username="expired-admin", password="pass12345")
+        UserProfile.objects.create(
+            user=user,
+            institute=self.institute,
+            role=UserProfile.Role.INSTITUTE_ADMIN,
+        )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse("institute_admin:dashboard"))
+        self.assertRedirects(
+            response,
+            f"{reverse('subscription_expired')}?reason=Your%20software%20subscription%20has%20expired.",
+            fetch_redirect_response=False,
+        )
+
+        self.client.logout()
+        response = self.client.post(
+            reverse("api_login"),
+            data=json.dumps({"username": "expired-admin", "password": "pass12345"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403)
 
 
 class AuthEndpointTests(TestCase):
@@ -224,6 +311,10 @@ class AuthEndpointTests(TestCase):
             institute=self.institute,
             academic_year=academic_year,
             name="Morning",
+            weekly_timetable={
+                "monday": {"start": "09:00", "end": "11:00"},
+                "wednesday": {"start": "13:00", "end": "15:00"},
+            },
         )
         batch.courses.add(course)
         session = StudentAcademicSession.objects.create(
@@ -255,3 +346,55 @@ class AuthEndpointTests(TestCase):
         self.assertEqual(data["student"]["phone"], "9111111111")
         self.assertEqual(data["guardians"][0]["name"], "Parent One")
         self.assertEqual(data["enrollments"][0]["batch"]["name"], "Morning")
+        self.assertEqual(
+            data["enrollments"][0]["batch"]["weekly_timetable"]["monday"],
+            {"start": "09:00", "end": "11:00"},
+        )
+
+
+class InstituteSignupOnboardingTests(TestCase):
+    def signup_data(self):
+        return {
+            "institute_name": "New Learning Center",
+            "institute_code": "new-learning-center",
+            "owner_name": "New Owner",
+            "phone": "9000012345",
+            "email": "owner@example.com",
+            "username": "new-owner",
+            "password1": "StrongPass123!",
+            "password2": "StrongPass123!",
+        }
+
+    def test_signup_creates_fourteen_day_trial_and_opens_tour(self):
+        today = date.today()
+
+        response = self.client.post(reverse("signup"), self.signup_data())
+
+        user = User.objects.get(username="new-owner")
+        profile = user.profile
+        subscription = profile.institute.subscription
+        self.assertRedirects(response, reverse("institute_admin:software_tour"))
+        self.assertIsNone(profile.onboarding_completed_at)
+        self.assertEqual(profile.institute.status, Institute.Status.TRIAL)
+        self.assertEqual(subscription.plan, InstituteSubscription.Plan.FREE_TRIAL)
+        self.assertEqual(subscription.starts_on, today)
+        self.assertEqual(subscription.ends_on, today + timedelta(days=14))
+
+    def test_tour_can_be_finished_only_once(self):
+        self.client.post(reverse("signup"), self.signup_data())
+
+        tour_response = self.client.get(reverse("institute_admin:software_tour"))
+        self.assertEqual(tour_response.status_code, 200)
+        self.assertContains(tour_response, "Your Institute. One Control Center.")
+        self.assertContains(tour_response, "Next")
+        self.assertContains(tour_response, 'method="post"')
+        self.assertContains(tour_response, "csrfmiddlewaretoken")
+
+        finish_response = self.client.post(reverse("institute_admin:software_tour"))
+        self.assertRedirects(finish_response, reverse("institute_admin:dashboard"))
+        self.assertIsNotNone(
+            User.objects.get(username="new-owner").profile.onboarding_completed_at
+        )
+
+        revisit_response = self.client.get(reverse("institute_admin:software_tour"))
+        self.assertRedirects(revisit_response, reverse("institute_admin:dashboard"))

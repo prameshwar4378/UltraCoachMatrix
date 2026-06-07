@@ -6,6 +6,7 @@ urlpatterns = [
     path("dashboard/", views.role_home, name="dashboard"),
     path("login/", views.RoleLoginView.as_view(), name="login"),
     path("logout/", views.RoleLogoutView.as_view(), name="logout"),
+    path("subscription-expired/", views.subscription_expired, name="subscription_expired"),
     path("api/auth/login/", views.api_login, name="api_login"),
     path("api/auth/logout/", views.api_logout, name="api_logout"),
     path("api/mobile/auth/login/", views.mobile_login, name="mobile_login"),

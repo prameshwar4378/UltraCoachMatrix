@@ -1,0 +1,292 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Payment Bill{% endblock title %}
+
+{% block content %}
+{% load static %}
+<style>
+    .bill-wrap { max-width:780px; margin:0 auto; }
+    .bill-actions { display:flex; justify-content:space-between; gap:10px; margin-bottom:16px; }
+    .bill-button {
+        padding:9px 16px;
+        border:1px solid #cbd5e1;
+        border-radius:10px;
+        background:#fff;
+        color:#0f172a;
+        text-decoration:none;
+        cursor:pointer;
+        font-weight:700;
+        box-shadow:0 8px 20px rgba(15,23,42,.06);
+    }
+    .bill-button:hover { background:#f8fafc; }
+
+    .bill {
+        padding:28px;
+        border:1px solid #cbd5e1;
+        border-radius:18px;
+        background:
+            radial-gradient(circle at top right, rgba(37,99,235,.10), transparent 34%),
+            #fff;
+        color:#0f172a;
+        box-shadow:0 18px 50px rgba(15,23,42,.10);
+        position:relative;
+        overflow:hidden;
+    }
+
+    .bill:before{
+        content:"";
+        position:absolute;
+        top:0;
+        left:0;
+        right:0;
+        height:8px;
+        background:linear-gradient(90deg,#2563eb,#7c3aed,#06b6d4);
+    }
+
+    .bill-header {
+        display:flex;
+        justify-content:space-between;
+        gap:20px;
+        padding-bottom:20px;
+        border-bottom:1px solid #e2e8f0;
+        position:relative;
+        z-index:1;
+    }
+
+    .brand-box{
+        display:flex;
+        align-items:center;
+        gap:14px;
+    }
+
+    .bill-logo{
+        width:58px;
+        height:58px;
+        border-radius:16px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background:white;
+        color:#fff;
+        font-size:1.55rem;
+        font-weight:900;
+        box-shadow:0 12px 26px rgba(37,99,235,.26);
+        overflow:hidden;
+    }
+
+    .bill-logo img{
+        width:100%;
+        height:100%;
+        object-fit:cover;
+    }
+
+    .bill-header h1 {
+        margin:0 0 6px;
+        font-size:1.65rem;
+        font-weight:900;
+        color:#0f172a;
+    }
+
+    .bill-header p, .bill-address {
+        margin:3px 0;
+        color:#475569;
+    }
+
+    .bill-meta {
+        text-align:right;
+        padding:12px 14px;
+        border-radius:14px;
+        background:#f8fafc;
+        border:1px solid #e2e8f0;
+        min-width:170px;
+    }
+
+    .bill-meta strong{
+        display:block;
+        color:#2563eb;
+        font-size:1rem;
+        margin-bottom:4px;
+    }
+
+    .bill-section {
+        margin-top:22px;
+        position:relative;
+        z-index:1;
+    }
+
+    .bill-section h2 {
+        margin:0 0 12px;
+        font-size:1rem;
+        font-weight:900;
+        color:#0f172a;
+        display:flex;
+        align-items:center;
+        gap:8px;
+    }
+
+    .bill-section h2:before{
+        content:"";
+        width:8px;
+        height:8px;
+        border-radius:50%;
+        background:#2563eb;
+        box-shadow:0 0 0 5px rgba(37,99,235,.12);
+    }
+
+    .institute-card{
+        padding:16px;
+        border:1px solid #e2e8f0;
+        border-radius:14px;
+        background:#f8fafc;
+    }
+
+    .institute-card strong{
+        display:block;
+        font-size:1.05rem;
+        color:#0f172a;
+        margin-bottom:6px;
+    }
+
+    .bill-table {
+        width:100%;
+        border-collapse:separate;
+        border-spacing:0;
+        overflow:hidden;
+        border:1px solid #e2e8f0;
+        border-radius:14px;
+    }
+
+    .bill-table th, .bill-table td {
+        padding:12px;
+        border-bottom:1px solid #e2e8f0;
+        text-align:left;
+    }
+
+    .bill-table tr:last-child th,
+    .bill-table tr:last-child td {
+        border-bottom:0;
+    }
+
+    .bill-table th {
+        width:34%;
+        background:#f8fafc;
+        color:#334155;
+        font-weight:800;
+    }
+
+    .bill-table td {
+        color:#0f172a;
+        font-weight:600;
+        background:#fff;
+    }
+
+    .bill-total {
+        margin-top:20px;
+        padding:18px;
+        border-radius:16px;
+        background:linear-gradient(135deg,#0f172a,#2563eb);
+        color:#fff;
+        text-align:right;
+        font-size:1.2rem;
+        font-weight:900;
+        box-shadow:0 14px 30px rgba(37,99,235,.22);
+    }
+
+    .bill-footer{
+        margin-top:18px;
+        padding-top:14px;
+        border-top:1px dashed #cbd5e1;
+        display:flex;
+        justify-content:space-between;
+        gap:15px;
+        color:#64748b;
+        font-size:.85rem;
+    }
+
+    @media print {
+        .bill-actions, .header, .sidebar, .footer, .pagetitle { display:none !important; }
+        .main { margin:0 !important; padding:0 !important; }
+        .bill { border:0; box-shadow:none; border-radius:0; }
+        .bill-button { box-shadow:none; }
+    }
+</style>
+
+<main id="main" class="main">
+    <div class="bill-wrap">
+        <div class="bill-actions">
+            <a class="bill-button" href="{% url 'subscription_billing' %}">← Back to Billing</a>
+            <button class="bill-button" type="button" onclick="window.print()">Print Bill</button>
+        </div>
+
+        <section class="bill">
+            <div class="bill-header">
+                <div class="brand-box">
+                    <div class="bill-logo">
+                            <img src="{% static "img/favicon.png" %}" alt="">
+                      
+                    </div>
+                    <div>
+                        <h1>Payment Receipt</h1>
+                        <p>UltraCoachMatrix Subscription Payment</p>
+                    </div>
+                </div>
+
+                <div class="bill-meta">
+                    <strong>{{ bill_number }}</strong>
+                    <p>{{ payment.paid_on|date:"d M Y" }}</p>
+                </div>
+            </div>
+
+            <div class="bill-section">
+                <h2>Institute Details</h2>
+                <div class="institute-card">
+                    <strong>{{ institute.name }}</strong>
+                    {% if institute.owner_name %}<p class="bill-address">{{ institute.owner_name }}</p>{% endif %}
+                    {% if institute.address %}<p class="bill-address">{{ institute.address }}</p>{% endif %}
+                    {% if institute.phone %}<p class="bill-address">Phone: {{ institute.phone }}</p>{% endif %}
+                    {% if institute.email %}<p class="bill-address">Email: {{ institute.email }}</p>{% endif %}
+                </div>
+            </div>
+
+            <div class="bill-section">
+                <h2>Payment Details</h2>
+                <table class="bill-table">
+                    <tr>
+                        <th>Plan</th>
+                        <td>{% if subscription %}{{ subscription.get_plan_display }}{% else %}-{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th>Payment Method</th>
+                        <td>{{ payment.get_method_display }}</td>
+                    </tr>
+                    <tr>
+                        <th>Transaction ID</th>
+                        <td>{{ payment.transaction_id|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Subscription Start</th>
+                        <td>{% if subscription and subscription.starts_on %}{{ subscription.starts_on|date:"d M Y" }}{% else %}-{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th>Subscription Expiry</th>
+                        <td>{% if subscription and subscription.ends_on %}{{ subscription.ends_on|date:"d M Y" }}{% else %}-{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th>Notes</th>
+                        <td>{{ payment.notes|default:"-" }}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="bill-total">
+                Amount Paid: INR {{ payment.amount }}
+            </div>
+
+            <div class="bill-footer">
+                <span>Thank you for choosing UltraCoachMatrix.</span>
+                <span>This is a system generated receipt.</span>
+            </div>
+        </section>
+    </div>
+</main>
+{% endblock content %}

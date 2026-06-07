@@ -19,6 +19,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import include, path
 from django.views.generic import RedirectView
+from institute_admin import views as institute_admin_views
 from student_parent import views as student_parent_views
 from super_admin import views as super_admin_views
 from super_admin import urls as super_admin_urls
@@ -44,18 +45,23 @@ urlpatterns = [
     path('dashboard/', super_admin_views.role_home, name='school_dashboard'),
     path(
         'institute/profile/',
-        RedirectView.as_view(pattern_name='institute_admin:dashboard', permanent=False),
+        institute_admin_views.institute_profile,
         name='institute_profile',
     ),
     path(
         'institute/billing/',
-        RedirectView.as_view(pattern_name='institute_admin:dashboard', permanent=False),
+        institute_admin_views.subscription_billing,
         name='subscription_billing',
     ),
     path(
         'institute/security/',
-        RedirectView.as_view(pattern_name='institute_admin:dashboard', permanent=False),
+        institute_admin_views.security_settings,
         name='security_settings',
+    ),
+    path(
+        'institute/help/',
+        institute_admin_views.help_support,
+        name='help_support',
     ),
     path(
         'institute/tasks/',

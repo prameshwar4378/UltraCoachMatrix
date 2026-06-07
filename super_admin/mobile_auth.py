@@ -8,6 +8,7 @@ from django.core import signing
 from django.utils import timezone
 
 from .models import MobileRefreshToken
+from .subscription_access import institute_access_status
 
 
 ACCESS_TOKEN_SALT = "ultracoachmatrix.mobile.access"
@@ -38,6 +39,9 @@ def verify_access_token(token):
     user = User.objects.filter(pk=payload.get("user_id"), is_active=True).first()
     if not user:
         return None
+    allowed, _message = institute_access_status(user)
+    if not allowed:
+        return None
     return user
 
 
@@ -55,6 +59,9 @@ def get_active_refresh_token(raw_token):
     token_hash = hash_token(raw_token)
     refresh_token = MobileRefreshToken.objects.select_related("user").filter(token_hash=token_hash).first()
     if not refresh_token or not refresh_token.is_active or not refresh_token.user.is_active:
+        return None
+    allowed, _message = institute_access_status(refresh_token.user)
+    if not allowed:
         return None
     return refresh_token
 

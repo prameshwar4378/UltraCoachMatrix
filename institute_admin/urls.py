@@ -6,6 +6,12 @@ app_name = "institute_admin"
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
+    path("software-tour/", views.software_tour, name="software_tour"),
+    path(
+        "billing/payments/<int:pk>/bill/",
+        views.subscription_payment_bill,
+        name="subscription_payment_bill",
+    ),
     path("academic-year/switch/", views.academic_year_switch, name="academic_year_switch"),
     path("courses/", views.course_list, name="course_list"),
     path("courses/create/", views.course_create, name="course_create"),
@@ -23,6 +29,15 @@ urlpatterns = [
     path("batches/create/", views.batch_create, name="batch_create"),
     path("batches/<int:pk>/edit/", views.batch_update, name="batch_update"),
     path("batches/<int:pk>/delete/", views.batch_delete, name="batch_delete"),
+    path("leads/", views.lead_list, name="lead_list"),
+    path("leads/create/", views.lead_create, name="lead_create"),
+    path("leads/<int:pk>/edit/", views.lead_update, name="lead_update"),
+    path("leads/<int:pk>/delete/", views.lead_delete, name="lead_delete"),
+    path("leads/<int:pk>/convert/", views.lead_convert, name="lead_convert"),
+    path("visitors/", views.visitor_list, name="visitor_list"),
+    path("visitors/create/", views.visitor_create, name="visitor_create"),
+    path("visitors/<int:pk>/edit/", views.visitor_update, name="visitor_update"),
+    path("visitors/<int:pk>/delete/", views.visitor_delete, name="visitor_delete"),
     path("users/", views.user_list, name="user_list"),
     path("users/create/", views.user_create, name="user_create"),
     path("users/<int:pk>/edit/", views.user_update, name="user_update"),

@@ -5,10 +5,12 @@ import json
 
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.sessions.models import Session
 from django.core.exceptions import PermissionDenied
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q, Sum
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
@@ -31,8 +33,9 @@ from student_parent.models import (
     StudentProfile,
 )
 from student_parent.notifications import notify_fee_paid, notify_notice_published, notify_result_declared
-from super_admin.models import UserProfile
+from super_admin.models import SubscriptionPayment, UserProfile
 from super_admin.decorators import institute_admin_required
+from super_admin.session_security import user_web_sessions
 from teacher.models import (
     Attendance,
     Exam,
@@ -52,17 +55,21 @@ from .forms import (
     AddStudentFeeForm,
     BatchForm,
     CourseForm,
+    LeadForm,
     FeeCategoryForm,
     generate_student_admission_number,
     get_academic_year_label,
     get_institute_initials,
     get_or_create_academic_year,
     HomeworkForm,
+    InstituteProfileForm,
     InstituteUserForm,
     NoticeForm,
     PaymentUpdateForm,
     PaymentVoidForm,
     ReceiveFeeForm,
+    SecurityPasswordChangeForm,
+    SupportTicketForm,
     StudentBasicForm,
     StudentDocumentUploadForm,
     StudentEducationForm,
@@ -71,8 +78,9 @@ from .forms import (
     StudentGuardianForm,
     SubjectForm,
     TeacherForm,
+    VisitorForm,
 )
-from .models import AcademicYear, Batch, Course, Notice, Subject
+from .models import AcademicYear, Batch, Course, Lead, Notice, Subject, SupportTicket, Visitor
 
 
 def close_popup_response(receipt_url=None):
@@ -107,6 +115,217 @@ def get_current_institute(request):
     return profile.institute
 
 
+@institute_admin_required
+def software_tour(request):
+    profile = request.user.profile
+    subscription = getattr(profile.institute, "subscription", None)
+
+    if profile.onboarding_completed_at:
+        return redirect("institute_admin:dashboard")
+
+    if request.method == "POST":
+        profile.onboarding_completed_at = timezone.now()
+        profile.save(update_fields=["onboarding_completed_at"])
+        messages.success(request, "Setup tour completed. Welcome to UltraCoachMatrix.")
+        return redirect("institute_admin:dashboard")
+
+    return render(
+        request,
+        "institute_admin/software_tour.html",
+        {
+            "institute": profile.institute,
+            "subscription": subscription,
+        },
+    )
+
+
+@institute_admin_required
+def institute_profile(request):
+    institute = get_current_institute(request)
+    form = InstituteProfileForm(request.POST or None, instance=institute)
+
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Institute profile updated successfully.")
+        return redirect("institute_profile")
+
+    return render(
+        request,
+        "institute_admin/institute_profile.html",
+        {
+            "form": form,
+            "institute": institute,
+        },
+    )
+
+
+@institute_admin_required
+def subscription_billing(request):
+    institute = get_current_institute(request)
+    subscription = getattr(institute, "subscription", None)
+    payments = SubscriptionPayment.objects.filter(institute=institute)
+
+    days_remaining = None
+    if subscription and subscription.ends_on:
+        days_remaining = max((subscription.ends_on - timezone.localdate()).days, 0)
+
+    if institute.status not in {institute.Status.ACTIVE, institute.Status.TRIAL}:
+        access_status = institute.get_status_display()
+    elif subscription and subscription.is_expired:
+        access_status = "Expired"
+    elif subscription and not subscription.is_active:
+        access_status = "Not started"
+    else:
+        access_status = "Active"
+
+    return render(
+        request,
+        "institute_admin/subscription_billing.html",
+        {
+            "institute": institute,
+            "subscription": subscription,
+            "payments": payments,
+            "days_remaining": days_remaining,
+            "access_status": access_status,
+        },
+    )
+
+
+@institute_admin_required
+def subscription_payment_bill(request, pk):
+    institute = get_current_institute(request)
+    payment = get_object_or_404(
+        SubscriptionPayment,
+        pk=pk,
+        institute=institute,
+    )
+    subscription = getattr(institute, "subscription", None)
+
+    return render(
+        request,
+        "institute_admin/subscription_payment_bill.html",
+        {
+            "institute": institute,
+            "subscription": subscription,
+            "payment": payment,
+            "bill_number": f"UCM-{payment.paid_on:%Y%m%d}-{payment.pk:06d}",
+        },
+    )
+
+
+@institute_admin_required
+def security_settings(request):
+    institute = get_current_institute(request)
+    password_form = SecurityPasswordChangeForm(user=request.user)
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        if action == "change_password":
+            password_form = SecurityPasswordChangeForm(request.POST, user=request.user)
+            if password_form.is_valid():
+                password_form.save()
+                update_session_auth_hash(request, request.user)
+                messages.success(request, "Your password has been changed successfully.")
+                return redirect("security_settings")
+
+        elif action == "logout_other_sessions":
+            current_session_key = request.session.session_key
+            other_session_keys = [
+                session["session_key"]
+                for session in user_web_sessions(request.user, request.session)
+                if session["session_key"] != current_session_key
+            ]
+            deleted_count = Session.objects.filter(session_key__in=other_session_keys).delete()[0]
+            if deleted_count:
+                messages.success(request, f"Signed out {deleted_count} other session(s).")
+            else:
+                messages.info(request, "No other active sessions were found.")
+            return redirect("security_settings")
+
+        elif action == "logout_session":
+            requested_identifier = request.POST.get("session_identifier", "")
+            matching_session = next(
+                (
+                    session
+                    for session in user_web_sessions(request.user, request.session)
+                    if session["identifier"] == requested_identifier
+                ),
+                None,
+            )
+            if not matching_session:
+                messages.error(request, "That session is no longer active.")
+            elif matching_session["session_key"] == request.session.session_key:
+                messages.warning(request, "Use the main logout option to sign out this device.")
+            else:
+                Session.objects.filter(session_key=matching_session["session_key"]).delete()
+                messages.success(request, "The selected device has been signed out.")
+            return redirect("security_settings")
+
+        else:
+            messages.error(request, "Invalid security action.")
+            return redirect("security_settings")
+
+    institute_users = (
+        UserProfile.objects.filter(institute=institute)
+        .select_related("user")
+        .order_by("role", "user__username")
+    )
+    active_user_count = institute_users.filter(user__is_active=True).count()
+    inactive_user_count = institute_users.filter(user__is_active=False).count()
+    web_sessions = user_web_sessions(request.user, request.session)
+    for web_session in web_sessions:
+        web_session["is_current"] = web_session["session_key"] == request.session.session_key
+    session_count = len(web_sessions)
+
+    return render(
+        request,
+        "institute_admin/security_settings.html",
+        {
+            "institute": institute,
+            "password_form": password_form,
+            "institute_users": institute_users,
+            "active_user_count": active_user_count,
+            "inactive_user_count": inactive_user_count,
+            "session_count": session_count,
+            "web_sessions": web_sessions,
+        },
+    )
+
+
+@institute_admin_required
+def help_support(request):
+    institute = get_current_institute(request)
+    ticket_form = SupportTicketForm(request.POST or None)
+
+    if request.method == "POST" and ticket_form.is_valid():
+        ticket = ticket_form.save(commit=False)
+        ticket.institute = institute
+        ticket.created_by = request.user
+        ticket.save()
+        messages.success(
+            request,
+            f"Support request #{ticket.pk} submitted successfully.",
+        )
+        return redirect("help_support")
+
+    tickets = SupportTicket.objects.filter(institute=institute).select_related("created_by")
+    open_ticket_count = tickets.filter(
+        status__in=[SupportTicket.Status.NEW, SupportTicket.Status.IN_PROGRESS]
+    ).count()
+
+    return render(
+        request,
+        "institute_admin/help_support.html",
+        {
+            "institute": institute,
+            "ticket_form": ticket_form,
+            "tickets": tickets[:20],
+            "open_ticket_count": open_ticket_count,
+        },
+    )
+
+
 def get_current_academic_year(request, institute=None):
     institute = institute or get_current_institute(request)
     if not institute:
@@ -136,6 +355,370 @@ def get_batch_course_data(institute, academic_year=None):
         ]
         for batch in batches
     }
+
+
+def get_course_batch_data(institute, academic_year=None):
+    batches = (
+        Batch.objects.filter(institute=institute, is_active=True).prefetch_related("courses")
+        if institute
+        else Batch.objects.none()
+    )
+    if academic_year:
+        batches = batches.filter(academic_year=academic_year)
+
+    course_batch_data = {}
+    for batch in batches:
+        for course in batch.courses.all():
+            course_batch_data.setdefault(str(course.pk), []).append(
+                {"id": str(batch.pk), "name": batch.name}
+            )
+    return course_batch_data
+
+
+@institute_admin_required
+def lead_list(request):
+    institute = get_current_institute(request)
+    leads = Lead.objects.select_related(
+        "interested_class",
+        "interested_batch",
+        "created_by",
+    )
+    if institute:
+        leads = leads.filter(institute=institute)
+
+    search_query = request.GET.get("search", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+
+    if search_query:
+        leads = leads.filter(
+            Q(first_name__icontains=search_query)
+            | Q(last_name__icontains=search_query)
+            | Q(mobile_number__icontains=search_query)
+            | Q(email__icontains=search_query)
+            | Q(interested_class__name__icontains=search_query)
+            | Q(interested_batch__name__icontains=search_query)
+        )
+    if status_filter in Lead.Status.values:
+        leads = leads.filter(status=status_filter)
+
+    base_queryset = Lead.objects.filter(institute=institute)
+    paginator = Paginator(leads, 20)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    return render(
+        request,
+        "institute_admin/lead_list.html",
+        {
+            "leads": page_obj.object_list,
+            "page_obj": page_obj,
+            "search_query": search_query,
+            "status_filter": status_filter,
+            "status_choices": Lead.Status.choices,
+            "total_leads": base_queryset.count(),
+            "new_leads": base_queryset.filter(status=Lead.Status.NEW).count(),
+            "follow_up_leads": base_queryset.filter(status=Lead.Status.FOLLOW_UP).count(),
+            "converted_leads": base_queryset.filter(status=Lead.Status.CONVERTED).count(),
+        },
+    )
+
+
+@institute_admin_required
+def lead_create(request):
+    institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
+    if request.method == "POST":
+        form = LeadForm(
+            request.POST,
+            institute=institute,
+            academic_year=academic_year,
+        )
+        if form.is_valid():
+            lead = form.save(commit=False)
+            lead.institute = institute
+            lead.created_by = request.user
+            lead.save()
+            messages.success(request, "Lead created successfully.")
+            return close_popup_response()
+    else:
+        form = LeadForm(institute=institute, academic_year=academic_year)
+
+    return render(
+        request,
+        "institute_admin/lead_form.html",
+        {
+            "form": form,
+            "title": "Create Lead",
+            "button_text": "Save Lead",
+            "course_batch_data": get_course_batch_data(institute, academic_year),
+        },
+    )
+
+
+@institute_admin_required
+def lead_update(request, pk):
+    institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
+    lead = get_object_or_404(Lead, pk=pk, institute=institute)
+
+    if request.method == "POST":
+        form = LeadForm(
+            request.POST,
+            instance=lead,
+            institute=institute,
+            academic_year=academic_year,
+        )
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Lead updated successfully.")
+            return close_popup_response()
+    else:
+        form = LeadForm(
+            instance=lead,
+            institute=institute,
+            academic_year=academic_year,
+        )
+
+    return render(
+        request,
+        "institute_admin/lead_form.html",
+        {
+            "form": form,
+            "title": "Edit Lead",
+            "button_text": "Update Lead",
+            "course_batch_data": get_course_batch_data(institute, academic_year),
+        },
+    )
+
+
+@institute_admin_required
+@require_POST
+def lead_delete(request, pk):
+    institute = get_current_institute(request)
+    lead = get_object_or_404(Lead, pk=pk, institute=institute)
+    lead.delete()
+    messages.success(request, "Lead deleted successfully.")
+    return redirect("institute_admin:lead_list")
+
+
+@institute_admin_required
+def visitor_list(request):
+    institute = get_current_institute(request)
+    visitors = Visitor.objects.select_related("created_by").filter(institute=institute)
+
+    search_query = request.GET.get("search", "").strip()
+    visit_date_filter = request.GET.get("visit_date", "").strip()
+
+    if search_query:
+        visitors = visitors.filter(
+            Q(visitor_name__icontains=search_query)
+            | Q(phone_number__icontains=search_query)
+            | Q(id_card_number__icontains=search_query)
+            | Q(meeting_with__icontains=search_query)
+            | Q(purpose__icontains=search_query)
+        )
+    if visit_date_filter:
+        visit_date = parse_date(visit_date_filter)
+        if visit_date:
+            visitors = visitors.filter(visit_date=visit_date)
+
+    paginator = Paginator(visitors, 20)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    return render(
+        request,
+        "institute_admin/visitor_list.html",
+        {
+            "visitors": page_obj.object_list,
+            "page_obj": page_obj,
+            "search_query": search_query,
+            "visit_date_filter": visit_date_filter,
+        },
+    )
+
+
+@institute_admin_required
+def visitor_create(request):
+    institute = get_current_institute(request)
+
+    if request.method == "POST":
+        form = VisitorForm(request.POST, request.FILES)
+        if form.is_valid():
+            visitor = form.save(commit=False)
+            visitor.institute = institute
+            visitor.created_by = request.user
+            visitor.save()
+            messages.success(request, "Visitor created successfully.")
+            return close_popup_response()
+    else:
+        form = VisitorForm(
+            initial={
+                "visit_date": timezone.localdate().isoformat(),
+                "entry_time": timezone.localtime().strftime("%H:%M"),
+                "total_person": 1,
+            },
+        )
+
+    return render(
+        request,
+        "institute_admin/visitor_form.html",
+        {
+            "form": form,
+            "title": "Create Visitor",
+            "button_text": "Save Entry",
+        },
+    )
+
+
+@institute_admin_required
+def visitor_update(request, pk):
+    institute = get_current_institute(request)
+    visitor = get_object_or_404(Visitor, pk=pk, institute=institute)
+
+    if request.method == "POST":
+        form = VisitorForm(
+            request.POST,
+            request.FILES,
+            instance=visitor,
+        )
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Visitor updated successfully.")
+            return close_popup_response()
+    else:
+        form = VisitorForm(instance=visitor)
+
+    return render(
+        request,
+        "institute_admin/visitor_form.html",
+        {
+            "form": form,
+            "title": "Edit Visitor",
+            "button_text": "Update Entry",
+            "visitor": visitor,
+        },
+    )
+
+
+@institute_admin_required
+@require_POST
+def visitor_delete(request, pk):
+    institute = get_current_institute(request)
+    visitor = get_object_or_404(Visitor, pk=pk, institute=institute)
+    visitor.delete()
+    messages.success(request, "Visitor deleted successfully.")
+    return redirect("institute_admin:visitor_list")
+
+
+@institute_admin_required
+@require_POST
+def lead_convert(request, pk):
+    institute = get_current_institute(request)
+    lead = get_object_or_404(
+        Lead.objects.select_related(
+            "interested_class",
+            "interested_batch",
+            "converted_student",
+        ),
+        pk=pk,
+        institute=institute,
+    )
+
+    if lead.status == Lead.Status.CONVERTED or lead.converted_student_id:
+        messages.warning(request, "This lead has already been converted.")
+        return redirect("institute_admin:lead_list")
+
+    course = lead.interested_class
+    batch = lead.interested_batch
+    if not course or not batch:
+        messages.error(request, "Select an interested class and batch before conversion.")
+        return redirect("institute_admin:lead_list")
+    if (
+        course.institute_id != institute.pk
+        or batch.institute_id != institute.pk
+        or course.academic_year_id != batch.academic_year_id
+        or not batch.courses.filter(pk=course.pk).exists()
+    ):
+        messages.error(request, "The selected class and batch are not valid for conversion.")
+        return redirect("institute_admin:lead_list")
+
+    username = lead.mobile_number.strip()
+    if User.objects.filter(username=username).exists():
+        messages.error(
+            request,
+            f"Username {username} already exists. Update the lead mobile number before conversion.",
+        )
+        return redirect("institute_admin:lead_list")
+
+    academic_year = course.academic_year
+    joined_on = timezone.localdate()
+    try:
+        with transaction.atomic():
+            user = User(
+                username=username,
+                first_name=lead.first_name,
+                last_name=lead.last_name,
+                email=lead.email,
+                is_active=True,
+            )
+            user.set_password("Student@123")
+            user.save()
+            UserProfile.objects.create(
+                user=user,
+                institute=institute,
+                role=UserProfile.Role.STUDENT_PARENT,
+                phone=lead.mobile_number,
+            )
+
+            admission_number = generate_student_admission_number(
+                institute,
+                academic_year,
+            )
+            student = StudentProfile.objects.create(
+                institute=institute,
+                academic_year=academic_year,
+                user=user,
+                admission_number=admission_number,
+                joined_on=joined_on,
+                is_active=True,
+            )
+            academic_session = StudentAcademicSession.objects.create(
+                institute=institute,
+                student=student,
+                academic_year=academic_year,
+                admission_number=admission_number,
+                joined_on=joined_on,
+                status=StudentAcademicSession.Status.ACTIVE,
+            )
+            enrollment = StudentEnrollment.objects.create(
+                student=student,
+                academic_session=academic_session,
+                batch=batch,
+                enrolled_on=joined_on,
+                status=StudentEnrollment.Status.ACTIVE,
+            )
+            enrollment.courses.add(course)
+
+            lead.status = Lead.Status.CONVERTED
+            lead.converted_student = student
+            lead.converted_at = timezone.now()
+            lead.save(
+                update_fields=[
+                    "status",
+                    "converted_student",
+                    "converted_at",
+                    "updated_at",
+                ]
+            )
+    except IntegrityError:
+        messages.error(
+            request,
+            "The lead could not be converted because the student account already exists.",
+        )
+        return redirect("institute_admin:lead_list")
+
+    messages.success(
+        request,
+        f"{lead.full_name} converted successfully. Username: {username}",
+    )
+    return redirect("institute_admin:lead_list")
 
 
 def refresh_invoice_status(invoice):
@@ -872,6 +1455,7 @@ def batch_create(request):
             "title": "Create Batch",
             "subtitle": "Add a batch, select one or more courses, and assign teachers.",
             "button_text": "Save Batch",
+            "show_timetable_builder": True,
         },
     )
 
@@ -907,8 +1491,9 @@ def batch_update(request, pk):
         {
             "form": form,
             "title": "Edit Batch",
-            "subtitle": "Update batch details, timing and assigned teachers.",
+            "subtitle": "Update batch details, timing, timetable and assigned teachers.",
             "button_text": "Update Batch",
+            "show_timetable_builder": True,
         },
     )
 

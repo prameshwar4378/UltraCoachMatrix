@@ -1,5 +1,7 @@
 from django.contrib.auth.models import User
+from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils import timezone
 from decimal import Decimal
 
 
@@ -96,6 +98,7 @@ class Batch(models.Model):
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     timing = models.CharField(max_length=120, blank=True)
+    weekly_timetable = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -111,6 +114,141 @@ class Batch(models.Model):
     @property
     def total_course_fee(self):
         return sum((course.fee_amount for course in self.courses.all()), Decimal("0.00"))
+
+
+class Lead(models.Model):
+    class Status(models.TextChoices):
+        NEW = "NEW", "New"
+        CONTACTED = "CONTACTED", "Contacted"
+        FOLLOW_UP = "FOLLOW_UP", "Follow Up"
+        CONVERTED = "CONVERTED", "Converted"
+        CLOSED = "CLOSED", "Closed"
+
+    class Source(models.TextChoices):
+        WALK_IN = "WALK_IN", "Walk In"
+        PHONE = "PHONE", "Phone"
+        WEBSITE = "WEBSITE", "Website"
+        REFERRAL = "REFERRAL", "Referral"
+        OTHER = "OTHER", "Other"
+
+    institute = models.ForeignKey(
+        "super_admin.Institute",
+        on_delete=models.CASCADE,
+        related_name="leads",
+    )
+    first_name = models.CharField(max_length=150)
+    last_name = models.CharField(max_length=150, blank=True)
+    mobile_number = models.CharField(max_length=20)
+    email = models.EmailField(blank=True)
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.WALK_IN,
+    )
+    interested_class = models.ForeignKey(
+        Course,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="leads",
+    )
+    interested_batch = models.ForeignKey(
+        Batch,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="leads",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.NEW,
+    )
+    follow_up_on = models.DateField(null=True, blank=True)
+    message = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_leads",
+    )
+    converted_student = models.OneToOneField(
+        "student_parent.StudentProfile",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="converted_from_lead",
+    )
+    converted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["institute", "status", "-created_at"],
+                name="lead_inst_status_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.full_name} - {self.mobile_number}"
+
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}".strip()
+
+
+def default_visitor_entry_time():
+    return timezone.localtime().time().replace(second=0, microsecond=0)
+
+
+class Visitor(models.Model):
+    institute = models.ForeignKey(
+        "super_admin.Institute",
+        on_delete=models.CASCADE,
+        related_name="visitors",
+    )
+    visitor_name = models.CharField(max_length=200)
+    phone_number = models.CharField(max_length=20)
+    id_card_number = models.CharField("ID Card / Pass No", max_length=100, blank=True)
+    meeting_with = models.CharField(max_length=200)
+    total_person = models.PositiveIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+    )
+    visit_date = models.DateField(default=timezone.localdate)
+    entry_time = models.TimeField(default=default_visitor_entry_time)
+    exit_time = models.TimeField(null=True, blank=True)
+    purpose = models.TextField("Purpose of Visit", blank=True)
+    attachment = models.FileField(
+        "Attachment / ID Scan",
+        upload_to="visitors/id_scans/",
+        blank=True,
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_visitors",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-visit_date", "-entry_time", "-created_at"]
+        indexes = [
+            models.Index(
+                fields=["institute", "-visit_date", "-entry_time"],
+                name="visitor_inst_visit_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.visitor_name} - {self.phone_number}"
 
 
 class Notice(models.Model):
@@ -233,3 +371,68 @@ class NoticeRead(models.Model):
 
     def __str__(self):
         return f"{self.notice} read by {self.user}"
+
+
+class SupportTicket(models.Model):
+    class Category(models.TextChoices):
+        ACCOUNT = "ACCOUNT", "Account and login"
+        BILLING = "BILLING", "Subscription and billing"
+        SETUP = "SETUP", "Institute setup"
+        STUDENTS = "STUDENTS", "Students and admissions"
+        FEES = "FEES", "Fees and payments"
+        ATTENDANCE = "ATTENDANCE", "Attendance"
+        EXAMS = "EXAMS", "Exams and results"
+        TECHNICAL = "TECHNICAL", "Technical issue"
+        OTHER = "OTHER", "Other"
+
+    class Priority(models.TextChoices):
+        NORMAL = "NORMAL", "Normal"
+        URGENT = "URGENT", "Urgent"
+
+    class Status(models.TextChoices):
+        NEW = "NEW", "New"
+        IN_PROGRESS = "IN_PROGRESS", "In progress"
+        RESOLVED = "RESOLVED", "Resolved"
+        CLOSED = "CLOSED", "Closed"
+
+    institute = models.ForeignKey(
+        "super_admin.Institute",
+        on_delete=models.CASCADE,
+        related_name="support_tickets",
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_support_tickets",
+    )
+    category = models.CharField(max_length=30, choices=Category.choices)
+    priority = models.CharField(
+        max_length=20,
+        choices=Priority.choices,
+        default=Priority.NORMAL,
+    )
+    subject = models.CharField(max_length=160)
+    message = models.TextField()
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.NEW,
+    )
+    admin_response = models.TextField(blank=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["institute", "status", "-created_at"],
+                name="support_inst_status_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"#{self.pk} {self.institute} - {self.subject}"

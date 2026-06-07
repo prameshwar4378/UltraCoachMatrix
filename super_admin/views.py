@@ -9,10 +9,12 @@ from django.contrib.auth.views import LoginView, LogoutView
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.shortcuts import redirect, render
+from django.urls import reverse
 
 from .forms import InstituteSignupForm
 from .mobile_auth import bearer_user, create_access_token, create_refresh_token, get_active_refresh_token, revoke_refresh_token
 from .role_redirects import role_redirect_url
+from .subscription_access import institute_access_status
 from student_parent.models import StudentAcademicSession
 
 from django.utils.decorators import method_decorator
@@ -23,6 +25,9 @@ class RoleLoginView(LoginView):
     template_name = "super_admin/login.html"
 
     def get_success_url(self):
+        allowed, _message = institute_access_status(self.request.user)
+        if not allowed:
+            return str(reverse("subscription_expired"))
         return role_redirect_url(self.request.user)
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -34,6 +39,11 @@ def role_home(request):
     if not request.user.is_authenticated:
         return redirect("login")
     return redirect(role_redirect_url(request.user))
+
+
+def subscription_expired(request):
+    reason = request.GET.get("reason") or "Your software subscription has expired."
+    return render(request, "super_admin/subscription_expired.html", {"reason": reason})
 
 
 def _json_request_data(request):
@@ -95,6 +105,9 @@ def api_login(request):
     user = authenticate(request, username=username, password=password)
     if user is None:
         return JsonResponse({"detail": "Invalid username or password."}, status=401)
+    allowed, message = institute_access_status(user)
+    if not allowed:
+        return JsonResponse({"detail": message}, status=403)
 
     login(request, user)
     return JsonResponse(
@@ -131,6 +144,9 @@ def mobile_login(request):
     user = authenticate(request, username=username, password=password)
     if user is None:
         return JsonResponse({"detail": "Invalid username or password."}, status=401)
+    allowed, message = institute_access_status(user)
+    if not allowed:
+        return JsonResponse({"detail": message}, status=403)
 
     return JsonResponse(_token_payload(user))
 
@@ -296,7 +312,11 @@ def mobile_profile(request):
                     "id": enrollment.pk,
                     "academic_session_id": enrollment.academic_session_id,
                     "academic_year": session.academic_year.name,
-                    "batch": {"id": enrollment.batch_id, "name": enrollment.batch.name},
+                    "batch": {
+                        "id": enrollment.batch_id,
+                        "name": enrollment.batch.name,
+                        "weekly_timetable": enrollment.batch.weekly_timetable,
+                    },
                     "courses": [{"id": course.pk, "name": course.name} for course in enrollment.courses.all()],
                     "total_course_fee": str(enrollment.total_course_fee),
                     "custom_fee_amount": str(enrollment.custom_fee_amount) if enrollment.custom_fee_amount is not None else None,

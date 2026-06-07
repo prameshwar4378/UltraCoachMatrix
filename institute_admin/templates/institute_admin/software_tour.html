@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Software Tour - UltraCoachMatrix</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+  <style>
+    *{box-sizing:border-box}
+
+    body{
+      margin:0;
+      font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:#eef4ff;
+      color:#0f172a;
+    }
+
+    .tour-page{
+      --primary:#2563eb;
+      --secondary:#7c3aed;
+      --cyan:#06b6d4;
+      --ink:#0f172a;
+      --muted:#64748b;
+      background:
+        radial-gradient(circle at top left,rgba(37,99,235,.18),transparent 34%),
+        radial-gradient(circle at top right,rgba(124,58,237,.16),transparent 30%),
+        linear-gradient(180deg,#f6f8ff,#eef4ff);
+      min-height:100vh;
+      padding:38px 20px 70px;
+      overflow-x:hidden;
+    }
+
+    .tour-shell{max-width:1240px;margin:0 auto}
+
+    .tour-hero{
+      position:relative;
+      overflow:hidden;
+      color:#fff;
+      border-radius:34px;
+      padding:46px;
+      background:linear-gradient(135deg,rgba(15,23,42,.96),rgba(37,99,235,.92),rgba(6,182,212,.86));
+      box-shadow:0 30px 80px rgba(37,99,235,.26);
+      isolation:isolate;
+    }
+
+    .tour-hero:before,.tour-hero:after{
+      content:"";
+      position:absolute;
+      border-radius:50%;
+      filter:blur(4px);
+      opacity:.35;
+      z-index:-1;
+      animation:floatOrb 7s ease-in-out infinite;
+    }
+
+    .tour-hero:before{
+      width:260px;
+      height:260px;
+      background:#93c5fd;
+      right:-80px;
+      top:-70px;
+    }
+
+    .tour-hero:after{
+      width:220px;
+      height:220px;
+      background:#c084fc;
+      left:45%;
+      bottom:-120px;
+      animation-delay:1.5s;
+    }
+
+    @keyframes floatOrb{
+      0%,100%{transform:translateY(0) scale(1)}
+      50%{transform:translateY(-22px) scale(1.08)}
+    }
+
+    .hero-grid{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      align-items:center;
+      gap:36px;
+    }
+
+    .tour-eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:9px;
+      padding:8px 14px;
+      border:1px solid rgba(255,255,255,.32);
+      border-radius:999px;
+      background:rgba(255,255,255,.12);
+      font-size:.78rem;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      backdrop-filter:blur(12px);
+    }
+
+    .pulse-dot{
+      width:9px;
+      height:9px;
+      border-radius:50%;
+      background:#22c55e;
+      box-shadow:0 0 0 8px rgba(34,197,94,.16);
+    }
+
+    .tour-hero h1{
+      margin:18px 0 12px;
+      font-size:clamp(2.2rem,5vw,4.6rem);
+      line-height:1.02;
+      font-weight:950;
+      letter-spacing:-.05em;
+    }
+
+    .tour-hero p{
+      max-width:740px;
+      margin:0;
+      color:rgba(255,255,255,.86);
+      font-size:1.05rem;
+      line-height:1.75;
+    }
+
+    .hero-stats{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:13px;
+      margin-top:26px;
+    }
+
+    .hero-stat{
+      padding:16px;
+      border-radius:20px;
+      background:rgba(255,255,255,.13);
+      border:1px solid rgba(255,255,255,.22);
+      backdrop-filter:blur(14px);
+    }
+
+    .hero-stat strong{
+      display:block;
+      font-size:1.45rem;
+      line-height:1;
+      font-weight:950;
+    }
+
+    .hero-stat span{
+      display:block;
+      margin-top:7px;
+      font-size:.82rem;
+      color:rgba(255,255,255,.78);
+      font-weight:700;
+    }
+
+    .tour-device{
+      min-height:380px;
+      border-radius:30px;
+      padding:18px;
+      background:rgba(255,255,255,.14);
+      border:1px solid rgba(255,255,255,.25);
+      backdrop-filter:blur(18px);
+    }
+
+    .device-window{
+      height:100%;
+      min-height:342px;
+      border-radius:24px;
+      background:#f8fafc;
+      overflow:hidden;
+      box-shadow:0 24px 60px rgba(15,23,42,.22);
+      color:#0f172a;
+    }
+
+    .device-top{
+      height:48px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:0 16px;
+      background:#fff;
+      border-bottom:1px solid #e2e8f0;
+    }
+
+    .device-top i{
+      width:10px;
+      height:10px;
+      border-radius:50%;
+      background:#cbd5e1;
+    }
+
+    .device-screen{padding:18px}
+
+    .dash-card{
+      padding:18px;
+      border-radius:20px;
+      background:linear-gradient(135deg,#2563eb,#7c3aed);
+      color:#fff;
+      margin-bottom:14px;
+      animation:softLift 3.8s ease-in-out infinite;
+    }
+
+    @keyframes softLift{
+      0%,100%{transform:translateY(0)}
+      50%{transform:translateY(-8px)}
+    }
+
+    .dash-card strong{display:block;font-size:1.9rem}
+    .dash-card span{color:rgba(255,255,255,.82);font-weight:700}
+
+    .mini-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:12px;
+    }
+
+    .mini-card{
+      min-height:94px;
+      padding:15px;
+      border-radius:18px;
+      background:#fff;
+      border:1px solid #e2e8f0;
+      box-shadow:0 10px 24px rgba(15,23,42,.06);
+    }
+
+    .mini-line{
+      height:8px;
+      border-radius:99px;
+      background:#dbeafe;
+      margin-top:14px;
+      overflow:hidden;
+    }
+
+    .mini-line span{
+      display:block;
+      height:100%;
+      width:72%;
+      border-radius:99px;
+      background:linear-gradient(90deg,#2563eb,#06b6d4);
+      animation:loadLine 2.8s ease-in-out infinite;
+    }
+
+    @keyframes loadLine{
+      0%{width:30%}
+      50%{width:88%}
+      100%{width:55%}
+    }
+
+    .tour-intro{
+      text-align:center;
+      margin:75px auto 52px;
+      max-width:760px;
+    }
+
+    .tour-intro h2{
+      font-size:clamp(1.8rem,3vw,2.7rem);
+      font-weight:950;
+      letter-spacing:-.04em;
+      margin-bottom:8px;
+    }
+
+    .tour-intro p{
+      color:#64748b;
+      margin:0;
+      font-size:1rem;
+      line-height:1.7;
+    }
+
+    .feature-slider{
+      position:relative;
+      overflow:hidden;
+      margin-top:40px;
+      margin-bottom:65px;
+      border-radius:34px;
+      padding:22px;
+      background:rgba(255,255,255,.72);
+      border:1px solid rgba(226,232,240,.9);
+      box-shadow:0 26px 70px rgba(15,23,42,.1);
+      backdrop-filter:blur(18px);
+    }
+
+    .slides-track{
+      display:flex;
+      transition:transform .7s cubic-bezier(.22,1,.36,1);
+    }
+
+    .slide{
+      min-width:100%;
+      flex:0 0 100%;
+      padding:14px;
+    }
+
+    .slide-card{
+      min-height:350px;
+      display:grid;
+      grid-template-columns:.9fr 1.1fr;
+      gap:26px;
+      align-items:center;
+      border-radius:28px;
+      padding:38px;
+      background:#fff;
+      border:1px solid #e2e8f0;
+      overflow:hidden;
+      position:relative;
+    }
+
+    .slide-card:after{
+      content:"";
+      position:absolute;
+      width:260px;
+      height:260px;
+      right:-90px;
+      top:-90px;
+      border-radius:50%;
+      background:linear-gradient(135deg,rgba(37,99,235,.14),rgba(124,58,237,.12));
+    }
+
+    .service-icon{
+      width:82px;
+      height:82px;
+      border-radius:26px;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      font-size:2.3rem;
+      background:linear-gradient(135deg,#2563eb,#7c3aed);
+      box-shadow:0 18px 36px rgba(37,99,235,.26);
+      margin-bottom:22px;
+    }
+
+    .slide-card small{
+      color:#2563eb;
+      font-weight:950;
+      letter-spacing:.1em;
+      text-transform:uppercase;
+    }
+
+    .slide-card h3{
+      font-size:clamp(1.7rem,3vw,2.55rem);
+      font-weight:950;
+      letter-spacing:-.04em;
+      margin:9px 0 12px;
+    }
+
+    .slide-card p{
+      color:#64748b;
+      font-size:1rem;
+      line-height:1.75;
+      margin:0;
+    }
+
+    .mock-panel{
+      position:relative;
+      z-index:2;
+      border-radius:26px;
+      background:linear-gradient(180deg,#f8fafc,#eef4ff);
+      border:1px solid #e2e8f0;
+      padding:20px;
+    }
+
+    .mock-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      padding:14px;
+      margin-bottom:12px;
+      border-radius:18px;
+      background:#fff;
+      border:1px solid #e2e8f0;
+    }
+
+    .mock-row:last-child{margin-bottom:0}
+
+    .mock-left{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .mock-avatar{
+      width:42px;
+      height:42px;
+      border-radius:15px;
+      display:grid;
+      place-items:center;
+      color:#fff;
+      font-weight:950;
+      background:linear-gradient(135deg,#06b6d4,#2563eb);
+      flex:0 0 auto;
+    }
+
+    .mock-text b{display:block;font-size:.92rem}
+    .mock-text span{color:#64748b;font-size:.78rem;font-weight:700}
+
+    .mock-badge{
+      padding:7px 10px;
+      border-radius:999px;
+      background:#dcfce7;
+      color:#15803d;
+      font-size:.75rem;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .progress-dots{
+      display:grid;
+      grid-template-columns:repeat(8,1fr);
+      gap:8px;
+      margin:20px 14px 4px;
+    }
+
+    .progress-dots span{
+      height:8px;
+      border-radius:999px;
+      background:#dbeafe;
+      transition:.35s ease;
+    }
+
+    .progress-dots span.active{
+      background:linear-gradient(90deg,#2563eb,#7c3aed);
+      box-shadow:0 8px 18px rgba(37,99,235,.22);
+    }
+
+    .tour-navigation{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:30px;
+      margin-top:32px;
+      margin-bottom:8px;
+    }
+
+    .tour-nav-btn{
+      border:none;
+      border-radius:18px;
+      padding:14px 24px;
+      font-weight:900;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      transition:.3s ease;
+      cursor:pointer;
+    }
+
+    .tour-nav-btn.primary{
+      background:linear-gradient(135deg,#2563eb,#7c3aed);
+      color:#fff;
+      box-shadow:0 14px 30px rgba(37,99,235,.25);
+    }
+
+    .tour-nav-btn.secondary{
+      background:#fff;
+      color:#2563eb;
+      border:1px solid #dbeafe;
+    }
+
+    .tour-nav-btn:hover:not(:disabled){transform:translateY(-3px)}
+    .tour-nav-btn:disabled{opacity:.45;cursor:not-allowed}
+
+    .tour-step-indicator{
+      font-size:1.15rem;
+      font-weight:950;
+      min-width:90px;
+      text-align:center;
+    }
+
+    .tour-actions{
+      display:none;
+      margin-top:34px;
+      padding:20px 24px;
+      justify-content:space-between;
+      align-items:center;
+      gap:16px;
+      background:rgba(255,255,255,.94);
+      border:1px solid #e2e8f0;
+      border-radius:24px;
+      box-shadow:0 22px 60px rgba(15,23,42,.16);
+    }
+
+    .tour-actions.show{display:flex}
+
+    .tour-actions p{
+      margin:0;
+      color:#64748b;
+      font-size:.92rem;
+      font-weight:700;
+    }
+
+    .tour-actions button{
+      border:0;
+      border-radius:16px;
+      padding:14px 26px;
+      background:linear-gradient(135deg,#2563eb,#7c3aed);
+      color:#fff;
+      font-weight:950;
+      box-shadow:0 14px 30px rgba(37,99,235,.28);
+      cursor:pointer;
+    }
+
+    @media(max-width:1000px){
+      .hero-grid,.slide-card{grid-template-columns:1fr}
+    }
+
+    @media(max-width:650px){
+      .tour-page{padding:24px 12px 50px}
+      .tour-hero{padding:26px;border-radius:26px}
+      .hero-stats{grid-template-columns:1fr}
+      .tour-intro{margin:52px auto 34px}
+      .feature-slider{padding:12px;border-radius:24px}
+      .slide{padding:6px}
+      .slide-card{padding:24px;border-radius:22px;min-height:auto}
+      .tour-navigation{gap:12px;justify-content:space-between}
+      .tour-nav-btn{padding:12px 14px;font-size:.86rem}
+      .tour-actions{flex-direction:column;align-items:stretch}
+      .tour-actions button{width:100%}
+    }
+  </style>
+</head>
+
+<body>
+<main class="tour-page">
+  <div class="tour-shell">
+
+       
+
+    <section class="feature-slider" id="featureSlider">
+      <div class="slides-track">
+
+        <div class="slide">
+          <article class="slide-card">
+            <div>
+              <div class="service-icon"><i class="bi bi-building"></i></div>
+              <small>Step 01</small>
+              <h3>Your Institute. One Control Center.</h3>
+              <p>Start with a trusted institute identity and manage every academic, administrative, and financial workflow from one connected workspace.</p>
+            </div>
+            <div class="mock-panel">
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">I</div><div class="mock-text"><b>Professional Institute Identity</b><span>Official name, owner, contact and address</span></div></div><span class="mock-badge">Trusted</span></div>
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">360</div><div class="mock-text"><b>Centralized Operations</b><span>Students, staff, fees and academics together</span></div></div><span class="mock-badge">One Place</span></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="slide">
+          <article class="slide-card">
+            <div>
+              <div class="service-icon"><i class="bi bi-journal-bookmark"></i></div>
+              <small>Step 02</small>
+              <h3>Build a Clear Academic Structure</h3>
+              <p>Organize courses and subjects by academic session so every batch, teacher, student, exam, and fee record stays correctly connected.</p>
+            </div>
+            <div class="mock-panel">
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">C</div><div class="mock-text"><b>Session-Based Courses</b><span>Fees, duration and academic-year records</span></div></div><span class="mock-badge">Structured</span></div>
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">S</div><div class="mock-text"><b>Connected Subjects</b><span>Use subjects across teaching, homework and exams</span></div></div><span class="mock-badge">Reusable</span></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="slide">
+          <article class="slide-card">
+            <div>
+              <div class="service-icon"><i class="bi bi-calendar2-week"></i></div>
+              <small>Step 03</small>
+              <h3>Plan Every Class Without Confusion</h3>
+              <p>Create batches, assign multiple courses and teachers, and publish a weekly timetable that keeps the whole institute aligned.</p>
+            </div>
+            <div class="mock-panel">
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">B</div><div class="mock-text"><b>Flexible Batch Management</b><span>Courses, teachers, dates and timings</span></div></div><span class="mock-badge">Flexible</span></div>
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">T</div><div class="mock-text"><b>Weekly Timetable Builder</b><span>Day-wise start and end time planning</span></div></div><span class="mock-badge">Conflict-Free</span></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="slide">
+          <article class="slide-card">
+            <div>
+              <div class="service-icon"><i class="bi bi-people"></i></div>
+              <small>Step 04</small>
+              <h3>Give Every Team Member the Right Access</h3>
+              <p>Create secure logins for teachers and accountants, assign responsibilities, and keep sensitive controls limited to authorized staff.</p>
+            </div>
+            <div class="mock-panel">
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">T</div><div class="mock-text"><b>Teacher Workspace</b><span>Attendance, homework, exams and results</span></div></div><span class="mock-badge">Productive</span></div>
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">R</div><div class="mock-text"><b>Role-Based Security</b><span>Admin, teacher and accountant access</span></div></div><span class="mock-badge">Controlled</span></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="slide">
+          <article class="slide-card">
+            <div>
+              <div class="service-icon"><i class="bi bi-mortarboard"></i></div>
+              <small>Step 05</small>
+              <h3>Turn Admission Into a Complete Student Record</h3>
+              <p>Capture personal, guardian, education and document details, then enroll each learner into the correct session, course and batch.</p>
+            </div>
+            <div class="mock-panel">
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">S</div><div class="mock-text"><b>360-Degree Student Profile</b><span>Guardian, school, documents and history</span></div></div><span class="mock-badge">Complete</span></div>
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">E</div><div class="mock-text"><b>Fast Admission & Promotion</b><span>Enroll, import, export and promote in bulk</span></div></div><span class="mock-badge">Time-Saving</span></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="slide">
+          <article class="slide-card">
+            <div>
+              <div class="service-icon"><i class="bi bi-cash-coin"></i></div>
+              <small>Step 06</small>
+              <h3>Know Every Rupee Collected and Due</h3>
+              <p>Manage course fees and additional charges, record payments, correct mistakes safely, and produce clear receipts with a complete audit trail.</p>
+            </div>
+            <div class="mock-panel">
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">INR</div><div class="mock-text"><b>Real-Time Fee Position</b><span>Total fee, paid amount and outstanding dues</span></div></div><span class="mock-badge">Transparent</span></div>
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">R</div><div class="mock-text"><b>Receipts & Payment History</b><span>Methods, references, corrections and audit</span></div></div><span class="mock-badge">Accountable</span></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="slide">
+          <article class="slide-card">
+            <div>
+              <div class="service-icon"><i class="bi bi-clipboard-check"></i></div>
+              <small>Step 07</small>
+              <h3>Run the Complete Learning Cycle Digitally</h3>
+              <p>Mark attendance, share homework with attachments, conduct secure online exams, evaluate submissions, and publish results from one workflow.</p>
+            </div>
+            <div class="mock-panel">
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">A</div><div class="mock-text"><b>Fast Attendance & Homework</b><span>Batch-wise records, notes and attachments</span></div></div><span class="mock-badge">Daily Ready</span></div>
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">X</div><div class="mock-text"><b>Secure Online Exams</b><span>Question bank, attempts, activity and results</span></div></div><span class="mock-badge">Powerful</span></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="slide">
+          <article class="slide-card">
+            <div>
+              <div class="service-icon"><i class="bi bi-megaphone"></i></div>
+              <small>Step 08</small>
+              <h3>Keep Everyone Informed. See Everything Clearly.</h3>
+              <p>Send targeted notices and mobile updates while your dashboard turns attendance, admissions, collections and dues into actionable insight.</p>
+            </div>
+            <div class="mock-panel">
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">N</div><div class="mock-text"><b>Targeted Communication</b><span>Notice audiences, priority and app alerts</span></div></div><span class="mock-badge">Connected</span></div>
+              <div class="mock-row"><div class="mock-left"><div class="mock-avatar">D</div><div class="mock-text"><b>Decision-Ready Dashboard</b><span>Students, collections, dues and attendance</span></div></div><span class="mock-badge">Live Insight</span></div>
+            </div>
+          </article>
+        </div>
+
+      </div>
+
+      <div class="progress-dots" id="progressDots">
+        <span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span>
+      </div>
+
+      <div class="tour-navigation">
+        <button type="button" class="tour-nav-btn secondary" id="prevBtn">
+          <i class="bi bi-arrow-left"></i> Previous
+        </button>
+
+        <div class="tour-step-indicator">
+          <span id="currentStep">1</span> / <span id="totalSteps">8</span>
+        </div>
+
+        <button type="button" class="tour-nav-btn primary" id="nextBtn">
+          Next <i class="bi bi-arrow-right"></i>
+        </button>
+      </div>
+    </section>
+
+    <form method="post" action="{% url 'institute_admin:software_tour' %}" class="tour-actions" id="finishTourSection">
+      {% csrf_token %}
+      <p>You are ready to manage your institute from one connected, secure and powerful workspace.</p>
+      <button type="submit">
+        Finish tour and open dashboard
+        <i class="bi bi-arrow-right"></i>
+      </button>
+    </form>
+
+  </div>
+</main>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const track = document.querySelector(".slides-track");
+    const slides = document.querySelectorAll(".slide");
+    const nextBtn = document.getElementById("nextBtn");
+    const prevBtn = document.getElementById("prevBtn");
+    const currentStep = document.getElementById("currentStep");
+    const totalSteps = document.getElementById("totalSteps");
+    const finishSection = document.getElementById("finishTourSection");
+    const dots = document.querySelectorAll("#progressDots span");
+    const featureSlider = document.getElementById("featureSlider");
+
+    let current = 0;
+    const total = slides.length;
+
+    totalSteps.textContent = total;
+
+    function updateSlider() {
+      track.style.transform = "translateX(-" + (current * 100) + "%)";
+      currentStep.textContent = current + 1;
+      prevBtn.disabled = current === 0;
+
+      dots.forEach(function(dot, index){
+        dot.classList.toggle("active", index <= current);
+      });
+
+      if(current === total - 1){
+        nextBtn.style.display = "none";
+        finishSection.classList.add("show");
+      }else{
+        nextBtn.style.display = "flex";
+        finishSection.classList.remove("show");
+      }
+    }
+
+    nextBtn.addEventListener("click", function () {
+      if(current < total - 1){
+        current++;
+        updateSlider();
+        featureSlider.scrollIntoView({behavior:"smooth",block:"center"});
+      }
+    });
+
+    prevBtn.addEventListener("click", function () {
+      if(current > 0){
+        current--;
+        updateSlider();
+        featureSlider.scrollIntoView({behavior:"smooth",block:"center"});
+      }
+    });
+
+    updateSlider();
+  });
+</script>
+</body>
+</html>
