@@ -4,6 +4,10 @@ from super_admin.models import UserProfile
 
 
 def academic_year_context(request):
+    cached_context = getattr(request, "_academic_year_context", None)
+    if cached_context is not None:
+        return cached_context
+
     if not request.user.is_authenticated:
         return {}
     profile = getattr(request.user, "profile", None)
@@ -12,20 +16,36 @@ def academic_year_context(request):
         return {}
 
     institute = profile.institute
-    current_label = get_academic_year_label()
-    year_parts = int(current_label.split("-", 1)[0])
-    for start_year in range(year_parts - 2, year_parts + 4):
-        get_or_create_academic_year(institute, f"{start_year}-{str(start_year + 1)[-2:]}")
+    academic_years = list(
+        AcademicYear.objects.filter(institute=institute, is_active=True).order_by("-start_date", "-pk")
+    )
 
     selected_id = request.session.get("academic_year_id")
-    selected_year = None
+    selected_year = getattr(request, "_selected_academic_year", None)
+    if selected_year and selected_year.institute_id != institute.pk:
+        selected_year = None
+
     if selected_id:
-        selected_year = AcademicYear.objects.filter(pk=selected_id, institute=institute, is_active=True).first()
+        selected_year = next((year for year in academic_years if str(year.pk) == str(selected_id)), selected_year)
+
     if not selected_year:
-        selected_year = get_or_create_academic_year(institute, current_label)
+        current_label = get_academic_year_label()
+        selected_year = next((year for year in academic_years if year.name == current_label), None)
+
+    if not selected_year and academic_years:
+        selected_year = academic_years[0]
+
+    if not selected_year:
+        selected_year = get_or_create_academic_year(institute, get_academic_year_label())
+        academic_years = [selected_year]
+
+    if str(request.session.get("academic_year_id", "")) != str(selected_year.pk):
         request.session["academic_year_id"] = selected_year.pk
 
-    return {
-        "academic_years": AcademicYear.objects.filter(institute=institute, is_active=True),
+    request._selected_academic_year = selected_year
+    context = {
+        "academic_years": academic_years,
         "selected_academic_year": selected_year,
     }
+    request._academic_year_context = context
+    return context

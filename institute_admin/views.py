@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from collections import defaultdict
 from decimal import Decimal
 from io import BytesIO
 import json
@@ -11,8 +12,9 @@ from django.core.exceptions import PermissionDenied
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Avg, Case, Count, DecimalField, ExpressionWrapper, F, IntegerField, Max, OuterRef, Q, Subquery, Sum, Value, When
 from django.db.models.deletion import ProtectedError
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
@@ -32,7 +34,7 @@ from student_parent.models import (
     StudentEnrollment,
     StudentProfile,
 )
-from student_parent.notifications import notify_fee_paid, notify_notice_published
+from student_parent.notifications import enqueue_fee_paid_notification, enqueue_notice_published_notification
 from super_admin.models import SubscriptionPayment, UserProfile
 from super_admin.decorators import institute_admin_required
 from super_admin.session_security import user_web_sessions
@@ -104,6 +106,14 @@ def close_popup_response(receipt_url=None):
         </script>
         """.replace("__RECEIPT_SCRIPT__", receipt_script)
     )
+
+
+def paginate_queryset(request, queryset, per_page=20):
+    paginator = Paginator(queryset, per_page)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    query_params = request.GET.copy()
+    query_params.pop("page", None)
+    return page_obj, paginator, query_params.urlencode()
 
 
 def get_current_institute(request):
@@ -330,13 +340,20 @@ def get_current_academic_year(request, institute=None):
     institute = institute or get_current_institute(request)
     if not institute:
         return None
+
+    cached_year = getattr(request, "_selected_academic_year", None)
+    if cached_year and cached_year.institute_id == institute.pk and cached_year.is_active:
+        return cached_year
+
     year_id = request.session.get("academic_year_id")
     if year_id:
         academic_year = AcademicYear.objects.filter(pk=year_id, institute=institute, is_active=True).first()
         if academic_year:
+            request._selected_academic_year = academic_year
             return academic_year
     academic_year = get_or_create_academic_year(institute)
     request.session["academic_year_id"] = academic_year.pk
+    request._selected_academic_year = academic_year
     return academic_year
 
 
@@ -887,7 +904,7 @@ def dashboard(request):
     academic_year = get_current_academic_year(request, institute)
     institute_filter = {"institute": institute} if institute else {}
 
-    invoices = FeeInvoice.objects.filter(**institute_filter).exclude(status=FeeInvoice.Status.CANCELLED).prefetch_related("payments")
+    invoices = FeeInvoice.objects.filter(**institute_filter).exclude(status=FeeInvoice.Status.CANCELLED)
     if academic_year:
         invoices = invoices.filter(academic_session__academic_year=academic_year)
 
@@ -928,25 +945,86 @@ def dashboard(request):
     paid_amount = Decimal("0.00")
     due_amount = Decimal("0.00")
     due_invoice_rows = []
-    dashboard_sessions = students.select_related("student", "student__user").prefetch_related(
-        "enrollments",
-        "enrollments__batch",
-        "enrollments__courses",
-        "fee_invoices",
-        "fee_invoices__payments",
-    )
+    dashboard_sessions = list(students.select_related("student", "student__user"))
+    dashboard_session_ids = [student_session.pk for student_session in dashboard_sessions]
+
+    enrollment_fee_by_session = defaultdict(lambda: Decimal("0.00"))
+    invoiced_amount_by_session = defaultdict(lambda: Decimal("0.00"))
+    additional_fee_by_session = defaultdict(lambda: Decimal("0.00"))
+    paid_amount_by_session = defaultdict(lambda: Decimal("0.00"))
+    enrollment_titles_by_session = defaultdict(list)
+    enrollment_dates_by_session = defaultdict(list)
+
+    if dashboard_session_ids:
+        active_enrollments = StudentEnrollment.objects.filter(
+            academic_session_id__in=dashboard_session_ids,
+        ).exclude(status=StudentEnrollment.Status.CANCELLED)
+
+        custom_fee_rows = (
+            active_enrollments.filter(custom_fee_amount__isnull=False)
+            .values("academic_session_id")
+            .annotate(total=Sum("custom_fee_amount"))
+        )
+        for row in custom_fee_rows:
+            enrollment_fee_by_session[row["academic_session_id"]] += row["total"] or Decimal("0.00")
+
+        course_fee_rows = (
+            Course.objects.filter(
+                student_enrollments__academic_session_id__in=dashboard_session_ids,
+                student_enrollments__custom_fee_amount__isnull=True,
+            )
+            .exclude(student_enrollments__status=StudentEnrollment.Status.CANCELLED)
+            .values("student_enrollments__academic_session_id")
+            .annotate(total=Sum("fee_amount"))
+        )
+        for row in course_fee_rows:
+            enrollment_fee_by_session[row["student_enrollments__academic_session_id"]] += row["total"] or Decimal("0.00")
+
+        enrollment_rows = active_enrollments.select_related("batch").values(
+            "academic_session_id",
+            "batch__name",
+            "enrolled_on",
+        )
+        for row in enrollment_rows:
+            session_id = row["academic_session_id"]
+            if len(enrollment_titles_by_session[session_id]) < 2 and row["batch__name"]:
+                enrollment_titles_by_session[session_id].append(row["batch__name"])
+            if row["enrolled_on"]:
+                enrollment_dates_by_session[session_id].append(row["enrolled_on"])
+
+        invoice_amount_rows = (
+            invoices.values("academic_session_id")
+            .annotate(total=Sum("amount"))
+        )
+        for row in invoice_amount_rows:
+            invoiced_amount_by_session[row["academic_session_id"]] = row["total"] or Decimal("0.00")
+
+        additional_fee_rows = (
+            invoices.filter(enrollment__isnull=True)
+            .values("academic_session_id")
+            .annotate(total=Sum("amount"))
+        )
+        for row in additional_fee_rows:
+            additional_fee_by_session[row["academic_session_id"]] = row["total"] or Decimal("0.00")
+
+        payment_rows = (
+            Payment.objects.filter(
+                invoice__academic_session_id__in=dashboard_session_ids,
+                status=Payment.Status.ACTIVE,
+            )
+            .exclude(invoice__status=FeeInvoice.Status.CANCELLED)
+            .values("invoice__academic_session_id")
+            .annotate(total=Sum("amount"))
+        )
+        for row in payment_rows:
+            paid_amount_by_session[row["invoice__academic_session_id"]] = row["total"] or Decimal("0.00")
+
     for student_session in dashboard_sessions:
-        fee_enrollments = student_session.enrollments.exclude(status=StudentEnrollment.Status.CANCELLED)
-        session_invoices = student_session.fee_invoices.exclude(status=FeeInvoice.Status.CANCELLED)
-        enrollment_fee_amount = sum(enrollment.total_course_fee for enrollment in fee_enrollments)
-        invoiced_amount = Decimal("0.00")
-        additional_fee_amount = Decimal("0.00")
-        session_paid_amount = Decimal("0.00")
-        for invoice in session_invoices:
-            invoiced_amount += invoice.amount
-            if not invoice.enrollment_id:
-                additional_fee_amount += invoice.amount
-            session_paid_amount += sum(payment.amount for payment in invoice.payments.all() if payment.status == Payment.Status.ACTIVE)
+        session_id = student_session.pk
+        enrollment_fee_amount = enrollment_fee_by_session[session_id]
+        invoiced_amount = invoiced_amount_by_session[session_id]
+        additional_fee_amount = additional_fee_by_session[session_id]
+        session_paid_amount = paid_amount_by_session[session_id]
 
         session_total_fee = enrollment_fee_amount + additional_fee_amount if enrollment_fee_amount > 0 else invoiced_amount
         session_due_amount = session_total_fee - session_paid_amount
@@ -961,11 +1039,8 @@ def dashboard(request):
             due_invoice_rows.append(
                 {
                     "student_name": student_session.student.user.get_full_name() or student_session.student.user.username,
-                    "title": ", ".join(enrollment.batch.name for enrollment in fee_enrollments[:2]) or "Pending fees",
-                    "due_date": min(
-                        [enrollment.enrolled_on for enrollment in fee_enrollments if enrollment.enrolled_on],
-                        default=None,
-                    ),
+                    "title": ", ".join(enrollment_titles_by_session[session_id]) or "Pending fees",
+                    "due_date": min(enrollment_dates_by_session[session_id], default=None),
                     "due_amount": session_due_amount,
                 }
             )
@@ -1025,7 +1100,7 @@ def dashboard(request):
 def course_list(request):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
-    courses = Course.objects.select_related("institute").annotate(batch_count=Count("batches"))
+    courses = Course.objects.select_related("institute").annotate(batch_count=Count("batches")).order_by("name", "pk")
     if institute:
         courses = courses.filter(institute=institute)
     if academic_year:
@@ -1049,8 +1124,13 @@ def course_list(request):
     if academic_year:
         base_queryset = base_queryset.filter(academic_year=academic_year)
         batch_queryset = batch_queryset.filter(academic_year=academic_year)
+    page_obj, paginator, pagination_query = paginate_queryset(request, courses)
     context = {
-        "courses": courses,
+        "courses": page_obj.object_list,
+        "page_obj": page_obj,
+        "paginator": paginator,
+        "pagination_query": pagination_query,
+        "pagination_label": "courses",
         "search_query": search_query,
         "status_filter": status_filter,
         "total_courses": base_queryset.count(),
@@ -1379,7 +1459,7 @@ def fee_category_delete(request, pk):
 def batch_list(request):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
-    batches = Batch.objects.select_related("institute").prefetch_related("courses", "teachers")
+    batches = Batch.objects.select_related("institute").prefetch_related("courses", "teachers").order_by("name", "pk")
     if institute:
         batches = batches.filter(institute=institute)
     if academic_year:
@@ -1410,8 +1490,13 @@ def batch_list(request):
         base_queryset = base_queryset.filter(academic_year=academic_year)
         course_queryset = course_queryset.filter(academic_year=academic_year)
 
+    page_obj, paginator, pagination_query = paginate_queryset(request, batches)
     context = {
-        "batches": batches,
+        "batches": page_obj.object_list,
+        "page_obj": page_obj,
+        "paginator": paginator,
+        "pagination_query": pagination_query,
+        "pagination_label": "batches",
         "courses": course_queryset,
         "search_query": search_query,
         "course_filter": course_filter,
@@ -1522,7 +1607,9 @@ def batch_delete(request, pk):
 @institute_admin_required
 def user_list(request):
     institute = get_current_institute(request)
-    profiles = UserProfile.objects.select_related("user", "institute").exclude(role=UserProfile.Role.SUPER_ADMIN)
+    profiles = UserProfile.objects.select_related("user", "institute").exclude(
+        role=UserProfile.Role.SUPER_ADMIN
+    ).order_by("user__first_name", "user__username", "pk")
     if institute:
         profiles = profiles.filter(institute=institute)
 
@@ -1551,8 +1638,13 @@ def user_list(request):
     if institute:
         base_queryset = base_queryset.filter(institute=institute)
 
+    page_obj, paginator, pagination_query = paginate_queryset(request, profiles)
     context = {
-        "profiles": profiles,
+        "profiles": page_obj.object_list,
+        "page_obj": page_obj,
+        "paginator": paginator,
+        "pagination_query": pagination_query,
+        "pagination_label": "users",
         "role_choices": InstituteUserForm.ROLE_CHOICES,
         "search_query": search_query,
         "role_filter": role_filter,
@@ -1645,6 +1737,111 @@ def user_delete(request, pk):
     return redirect("institute_admin:user_list")
 
 
+def get_student_session_fee_summaries(session_ids, display_session_ids=None):
+    session_ids = list(session_ids)
+    if display_session_ids is None:
+        display_session_ids = session_ids
+    display_session_ids = set(display_session_ids)
+    money_unit = Decimal("0.01")
+    empty_summary = {
+        "total_fee_amount": Decimal("0.00"),
+        "paid_amount": Decimal("0.00"),
+        "due_amount": Decimal("0.00"),
+        "display_enrollments": [],
+        "display_enrollment_count": 0,
+    }
+    if not session_ids:
+        return {}
+
+    enrollment_fee_by_session = defaultdict(lambda: Decimal("0.00"))
+    invoiced_amount_by_session = defaultdict(lambda: Decimal("0.00"))
+    additional_fee_by_session = defaultdict(lambda: Decimal("0.00"))
+    paid_amount_by_session = defaultdict(lambda: Decimal("0.00"))
+    display_enrollments_by_session = defaultdict(list)
+    display_enrollment_count_by_session = defaultdict(int)
+
+    active_enrollments = StudentEnrollment.objects.filter(
+        academic_session_id__in=session_ids,
+    ).exclude(status=StudentEnrollment.Status.CANCELLED)
+
+    custom_fee_rows = (
+        active_enrollments.filter(custom_fee_amount__isnull=False)
+        .values("academic_session_id")
+        .annotate(total=Sum("custom_fee_amount"))
+    )
+    for row in custom_fee_rows:
+        enrollment_fee_by_session[row["academic_session_id"]] += row["total"] or Decimal("0.00")
+
+    course_fee_rows = (
+        Course.objects.filter(
+            student_enrollments__academic_session_id__in=session_ids,
+            student_enrollments__custom_fee_amount__isnull=True,
+        )
+        .exclude(student_enrollments__status=StudentEnrollment.Status.CANCELLED)
+        .values("student_enrollments__academic_session_id")
+        .annotate(total=Sum("fee_amount"))
+    )
+    for row in course_fee_rows:
+        enrollment_fee_by_session[row["student_enrollments__academic_session_id"]] += row["total"] or Decimal("0.00")
+
+    enrollment_rows = active_enrollments.filter(academic_session_id__in=display_session_ids).select_related("batch").order_by(
+        "academic_session__admission_number",
+        "batch__name",
+    )
+    for enrollment in enrollment_rows:
+        session_id = enrollment.academic_session_id
+        display_enrollment_count_by_session[session_id] += 1
+        if len(display_enrollments_by_session[session_id]) < 2:
+            display_enrollments_by_session[session_id].append(enrollment)
+
+    invoice_queryset = FeeInvoice.objects.filter(
+        academic_session_id__in=session_ids,
+    ).exclude(status=FeeInvoice.Status.CANCELLED)
+    invoice_amount_rows = invoice_queryset.values("academic_session_id").annotate(total=Sum("amount"))
+    for row in invoice_amount_rows:
+        invoiced_amount_by_session[row["academic_session_id"]] = row["total"] or Decimal("0.00")
+
+    additional_fee_rows = (
+        invoice_queryset.filter(enrollment__isnull=True)
+        .values("academic_session_id")
+        .annotate(total=Sum("amount"))
+    )
+    for row in additional_fee_rows:
+        additional_fee_by_session[row["academic_session_id"]] = row["total"] or Decimal("0.00")
+
+    payment_rows = (
+        Payment.objects.filter(
+            invoice__academic_session_id__in=session_ids,
+            status=Payment.Status.ACTIVE,
+        )
+        .exclude(invoice__status=FeeInvoice.Status.CANCELLED)
+        .values("invoice__academic_session_id")
+        .annotate(total=Sum("amount"))
+    )
+    for row in payment_rows:
+        paid_amount_by_session[row["invoice__academic_session_id"]] = row["total"] or Decimal("0.00")
+
+    summaries = {}
+    for session_id in session_ids:
+        enrollment_fee_amount = enrollment_fee_by_session[session_id]
+        invoiced_amount = invoiced_amount_by_session[session_id]
+        additional_fee_amount = additional_fee_by_session[session_id]
+        paid_amount = paid_amount_by_session[session_id]
+        total_fee_amount = enrollment_fee_amount + additional_fee_amount if enrollment_fee_amount > 0 else invoiced_amount
+        due_amount = total_fee_amount - paid_amount
+        if due_amount < 0:
+            due_amount = Decimal("0.00")
+        summaries[session_id] = {
+            **empty_summary,
+            "total_fee_amount": total_fee_amount.quantize(money_unit),
+            "paid_amount": paid_amount.quantize(money_unit),
+            "due_amount": due_amount.quantize(money_unit),
+            "display_enrollments": display_enrollments_by_session[session_id],
+            "display_enrollment_count": display_enrollment_count_by_session[session_id],
+        }
+    return summaries
+
+
 @institute_admin_required
 def student_list(request):
     institute = get_current_institute(request)
@@ -1655,11 +1852,6 @@ def student_list(request):
         "student",
         "student__user",
         "student__user__profile",
-    ).prefetch_related(
-        "student__guardians",
-        "student__enrollments__batch",
-        "student__enrollments__courses",
-        "student__fee_invoices__payments",
     )
     if institute:
         sessions = sessions.filter(institute=institute)
@@ -1697,36 +1889,46 @@ def student_list(request):
     elif status_filter == "inactive":
         sessions = sessions.exclude(status=StudentAcademicSession.Status.ACTIVE, student__is_active=True)
 
-    filtered_total_fee_amount = Decimal("0.00")
-    filtered_paid_amount = Decimal("0.00")
-    filtered_due_amount = Decimal("0.00")
-    for summary_session in sessions.prefetch_related("enrollments__courses", "fee_invoices__payments"):
-        session_total_fee, session_paid_amount, session_due_amount = get_student_session_fee_summary(summary_session)
-        filtered_total_fee_amount += session_total_fee
-        filtered_paid_amount += session_paid_amount
-        filtered_due_amount += session_due_amount
-
+    session_ids = list(sessions.values_list("pk", flat=True))
     paginator = Paginator(sessions, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
-    sessions_page = page_obj.object_list
+    sessions_page = list(
+        page_obj.object_list.prefetch_related(
+            "student__guardians",
+        )
+    )
+    page_session_ids = [session.pk for session in sessions_page]
+    fee_summaries = get_student_session_fee_summaries(session_ids, display_session_ids=page_session_ids)
+    filtered_total_fee_amount = sum(
+        (summary["total_fee_amount"] for summary in fee_summaries.values()),
+        Decimal("0.00"),
+    )
+    filtered_paid_amount = sum(
+        (summary["paid_amount"] for summary in fee_summaries.values()),
+        Decimal("0.00"),
+    )
+    filtered_due_amount = sum(
+        (summary["due_amount"] for summary in fee_summaries.values()),
+        Decimal("0.00"),
+    )
     query_params = request.GET.copy()
     query_params.pop("page", None)
     pagination_query = query_params.urlencode()
 
     for session in sessions_page:
-        fee_enrollments = session.enrollments.exclude(status=StudentEnrollment.Status.CANCELLED)
-        session_total_fee_amount, session_paid_amount, session_due_amount = get_student_session_fee_summary(session)
-        session.total_fee_amount = session_total_fee_amount
-        session.paid_amount = session_paid_amount
-        session.due_amount = session_due_amount
-        session.display_enrollments = list(fee_enrollments.select_related("batch")[:2])
-        session.display_enrollment_count = fee_enrollments.count()
+        summary = fee_summaries.get(session.pk, {})
+        session.total_fee_amount = summary.get("total_fee_amount", Decimal("0.00"))
+        session.paid_amount = summary.get("paid_amount", Decimal("0.00"))
+        session.due_amount = summary.get("due_amount", Decimal("0.00"))
+        session.display_enrollments = summary.get("display_enrollments", [])
+        session.display_enrollment_count = summary.get("display_enrollment_count", 0)
 
     context = {
         "students": sessions_page,
         "page_obj": page_obj,
         "paginator": paginator,
         "pagination_query": pagination_query,
+        "pagination_label": "students",
         "search_query": search_query,
         "status_filter": status_filter,
         "batch_filter": batch_filter,
@@ -1734,7 +1936,7 @@ def student_list(request):
         "selected_batch": selected_batch,
         "student_export_field_options": STUDENT_EXPORT_FIELD_OPTIONS,
         "student_export_default_fields": STUDENT_EXPORT_DEFAULT_FIELDS,
-        "total_students": sessions.count(),
+        "total_students": len(session_ids),
         "active_students": sessions.filter(
             status=StudentAcademicSession.Status.ACTIVE,
             student__is_active=True,
@@ -1743,7 +1945,7 @@ def student_list(request):
             status=StudentAcademicSession.Status.ACTIVE,
             student__is_active=True,
         ).count(),
-        "total_enrollments": StudentEnrollment.objects.filter(academic_session__in=sessions).count(),
+        "total_enrollments": StudentEnrollment.objects.filter(academic_session_id__in=session_ids).count(),
         "filtered_total_fee_amount": filtered_total_fee_amount,
         "filtered_paid_amount": filtered_paid_amount,
         "filtered_due_amount": filtered_due_amount,
@@ -2876,7 +3078,7 @@ def student_receive_fee(request, pk):
                         note="Payment received.",
                     )
                     refresh_invoice_status(invoice)
-                    notify_fee_paid(payment)
+                    transaction.on_commit(lambda payment_id=payment.pk: enqueue_fee_paid_notification(payment_id))
                     messages.success(request, "Fee payment received successfully.")
                     receipt_url = reverse("institute_admin:payment_receipt", args=[payment.pk])
                     return close_popup_response(receipt_url)
@@ -3357,8 +3559,13 @@ def enrollment_list(request):
     if academic_year:
         base_queryset = base_queryset.filter(academic_session__academic_year=academic_year)
 
+    page_obj, paginator, pagination_query = paginate_queryset(request, enrollments)
     context = {
-        "enrollments": enrollments,
+        "enrollments": page_obj.object_list,
+        "page_obj": page_obj,
+        "paginator": paginator,
+        "pagination_query": pagination_query,
+        "pagination_label": "enrollments",
         "batches": batch_queryset,
         "status_choices": StudentEnrollment.Status.choices,
         "search_query": search_query,
@@ -3517,8 +3724,13 @@ def homework_list(request):
         subject_queryset = subject_queryset.filter(academic_year=academic_year)
         course_queryset = course_queryset.filter(academic_year=academic_year)
 
+    page_obj, paginator, pagination_query = paginate_queryset(request, homework)
     context = {
-        "homework_list": homework,
+        "homework_list": page_obj.object_list,
+        "page_obj": page_obj,
+        "paginator": paginator,
+        "pagination_query": pagination_query,
+        "pagination_label": "homework",
         "batches": batch_queryset,
         "subjects": subject_queryset,
         "courses": course_queryset,
@@ -3700,7 +3912,7 @@ def notice_create(request):
             notice.created_by = request.user
             notice.save()
             form.save_m2m()
-            notify_notice_published(notice)
+            transaction.on_commit(lambda notice_id=notice.pk: enqueue_notice_published_notification(notice_id))
             messages.success(request, "Notice created successfully.")
             return close_popup_response()
     else:
@@ -4227,8 +4439,13 @@ def teacher_list(request):
         teachers = teachers.filter(is_active=False)
 
     base_queryset = TeacherProfile.objects.filter(institute=institute) if institute else TeacherProfile.objects.all()
+    page_obj, paginator, pagination_query = paginate_queryset(request, teachers)
     context = {
-        "teachers": teachers,
+        "teachers": page_obj.object_list,
+        "page_obj": page_obj,
+        "paginator": paginator,
+        "pagination_query": pagination_query,
+        "pagination_label": "teachers",
         "search_query": search_query,
         "teacher_type_filter": teacher_type_filter,
         "status_filter": status_filter,
@@ -4377,6 +4594,7 @@ def exams(request):
         Exam.objects.filter(batch__in=batches)
         .select_related("batch", "academic_year", "subject")
         .annotate(question_count=Count("questions", distinct=True), marks_from_questions=Sum("questions__marks"))
+        .order_by("-exam_date", "title", "pk")
     )
     search_query = request.GET.get("search", "").strip()
     status_filter = request.GET.get("status", "").strip()
@@ -4390,11 +4608,16 @@ def exams(request):
     if batch_filter:
         exam_qs = exam_qs.filter(batch_id=batch_filter)
     base_qs = Exam.objects.filter(batch__in=batches)
+    page_obj, paginator, pagination_query = paginate_queryset(request, exam_qs)
     return render(
         request,
         "exam/institute_exams.html",
         {
-            "exams": exam_qs,
+            "exams": page_obj.object_list,
+            "page_obj": page_obj,
+            "paginator": paginator,
+            "pagination_query": pagination_query,
+            "pagination_label": "exams",
             "batches": batches,
             "selected_academic_year": selected_year,
             "search_query": search_query,
@@ -4936,7 +5159,7 @@ def exam_toggle_result_publish(request, pk):
 
 @institute_admin_required
 def results(request):
-    report = get_exam_result_report(request)
+    report = get_exam_result_report(request, paginate=True)
     return render(request, "exam/institute_results.html", report)
 
 
@@ -4966,17 +5189,36 @@ def ranked_exam_attempts(attempts):
     return ranks
 
 
-def get_exam_result_report(request):
-    institute = get_current_institute(request)
-    academic_year = get_current_academic_year(request, institute)
-    batches = institute_exam_batches(request).order_by("name")
-    exams = Exam.objects.filter(batch__in=batches).select_related(
-        "batch",
-        "course",
-        "subject",
-        "academic_year",
+def get_exam_attempt_percentage_expression():
+    return Case(
+        When(
+            total_marks__gt=0,
+            then=ExpressionWrapper(
+                F("score") * Value(Decimal("100.00")) / F("total_marks"),
+                output_field=DecimalField(max_digits=7, decimal_places=2),
+            ),
+        ),
+        default=Value(Decimal("0.00")),
+        output_field=DecimalField(max_digits=7, decimal_places=2),
     )
-    all_attempts = list(
+
+
+def get_ranked_exam_attempt_queryset(exams):
+    higher_score_count = (
+        ExamAttempt.objects.filter(
+            exam_id=OuterRef("exam_id"),
+            submitted_at__isnull=False,
+            score__gt=OuterRef("score"),
+        )
+        .values("exam_id")
+        .annotate(total=Count("pk"))
+        .values("total")
+    )
+    rank_expression = ExpressionWrapper(
+        Coalesce(Subquery(higher_score_count, output_field=IntegerField()), Value(0)) + Value(1),
+        output_field=IntegerField(),
+    )
+    return (
         ExamAttempt.objects.filter(exam__in=exams, submitted_at__isnull=False)
         .select_related(
             "exam",
@@ -4987,9 +5229,44 @@ def get_exam_result_report(request):
             "student",
             "student__user",
         )
-        .order_by("-submitted_at", "exam__title", "academic_session__admission_number")
+        .annotate(
+            percentage=get_exam_attempt_percentage_expression(),
+            rank=rank_expression,
+        )
     )
-    ranks = ranked_exam_attempts(all_attempts)
+
+
+def build_exam_result_rows(attempts):
+    rows = []
+    for attempt in attempts:
+        percentage = getattr(attempt, "percentage", None)
+        if percentage is None:
+            percentage = exam_attempt_percentage(attempt)
+        else:
+            percentage = percentage.quantize(Decimal("0.01"))
+        student_name = attempt.student.user.get_full_name() or attempt.student.user.username
+        rows.append(
+            {
+                "attempt": attempt,
+                "student_name": student_name,
+                "percentage": percentage,
+                "rank": getattr(attempt, "rank", None),
+                "performance": "Passed" if percentage >= Decimal("40") else "Needs improvement",
+            }
+        )
+    return rows
+
+
+def get_exam_result_report(request, paginate=False):
+    institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
+    batches = institute_exam_batches(request).order_by("name")
+    exams = Exam.objects.filter(batch__in=batches).select_related(
+        "batch",
+        "course",
+        "subject",
+        "academic_year",
+    )
 
     batch_id = request.GET.get("batch", "").strip()
     course_id = request.GET.get("course", "").strip()
@@ -5011,55 +5288,49 @@ def get_exam_result_report(request):
     except (ValueError, ArithmeticError):
         maximum = None
 
-    rows = []
-    for attempt in all_attempts:
-        percentage = exam_attempt_percentage(attempt)
-        student_name = attempt.student.user.get_full_name() or attempt.student.user.username
-        if batch_id and str(attempt.exam.batch_id) != batch_id:
-            continue
-        if course_id and str(attempt.exam.course_id or "") != course_id:
-            continue
-        if subject_id and str(attempt.exam.subject_id or "") != subject_id:
-            continue
-        if exam_id and str(attempt.exam_id) != exam_id:
-            continue
-        if student_query and student_query.lower() not in (
-            f"{student_name} {attempt.student.user.username} "
-            f"{attempt.academic_session.admission_number}"
-        ).lower():
-            continue
-        submitted_date = timezone.localtime(attempt.submitted_at).date()
-        if date_from and submitted_date < date_from:
-            continue
-        if date_to and submitted_date > date_to:
-            continue
-        if minimum is not None and percentage < minimum:
-            continue
-        if maximum is not None and percentage > maximum:
-            continue
-        if performance == "passed" and percentage < Decimal("40"):
-            continue
-        if performance == "failed" and percentage >= Decimal("40"):
-            continue
-
-        rows.append(
-            {
-                "attempt": attempt,
-                "student_name": student_name,
-                "percentage": percentage,
-                "rank": ranks.get(attempt.pk),
-                "performance": "Passed" if percentage >= Decimal("40") else "Needs improvement",
-            }
+    attempts = get_ranked_exam_attempt_queryset(exams)
+    if batch_id:
+        attempts = attempts.filter(exam__batch_id=batch_id)
+    if course_id:
+        attempts = attempts.filter(exam__course_id=course_id)
+    if subject_id:
+        attempts = attempts.filter(exam__subject_id=subject_id)
+    if exam_id:
+        attempts = attempts.filter(exam_id=exam_id)
+    if student_query:
+        attempts = attempts.filter(
+            Q(student__user__first_name__icontains=student_query)
+            | Q(student__user__last_name__icontains=student_query)
+            | Q(student__user__username__icontains=student_query)
+            | Q(academic_session__admission_number__icontains=student_query)
         )
+    if date_from:
+        attempts = attempts.filter(submitted_at__date__gte=date_from)
+    if date_to:
+        attempts = attempts.filter(submitted_at__date__lte=date_to)
+    if minimum is not None:
+        attempts = attempts.filter(percentage__gte=minimum)
+    if maximum is not None:
+        attempts = attempts.filter(percentage__lte=maximum)
+    if performance == "passed":
+        attempts = attempts.filter(percentage__gte=Decimal("40"))
+    elif performance == "failed":
+        attempts = attempts.filter(percentage__lt=Decimal("40"))
 
-    rows.sort(key=lambda row: (row["attempt"].exam.title.lower(), row["rank"], row["student_name"].lower()))
-    percentages = [row["percentage"] for row in rows]
-    average_percentage = (
-        sum(percentages, Decimal("0.00")) / len(percentages)
-        if percentages
-        else Decimal("0.00")
+    attempts = attempts.order_by("exam__title", "rank", "student__user__first_name", "student__user__username", "pk")
+    result_count = attempts.count()
+    passed_count = attempts.filter(percentage__gte=Decimal("40")).count()
+    aggregates = attempts.aggregate(
+        average_percentage=Avg("percentage"),
+        highest_percentage=Max("percentage"),
     )
-    passed_count = sum(1 for percentage in percentages if percentage >= Decimal("40"))
+
+    page_obj = paginator = pagination_query = None
+    rows_queryset = attempts
+    if paginate:
+        page_obj, paginator, pagination_query = paginate_queryset(request, attempts)
+        rows_queryset = page_obj.object_list
+    rows = build_exam_result_rows(rows_queryset)
 
     courses = Course.objects.filter(institute=institute, academic_year=academic_year, exams__in=exams).distinct().order_by("name")
     subjects = Subject.objects.filter(institute=institute, academic_year=academic_year, exams__in=exams).distinct().order_by("name")
@@ -5087,11 +5358,15 @@ def get_exam_result_report(request):
         "exams": exams.order_by("-exam_date", "title"),
         "filters": filters,
         "filter_labels": filter_labels,
-        "result_count": len(rows),
+        "result_count": result_count,
         "passed_count": passed_count,
-        "needs_improvement_count": len(rows) - passed_count,
-        "average_percentage": average_percentage.quantize(Decimal("0.01")),
-        "highest_percentage": max(percentages, default=Decimal("0.00")),
+        "needs_improvement_count": result_count - passed_count,
+        "average_percentage": (aggregates["average_percentage"] or Decimal("0.00")).quantize(Decimal("0.01")),
+        "highest_percentage": (aggregates["highest_percentage"] or Decimal("0.00")).quantize(Decimal("0.01")),
+        "page_obj": page_obj,
+        "paginator": paginator,
+        "pagination_query": pagination_query,
+        "pagination_label": "results",
     }
 
 

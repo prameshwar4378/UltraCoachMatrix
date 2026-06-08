@@ -1,0 +1,30 @@
+{% if paginator and paginator.num_pages > 1 %}
+<div class="pagination-panel">
+    <div class="pagination-info">
+        Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ paginator.count }} {{ pagination_label|default:"records" }}
+    </div>
+    <nav aria-label="{{ pagination_label|default:'records'|title }} pagination">
+        <ul class="pagination mb-0">
+            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                <a class="page-link" href="{% if page_obj.has_previous %}?{% if pagination_query %}{{ pagination_query }}&{% endif %}page=1{% else %}#{% endif %}">First</a>
+            </li>
+            <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                <a class="page-link" href="{% if page_obj.has_previous %}?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ page_obj.previous_page_number }}{% else %}#{% endif %}"><i class="bi bi-chevron-left"></i></a>
+            </li>
+            {% for page_number in paginator.page_range %}
+                {% if page_number >= page_obj.number|add:"-2" and page_number <= page_obj.number|add:"2" %}
+                    <li class="page-item {% if page_number == page_obj.number %}active{% endif %}">
+                        <a class="page-link" href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ page_number }}">{{ page_number }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                <a class="page-link" href="{% if page_obj.has_next %}?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ page_obj.next_page_number }}{% else %}#{% endif %}"><i class="bi bi-chevron-right"></i></a>
+            </li>
+            <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                <a class="page-link" href="{% if page_obj.has_next %}?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ paginator.num_pages }}{% else %}#{% endif %}">Last</a>
+            </li>
+        </ul>
+    </nav>
+</div>
+{% endif %}

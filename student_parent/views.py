@@ -1060,7 +1060,17 @@ def mobile_register_device(request):
             "is_active": True,
         },
     )
-    return JsonResponse({"detail": "Device registered.", "device_id": device.pk})
+    from .notifications import firebase_configuration_status
+
+    push_status = firebase_configuration_status()
+    return JsonResponse(
+        {
+            "detail": "Device registered.",
+            "device_id": device.pk,
+            "firebase_ready": push_status["ready"],
+            "firebase_detail": push_status["detail"],
+        }
+    )
 
 
 @csrf_exempt
@@ -1100,6 +1110,46 @@ def mobile_notifications(request):
                 }
                 for notification in notifications
             ]
+        }
+    )
+
+
+@require_GET
+def mobile_push_status(request):
+    user = _api_user(request)
+    if not user:
+        return _unauthorized()
+
+    from .notifications import firebase_configuration_status
+
+    devices = UserDevice.objects.filter(user=user)
+    active_devices = devices.filter(is_active=True)
+    recent_notification = PushNotification.objects.filter(user=user).first()
+    latest_device = devices.first()
+    return JsonResponse(
+        {
+            "firebase": firebase_configuration_status(),
+            "devices": {
+                "total": devices.count(),
+                "active": active_devices.count(),
+                "latest": {
+                    "id": latest_device.pk,
+                    "platform": latest_device.platform,
+                    "is_active": latest_device.is_active,
+                    "last_seen_at": _datetime(latest_device.last_seen_at),
+                }
+                if latest_device
+                else None,
+            },
+            "latest_notification": {
+                "id": recent_notification.pk,
+                "type": recent_notification.notification_type,
+                "status": recent_notification.status,
+                "error_message": recent_notification.error_message,
+                "sent_at": _datetime(recent_notification.sent_at),
+            }
+            if recent_notification
+            else None,
         }
     )
 

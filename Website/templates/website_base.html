@@ -1018,6 +1018,7 @@ body.lock-scroll{overflow:hidden}
           <a href="{% url 'web-features' %}" class="nav-btn">Features</a>
           <button class="nav-btn" data-menu="academics">Modules <i class="bi bi-chevron-down"></i></button>
           <a href="{% url 'index' %}#mobile-apps" class="nav-btn">Mobile Apps</a>
+          <a href="{% url 'index' %}#free-trial" class="nav-btn">Free Trial</a>
           <a href="{% url 'index' %}#pricing" class="nav-btn">Pricing</a>
           <a href="{% url 'web_contact_us' %}" class="nav-btn">Contact us</a>
           <button class="nav-btn" data-menu="help">Help <i class="bi bi-chevron-down"></i></button>
@@ -1029,7 +1030,7 @@ body.lock-scroll{overflow:hidden}
       </a>
       {% else %}
       <a href="/login/" class="nav-btn">Login</a>
-      <a href="{% url 'web_contact_us' %}" class="apply-btn">Book Demo <i class="bi bi-arrow-right"></i></a>
+      <a href="{% url 'signup' %}" class="apply-btn">Start Free Trial <i class="bi bi-arrow-right"></i></a>
       {% endif %}
       <button class="mobile-toggle" id="openMobile"><i class="bi bi-list"></i></button>
     </div>
@@ -1069,6 +1070,10 @@ body.lock-scroll{overflow:hidden}
         <i class="bi bi-phone-fill"></i>
         <span>Mobile Apps</span>
       </a>
+      <a href="{% url 'index' %}#free-trial" class="mobile-primary-link">
+        <i class="bi bi-rocket-takeoff-fill"></i>
+        <span>14 Days Free Trial</span>
+      </a>
       <a href="{% url 'index' %}#pricing" class="mobile-primary-link">
         <i class="bi bi-cash-stack"></i>
         <span>Pricing</span>
@@ -1089,8 +1094,8 @@ body.lock-scroll{overflow:hidden}
         <i class="bi bi-box-arrow-in-right"></i> Login
       </a>
       {% endif %}
-      <a href="{% url 'web_contact_us' %}" class="mobile-action-btn demo">
-        <i class="bi bi-calendar-check"></i> Book Demo
+      <a href="{% url 'signup' %}" class="mobile-action-btn demo">
+        <i class="bi bi-rocket-takeoff-fill"></i> Free Trial
       </a>
     </div>
 

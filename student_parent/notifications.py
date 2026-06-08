@@ -1,9 +1,12 @@
 import json
 import logging
+from queue import Queue
+import threading
 from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.db import close_old_connections
 from django.db.models import Q
 from django.utils import timezone
 
@@ -12,6 +15,10 @@ from institute_admin.models import Notice
 from .models import PushNotification, StudentEnrollment, StudentProfile, UserDevice
 
 logger = logging.getLogger(__name__)
+
+_notification_queue = Queue()
+_notification_worker_lock = threading.Lock()
+_notification_worker_started = False
 
 INVALID_TOKEN_ERROR_MARKERS = (
     "registration-token-not-registered",
@@ -251,3 +258,49 @@ def notify_notice_published(notice):
             )
         )
     return records
+
+
+def _notification_worker():
+    while True:
+        task_name, object_id = _notification_queue.get()
+        try:
+            close_old_connections()
+            if task_name == "fee_paid":
+                from accountant.models import Payment
+
+                payment = Payment.objects.select_related(
+                    "invoice",
+                    "invoice__student",
+                    "invoice__student__user",
+                ).get(pk=object_id)
+                notify_fee_paid(payment)
+            elif task_name == "notice_published":
+                notice = Notice.objects.select_related("institute").get(pk=object_id)
+                notify_notice_published(notice)
+        except Exception:
+            logger.exception("Background push notification task failed: %s:%s", task_name, object_id)
+        finally:
+            close_old_connections()
+            _notification_queue.task_done()
+
+
+def _ensure_notification_worker():
+    global _notification_worker_started
+    if _notification_worker_started:
+        return
+    with _notification_worker_lock:
+        if _notification_worker_started:
+            return
+        worker = threading.Thread(target=_notification_worker, name="push-notification-worker", daemon=True)
+        worker.start()
+        _notification_worker_started = True
+
+
+def enqueue_fee_paid_notification(payment):
+    _ensure_notification_worker()
+    _notification_queue.put(("fee_paid", payment.pk if hasattr(payment, "pk") else payment))
+
+
+def enqueue_notice_published_notification(notice):
+    _ensure_notification_worker()
+    _notification_queue.put(("notice_published", notice.pk if hasattr(notice, "pk") else notice))

@@ -26,6 +26,19 @@
       </p>
 
       <div class="um-hero-actions">
+        <a href="{% url 'signup' %}" class="um-hero-btn trial">
+          <span class="um-btn-icon">
+            <i class="bi bi-rocket-takeoff-fill"></i>
+          </span>
+          <span class="um-btn-text">
+            <small>Start Your</small>
+            <strong>14 Days Free Trial</strong>
+          </span>
+          <span class="um-btn-arrow">
+            <i class="bi bi-arrow-right"></i>
+          </span>
+        </a>
+
         <a href="{% url 'web_contact_us' %}" class="um-hero-btn demo">
           <span class="um-btn-icon">
             <i class="bi bi-calendar2-check-fill"></i>
@@ -458,6 +471,29 @@ body{
   color:#071527;
   background:linear-gradient(135deg,#ffe59a,var(--accent));
   box-shadow:0 13px 28px rgba(244,185,66,.36);
+}
+
+.um-hero-btn.trial{
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  border:0;
+  box-shadow:0 24px 58px rgba(244,185,66,.32);
+}
+
+.um-hero-btn.trial .um-btn-icon{
+  color:#fff;
+  background:linear-gradient(135deg,#071527,var(--primary));
+  box-shadow:0 13px 28px rgba(18,60,122,.26);
+}
+
+.um-hero-btn.trial .um-btn-text small,
+.um-hero-btn.trial .um-btn-text strong{
+  color:#071527;
+}
+
+.um-hero-btn.trial:hover::before{
+  opacity:1;
+  background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(24,216,255,.14));
 }
 
 .um-btn-arrow{
@@ -2585,6 +2621,204 @@ if(heroVisual){
 </style>
 
 
+<section class="um-trial-section" id="free-trial">
+  <div class="um-trial-container">
+    <div class="um-trial-copy">
+      <span class="hero-badge">
+        <i class="bi bi-lightning-charge-fill"></i> 14 Days Free Trial
+      </span>
+      <h2>
+        Try UltraCoachMatrix
+        <span>Before You Pay</span>
+      </h2>
+      <p>
+        Create your institute account and explore the complete coaching management
+        workflow for 14 days. Add students, batches, fees, attendance, homework,
+        exams, results and app notifications without waiting for manual setup.
+      </p>
+      <div class="um-trial-actions">
+        <a href="{% url 'signup' %}" class="um-trial-primary">
+          Start 14 Days Free Trial
+          <i class="bi bi-arrow-right"></i>
+        </a>
+        <a href="{% url 'web_contact_us' %}" class="um-trial-secondary">
+          Need Setup Help?
+          <i class="bi bi-headset"></i>
+        </a>
+      </div>
+    </div>
+
+    <div class="um-trial-panel" aria-label="Free trial highlights">
+      <div class="um-trial-days">
+        <strong>14</strong>
+        <span>Days Free</span>
+      </div>
+      <div class="um-trial-feature"><i class="bi bi-check-circle-fill"></i> Full software access</div>
+      <div class="um-trial-feature"><i class="bi bi-check-circle-fill"></i> Student, teacher and fee controls</div>
+      <div class="um-trial-feature"><i class="bi bi-check-circle-fill"></i> Attendance, exams and results</div>
+      <div class="um-trial-feature"><i class="bi bi-check-circle-fill"></i> Mobile app notifications ready</div>
+      <div class="um-trial-note">No plan confusion: start on Free Trial, upgrade to Premium when ready.</div>
+    </div>
+  </div>
+</section>
+
+<style>
+.um-trial-section{
+  position:relative;
+  padding:96px 28px;
+  overflow:hidden;
+}
+
+.um-trial-container{
+  width:100%;
+  max-width:1280px;
+  margin:auto;
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  gap:34px;
+  align-items:center;
+  padding:56px;
+  border-radius:42px;
+  background:
+    radial-gradient(circle at 85% 15%,rgba(24,216,255,.2),transparent 34%),
+    linear-gradient(135deg,#071527,#0d2c5d 58%,#1d65c1);
+  box-shadow:0 34px 95px rgba(7,21,39,.24);
+}
+
+.um-trial-copy .hero-badge{
+  color:#ffe59a;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.1);
+}
+
+.um-trial-copy h2{
+  margin:24px 0 16px;
+  color:#fff;
+  font-size:56px;
+  line-height:1.02;
+  font-weight:950;
+}
+
+.um-trial-copy h2 span{
+  display:block;
+  background:linear-gradient(135deg,#ffe59a,#fff,#18d8ff);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+.um-trial-copy p{
+  max-width:700px;
+  margin:0;
+  color:#c7d7ea;
+  font-size:16px;
+  line-height:1.85;
+  font-weight:600;
+}
+
+.um-trial-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:14px;
+  margin-top:28px;
+}
+
+.um-trial-primary,
+.um-trial-secondary{
+  min-height:56px;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:14px 20px;
+  border-radius:18px;
+  font-weight:950;
+  transition:.3s var(--ease);
+}
+
+.um-trial-primary{
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  box-shadow:0 18px 42px rgba(244,185,66,.28);
+}
+
+.um-trial-secondary{
+  color:#fff;
+  background:rgba(255,255,255,.09);
+  border:1px solid rgba(255,255,255,.13);
+}
+
+.um-trial-primary:hover,
+.um-trial-secondary:hover{
+  transform:translateY(-4px);
+}
+
+.um-trial-panel{
+  padding:28px;
+  border-radius:32px;
+  background:rgba(255,255,255,.96);
+  box-shadow:0 26px 70px rgba(0,0,0,.16);
+}
+
+.um-trial-days{
+  display:flex;
+  align-items:flex-end;
+  gap:14px;
+  padding:22px;
+  border-radius:26px;
+  color:#071527;
+  background:linear-gradient(135deg,#fff7d6,#eaf4ff);
+  margin-bottom:16px;
+}
+
+.um-trial-days strong{
+  font-size:68px;
+  line-height:.8;
+  font-weight:950;
+  color:var(--primary);
+}
+
+.um-trial-days span{
+  font-size:20px;
+  font-weight:950;
+}
+
+.um-trial-feature{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:13px 0;
+  color:#1e293b;
+  font-weight:850;
+  border-bottom:1px solid #e8eef7;
+}
+
+.um-trial-feature i{
+  color:#16a34a;
+}
+
+.um-trial-note{
+  margin-top:18px;
+  padding:14px;
+  border-radius:18px;
+  color:var(--primary);
+  background:#eff6ff;
+  font-size:13px;
+  font-weight:900;
+}
+
+@media(max-width:991px){
+  .um-trial-section{padding:76px 18px}
+  .um-trial-container{grid-template-columns:1fr;padding:38px 24px;border-radius:32px}
+  .um-trial-copy h2{font-size:42px}
+}
+
+@media(max-width:575px){
+  .um-trial-section{padding:62px 14px}
+  .um-trial-copy h2{font-size:34px}
+  .um-trial-actions a{width:100%;justify-content:center}
+}
+</style>
+
 <section class="um-pricing-section" id="pricing">
   <div class="um-price-bg-grid"></div>
 
@@ -2601,8 +2835,8 @@ if(heroVisual){
       </h2>
 
       <p>
-        Choose a simple monthly or yearly plan for your coaching institute, or talk to
-        our team for custom setup and onboarding requirements.
+        Start with a 14-day free trial, then continue with a simple monthly or yearly
+        Premium plan when your institute is ready.
       </p>
     </div>
 
@@ -2626,8 +2860,8 @@ if(heroVisual){
           <div><i class="bi bi-check-circle-fill"></i> Single Institute</div>
         </div>
 
-        <a href="{% url 'web_contact_us' %}" class="um-price-btn">
-          Get Monthly Plan
+        <a href="{% url 'signup' %}" class="um-price-btn">
+          Start Free Trial
           <i class="bi bi-arrow-right"></i>
         </a>
       </div>
@@ -2655,8 +2889,8 @@ if(heroVisual){
           <div><i class="bi bi-check-circle-fill"></i> Notification System</div>
         </div>
 
-        <a href="{% url 'web_contact_us' %}" class="um-price-btn premium-btn">
-          Get Yearly Plan
+        <a href="{% url 'signup' %}" class="um-price-btn premium-btn">
+          Start Free Trial
           <i class="bi bi-arrow-right"></i>
         </a>
       </div>
@@ -2680,7 +2914,7 @@ if(heroVisual){
           <div><i class="bi bi-check-circle-fill"></i> Unlimited Reports</div>
         </div>
 
-        <a href="{% url 'index' %}" class="um-price-btn dark-btn">
+        <a href="{% url 'web_contact_us' %}" class="um-price-btn dark-btn">
           Contact Sales Team
           <i class="bi bi-arrow-right"></i>
         </a>
