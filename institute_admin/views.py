@@ -6,6 +6,7 @@ import json
 
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.sessions.models import Session
 from django.core.exceptions import PermissionDenied
@@ -2649,7 +2650,7 @@ def student_bulk_import(request):
         messages.error(request, "Invalid template format. Download the latest template and try again.")
         return redirect("institute_admin:student_list")
 
-    created_count = 0
+    rows_to_import = []
     errors = []
     for row_number in range(4, sheet.max_row + 1):
         row_values = [sheet.cell(row=row_number, column=col).value for col in range(1, len(expected) + 1)]
@@ -2660,73 +2661,158 @@ def student_bulk_import(request):
             first_name = str(row["First Name *"] or "").strip()
             if not first_name:
                 raise ValidationError("First Name is required.")
-            admission_number = generate_student_admission_number(institute, academic_year)
-            username = str(row["Username"] or admission_number).strip()
-            if User.objects.filter(username=username).exists():
-                raise ValidationError(f"Username already exists: {username}")
-            user = User(
-                username=username,
-                first_name=first_name,
-                last_name=str(row["Last Name"] or "").strip(),
-                email=str(row["Email"] or "").strip(),
-                is_active=bool_from_excel(row["Active"]),
+            rows_to_import.append(
+                {
+                    "row_number": row_number,
+                    "first_name": first_name,
+                    "last_name": str(row["Last Name"] or "").strip(),
+                    "username": str(row["Username"] or "").strip(),
+                    "password": str(row["Password"] or "Student@123"),
+                    "email": str(row["Email"] or "").strip(),
+                    "phone": str(row["Phone"] or "").strip(),
+                    "date_of_birth": parse_excel_date_value(row["Date of Birth"]),
+                    "joined_on": parse_excel_date_value(row["Joined On"]),
+                    "address": str(row["Address"] or "").strip(),
+                    "current_school_name": str(row["Current School / College"] or "").strip(),
+                    "current_school_address": str(row["Current School Address"] or "").strip(),
+                    "previous_school_name": str(row["Previous School / College"] or "").strip(),
+                    "previous_class": str(row["Previous Class"] or "").strip(),
+                    "guardian_name": str(row["Guardian Name"] or "").strip(),
+                    "guardian_relation": str(row["Guardian Relation"] or "").strip(),
+                    "guardian_phone": str(row["Guardian Phone"] or row["Phone"] or "").strip(),
+                    "guardian_email": str(row["Guardian Email"] or "").strip(),
+                    "is_active": bool_from_excel(row["Active"]),
+                }
             )
-            user.set_password(str(row["Password"] or "Student@123"))
-            with transaction.atomic():
-                user.save()
-                UserProfile.objects.create(
-                    user=user,
-                    institute=institute,
-                    role=UserProfile.Role.STUDENT_PARENT,
-                    phone=str(row["Phone"] or "").strip(),
-                )
-                student = StudentProfile.objects.create(
-                    institute=institute,
-                    academic_year=academic_year,
-                    user=user,
-                    admission_number=admission_number,
-                    date_of_birth=parse_excel_date_value(row["Date of Birth"]),
-                    joined_on=parse_excel_date_value(row["Joined On"]),
-                    address=str(row["Address"] or "").strip(),
-                    current_school_name=str(row["Current School / College"] or "").strip(),
-                    current_school_address=str(row["Current School Address"] or "").strip(),
-                    previous_school_name=str(row["Previous School / College"] or "").strip(),
-                    previous_class=str(row["Previous Class"] or "").strip(),
-                    is_active=bool_from_excel(row["Active"]),
-                )
-                StudentAcademicSession.objects.create(
-                    institute=institute,
-                    student=student,
-                    academic_year=academic_year,
-                    admission_number=admission_number,
-                    joined_on=student.joined_on,
-                    status=(
-                        StudentAcademicSession.Status.ACTIVE
-                        if student.is_active
-                        else StudentAcademicSession.Status.LEFT
-                    ),
-                    current_school_name=student.current_school_name,
-                    current_school_address=student.current_school_address,
-                    previous_school_name=student.previous_school_name,
-                    previous_class=student.previous_class,
-                )
-                if row["Guardian Name"] or row["Guardian Phone"]:
-                    GuardianProfile.objects.create(
-                        student=student,
-                        name=str(row["Guardian Name"] or "Primary Guardian").strip(),
-                        relation=str(row["Guardian Relation"] or "").strip(),
-                        phone=str(row["Guardian Phone"] or row["Phone"] or "").strip(),
-                        email=str(row["Guardian Email"] or "").strip(),
-                        is_primary=True,
-                    )
-                created_count += 1
         except Exception as exc:
             errors.append(f"Row {row_number}: {exc}")
 
+    if errors:
+        messages.error(request, "Import failed: " + " | ".join(errors[:5]))
+        return redirect("institute_admin:student_list")
+
+    prefix = f"{get_institute_initials(institute)}-{academic_year.name}-"
+    existing_numbers = StudentAcademicSession.objects.filter(
+        institute=institute,
+        academic_year=academic_year,
+        admission_number__startswith=prefix,
+    ).values_list("admission_number", flat=True)
+    last_sequence = 0
+    for admission_number in existing_numbers:
+        try:
+            last_sequence = max(last_sequence, int(admission_number.rsplit("-", 1)[-1]))
+        except (TypeError, ValueError):
+            continue
+
+    password_hashes = {}
+    users = []
+    for offset, row in enumerate(rows_to_import, start=1):
+        admission_number = f"{prefix}{last_sequence + offset:04d}"
+        row["admission_number"] = admission_number
+        row["username"] = row["username"] or admission_number
+        password = row["password"]
+        if password not in password_hashes:
+            password_hashes[password] = make_password(password)
+        users.append(
+            User(
+                username=row["username"],
+                first_name=row["first_name"],
+                last_name=row["last_name"],
+                email=row["email"],
+                password=password_hashes[password],
+                is_active=row["is_active"],
+            )
+        )
+
+    created_count = 0
+    try:
+        with transaction.atomic():
+            User.objects.bulk_create(users, batch_size=500)
+            users_by_username = User.objects.in_bulk(
+                [row["username"] for row in rows_to_import],
+                field_name="username",
+            )
+
+            user_profiles = []
+            students = []
+            for row in rows_to_import:
+                user = users_by_username[row["username"]]
+                user_profiles.append(
+                    UserProfile(
+                        user=user,
+                        institute=institute,
+                        role=UserProfile.Role.STUDENT_PARENT,
+                        phone=row["phone"],
+                    )
+                )
+                students.append(
+                    StudentProfile(
+                        institute=institute,
+                        academic_year=academic_year,
+                        user=user,
+                        admission_number=row["admission_number"],
+                        date_of_birth=row["date_of_birth"],
+                        joined_on=row["joined_on"],
+                        address=row["address"],
+                        current_school_name=row["current_school_name"],
+                        current_school_address=row["current_school_address"],
+                        previous_school_name=row["previous_school_name"],
+                        previous_class=row["previous_class"],
+                        is_active=row["is_active"],
+                    )
+                )
+
+            UserProfile.objects.bulk_create(user_profiles, batch_size=500)
+            StudentProfile.objects.bulk_create(students, batch_size=500)
+            students_by_user_id = StudentProfile.objects.in_bulk(
+                [user.pk for user in users_by_username.values()],
+                field_name="user_id",
+            )
+
+            sessions = []
+            guardians = []
+            for row in rows_to_import:
+                user = users_by_username[row["username"]]
+                student = students_by_user_id[user.pk]
+                sessions.append(
+                    StudentAcademicSession(
+                        institute=institute,
+                        student=student,
+                        academic_year=academic_year,
+                        admission_number=row["admission_number"],
+                        joined_on=row["joined_on"],
+                        status=(
+                            StudentAcademicSession.Status.ACTIVE
+                            if row["is_active"]
+                            else StudentAcademicSession.Status.LEFT
+                        ),
+                        current_school_name=row["current_school_name"],
+                        current_school_address=row["current_school_address"],
+                        previous_school_name=row["previous_school_name"],
+                        previous_class=row["previous_class"],
+                    )
+                )
+                if row["guardian_name"] or row["guardian_phone"]:
+                    guardians.append(
+                        GuardianProfile(
+                            student=student,
+                            name=row["guardian_name"] or "Primary Guardian",
+                            relation=row["guardian_relation"],
+                            phone=row["guardian_phone"],
+                            email=row["guardian_email"],
+                            is_primary=True,
+                        )
+                    )
+            StudentAcademicSession.objects.bulk_create(sessions, batch_size=500)
+            if guardians:
+                GuardianProfile.objects.bulk_create(guardians, batch_size=500)
+            created_count = len(rows_to_import)
+    except Exception as exc:
+        messages.error(request, f"Import failed. No students were created: {exc}")
+        return redirect("institute_admin:student_list")
+
     if created_count:
         messages.success(request, f"{created_count} student(s) imported successfully.")
-    if errors:
-        messages.error(request, "Import completed with errors: " + " | ".join(errors[:5]))
     return redirect("institute_admin:student_list")
 
 

@@ -3,6 +3,7 @@ from decimal import Decimal
 from io import BytesIO, StringIO
 
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.sessions.models import Session
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -10,7 +11,7 @@ from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 
 from accountant.models import FeeCategory, FeeInvoice, Payment
 from student_parent.models import StudentAcademicSession, StudentEnrollment, StudentProfile
@@ -1381,6 +1382,103 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertContains(response, "12th Batch")
         self.assertNotContains(response, "SMIS-2026-27-0001")
         self.assertNotContains(response, "11th Batch")
+
+    def test_student_bulk_import_creates_students_in_selected_year(self):
+        self.select_year(self.year_2026)
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Students"
+        headers = [
+            "First Name *",
+            "Last Name",
+            "Username",
+            "Password",
+            "Email",
+            "Phone",
+            "Date of Birth",
+            "Joined On",
+            "Address",
+            "Current School / College",
+            "Current School Address",
+            "Previous School / College",
+            "Previous Class",
+            "Guardian Name",
+            "Guardian Relation",
+            "Guardian Phone",
+            "Guardian Email",
+            "Active",
+        ]
+        sheet.append(["Student Bulk Import Template"])
+        sheet.append(["Generated admission numbers"])
+        sheet.append(headers)
+        sheet.append(
+            [
+                "Bulk",
+                "One",
+                "",
+                "",
+                "bulk-one@example.com",
+                "9222222221",
+                "2012-01-01",
+                "2026-04-10",
+                "Address one",
+                "Current School",
+                "Current address",
+                "Previous School",
+                "8th",
+                "Guardian One",
+                "Father",
+                "9333333331",
+                "guardian-one@example.com",
+                "Yes",
+            ]
+        )
+        sheet.append(
+            [
+                "Bulk",
+                "Two",
+                "bulk-two",
+                "Secret123",
+                "bulk-two@example.com",
+                "9222222222",
+                "2012-02-02",
+                "2026-04-11",
+                "Address two",
+                "Current School",
+                "Current address",
+                "Previous School",
+                "9th",
+                "",
+                "",
+                "",
+                "",
+                "No",
+            ]
+        )
+        buffer = BytesIO()
+        workbook.save(buffer)
+        upload = SimpleUploadedFile(
+            "students.xlsx",
+            buffer.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        response = self.client.post(
+            reverse("institute_admin:student_bulk_import"),
+            {"student_file": upload},
+        )
+
+        self.assertRedirects(response, reverse("institute_admin:student_list"))
+        imported_session = StudentAcademicSession.objects.get(admission_number="SMIS-2026-27-0002")
+        self.assertEqual(imported_session.academic_year, self.year_2026)
+        self.assertEqual(imported_session.student.user.username, "SMIS-2026-27-0002")
+        self.assertTrue(imported_session.student.user.check_password("Student@123"))
+        self.assertTrue(imported_session.student.guardians.filter(name="Guardian One").exists())
+
+        custom_user = User.objects.get(username="bulk-two")
+        self.assertTrue(custom_user.check_password("Secret123"))
+        custom_session = StudentAcademicSession.objects.get(student=custom_user.student_profile)
+        self.assertEqual(custom_session.status, StudentAcademicSession.Status.LEFT)
 
     def test_student_list_can_filter_by_batch(self):
         matching_sessions = [self.session_2026]
