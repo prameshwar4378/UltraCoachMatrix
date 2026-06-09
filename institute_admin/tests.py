@@ -23,7 +23,14 @@ from super_admin.models import (
 )
 from teacher.models import Attendance, Exam, ExamAttempt, ExamAttemptUpload, ExamResult, Homework
 
-from .forms import BatchForm, PaymentUpdateForm, ReceiveFeeForm
+from .forms import (
+    BatchForm,
+    PaymentUpdateForm,
+    ReceiveFeeForm,
+    StudentForm,
+    build_student_username,
+    get_student_admission_prefix,
+)
 from .models import AcademicYear, Batch, Course, Lead, Notice, SupportTicket, Visitor
 
 
@@ -941,7 +948,7 @@ class LeadCrudTests(TestCase):
         )
 
         self.assertRedirects(response, reverse("institute_admin:lead_list"))
-        user = User.objects.get(username="9123456789")
+        user = User.objects.get(username="LEADINSTITUTE26270001")
         self.assertEqual(user.first_name, "Converted")
         self.assertEqual(user.last_name, "Student")
         self.assertEqual(user.email, "converted@example.com")
@@ -970,7 +977,7 @@ class LeadCrudTests(TestCase):
             reverse("institute_admin:lead_convert", args=[lead.pk])
         )
         self.assertRedirects(repeat_response, reverse("institute_admin:lead_list"))
-        self.assertEqual(User.objects.filter(username="9123456789").count(), 1)
+        self.assertEqual(User.objects.filter(username="LEADINSTITUTE26270001").count(), 1)
         self.assertEqual(StudentEnrollment.objects.filter(student=student).count(), 1)
 
     def test_convert_lead_requires_class_and_batch(self):
@@ -990,7 +997,7 @@ class LeadCrudTests(TestCase):
         self.assertEqual(lead.status, Lead.Status.NEW)
         self.assertFalse(User.objects.filter(username="9234567890").exists())
 
-    def test_duplicate_mobile_username_does_not_convert_lead(self):
+    def test_existing_mobile_username_does_not_block_lead_conversion(self):
         User.objects.create_user(username="9345678901", password="existing-pass")
         lead = Lead.objects.create(
             institute=self.institute,
@@ -1006,10 +1013,10 @@ class LeadCrudTests(TestCase):
 
         self.assertRedirects(response, reverse("institute_admin:lead_list"))
         lead.refresh_from_db()
-        self.assertEqual(lead.status, Lead.Status.NEW)
-        self.assertIsNone(lead.converted_student)
-        self.assertFalse(
-            StudentProfile.objects.filter(user__username="9345678901").exists()
+        self.assertEqual(lead.status, Lead.Status.CONVERTED)
+        self.assertIsNotNone(lead.converted_student)
+        self.assertTrue(
+            StudentProfile.objects.filter(user__username="LEADINSTITUTE26270001").exists()
         )
 
 
@@ -1383,6 +1390,28 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertNotContains(response, "SMIS-2026-27-0001")
         self.assertNotContains(response, "11th Batch")
 
+    def test_academic_year_switcher_includes_and_switches_inactive_years(self):
+        self.year_2027.is_active = False
+        self.year_2027.save(update_fields=["is_active"])
+
+        response = self.client.get(reverse("institute_admin:student_list"))
+        self.assertContains(response, f'value="{self.year_2026.pk}"')
+        self.assertContains(response, f'value="{self.year_2027.pk}"')
+        self.assertContains(response, "2027-28 (Inactive)")
+
+        response = self.client.post(
+            reverse("institute_admin:academic_year_switch"),
+            {"academic_year_id": str(self.year_2027.pk)},
+            HTTP_REFERER=reverse("institute_admin:student_list"),
+        )
+
+        self.assertRedirects(response, reverse("institute_admin:student_list"), fetch_redirect_response=False)
+        self.assertEqual(str(self.client.session["academic_year_id"]), str(self.year_2027.pk))
+
+        response = self.client.get(reverse("institute_admin:student_list"))
+        self.assertContains(response, "SMIS-2027-28-0001")
+        self.assertNotContains(response, "SMIS-2026-27-0001")
+
     def test_student_bulk_import_creates_students_in_selected_year(self):
         self.select_year(self.year_2026)
         workbook = Workbook()
@@ -1391,7 +1420,6 @@ class AcademicSessionIsolationTests(TestCase):
         headers = [
             "First Name *",
             "Last Name",
-            "Username",
             "Password",
             "Email",
             "Phone",
@@ -1416,7 +1444,6 @@ class AcademicSessionIsolationTests(TestCase):
                 "Bulk",
                 "One",
                 "",
-                "",
                 "bulk-one@example.com",
                 "9222222221",
                 "2012-01-01",
@@ -1437,7 +1464,6 @@ class AcademicSessionIsolationTests(TestCase):
             [
                 "Bulk",
                 "Two",
-                "bulk-two",
                 "Secret123",
                 "bulk-two@example.com",
                 "9222222222",
@@ -1469,16 +1495,52 @@ class AcademicSessionIsolationTests(TestCase):
         )
 
         self.assertRedirects(response, reverse("institute_admin:student_list"))
-        imported_session = StudentAcademicSession.objects.get(admission_number="SMIS-2026-27-0002")
+        imported_session = StudentAcademicSession.objects.get(admission_number="SMIS26270002")
         self.assertEqual(imported_session.academic_year, self.year_2026)
-        self.assertEqual(imported_session.student.user.username, "SMIS-2026-27-0002")
+        self.assertEqual(imported_session.student.user.username, "SMIS26270002")
         self.assertTrue(imported_session.student.user.check_password("Student@123"))
         self.assertTrue(imported_session.student.guardians.filter(name="Guardian One").exists())
 
-        custom_user = User.objects.get(username="bulk-two")
+        custom_user = User.objects.get(username="SMIS26270003")
         self.assertTrue(custom_user.check_password("Secret123"))
         custom_session = StudentAcademicSession.objects.get(student=custom_user.student_profile)
         self.assertEqual(custom_session.status, StudentAcademicSession.Status.LEFT)
+
+    def test_manual_student_creation_generates_scoped_username_and_default_password(self):
+        form = StudentForm(
+            data={
+                "first_name": "Generated",
+                "last_name": "Login",
+                "phone": "9444444444",
+                "is_active": "on",
+            },
+            institute=self.institute,
+            academic_year=self.year_2026,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        student = form.save()
+
+        self.assertEqual(student.admission_number, "SMIS26270002")
+        self.assertEqual(student.user.username, "SMIS26270002")
+        self.assertTrue(student.user.check_password("Student@123"))
+
+    def test_registration_prefix_uses_normalized_institute_code(self):
+        other_institute = Institute.objects.create(
+            name="Saint Monica International School",
+            code="smis-north",
+            status=Institute.Status.ACTIVE,
+        )
+
+        first_prefix = get_student_admission_prefix(self.institute, self.year_2026)
+        second_prefix = get_student_admission_prefix(other_institute, self.year_2026)
+        first_registration = f"{first_prefix}0001"
+        second_registration = f"{second_prefix}0001"
+
+        self.assertEqual(first_registration, "SMIS26270001")
+        self.assertEqual(second_registration, "SMISNORTH26270001")
+        self.assertEqual(build_student_username(self.institute, first_registration), first_registration)
+        self.assertEqual(build_student_username(other_institute, second_registration), second_registration)
 
     def test_student_list_can_filter_by_batch(self):
         matching_sessions = [self.session_2026]

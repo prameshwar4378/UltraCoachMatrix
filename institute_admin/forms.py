@@ -6,7 +6,8 @@ from django import forms
 from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
-from django.db.models import Sum
+from django.db import transaction
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from accountant.models import FeeCategory, FeeInvoice, Payment, PaymentActivity
@@ -201,21 +202,72 @@ def get_institute_initials(institute):
     return initials or "INST"
 
 
-def generate_student_admission_number(institute, academic_year=None):
-    academic_year = academic_year or get_or_create_academic_year(institute)
-    prefix = f"{get_institute_initials(institute)}-{academic_year.name}-"
+def get_student_admission_prefix(institute, academic_year):
+    institute_code = re.sub(r"[^A-Za-z0-9]", "", institute.code if institute else "").upper()
+    if not institute_code:
+        raise ValidationError("Institute code is required to generate student registration numbers.")
+    start_year = str(academic_year.start_date.year)[-2:]
+    end_year = str(academic_year.end_date.year)[-2:]
+    return f"{institute_code}{start_year}{end_year}"
+
+
+def build_student_username(institute, admission_number):
+    username = re.sub(r"[^A-Za-z0-9]", "", admission_number or "").upper()
+    if not username:
+        raise ValidationError("Could not generate the student username.")
+    if len(username) > User._meta.get_field("username").max_length:
+        raise ValidationError("Generated student username is too long.")
+    return username
+
+
+def get_last_student_admission_sequence(institute, academic_year):
+    compact_prefix = get_student_admission_prefix(institute, academic_year)
+    initials_prefix = (
+        f"{get_institute_initials(institute)}"
+        f"{str(academic_year.start_date.year)[-2:]}"
+        f"{str(academic_year.end_date.year)[-2:]}"
+    )
+    legacy_prefix = f"{get_institute_initials(institute)}-{academic_year.name}-"
     existing_numbers = StudentAcademicSession.objects.filter(
         institute=institute,
         academic_year=academic_year,
-        admission_number__startswith=prefix,
+    ).filter(
+        Q(admission_number__startswith=compact_prefix)
+        | Q(admission_number__startswith=initials_prefix)
+        | Q(admission_number__startswith=legacy_prefix)
     ).values_list("admission_number", flat=True)
     last_sequence = 0
     for admission_number in existing_numbers:
+        if admission_number.startswith(compact_prefix):
+            prefix = compact_prefix
+        elif admission_number.startswith(initials_prefix):
+            prefix = initials_prefix
+        else:
+            prefix = legacy_prefix
         try:
-            last_sequence = max(last_sequence, int(admission_number.rsplit("-", 1)[-1]))
+            last_sequence = max(last_sequence, int(admission_number[len(prefix):]))
         except (TypeError, ValueError):
             continue
+    return last_sequence
+
+
+def generate_student_admission_number(institute, academic_year=None):
+    academic_year = academic_year or get_or_create_academic_year(institute)
+    prefix = get_student_admission_prefix(institute, academic_year)
+    last_sequence = get_last_student_admission_sequence(institute, academic_year)
     return f"{prefix}{last_sequence + 1:04d}"
+
+
+def generate_student_login_credentials(institute, academic_year=None):
+    academic_year = academic_year or get_or_create_academic_year(institute)
+    prefix = get_student_admission_prefix(institute, academic_year)
+    sequence = get_last_student_admission_sequence(institute, academic_year) + 1
+    while True:
+        admission_number = f"{prefix}{sequence:04d}"
+        username = build_student_username(institute, admission_number)
+        if not User.objects.filter(username=username).exists():
+            return admission_number, username
+        sequence += 1
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -838,7 +890,7 @@ class InstituteUserForm(forms.Form):
 class StudentForm(forms.Form):
     first_name = forms.CharField(max_length=150)
     last_name = forms.CharField(max_length=150, required=False)
-    username = forms.CharField(max_length=150)
+    username = forms.CharField(max_length=150, required=False, disabled=True)
     password = forms.CharField(
         min_length=6,
         required=False,
@@ -914,23 +966,18 @@ class StudentForm(forms.Form):
         kwargs["initial"] = initial
         super().__init__(*args, **kwargs)
         if not student:
-            self.fields["password"].required = True
-            self.fields["confirm_password"].required = True
+            self.fields["username"].widget.attrs["placeholder"] = "Generated automatically"
+            self.fields["username"].help_text = "Generated automatically and identical to the registration number."
+            self.fields["password"].widget.attrs["placeholder"] = "Default: Student@123"
+            self.fields["confirm_password"].widget.attrs["placeholder"] = "Default: Student@123"
+        else:
+            self.fields["username"].help_text = "Same as the registration number and cannot be changed."
 
         for field in self.fields.values():
             css_class = "form-check-input" if isinstance(field.widget, forms.CheckboxInput) else "form-control"
             if isinstance(field.widget, forms.Select):
                 css_class = "form-select"
             field.widget.attrs.setdefault("class", css_class)
-
-    def clean_username(self):
-        username = self.cleaned_data["username"]
-        queryset = User.objects.filter(username=username)
-        if self.student:
-            queryset = queryset.exclude(pk=self.student.user_id)
-        if queryset.exists():
-            raise ValidationError("This username is already used.")
-        return username
 
     def clean(self):
         cleaned_data = super().clean()
@@ -948,21 +995,39 @@ class StudentForm(forms.Form):
 
         return cleaned_data
 
+    @transaction.atomic
     def save(self):
+        academic_year = self.academic_year or (self.student.academic_year if self.student else None)
+        academic_year = academic_year or get_or_create_academic_year(self.institute)
+        existing_session = (
+            self.student.academic_sessions.filter(academic_year=academic_year).first()
+            if self.student
+            else None
+        )
         if self.student:
             student = self.student
             user = student.user
+            admission_number = (
+                existing_session.admission_number
+                if existing_session
+                else generate_student_admission_number(self.institute, academic_year)
+            )
         else:
-            user = User()
+            admission_number, username = generate_student_login_credentials(
+                self.institute,
+                academic_year,
+            )
+            user = User(username=username)
             student = None
 
-        user.username = self.cleaned_data["username"]
         user.first_name = self.cleaned_data["first_name"]
         user.last_name = self.cleaned_data["last_name"]
         user.email = self.cleaned_data["email"]
         user.is_active = self.cleaned_data["is_active"]
         if self.cleaned_data.get("password"):
             user.set_password(self.cleaned_data["password"])
+        elif not self.student:
+            user.set_password("Student@123")
         user.save()
 
         UserProfile.objects.update_or_create(
@@ -974,18 +1039,6 @@ class StudentForm(forms.Form):
             },
         )
 
-        academic_year = self.academic_year or (self.student.academic_year if self.student else None)
-        academic_year = academic_year or get_or_create_academic_year(self.institute)
-        existing_session = (
-            self.student.academic_sessions.filter(academic_year=academic_year).first()
-            if self.student
-            else None
-        )
-        admission_number = (
-            existing_session.admission_number
-            if existing_session
-            else generate_student_admission_number(self.institute, academic_year)
-        )
         student, _created = StudentProfile.objects.update_or_create(
             user=user,
             defaults={
@@ -1052,7 +1105,7 @@ class StudentForm(forms.Form):
 class StudentBasicForm(forms.Form):
     first_name = forms.CharField(max_length=150)
     last_name = forms.CharField(max_length=150, required=False)
-    username = forms.CharField(max_length=150)
+    username = forms.CharField(max_length=150, required=False, disabled=True)
     password = forms.CharField(
         min_length=6,
         required=False,
@@ -1099,21 +1152,13 @@ class StudentBasicForm(forms.Form):
 
         kwargs["initial"] = initial
         super().__init__(*args, **kwargs)
+        self.fields["username"].help_text = "Same as the registration number and cannot be changed."
 
         for field in self.fields.values():
             css_class = "form-check-input" if isinstance(field.widget, forms.CheckboxInput) else "form-control"
             if isinstance(field.widget, forms.Select):
                 css_class = "form-select"
             field.widget.attrs.setdefault("class", css_class)
-
-    def clean_username(self):
-        username = self.cleaned_data["username"]
-        queryset = User.objects.filter(username=username)
-        if self.student:
-            queryset = queryset.exclude(pk=self.student.user_id)
-        if queryset.exists():
-            raise ValidationError("This username is already used.")
-        return username
 
     def clean(self):
         cleaned_data = super().clean()
@@ -1128,7 +1173,6 @@ class StudentBasicForm(forms.Form):
         student = self.student
         user = student.user
 
-        user.username = self.cleaned_data["username"]
         user.first_name = self.cleaned_data["first_name"]
         user.last_name = self.cleaned_data["last_name"]
         user.email = self.cleaned_data["email"]

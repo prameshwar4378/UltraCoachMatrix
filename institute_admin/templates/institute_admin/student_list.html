@@ -1033,7 +1033,7 @@
             <div class="modal-header" style="background:linear-gradient(135deg,#0f766e,#115e59); color:#ffffff; padding:20px 24px; border:0;">
                 <div>
                     <h5 class="modal-title fw-bold" style="color:#ffffff; margin:0; font-size:1.15rem;"><i class="bi bi-upload me-2"></i>Import Students</h5>
-                    <div style="color:#d1fae5; font-size:.86rem; margin-top:4px;">Upload the filled Excel template. Admission numbers are generated automatically.</div>
+                    <div style="color:#d1fae5; font-size:.86rem; margin-top:4px;">Upload the filled Excel template. Admission numbers and usernames are generated automatically.</div>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -1435,7 +1435,7 @@
                     validationBox.style.background = isValid ? "#f0fdf4" : "#fef2f2";
                     validationTitle.style.color = isValid ? "#166534" : "#991b1b";
                     validationTitle.textContent = isValid ? "File is ready to import." : "Fix these errors before import.";
-                    validationSummary.textContent = (data.valid_count || 0) + " valid student row(s). Admission format starts like " + (data.prefix || "AUTO-YYYY-YY-0001") + ".";
+                    validationSummary.textContent = (data.valid_count || 0) + " valid student row(s). Admission format starts like " + (data.prefix || "AUTO26270001") + ".";
                     renderImportList(validationErrors, "Errors", data.errors || [], "#991b1b");
                     renderImportList(validationWarnings, "Warnings", data.warnings || [], "#92400e");
                     renderExcelPreview(data);

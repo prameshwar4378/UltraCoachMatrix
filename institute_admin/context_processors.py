@@ -17,7 +17,7 @@ def academic_year_context(request):
 
     institute = profile.institute
     academic_years = list(
-        AcademicYear.objects.filter(institute=institute, is_active=True).order_by("-start_date", "-pk")
+        AcademicYear.objects.filter(institute=institute).order_by("-start_date", "-pk")
     )
 
     selected_id = request.session.get("academic_year_id")
@@ -30,10 +30,11 @@ def academic_year_context(request):
 
     if not selected_year:
         current_label = get_academic_year_label()
-        selected_year = next((year for year in academic_years if year.name == current_label), None)
+        selected_year = next((year for year in academic_years if year.name == current_label and year.is_active), None)
+        selected_year = selected_year or next((year for year in academic_years if year.name == current_label), None)
 
     if not selected_year and academic_years:
-        selected_year = academic_years[0]
+        selected_year = next((year for year in academic_years if year.is_active), academic_years[0])
 
     if not selected_year:
         selected_year = get_or_create_academic_year(institute, get_academic_year_label())

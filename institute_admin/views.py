@@ -57,13 +57,16 @@ from teacher.forms import ExamQuestionForm, ExamQuestionOptionFormSet, TeacherEx
 from .forms import (
     AddStudentFeeForm,
     BatchForm,
+    build_student_username,
     CourseForm,
     LeadForm,
     FeeCategoryForm,
     generate_student_admission_number,
+    generate_student_login_credentials,
     get_academic_year_label,
-    get_institute_initials,
+    get_last_student_admission_sequence,
     get_or_create_academic_year,
+    get_student_admission_prefix,
     HomeworkForm,
     InstituteProfileForm,
     InstituteUserForm,
@@ -343,12 +346,12 @@ def get_current_academic_year(request, institute=None):
         return None
 
     cached_year = getattr(request, "_selected_academic_year", None)
-    if cached_year and cached_year.institute_id == institute.pk and cached_year.is_active:
+    if cached_year and cached_year.institute_id == institute.pk:
         return cached_year
 
     year_id = request.session.get("academic_year_id")
     if year_id:
-        academic_year = AcademicYear.objects.filter(pk=year_id, institute=institute, is_active=True).first()
+        academic_year = AcademicYear.objects.filter(pk=year_id, institute=institute).first()
         if academic_year:
             request._selected_academic_year = academic_year
             return academic_year
@@ -657,18 +660,14 @@ def lead_convert(request, pk):
         messages.error(request, "The selected class and batch are not valid for conversion.")
         return redirect("institute_admin:lead_list")
 
-    username = lead.mobile_number.strip()
-    if User.objects.filter(username=username).exists():
-        messages.error(
-            request,
-            f"Username {username} already exists. Update the lead mobile number before conversion.",
-        )
-        return redirect("institute_admin:lead_list")
-
     academic_year = course.academic_year
     joined_on = timezone.localdate()
     try:
         with transaction.atomic():
+            admission_number, username = generate_student_login_credentials(
+                institute,
+                academic_year,
+            )
             user = User(
                 username=username,
                 first_name=lead.first_name,
@@ -685,10 +684,6 @@ def lead_convert(request, pk):
                 phone=lead.mobile_number,
             )
 
-            admission_number = generate_student_admission_number(
-                institute,
-                academic_year,
-            )
             student = StudentProfile.objects.create(
                 institute=institute,
                 academic_year=academic_year,
@@ -890,10 +885,12 @@ def academic_year_switch(request):
         return redirect(reverse("school_dashboard"))
     institute = profile.institute
     if request.method == "POST":
-        year_name = request.POST.get("academic_year", "").strip()
-        if year_name:
-            academic_year = get_or_create_academic_year(institute, year_name)
+        year_id = request.POST.get("academic_year_id", "").strip()
+        academic_year = AcademicYear.objects.filter(pk=year_id, institute=institute).first() if year_id else None
+        if academic_year:
             request.session["academic_year_id"] = academic_year.pk
+            request._selected_academic_year = academic_year
+            request._academic_year_context = None
             messages.success(request, f"Academic year changed to {academic_year.name}.")
     return redirect(request.META.get("HTTP_REFERER") or reverse("institute_admin:dashboard"))
 
@@ -2201,7 +2198,6 @@ def student_import_columns():
     return [
         "First Name *",
         "Last Name",
-        "Username",
         "Password",
         "Email",
         "Phone",
@@ -2334,10 +2330,8 @@ def validate_student_import_file(upload, institute, academic_year=None):
     cell_errors = {}
     preview_rows = []
     valid_count = 0
-    seen_usernames = {}
     seen_emails = {}
     seen_phones = {}
-    existing_usernames = set(User.objects.values_list("username", flat=True))
     existing_phones = set(
         UserProfile.objects.filter(institute=institute)
         .exclude(phone="")
@@ -2353,7 +2347,6 @@ def validate_student_import_file(upload, institute, academic_year=None):
         row_errors = []
         row_cell_errors = {}
         first_name = str(row["First Name *"] or "").strip()
-        username = str(row["Username"] or "").strip()
         email = str(row["Email"] or "").strip().lower()
         phone = str(row["Phone"] or "").strip()
 
@@ -2361,16 +2354,6 @@ def validate_student_import_file(upload, institute, academic_year=None):
             error = "First Name is required."
             row_errors.append(error)
             row_cell_errors["First Name *"] = error
-        if username:
-            if username in existing_usernames:
-                error = f"Username already exists: {username}."
-                row_errors.append(error)
-                row_cell_errors["Username"] = error
-            if username in seen_usernames:
-                error = f"Duplicate username in file. Also used on row {seen_usernames[username]}."
-                row_errors.append(error)
-                row_cell_errors["Username"] = error
-            seen_usernames[username] = row_number
         if phone:
             if phone in existing_phones:
                 error = f"Mobile number already exists: {phone}."
@@ -2397,8 +2380,6 @@ def validate_student_import_file(upload, institute, academic_year=None):
                 row_cell_errors[date_column] = str(exc)
         if not row["Password"]:
             warnings.append(f"Row {row_number}: Password is blank. Default Student@123 will be used.")
-        if not username:
-            warnings.append(f"Row {row_number}: Username is blank. Generated admission number will be used.")
 
         if row_errors:
             errors.extend(f"Row {row_number}: {error}" for error in row_errors)
@@ -2422,7 +2403,7 @@ def validate_student_import_file(upload, institute, academic_year=None):
         "valid_count": valid_count,
         "errors": errors,
         "warnings": warnings,
-        "prefix": f"{get_institute_initials(institute)}-{academic_year.name}-0001",
+        "prefix": f"{get_student_admission_prefix(institute, academic_year)}0001",
         "headers": expected,
         "rows": preview_rows[:100],
         "cell_errors": cell_errors,
@@ -2442,7 +2423,7 @@ def student_import_template(request):
     sheet.cell(
         row=2,
         column=1,
-        value=f"Admission number will be generated automatically like {get_institute_initials(institute)}-{academic_year.name}-0001",
+        value=f"Admission number will be generated automatically like {get_student_admission_prefix(institute, academic_year)}0001",
     )
     sheet.cell(row=2, column=1).font = Font(italic=True, color="64748B")
     for col, header in enumerate(columns, start=1):
@@ -2452,7 +2433,6 @@ def student_import_template(request):
         "Rohan",
         "Sharma",
         "",
-        "Student@123",
         "rohan@example.com",
         "9876543210",
         "2010-05-12",
@@ -2479,7 +2459,7 @@ def student_import_template(request):
     info["A1"].font = Font(size=16, bold=True, color="0F766E")
     info["A3"] = "1. Do not add Admission Number. It is generated automatically."
     info["A4"] = "2. First Name is required."
-    info["A5"] = "3. Username is optional. If blank, it will use the generated admission number."
+    info["A5"] = "3. Username is generated automatically and is the same as the admission number."
     info["A6"] = "4. Password is optional. If blank, Student@123 will be used."
     info["A7"] = "5. Dates can be YYYY-MM-DD or DD-MM-YYYY."
     info.column_dimensions["A"].width = 90
@@ -2666,7 +2646,6 @@ def student_bulk_import(request):
                     "row_number": row_number,
                     "first_name": first_name,
                     "last_name": str(row["Last Name"] or "").strip(),
-                    "username": str(row["Username"] or "").strip(),
                     "password": str(row["Password"] or "Student@123"),
                     "email": str(row["Email"] or "").strip(),
                     "phone": str(row["Phone"] or "").strip(),
@@ -2691,25 +2670,25 @@ def student_bulk_import(request):
         messages.error(request, "Import failed: " + " | ".join(errors[:5]))
         return redirect("institute_admin:student_list")
 
-    prefix = f"{get_institute_initials(institute)}-{academic_year.name}-"
-    existing_numbers = StudentAcademicSession.objects.filter(
-        institute=institute,
-        academic_year=academic_year,
-        admission_number__startswith=prefix,
-    ).values_list("admission_number", flat=True)
-    last_sequence = 0
-    for admission_number in existing_numbers:
-        try:
-            last_sequence = max(last_sequence, int(admission_number.rsplit("-", 1)[-1]))
-        except (TypeError, ValueError):
-            continue
+    prefix = get_student_admission_prefix(institute, academic_year)
+    sequence = get_last_student_admission_sequence(institute, academic_year) + 1
+    username_prefix = build_student_username(institute, prefix)
+    reserved_usernames = set(
+        User.objects.filter(username__startswith=username_prefix).values_list("username", flat=True)
+    )
 
     password_hashes = {}
     users = []
-    for offset, row in enumerate(rows_to_import, start=1):
-        admission_number = f"{prefix}{last_sequence + offset:04d}"
+    for row in rows_to_import:
+        while True:
+            admission_number = f"{prefix}{sequence:04d}"
+            username = build_student_username(institute, admission_number)
+            sequence += 1
+            if username not in reserved_usernames:
+                reserved_usernames.add(username)
+                break
         row["admission_number"] = admission_number
-        row["username"] = row["username"] or admission_number
+        row["username"] = username
         password = row["password"]
         if password not in password_hashes:
             password_hashes[password] = make_password(password)

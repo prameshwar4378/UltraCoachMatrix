@@ -56,9 +56,9 @@
                 <form method="post" action="{% url 'institute_admin:academic_year_switch' %}" class="d-flex align-items-center gap-2" style="margin:0;">
                     {% csrf_token %}
                     <label class="d-none d-lg-inline" style="font-size:.78rem; font-weight:800; color:#475569; margin:0;">Session</label>
-                    <select name="academic_year" onchange="this.form.submit()" style="height:38px; min-width:132px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:#0f172a; font-weight:800; padding:0 10px;">
+                    <select name="academic_year_id" onchange="this.form.submit()" style="height:38px; min-width:132px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:#0f172a; font-weight:800; padding:0 10px;">
                         {% for academic_year in academic_years %}
-                            <option value="{{ academic_year.name }}" {% if selected_academic_year and selected_academic_year.pk == academic_year.pk %}selected{% endif %}>{{ academic_year.name }}</option>
+                            <option value="{{ academic_year.pk }}" {% if selected_academic_year and selected_academic_year.pk == academic_year.pk %}selected{% endif %}>{{ academic_year.name }}{% if not academic_year.is_active %} (Inactive){% endif %}</option>
                         {% endfor %}
                     </select>
                 </form>

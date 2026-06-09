@@ -48,9 +48,9 @@
             <div class="form-grid">
                 <div><label class="form-label"><i class="bi bi-person"></i> First Name</label>{{ form.first_name }}{{ form.first_name.errors }}</div>
                 <div><label class="form-label"><i class="bi bi-person"></i> Last Name</label>{{ form.last_name }}{{ form.last_name.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-at"></i> Username</label>{{ form.username }}{{ form.username.errors }}</div>
+                <div><label class="form-label"><i class="bi bi-at"></i> Username</label>{{ form.username }}{{ form.username.errors }}{% if form.username.help_text %}<small class="text-muted">{{ form.username.help_text }}</small>{% endif %}</div>
                 <div><label class="form-label"><i class="bi bi-phone"></i> Phone</label>{{ form.phone }}{{ form.phone.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-key"></i> Password</label>{{ form.password }}{{ form.password.errors }}{% if form.student %}<small class="text-muted">Leave blank to keep current password.</small>{% endif %}</div>
+                <div><label class="form-label"><i class="bi bi-key"></i> Password</label>{{ form.password }}{{ form.password.errors }}{% if form.student %}<small class="text-muted">Leave blank to keep current password.</small>{% else %}<small class="text-muted">Leave blank to use Student@123.</small>{% endif %}</div>
                 <div><label class="form-label"><i class="bi bi-shield-lock"></i> Confirm Password</label>{{ form.confirm_password }}{{ form.confirm_password.errors }}</div>
                 <div><label class="form-label"><i class="bi bi-envelope"></i> Email</label>{{ form.email }}{{ form.email.errors }}</div>
                 <div><label class="form-label"><i class="bi bi-image"></i> Profile Image</label>{{ form.profile_image }}{{ form.profile_image.errors }}</div>
