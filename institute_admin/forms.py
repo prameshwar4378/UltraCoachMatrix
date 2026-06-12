@@ -7,7 +7,7 @@ from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import Prefetch, Q, Sum
 from django.utils import timezone
 
 from accountant.models import FeeCategory, FeeInvoice, Payment, PaymentActivity
@@ -1386,7 +1386,12 @@ class HomeworkForm(forms.ModelForm):
         self.academic_year = academic_year
         super().__init__(*args, **kwargs)
         if institute:
-            batches = Batch.objects.filter(institute=institute, is_active=True).prefetch_related("courses")
+            batches = Batch.objects.filter(institute=institute, is_active=True).prefetch_related(
+                Prefetch(
+                    "courses",
+                    queryset=Course.objects.only("id", "name", "fee_amount"),
+                )
+            )
             subjects = Subject.objects.filter(institute=institute, is_active=True)
             courses = Course.objects.filter(institute=institute, is_active=True)
             if academic_year:

@@ -2,11 +2,13 @@ from datetime import date, datetime, timedelta
 from collections import defaultdict
 from decimal import Decimal
 from io import BytesIO
+import csv
 import json
 import random
 
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.sessions.models import Session
@@ -14,11 +16,11 @@ from django.core.exceptions import PermissionDenied
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import IntegrityError, connection, transaction
-from django.db.models import Avg, Case, Count, DecimalField, ExpressionWrapper, F, IntegerField, Max, OuterRef, Q, Subquery, Sum, Value, When
+from django.db.models import Avg, Case, Count, DecimalField, ExpressionWrapper, F, IntegerField, Max, OuterRef, Prefetch, Q, Subquery, Sum, Value, When
 from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.urls import reverse
 from django.utils.dateparse import parse_date
 from django.utils import timezone
@@ -93,6 +95,7 @@ from .dashboard_cache import (
     invalidate_dashboard_summary,
     set_dashboard_summary,
 )
+from .attendance_service import bulk_save_attendance
 from .models import AcademicYear, Batch, Course, Lead, Notice, Subject, SupportTicket, Visitor
 
 
@@ -2504,10 +2507,145 @@ def get_student_session_fee_summary(session):
     return total_fee_amount, paid_amount, due_amount
 
 
+def get_student_export_fee_summaries(sessions):
+    target_sql, target_params = sessions.order_by().values("pk").query.sql_with_params()
+    enrollment_table = connection.ops.quote_name(StudentEnrollment._meta.db_table)
+    enrollment_course_table = connection.ops.quote_name(
+        StudentEnrollment.courses.through._meta.db_table
+    )
+    course_table = connection.ops.quote_name(Course._meta.db_table)
+    invoice_table = connection.ops.quote_name(FeeInvoice._meta.db_table)
+    payment_table = connection.ops.quote_name(Payment._meta.db_table)
+    sql = f"""
+        WITH target_session_ids AS (
+            {target_sql}
+        ),
+        target_sessions AS (
+            SELECT DISTINCT pk AS id FROM target_session_ids
+        ),
+        enrollment_course_fees AS (
+            SELECT sec.studentenrollment_id AS enrollment_id, SUM(c.fee_amount) AS total
+            FROM {enrollment_course_table} sec
+            INNER JOIN {course_table} c ON c.id = sec.course_id
+            GROUP BY sec.studentenrollment_id
+        ),
+        enrollment_summary AS (
+            SELECT
+                se.academic_session_id AS session_id,
+                SUM(
+                    CASE
+                        WHEN se.custom_fee_amount IS NOT NULL THEN se.custom_fee_amount
+                        ELSE COALESCE(ecf.total, 0)
+                    END
+                ) AS enrollment_total
+            FROM {enrollment_table} se
+            INNER JOIN target_sessions ts ON ts.id = se.academic_session_id
+            LEFT JOIN enrollment_course_fees ecf ON ecf.enrollment_id = se.id
+            WHERE se.status <> %s
+            GROUP BY se.academic_session_id
+        ),
+        invoice_summary AS (
+            SELECT
+                fi.academic_session_id AS session_id,
+                SUM(fi.amount) AS invoiced_total,
+                SUM(CASE WHEN fi.enrollment_id IS NULL THEN fi.amount ELSE 0 END) AS additional_total
+            FROM {invoice_table} fi
+            INNER JOIN target_sessions ts ON ts.id = fi.academic_session_id
+            WHERE fi.status <> %s
+            GROUP BY fi.academic_session_id
+        ),
+        payment_summary AS (
+            SELECT fi.academic_session_id AS session_id, SUM(p.amount) AS paid_total
+            FROM {payment_table} p
+            INNER JOIN {invoice_table} fi ON fi.id = p.invoice_id
+            INNER JOIN target_sessions ts ON ts.id = fi.academic_session_id
+            WHERE p.status = %s AND fi.status <> %s
+            GROUP BY fi.academic_session_id
+        )
+        SELECT
+            ts.id,
+            CASE
+                WHEN COALESCE(es.enrollment_total, 0) > 0
+                THEN COALESCE(es.enrollment_total, 0) + COALESCE(ins.additional_total, 0)
+                ELSE COALESCE(ins.invoiced_total, 0)
+            END AS total_fee,
+            COALESCE(ps.paid_total, 0) AS paid_amount
+        FROM target_sessions ts
+        LEFT JOIN enrollment_summary es ON es.session_id = ts.id
+        LEFT JOIN invoice_summary ins ON ins.session_id = ts.id
+        LEFT JOIN payment_summary ps ON ps.session_id = ts.id
+    """
+    params = [
+        *target_params,
+        StudentEnrollment.Status.CANCELLED,
+        FeeInvoice.Status.CANCELLED,
+        Payment.Status.ACTIVE,
+        FeeInvoice.Status.CANCELLED,
+    ]
+    summaries = {}
+    with connection.cursor() as cursor:
+        cursor.execute(sql, params)
+        for session_id, total_fee, paid_amount in cursor.fetchall():
+            total_fee = Decimal(str(total_fee or 0))
+            paid_amount = Decimal(str(paid_amount or 0))
+            summaries[session_id] = (
+                total_fee,
+                paid_amount,
+                max(total_fee - paid_amount, Decimal("0.00")),
+            )
+    return summaries
+
+
 def get_student_export_field_keys(request):
     allowed_fields = {key for key, _label in STUDENT_EXPORT_FIELD_OPTIONS}
     requested_fields = [field for field in request.GET.getlist("fields") if field in allowed_fields]
     return requested_fields or STUDENT_EXPORT_DEFAULT_FIELDS
+
+
+def student_export_row(session, selected_fields, fee_summaries):
+    student = session.student
+    profile = getattr(student.user, "profile", None)
+    guardians = list(student.guardians.all())
+    guardian = next((item for item in guardians if item.is_primary), guardians[0] if guardians else None)
+    active_enrollments = list(session.enrollments.all())
+    batch_names = ", ".join(
+        enrollment.batch.name
+        for enrollment in active_enrollments
+        if enrollment.batch_id
+    )
+    total_fee_amount, paid_amount, due_amount = fee_summaries.get(
+        session.pk,
+        (Decimal("0.00"), Decimal("0.00"), Decimal("0.00")),
+    )
+    full_name = student.user.get_full_name() or student.user.username
+    field_values = {
+        "admission_number": session.admission_number,
+        "name": full_name,
+        "mobile": profile.phone if profile else "",
+        "batch": batch_names,
+        "total_fees": total_fee_amount,
+        "paid_amount": paid_amount,
+        "due_amount": due_amount,
+        "status": "Active"
+        if session.status == StudentAcademicSession.Status.ACTIVE and student.is_active
+        else "Inactive",
+        "first_name": student.user.first_name,
+        "last_name": student.user.last_name,
+        "username": student.user.username,
+        "email": student.user.email,
+        "date_of_birth": student.date_of_birth.isoformat() if student.date_of_birth else "",
+        "joined_on": session.joined_on.isoformat() if session.joined_on else "",
+        "guardian_name": guardian.name if guardian else "",
+        "guardian_relation": guardian.relation if guardian else "",
+        "guardian_phone": guardian.phone if guardian else "",
+        "guardian_email": guardian.email if guardian else "",
+        "address": student.address,
+        "current_school_name": session.current_school_name,
+        "current_school_address": session.current_school_address,
+        "previous_school_name": session.previous_school_name,
+        "previous_class": session.previous_class,
+    }
+    return [field_values[field] for field in selected_fields]
 
 
 def parse_excel_date_value(value):
@@ -2748,11 +2886,6 @@ def student_export(request):
         "student__user",
         "student__user__profile",
         "academic_year",
-    ).prefetch_related(
-        "student__guardians",
-        "enrollments__batch",
-        "enrollments__courses",
-        "fee_invoices__payments",
     )
     if institute:
         sessions = sessions.filter(institute=institute)
@@ -2789,6 +2922,46 @@ def student_export(request):
     selected_fields = get_student_export_field_keys(request)
     field_labels = dict(STUDENT_EXPORT_FIELD_OPTIONS)
     columns = [field_labels[field] for field in selected_fields]
+    session_count = sessions.count()
+    fee_summaries = get_student_export_fee_summaries(sessions)
+    sessions = sessions.prefetch_related(
+        Prefetch(
+            "student__guardians",
+            queryset=GuardianProfile.objects.order_by("-is_primary", "pk"),
+        ),
+        Prefetch(
+            "enrollments",
+            queryset=StudentEnrollment.objects.exclude(
+                status=StudentEnrollment.Status.CANCELLED
+            ).select_related("batch"),
+        ),
+    ).order_by("admission_number")
+
+    export_format = request.GET.get("format", "").strip().lower()
+    stream_threshold = int(getattr(settings, "STUDENT_EXPORT_CSV_THRESHOLD", 2000))
+    if export_format == "csv" or session_count >= stream_threshold:
+        class CsvEcho:
+            def write(self, value):
+                return value
+
+        writer = csv.writer(CsvEcho())
+
+        def stream_rows():
+            yield "\ufeff"
+            yield writer.writerow(columns)
+            for session in sessions.iterator(chunk_size=500):
+                yield writer.writerow(
+                    student_export_row(session, selected_fields, fee_summaries)
+                )
+
+        response = StreamingHttpResponse(
+            stream_rows(),
+            content_type="text/csv; charset=utf-8",
+        )
+        response["Content-Disposition"] = 'attachment; filename="student_export.csv"'
+        response["X-Export-Mode"] = "streamed"
+        return response
+
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Students"
@@ -2796,46 +2969,14 @@ def student_export(request):
     for col, header in enumerate(columns, start=1):
         sheet.cell(row=3, column=col, value=header)
         sheet.column_dimensions[get_column_letter(col)].width = 22
-    for row, session in enumerate(sessions.order_by("admission_number"), start=4):
-        student = session.student
-        profile = getattr(student.user, "profile", None)
-        guardian = student.guardians.filter(is_primary=True).first() or student.guardians.first()
-        active_enrollments = session.enrollments.exclude(status=StudentEnrollment.Status.CANCELLED).select_related("batch")
-        batch_names = ", ".join(enrollment.batch.name for enrollment in active_enrollments if enrollment.batch_id)
-        total_fee_amount, paid_amount, due_amount = get_student_session_fee_summary(session)
-        full_name = student.user.get_full_name() or student.user.username
-        field_values = {
-            "admission_number": session.admission_number,
-            "name": full_name,
-            "mobile": profile.phone if profile else "",
-            "batch": batch_names,
-            "total_fees": total_fee_amount,
-            "paid_amount": paid_amount,
-            "due_amount": due_amount,
-            "status": "Active" if session.status == StudentAcademicSession.Status.ACTIVE and student.is_active else "Inactive",
-            "first_name": student.user.first_name,
-            "last_name": student.user.last_name,
-            "username": student.user.username,
-            "email": student.user.email,
-            "date_of_birth": student.date_of_birth.isoformat() if student.date_of_birth else "",
-            "joined_on": session.joined_on.isoformat() if session.joined_on else "",
-            "guardian_name": guardian.name if guardian else "",
-            "guardian_relation": guardian.relation if guardian else "",
-            "guardian_phone": guardian.phone if guardian else "",
-            "guardian_email": guardian.email if guardian else "",
-            "address": student.address,
-            "current_school_name": session.current_school_name,
-            "current_school_address": session.current_school_address,
-            "previous_school_name": session.previous_school_name,
-            "previous_class": session.previous_class,
-        }
-        values = [field_values[field] for field in selected_fields]
+    for row, session in enumerate(sessions, start=4):
+        values = student_export_row(session, selected_fields, fee_summaries)
         for col, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=col, value=value)
             cell.border = border
             cell.alignment = Alignment(vertical="center")
     sheet.freeze_panes = "A4"
-    sheet.auto_filter.ref = f"A3:{get_column_letter(len(columns))}{max(4, sessions.count() + 3)}"
+    sheet.auto_filter.ref = f"A3:{get_column_letter(len(columns))}{max(4, session_count + 3)}"
     buffer = BytesIO()
     workbook.save(buffer)
     buffer.seek(0)
@@ -4217,7 +4358,13 @@ def enrollment_create(request):
 def enrollment_update(request, pk):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
-    queryset = StudentEnrollment.objects.select_related("academic_session", "student", "batch")
+    queryset = StudentEnrollment.objects.select_related(
+        "academic_session",
+        "student",
+        "student__user",
+        "student__institute",
+        "batch",
+    )
     if institute:
         queryset = queryset.filter(student__institute=institute)
     if academic_year:
@@ -4225,7 +4372,12 @@ def enrollment_update(request, pk):
     enrollment = get_object_or_404(queryset, pk=pk)
 
     if request.method == "POST":
-        form = StudentEnrollmentForm(request.POST, institute=enrollment.student.institute, academic_year=academic_year, instance=enrollment)
+        form = StudentEnrollmentForm(
+            request.POST,
+            institute=institute,
+            academic_year=academic_year,
+            instance=enrollment,
+        )
         if form.is_valid():
             updated_enrollment = form.save(commit=False)
             updated_enrollment.academic_session = get_object_or_404(
@@ -4239,7 +4391,11 @@ def enrollment_update(request, pk):
             messages.success(request, "Enrollment updated successfully.")
             return close_popup_response()
     else:
-        form = StudentEnrollmentForm(institute=enrollment.student.institute, academic_year=academic_year, instance=enrollment)
+        form = StudentEnrollmentForm(
+            institute=institute,
+            academic_year=academic_year,
+            instance=enrollment,
+        )
 
     return render(
         request,
@@ -4249,7 +4405,7 @@ def enrollment_update(request, pk):
             "title": "Edit Enrollment",
             "subtitle": "Update batch, courses, status or custom fee.",
             "button_text": "Update Enrollment",
-            "batch_course_data": get_batch_course_data(enrollment.student.institute, academic_year),
+            "batch_course_data": get_batch_course_data(institute, academic_year),
         },
     )
 
@@ -4578,7 +4734,7 @@ def attendance_list(request):
         batch_queryset = batch_queryset.filter(institute=institute)
     if academic_year:
         batch_queryset = batch_queryset.filter(academic_year=academic_year)
-    selected_batch = batch_queryset.filter(pk=batch_id).first() if batch_id else batch_queryset.first()
+    selected_batch = batch_queryset.filter(pk=batch_id).first() if batch_id else None
 
     student_sessions = StudentAcademicSession.objects.none()
     attendance_map = {}
@@ -4598,28 +4754,14 @@ def attendance_list(request):
         )
 
     if request.method == "POST" and selected_batch:
-        posted_student_ids = request.POST.getlist("student_ids")
-        saved_count = 0
-        for student_id in posted_student_ids:
-            status = request.POST.get(f"status_{student_id}", Attendance.Status.PRESENT)
-            note = request.POST.get(f"note_{student_id}", "").strip()
-            if status not in Attendance.Status.values:
-                status = Attendance.Status.PRESENT
-            student_session = student_sessions.filter(student_id=student_id).first()
-            if not student_session:
-                continue
-            Attendance.objects.update_or_create(
-                academic_session=student_session,
-                batch=selected_batch,
-                date=selected_date,
-                defaults={
-                    "student": student_session.student,
-                    "status": status,
-                    "note": note,
-                    "marked_by": request.user,
-                },
-            )
-            saved_count += 1
+        saved_count = bulk_save_attendance(
+            student_sessions=student_sessions,
+            posted_student_ids=request.POST.getlist("student_ids"),
+            form_data=request.POST,
+            batch=selected_batch,
+            attendance_date=selected_date,
+            marked_by=request.user,
+        )
         messages.success(request, f"Attendance saved for {saved_count} student(s).")
         return redirect(f"{reverse('institute_admin:attendance_list')}?batch={selected_batch.pk}&date={selected_date.isoformat()}")
 
@@ -4645,10 +4787,16 @@ def attendance_list(request):
     if selected_batch:
         selected_date_records = selected_date_records.filter(batch=selected_batch)
 
-    total_today = selected_date_records.count()
-    present_today = selected_date_records.filter(status=Attendance.Status.PRESENT).count()
-    absent_today = selected_date_records.filter(status=Attendance.Status.ABSENT).count()
-    late_today = selected_date_records.filter(status=Attendance.Status.LATE).count()
+    attendance_counts = selected_date_records.aggregate(
+        total=Count("pk"),
+        present=Count("pk", filter=Q(status=Attendance.Status.PRESENT)),
+        absent=Count("pk", filter=Q(status=Attendance.Status.ABSENT)),
+        late=Count("pk", filter=Q(status=Attendance.Status.LATE)),
+    )
+    total_today = attendance_counts["total"]
+    present_today = attendance_counts["present"]
+    absent_today = attendance_counts["absent"]
+    late_today = attendance_counts["late"]
     rate_today = round((present_today / total_today) * 100, 1) if total_today else 0
 
     rows = []

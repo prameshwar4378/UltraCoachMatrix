@@ -132,6 +132,7 @@
             <div class="col-lg-5 col-md-6">
                 <label class="form-label">Batch</label>
                 <select name="batch" class="form-select" onchange="this.form.submit()">
+                    <option value="" {% if not selected_batch %}selected{% endif %}>Select a batch</option>
                     {% for batch in batches %}
                         <option value="{{ batch.pk }}" {% if selected_batch and selected_batch.pk == batch.pk %}selected{% endif %}>{{ batch.name }}</option>
                     {% empty %}
@@ -217,7 +218,7 @@
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="3"><div class="empty-state">Select an active batch with students to mark attendance.</div></td></tr>
+                            <tr><td colspan="3"><div class="empty-state">Select a batch to load students for attendance.</div></td></tr>
                             {% endfor %}
                         </tbody>
                     </table>

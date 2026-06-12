@@ -9,8 +9,9 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.sessions.models import Session
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
@@ -2316,6 +2317,121 @@ class AcademicSessionIsolationTests(TestCase):
             ).exists()
         )
 
+    def test_attendance_waits_for_batch_selection(self):
+        self.select_year(self.year_2026)
+
+        response = self.client.get(reverse("institute_admin:attendance_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["selected_batch"])
+        self.assertEqual(response.context["attendance_rows"], [])
+        self.assertContains(response, "Select a batch to load students for attendance.")
+
+    def test_attendance_uses_bulk_create_and_bulk_update(self):
+        self.select_year(self.year_2026)
+        target_date = date(2026, 6, 12)
+        Attendance.objects.create(
+            student=self.student,
+            academic_session=self.session_2026,
+            batch=self.batch_2026,
+            date=target_date,
+            status=Attendance.Status.PRESENT,
+            marked_by=self.admin_user,
+        )
+
+        with patch.object(
+            Attendance.objects,
+            "bulk_update",
+            wraps=Attendance.objects.bulk_update,
+        ) as bulk_update:
+            response = self.client.post(
+                reverse("institute_admin:attendance_list")
+                + f"?batch={self.batch_2026.pk}&date={target_date.isoformat()}",
+                data={
+                    "student_ids": [str(self.student.pk)],
+                    f"status_{self.student.pk}": Attendance.Status.ABSENT,
+                    f"note_{self.student.pk}": "Updated in bulk",
+                },
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(bulk_update.call_count, 1)
+        record = Attendance.objects.get(
+            academic_session=self.session_2026,
+            batch=self.batch_2026,
+            date=target_date,
+        )
+        self.assertEqual(record.status, Attendance.Status.ABSENT)
+        self.assertEqual(record.note, "Updated in bulk")
+
+    def test_attendance_large_batch_is_paginated_below_response_limit(self):
+        users = [
+            User(username=f"attendance-page-{index}", first_name=f"Student {index}")
+            for index in range(1, 101)
+        ]
+        User.objects.bulk_create(users)
+        users = list(User.objects.filter(username__startswith="attendance-page-").order_by("username"))
+        UserProfile.objects.bulk_create(
+            [
+                UserProfile(
+                    user=user,
+                    institute=self.institute,
+                    role=UserProfile.Role.STUDENT_PARENT,
+                )
+                for user in users
+            ]
+        )
+        students = [
+            StudentProfile(
+                institute=self.institute,
+                academic_year=self.year_2026,
+                user=user,
+                admission_number=f"ATT-{index:04d}",
+            )
+            for index, user in enumerate(users, start=1)
+        ]
+        StudentProfile.objects.bulk_create(students)
+        students = list(
+            StudentProfile.objects.filter(admission_number__startswith="ATT-").order_by("admission_number")
+        )
+        sessions = [
+            StudentAcademicSession(
+                institute=self.institute,
+                student=student,
+                academic_year=self.year_2026,
+                admission_number=student.admission_number,
+            )
+            for student in students
+        ]
+        StudentAcademicSession.objects.bulk_create(sessions)
+        sessions = list(
+            StudentAcademicSession.objects.filter(admission_number__startswith="ATT-").order_by(
+                "admission_number"
+            )
+        )
+        StudentEnrollment.objects.bulk_create(
+            [
+                StudentEnrollment(
+                    student_id=session.student_id,
+                    academic_session=session,
+                    batch=self.batch_2026,
+                )
+                for session in sessions
+            ]
+        )
+        self.select_year(self.year_2026)
+
+        response = self.client.get(
+            reverse("institute_admin:attendance_list"),
+            {"batch": self.batch_2026.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["attendance_page"].paginator.per_page, 100)
+        self.assertEqual(len(response.context["attendance_rows"]), 100)
+        self.assertGreater(response.context["attendance_page"].paginator.count, 100)
+        self.assertLess(len(response.content), 300 * 1024)
+
     def test_attendance_post_ignores_student_outside_selected_year_batch(self):
         self.select_year(self.year_2026)
         target_date = date(2026, 6, 11)
@@ -2401,6 +2517,27 @@ class AcademicSessionIsolationTests(TestCase):
             f'<option value="{self.student.pk}">{self.session_2026.admission_number}',
             html=False,
         )
+
+    def test_enrollment_forms_stay_below_query_and_response_size_targets(self):
+        self.select_year(self.year_2026)
+
+        with CaptureQueriesContext(connection) as create_queries:
+            create_response = self.client.get(reverse("institute_admin:enrollment_create"))
+            create_size = len(create_response.content)
+        with CaptureQueriesContext(connection) as update_queries:
+            update_response = self.client.get(
+                reverse("institute_admin:enrollment_update", args=[self.enrollment_2026.pk])
+            )
+            update_size = len(update_response.content)
+
+        self.assertEqual(create_response.status_code, 200)
+        self.assertEqual(update_response.status_code, 200)
+        self.assertLess(len(create_queries), 25)
+        self.assertLess(len(update_queries), 25)
+        self.assertLess(create_size, 150 * 1024)
+        self.assertLess(update_size, 150 * 1024)
+        self.assertContains(create_response, 'data-student-autocomplete="true"')
+        self.assertContains(update_response, f'value="{self.student.pk}" selected')
 
     def test_enrollment_create_rejects_student_without_selected_year_session(self):
         self.select_year(self.year_2026)

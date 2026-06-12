@@ -18,6 +18,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
 from institute_admin.forms import get_or_create_academic_year
+from institute_admin.attendance_service import bulk_save_attendance
 from institute_admin.models import Batch, Course, Subject
 from student_parent.models import StudentAcademicSession, StudentEnrollment
 from super_admin.decorators import teacher_required
@@ -194,7 +195,7 @@ def attendance(request):
     selected_year = teacher_selected_academic_year(request)
     selected_date = parse_date(request.GET.get("date", "")) or date.today()
     batch_id = request.GET.get("batch", "").strip()
-    selected_batch = batch_queryset.filter(pk=batch_id).first() if batch_id else batch_queryset.first()
+    selected_batch = batch_queryset.filter(pk=batch_id).first() if batch_id else None
 
     student_sessions = StudentAcademicSession.objects.none()
     attendance_map = {}
@@ -205,28 +206,14 @@ def attendance(request):
         student_sessions = teacher_students_for_batches(batch_queryset.filter(pk=selected_batch.pk))
 
     if request.method == "POST" and selected_batch:
-        posted_student_ids = request.POST.getlist("student_ids")
-        saved_count = 0
-        for student_id in posted_student_ids:
-            status = request.POST.get(f"status_{student_id}", Attendance.Status.PRESENT)
-            note = request.POST.get(f"note_{student_id}", "").strip()
-            if status not in Attendance.Status.values:
-                status = Attendance.Status.PRESENT
-            student_session = student_sessions.filter(student_id=student_id).first()
-            if not student_session:
-                continue
-            Attendance.objects.update_or_create(
-                academic_session=student_session,
-                batch=selected_batch,
-                date=selected_date,
-                defaults={
-                    "student": student_session.student,
-                    "status": status,
-                    "note": note,
-                    "marked_by": request.user,
-                },
-            )
-            saved_count += 1
+        saved_count = bulk_save_attendance(
+            student_sessions=student_sessions,
+            posted_student_ids=request.POST.getlist("student_ids"),
+            form_data=request.POST,
+            batch=selected_batch,
+            attendance_date=selected_date,
+            marked_by=request.user,
+        )
         messages.success(request, f"Attendance saved for {saved_count} student(s).")
         return redirect(f"{reverse('teacher:attendance')}?batch={selected_batch.pk}&date={selected_date.isoformat()}")
 
@@ -248,10 +235,16 @@ def attendance(request):
     if selected_batch:
         selected_date_records = selected_date_records.filter(batch=selected_batch)
 
-    total_today = selected_date_records.count()
-    present_today = selected_date_records.filter(status=Attendance.Status.PRESENT).count()
-    absent_today = selected_date_records.filter(status=Attendance.Status.ABSENT).count()
-    late_today = selected_date_records.filter(status=Attendance.Status.LATE).count()
+    attendance_counts = selected_date_records.aggregate(
+        total=Count("pk"),
+        present=Count("pk", filter=Q(status=Attendance.Status.PRESENT)),
+        absent=Count("pk", filter=Q(status=Attendance.Status.ABSENT)),
+        late=Count("pk", filter=Q(status=Attendance.Status.LATE)),
+    )
+    total_today = attendance_counts["total"]
+    present_today = attendance_counts["present"]
+    absent_today = attendance_counts["absent"]
+    late_today = attendance_counts["late"]
     rate_today = round((present_today / total_today) * 100, 1) if total_today else 0
 
     rows = []
