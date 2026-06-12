@@ -1,8 +1,10 @@
 from datetime import date
 from decimal import Decimal
 from io import BytesIO, StringIO
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.sessions.models import Session
 from django.core.management import call_command
@@ -14,7 +16,7 @@ from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
 from accountant.models import FeeCategory, FeeInvoice, Payment
-from student_parent.models import StudentAcademicSession, StudentEnrollment, StudentProfile
+from student_parent.models import GuardianProfile, StudentAcademicSession, StudentEnrollment, StudentProfile
 from super_admin.models import (
     Institute,
     InstituteSubscription,
@@ -23,6 +25,7 @@ from super_admin.models import (
 )
 from teacher.models import Attendance, Exam, ExamAttempt, ExamAttemptUpload, ExamResult, Homework
 
+from . import views
 from .forms import (
     BatchForm,
     PaymentUpdateForm,
@@ -1207,6 +1210,7 @@ class VisitorCrudTests(TestCase):
 
 class AcademicSessionIsolationTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.institute = Institute.objects.create(
             name="Saint Monica International School",
             code="smis",
@@ -1390,6 +1394,62 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertNotContains(response, "SMIS-2026-27-0001")
         self.assertNotContains(response, "11th Batch")
 
+    def test_student_list_calculates_fee_details_for_current_page_only(self):
+        users = [
+            User(username=f"page-student-{index}", first_name=f"Page {index}")
+            for index in range(1, 25)
+        ]
+        User.objects.bulk_create(users)
+        users = list(User.objects.filter(username__startswith="page-student-").order_by("username"))
+        UserProfile.objects.bulk_create(
+            [
+                UserProfile(
+                    user=user,
+                    institute=self.institute,
+                    role=UserProfile.Role.STUDENT_PARENT,
+                )
+                for user in users
+            ]
+        )
+        students = [
+            StudentProfile(
+                institute=self.institute,
+                academic_year=self.year_2026,
+                user=user,
+                admission_number=f"PAGE-{index:04d}",
+            )
+            for index, user in enumerate(users, start=1)
+        ]
+        StudentProfile.objects.bulk_create(students)
+        students = list(
+            StudentProfile.objects.filter(admission_number__startswith="PAGE-").order_by("admission_number")
+        )
+        StudentAcademicSession.objects.bulk_create(
+            [
+                StudentAcademicSession(
+                    institute=self.institute,
+                    student=student,
+                    academic_year=self.year_2026,
+                    admission_number=student.admission_number,
+                )
+                for student in students
+            ]
+        )
+        self.select_year(self.year_2026)
+
+        with patch.object(
+            views,
+            "get_student_session_fee_summaries",
+            wraps=views.get_student_session_fee_summaries,
+        ) as fee_summary_builder:
+            response = self.client.get(reverse("institute_admin:student_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["paginator"].count, 25)
+        self.assertEqual(len(response.context["students"]), 20)
+        self.assertEqual(fee_summary_builder.call_count, 1)
+        self.assertEqual(len(list(fee_summary_builder.call_args.args[0])), 20)
+
     def test_academic_year_switcher_includes_and_switches_inactive_years(self):
         self.year_2027.is_active = False
         self.year_2027.save(update_fields=["is_active"])
@@ -1505,6 +1565,212 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertTrue(custom_user.check_password("Secret123"))
         custom_session = StudentAcademicSession.objects.get(student=custom_user.student_profile)
         self.assertEqual(custom_session.status, StudentAcademicSession.Status.LEFT)
+
+    def test_student_bulk_import_accepts_accidentally_cleared_header(self):
+        self.select_year(self.year_2026)
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Students"
+        headers = views.student_import_columns()
+        headers[6] = ""
+        sheet.append(["Student Bulk Import Template"])
+        sheet.append(["Generated admission numbers"])
+        sheet.append(headers)
+        sheet.append(
+            [
+                "Bulk",
+                "Header",
+                "",
+                "bulk-header@example.com",
+                "9222222299",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "Yes",
+            ]
+        )
+        buffer = BytesIO()
+        workbook.save(buffer)
+        upload = SimpleUploadedFile(
+            "students.xlsx",
+            buffer.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        response = self.client.post(
+            reverse("institute_admin:student_bulk_import_validate"),
+            {"student_file": upload},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["valid"])
+        self.assertEqual(payload["valid_count"], 1)
+        self.assertIn("Joined On", payload["warnings"][0])
+
+    def test_student_bulk_import_rejects_renamed_header(self):
+        headers = views.student_import_columns()
+        headers[6] = "Start Date"
+
+        matches, missing = views.match_student_import_headers(headers)
+
+        self.assertFalse(matches)
+        self.assertEqual(missing, [])
+
+    def test_dummy_student_create_builds_complete_unique_institute_records(self):
+        self.select_year(self.year_2026)
+        other_institute = Institute.objects.create(
+            name="Other Institute",
+            code="other",
+            status=Institute.Status.ACTIVE,
+        )
+        other_student_count = StudentProfile.objects.filter(institute=other_institute).count()
+
+        response = self.client.post(
+            reverse("institute_admin:student_dummy_create"),
+            {"count": "12"},
+        )
+
+        self.assertRedirects(response, reverse("institute_admin:student_list"))
+        generated_sessions = StudentAcademicSession.objects.filter(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            admission_number__startswith="SMIS2627",
+        ).select_related(
+            "student",
+            "student__user",
+            "student__user__profile",
+        ).prefetch_related(
+            "student__guardians",
+            "enrollments__courses",
+        )
+        self.assertEqual(generated_sessions.count(), 12)
+        self.assertEqual(
+            StudentProfile.objects.filter(institute=other_institute).count(),
+            other_student_count,
+        )
+
+        usernames = []
+        emails = []
+        phones = []
+        guardian_phones = []
+        for session in generated_sessions:
+            student = session.student
+            user = student.user
+            profile = user.profile
+            guardian = student.guardians.get(is_primary=True)
+            enrollment = session.enrollments.get()
+
+            usernames.append(user.username)
+            emails.append(user.email)
+            phones.append(profile.phone)
+            guardian_phones.append(guardian.phone)
+            self.assertTrue(user.first_name)
+            self.assertTrue(user.last_name)
+            self.assertTrue(user.email)
+            self.assertTrue(user.check_password("Student@123"))
+            self.assertTrue(student.date_of_birth)
+            self.assertTrue(student.joined_on)
+            self.assertTrue(student.address)
+            self.assertTrue(student.current_school_name)
+            self.assertTrue(student.current_school_address)
+            self.assertTrue(student.previous_school_name)
+            self.assertTrue(student.previous_class)
+            self.assertTrue(session.joined_on)
+            self.assertTrue(session.current_school_name)
+            self.assertTrue(session.current_school_address)
+            self.assertTrue(session.previous_school_name)
+            self.assertTrue(session.previous_class)
+            self.assertTrue(guardian.name)
+            self.assertTrue(guardian.relation)
+            self.assertTrue(guardian.phone)
+            self.assertTrue(guardian.email)
+            self.assertEqual(enrollment.batch, self.batch_2026)
+            self.assertEqual(list(enrollment.courses.all()), [self.course])
+            self.assertEqual(enrollment.custom_fee_amount, self.course.fee_amount)
+
+        self.assertEqual(len(usernames), len(set(usernames)))
+        self.assertEqual(len(emails), len(set(emails)))
+        self.assertEqual(len(phones), len(set(phones)))
+        self.assertEqual(len(guardian_phones), len(set(guardian_phones)))
+        self.assertFalse(set(phones) & set(guardian_phones))
+
+    def test_dummy_student_create_rejects_invalid_count(self):
+        self.select_year(self.year_2026)
+        before_count = StudentProfile.objects.filter(institute=self.institute).count()
+
+        page_response = self.client.get(reverse("institute_admin:student_list"))
+        self.assertContains(page_response, "Dummy Students")
+        self.assertContains(page_response, 'id="dummyStudentModal"')
+        self.assertContains(
+            page_response,
+            reverse("institute_admin:student_dummy_create"),
+        )
+
+        response = self.client.post(
+            reverse("institute_admin:student_dummy_create"),
+            {"count": "0"},
+        )
+
+        self.assertRedirects(response, reverse("institute_admin:student_list"))
+        self.assertEqual(
+            StudentProfile.objects.filter(institute=self.institute).count(),
+            before_count,
+        )
+
+    def test_dummy_student_create_supports_one_thousand_records(self):
+        self.select_year(self.year_2026)
+
+        response = self.client.post(
+            reverse("institute_admin:student_dummy_create"),
+            {"count": "1000"},
+        )
+
+        self.assertRedirects(response, reverse("institute_admin:student_list"))
+        generated_sessions = StudentAcademicSession.objects.filter(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            admission_number__startswith="SMIS2627",
+        )
+        generated_students = StudentProfile.objects.filter(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            admission_number__startswith="SMIS2627",
+        )
+        generated_user_ids = generated_students.values_list("user_id", flat=True)
+        generated_guardians = GuardianProfile.objects.filter(student__in=generated_students)
+        generated_enrollments = StudentEnrollment.objects.filter(
+            academic_session__in=generated_sessions,
+        )
+
+        self.assertEqual(generated_sessions.count(), 1000)
+        self.assertEqual(generated_students.count(), 1000)
+        self.assertEqual(generated_guardians.count(), 1000)
+        self.assertEqual(generated_enrollments.count(), 1000)
+        self.assertEqual(
+            User.objects.filter(pk__in=generated_user_ids).values("username").distinct().count(),
+            1000,
+        )
+        self.assertEqual(
+            User.objects.filter(pk__in=generated_user_ids).values("email").distinct().count(),
+            1000,
+        )
+        self.assertEqual(
+            UserProfile.objects.filter(user_id__in=generated_user_ids).values("phone").distinct().count(),
+            1000,
+        )
+        self.assertEqual(
+            generated_guardians.values("phone").distinct().count(),
+            1000,
+        )
 
     def test_manual_student_creation_generates_scoped_username_and_default_password(self):
         form = StudentForm(
@@ -1753,6 +2019,73 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertEqual(response.context["due_amount"], Decimal("2250.00"))
         self.assertEqual(response.context["collection_rate"], 10.0)
         self.assertTrue(any(row["due_amount"] == Decimal("2250.00") for row in response.context["due_invoice_rows"]))
+
+    def test_dashboard_summary_is_cached_and_payment_changes_invalidate_it(self):
+        self.select_year(self.year_2026)
+
+        with patch.object(
+            views,
+            "build_dashboard_summary",
+            wraps=views.build_dashboard_summary,
+        ) as summary_builder:
+            first_response = self.client.get(reverse("institute_admin:dashboard"))
+            second_response = self.client.get(reverse("institute_admin:dashboard"))
+
+            self.assertEqual(first_response.status_code, 200)
+            self.assertEqual(second_response.status_code, 200)
+            self.assertEqual(summary_builder.call_count, 1)
+
+            Payment.objects.create(
+                invoice=self.invoice_2026,
+                amount=Decimal("100.00"),
+                paid_on=date(2026, 5, 4),
+                method=Payment.Method.CASH,
+                received_by=self.admin_user,
+            )
+            refreshed_response = self.client.get(reverse("institute_admin:dashboard"))
+
+            self.assertEqual(summary_builder.call_count, 2)
+            self.assertEqual(refreshed_response.context["paid_amount"], Decimal("350.00"))
+            self.assertEqual(refreshed_response.context["due_amount"], Decimal("650.00"))
+
+    def test_dashboard_returns_only_six_highest_dues(self):
+        for index in range(1, 8):
+            user = User.objects.create(username=f"due-student-{index}", first_name=f"Due {index}")
+            UserProfile.objects.create(
+                user=user,
+                institute=self.institute,
+                role=UserProfile.Role.STUDENT_PARENT,
+            )
+            student = StudentProfile.objects.create(
+                institute=self.institute,
+                academic_year=self.year_2026,
+                user=user,
+                admission_number=f"DUE-{index:04d}",
+            )
+            student_session = StudentAcademicSession.objects.create(
+                institute=self.institute,
+                student=student,
+                academic_year=self.year_2026,
+                admission_number=f"DUE-{index:04d}",
+                joined_on=date(2026, 4, index),
+            )
+            StudentEnrollment.objects.create(
+                student=student,
+                academic_session=student_session,
+                batch=self.batch_2026,
+                enrolled_on=date(2026, 4, index),
+                custom_fee_amount=Decimal(index * 1000),
+            )
+
+        self.select_year(self.year_2026)
+        response = self.client.get(reverse("institute_admin:dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["due_invoice_rows"]), 6)
+        self.assertEqual(
+            [row["due_amount"] for row in response.context["due_invoice_rows"]],
+            [Decimal(value) for value in (7000, 6000, 5000, 4000, 3000, 2000)],
+        )
 
     def test_session_link_is_required_for_operational_records(self):
         with self.assertRaises(IntegrityError):
@@ -2026,6 +2359,49 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertEqual(enrollment.academic_session, self.session_2026)
         self.assertEqual(enrollment.student, self.student)
 
+    def test_student_autocomplete_requires_two_characters_and_scopes_academic_year(self):
+        self.select_year(self.year_2026)
+
+        short_response = self.client.get(
+            reverse("institute_admin:student_autocomplete"),
+            {"q": "S"},
+        )
+        response = self.client.get(
+            reverse("institute_admin:student_autocomplete"),
+            {"q": "SMIS", "academic_year": self.year_2026.pk},
+        )
+
+        self.assertEqual(short_response.status_code, 200)
+        self.assertEqual(short_response.json()["results"], [])
+        self.assertEqual(response.status_code, 200)
+        self.assertLessEqual(len(response.json()["results"]), 20)
+        self.assertEqual(response.json()["results"][0]["id"], self.student.pk)
+        self.assertIn(self.session_2026.admission_number, response.json()["results"][0]["text"])
+        self.assertNotIn(self.session_2027.admission_number, response.content.decode())
+
+    def test_large_student_forms_use_ajax_without_rendering_full_student_choices(self):
+        self.select_year(self.year_2026)
+
+        enrollment_response = self.client.get(reverse("institute_admin:enrollment_create"))
+        selected_enrollment_response = self.client.get(
+            reverse("institute_admin:enrollment_create"),
+            {"student": self.student.pk},
+        )
+        notice_response = self.client.get(reverse("institute_admin:notice_create"))
+        attendance_response = self.client.get(reverse("institute_admin:attendance_list"))
+
+        self.assertContains(enrollment_response, 'data-student-autocomplete="true"')
+        self.assertNotContains(enrollment_response, self.session_2026.admission_number)
+        self.assertContains(selected_enrollment_response, f'value="{self.student.pk}" selected')
+        self.assertContains(notice_response, 'data-student-autocomplete="true"')
+        self.assertNotContains(notice_response, self.session_2026.admission_number)
+        self.assertContains(attendance_response, 'data-student-autocomplete="true"')
+        self.assertNotContains(
+            attendance_response,
+            f'<option value="{self.student.pk}">{self.session_2026.admission_number}',
+            html=False,
+        )
+
     def test_enrollment_create_rejects_student_without_selected_year_session(self):
         self.select_year(self.year_2026)
         other_user = User.objects.create_user(username="future-only", password="pass12345")
@@ -2097,7 +2473,8 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertNotIn(self.batch_2027, list(response.context["source_batches"]))
         self.assertIn(self.batch_2027, list(response.context["target_batches"]))
         self.assertNotIn(self.batch_2026, list(response.context["target_batches"]))
-        self.assertContains(response, self.session_2026.admission_number)
+        self.assertContains(response, 'data-student-autocomplete="true"')
+        self.assertNotContains(response, self.session_2026.admission_number)
 
     def test_student_promotion_creates_target_session_and_selected_enrollment(self):
         self.session_2027.delete()

@@ -3,6 +3,7 @@ from decimal import Decimal
 from io import BytesIO
 
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.http import HttpResponse
@@ -196,17 +197,12 @@ def attendance(request):
     selected_batch = batch_queryset.filter(pk=batch_id).first() if batch_id else batch_queryset.first()
 
     student_sessions = StudentAcademicSession.objects.none()
-    export_student_sessions = teacher_students_for_batches(batch_queryset)
     attendance_map = {}
+    attendance_page = None
+    display_student_sessions = StudentAcademicSession.objects.none()
 
     if selected_batch:
         student_sessions = teacher_students_for_batches(batch_queryset.filter(pk=selected_batch.pk))
-        existing_attendance = Attendance.objects.filter(
-            batch=selected_batch,
-            date=selected_date,
-            academic_session__in=student_sessions,
-        ).select_related("academic_session", "student", "marked_by")
-        attendance_map = {record.academic_session_id: record for record in existing_attendance}
 
     if request.method == "POST" and selected_batch:
         posted_student_ids = request.POST.getlist("student_ids")
@@ -234,6 +230,16 @@ def attendance(request):
         messages.success(request, f"Attendance saved for {saved_count} student(s).")
         return redirect(f"{reverse('teacher:attendance')}?batch={selected_batch.pk}&date={selected_date.isoformat()}")
 
+    if selected_batch:
+        attendance_page = Paginator(student_sessions, 100).get_page(request.GET.get("page"))
+        display_student_sessions = attendance_page.object_list
+        existing_attendance = Attendance.objects.filter(
+            batch=selected_batch,
+            date=selected_date,
+            academic_session__in=display_student_sessions,
+        ).select_related("academic_session", "student", "marked_by")
+        attendance_map = {record.academic_session_id: record for record in existing_attendance}
+
     selected_date_records = Attendance.objects.filter(batch__in=batch_queryset, date=selected_date)
     all_records = Attendance.objects.filter(batch__in=batch_queryset)
     if selected_year:
@@ -249,7 +255,7 @@ def attendance(request):
     rate_today = round((present_today / total_today) * 100, 1) if total_today else 0
 
     rows = []
-    for student_session in student_sessions:
+    for student_session in display_student_sessions:
         record = attendance_map.get(student_session.pk)
         rows.append(
             {
@@ -266,7 +272,7 @@ def attendance(request):
         "selected_batch": selected_batch,
         "selected_date": selected_date,
         "attendance_rows": rows,
-        "export_students": export_student_sessions,
+        "attendance_page": attendance_page,
         "status_choices": Attendance.Status.choices,
         "present_value": Attendance.Status.PRESENT,
         "absent_value": Attendance.Status.ABSENT,

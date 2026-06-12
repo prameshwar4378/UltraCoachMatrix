@@ -1,8 +1,9 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from collections import defaultdict
 from decimal import Decimal
 from io import BytesIO
 import json
+import random
 
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
@@ -12,7 +13,7 @@ from django.contrib.sessions.models import Session
 from django.core.exceptions import PermissionDenied
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models import Avg, Case, Count, DecimalField, ExpressionWrapper, F, IntegerField, Max, OuterRef, Q, Subquery, Sum, Value, When
 from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Coalesce
@@ -59,6 +60,7 @@ from .forms import (
     BatchForm,
     build_student_username,
     CourseForm,
+    DummyStudentCreateForm,
     LeadForm,
     FeeCategoryForm,
     generate_student_admission_number,
@@ -85,6 +87,11 @@ from .forms import (
     SubjectForm,
     TeacherForm,
     VisitorForm,
+)
+from .dashboard_cache import (
+    get_dashboard_summary,
+    invalidate_dashboard_summary,
+    set_dashboard_summary,
 )
 from .models import AcademicYear, Batch, Course, Lead, Notice, Subject, SupportTicket, Visitor
 
@@ -127,6 +134,70 @@ def get_current_institute(request):
     if not profile or profile.role != UserProfile.Role.INSTITUTE_ADMIN:
         raise PermissionDenied("Only institute admins can access this page.")
     return profile.institute
+
+
+@login_required
+def student_autocomplete(request):
+    profile = getattr(request.user, "profile", None)
+    allowed_roles = {UserProfile.Role.INSTITUTE_ADMIN, UserProfile.Role.TEACHER}
+    if not profile or profile.role not in allowed_roles or not profile.institute_id:
+        return JsonResponse({"detail": "You are not allowed to search students."}, status=403)
+
+    query = request.GET.get("q", "").strip()
+    if len(query) < 2:
+        return JsonResponse({"results": [], "pagination": {"more": False}})
+
+    academic_year_id = request.GET.get("academic_year", "").strip()
+    if not academic_year_id:
+        academic_year_id = request.session.get("academic_year_id")
+
+    sessions = StudentAcademicSession.objects.filter(
+        institute=profile.institute,
+        student__is_active=True,
+    ).select_related("student", "student__user", "student__user__profile")
+    if academic_year_id:
+        sessions = sessions.filter(academic_year_id=academic_year_id)
+
+    batch_id = request.GET.get("batch", "").strip()
+    course_id = request.GET.get("course", "").strip()
+    if batch_id:
+        sessions = sessions.filter(enrollments__batch_id=batch_id)
+    if course_id:
+        sessions = sessions.filter(enrollments__courses__id=course_id)
+    if profile.role == UserProfile.Role.TEACHER:
+        sessions = sessions.filter(enrollments__batch__teachers=request.user)
+
+    sessions = (
+        sessions.filter(
+            Q(admission_number__icontains=query)
+            | Q(student__user__first_name__icontains=query)
+            | Q(student__user__last_name__icontains=query)
+            | Q(student__user__username__icontains=query)
+            | Q(student__user__email__icontains=query)
+            | Q(student__user__profile__phone__icontains=query)
+            | Q(student__guardians__name__icontains=query)
+            | Q(student__guardians__phone__icontains=query)
+        )
+        .distinct()
+        .order_by("admission_number", "student__user__first_name", "student__user__username")
+    )
+    matches = list(sessions[:21])
+    results = []
+    for session in matches[:20]:
+        user = session.student.user
+        name = user.get_full_name() or user.username
+        phone = getattr(getattr(user, "profile", None), "phone", "")
+        meta_parts = [f"Admission: {session.admission_number}", f"Username: {user.username}"]
+        if phone:
+            meta_parts.append(f"Phone: {phone}")
+        results.append(
+            {
+                "id": session.student_id,
+                "text": f"{session.admission_number} - {name}",
+                "meta": " | ".join(meta_parts),
+            }
+        )
+    return JsonResponse({"results": results, "pagination": {"more": len(matches) > 20}})
 
 
 @institute_admin_required
@@ -895,190 +966,276 @@ def academic_year_switch(request):
     return redirect(request.META.get("HTTP_REFERER") or reverse("institute_admin:dashboard"))
 
 
+def dashboard_financial_summary(institute, academic_year):
+    session_table = connection.ops.quote_name(StudentAcademicSession._meta.db_table)
+    enrollment_table = connection.ops.quote_name(StudentEnrollment._meta.db_table)
+    enrollment_course_table = connection.ops.quote_name(
+        StudentEnrollment.courses.through._meta.db_table
+    )
+    course_table = connection.ops.quote_name(Course._meta.db_table)
+    batch_table = connection.ops.quote_name(Batch._meta.db_table)
+    invoice_table = connection.ops.quote_name(FeeInvoice._meta.db_table)
+    payment_table = connection.ops.quote_name(Payment._meta.db_table)
+    sql = f"""
+        WITH target_sessions AS (
+            SELECT id
+            FROM {session_table}
+            WHERE institute_id = %s AND academic_year_id = %s
+        ),
+        enrollment_course_fees AS (
+            SELECT sec.studentenrollment_id AS enrollment_id, SUM(c.fee_amount) AS total
+            FROM {enrollment_course_table} sec
+            INNER JOIN {course_table} c ON c.id = sec.course_id
+            GROUP BY sec.studentenrollment_id
+        ),
+        enrollment_summary AS (
+            SELECT
+                se.academic_session_id AS session_id,
+                SUM(
+                    CASE
+                        WHEN se.custom_fee_amount IS NOT NULL THEN se.custom_fee_amount
+                        ELSE COALESCE(ecf.total, 0)
+                    END
+                ) AS enrollment_total,
+                MIN(b.name) AS batch_name,
+                MIN(se.enrolled_on) AS due_date
+            FROM {enrollment_table} se
+            INNER JOIN target_sessions ts ON ts.id = se.academic_session_id
+            INNER JOIN {batch_table} b ON b.id = se.batch_id
+            LEFT JOIN enrollment_course_fees ecf ON ecf.enrollment_id = se.id
+            WHERE se.status <> %s
+            GROUP BY se.academic_session_id
+        ),
+        invoice_summary AS (
+            SELECT
+                fi.academic_session_id AS session_id,
+                SUM(fi.amount) AS invoiced_total,
+                SUM(CASE WHEN fi.enrollment_id IS NULL THEN fi.amount ELSE 0 END) AS additional_total
+            FROM {invoice_table} fi
+            INNER JOIN target_sessions ts ON ts.id = fi.academic_session_id
+            WHERE fi.status <> %s
+            GROUP BY fi.academic_session_id
+        ),
+        payment_summary AS (
+            SELECT fi.academic_session_id AS session_id, SUM(p.amount) AS paid_total
+            FROM {payment_table} p
+            INNER JOIN {invoice_table} fi ON fi.id = p.invoice_id
+            INNER JOIN target_sessions ts ON ts.id = fi.academic_session_id
+            WHERE p.status = %s AND fi.status <> %s
+            GROUP BY fi.academic_session_id
+        ),
+        session_financial AS (
+            SELECT
+                ts.id AS session_id,
+                CASE
+                    WHEN COALESCE(es.enrollment_total, 0) > 0
+                    THEN COALESCE(es.enrollment_total, 0) + COALESCE(ins.additional_total, 0)
+                    ELSE COALESCE(ins.invoiced_total, 0)
+                END AS total_fee,
+                COALESCE(ps.paid_total, 0) AS paid_amount,
+                es.batch_name,
+                es.due_date
+            FROM target_sessions ts
+            LEFT JOIN enrollment_summary es ON es.session_id = ts.id
+            LEFT JOIN invoice_summary ins ON ins.session_id = ts.id
+            LEFT JOIN payment_summary ps ON ps.session_id = ts.id
+        ),
+        financial AS (
+            SELECT
+                session_id,
+                total_fee,
+                paid_amount,
+                CASE WHEN total_fee > paid_amount THEN total_fee - paid_amount ELSE 0 END AS due_amount,
+                batch_name,
+                due_date
+            FROM session_financial
+        )
+        SELECT
+            0 AS row_type,
+            NULL AS session_id,
+            COALESCE(SUM(total_fee), 0) AS total_fee,
+            COALESCE(SUM(paid_amount), 0) AS paid_amount,
+            COALESCE(SUM(due_amount), 0) AS due_amount,
+            NULL AS batch_name,
+            NULL AS due_date
+        FROM financial
+        UNION ALL
+        SELECT row_type, session_id, total_fee, paid_amount, due_amount, batch_name, due_date
+        FROM (
+            SELECT
+                1 AS row_type,
+                session_id,
+                total_fee,
+                paid_amount,
+                due_amount,
+                batch_name,
+                due_date
+            FROM financial
+            WHERE due_amount > 0
+            ORDER BY due_amount DESC, session_id
+            LIMIT 6
+        ) top_dues
+        ORDER BY row_type, due_amount DESC
+    """
+    params = [
+        institute.pk,
+        academic_year.pk,
+        StudentEnrollment.Status.CANCELLED,
+        FeeInvoice.Status.CANCELLED,
+        Payment.Status.ACTIVE,
+        FeeInvoice.Status.CANCELLED,
+    ]
+    with connection.cursor() as cursor:
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+
+    total_row = rows[0]
+    totals = {
+        "invoice_amount": Decimal(str(total_row[2] or 0)),
+        "paid_amount": Decimal(str(total_row[3] or 0)),
+        "due_amount": Decimal(str(total_row[4] or 0)),
+    }
+    due_rows = [
+        {
+            "session_id": row[1],
+            "due_amount": Decimal(str(row[4] or 0)),
+            "batch_name": row[5],
+            "due_date": date.fromisoformat(row[6]) if isinstance(row[6], str) else row[6],
+        }
+        for row in rows[1:]
+    ]
+    return totals, due_rows
+
+
+def build_dashboard_summary(institute, academic_year, today):
+    students = StudentAcademicSession.objects.filter(institute=institute, academic_year=academic_year)
+    batches = Batch.objects.filter(institute=institute, academic_year=academic_year)
+    courses = Course.objects.filter(institute=institute, academic_year=academic_year)
+    invoices = FeeInvoice.objects.filter(
+        institute=institute,
+        academic_session__academic_year=academic_year,
+    ).exclude(status=FeeInvoice.Status.CANCELLED)
+    payments = Payment.objects.filter(
+        status=Payment.Status.ACTIVE,
+        invoice__institute=institute,
+        invoice__academic_session__academic_year=academic_year,
+    ).exclude(invoice__status=FeeInvoice.Status.CANCELLED)
+    attendance = Attendance.objects.filter(
+        date=today,
+        batch__institute=institute,
+        academic_session__academic_year=academic_year,
+    )
+
+    attendance_counts = attendance.aggregate(
+        total=Count("pk"),
+        present=Count("pk", filter=Q(status=Attendance.Status.PRESENT)),
+        absent=Count("pk", filter=Q(status=Attendance.Status.ABSENT)),
+        late=Count("pk", filter=Q(status=Attendance.Status.LATE)),
+    )
+    payment_totals = payments.aggregate(
+        today_collection=Coalesce(
+            Sum("amount", filter=Q(paid_on=today)),
+            Value(Decimal("0.00"), output_field=DecimalField(max_digits=18, decimal_places=2)),
+        ),
+        month_collection=Coalesce(
+            Sum("amount", filter=Q(paid_on__year=today.year, paid_on__month=today.month)),
+            Value(Decimal("0.00"), output_field=DecimalField(max_digits=18, decimal_places=2)),
+        ),
+    )
+    student_counts = students.aggregate(
+        total=Count("pk"),
+        active=Count(
+            "pk",
+            filter=Q(status=StudentAcademicSession.Status.ACTIVE, student__is_active=True),
+        ),
+    )
+    batch_counts = batches.aggregate(
+        total=Count("pk"),
+        active=Count("pk", filter=Q(is_active=True)),
+    )
+    staff_counts = UserProfile.objects.filter(institute=institute).aggregate(
+        teachers=Count("pk", filter=Q(role=UserProfile.Role.TEACHER)),
+        accountants=Count("pk", filter=Q(role=UserProfile.Role.ACCOUNTANT)),
+    )
+
+    financial_totals, top_due_rows = dashboard_financial_summary(institute, academic_year)
+    due_sessions = StudentAcademicSession.objects.select_related(
+        "student",
+        "student__user",
+    ).in_bulk(row["session_id"] for row in top_due_rows)
+    due_invoice_rows = []
+    for row in top_due_rows:
+        student_session = due_sessions[row["session_id"]]
+        user = student_session.student.user
+        due_invoice_rows.append(
+            {
+                "student_name": user.get_full_name() or user.username,
+                "title": row["batch_name"] or "Pending fees",
+                "due_date": row["due_date"],
+                "due_amount": row["due_amount"],
+            }
+        )
+
+    invoice_amount = financial_totals["invoice_amount"]
+    paid_amount = financial_totals["paid_amount"]
+    attendance_total = attendance_counts["total"]
+    return {
+        "course_count": courses.count(),
+        "batch_count": batch_counts["total"],
+        "active_batch_count": batch_counts["active"],
+        "student_count": student_counts["total"],
+        "active_student_count": student_counts["active"],
+        "teacher_count": staff_counts["teachers"],
+        "accountant_count": staff_counts["accountants"],
+        "invoice_count": invoices.count(),
+        "invoice_amount": invoice_amount,
+        "due_amount": financial_totals["due_amount"],
+        "paid_amount": paid_amount,
+        "collection_rate": round((paid_amount / invoice_amount) * 100, 1) if invoice_amount else 0,
+        "today_attendance_count": attendance_total,
+        "today_present_count": attendance_counts["present"],
+        "today_absent_count": attendance_counts["absent"],
+        "today_late_count": attendance_counts["late"],
+        "attendance_rate": round((attendance_counts["present"] / attendance_total) * 100, 1)
+        if attendance_total
+        else 0,
+        "today_collection": payment_totals["today_collection"],
+        "month_collection": payment_totals["month_collection"],
+        "due_invoice_rows": due_invoice_rows,
+    }
+
+
 @institute_admin_required
 def dashboard(request):
     profile = getattr(request.user, "profile", None)
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
     institute_filter = {"institute": institute} if institute else {}
+    today = timezone.localdate()
 
-    invoices = FeeInvoice.objects.filter(**institute_filter).exclude(status=FeeInvoice.Status.CANCELLED)
-    if academic_year:
-        invoices = invoices.filter(academic_session__academic_year=academic_year)
+    summary = get_dashboard_summary(institute.pk, academic_year.pk)
+    if summary is None:
+        summary = build_dashboard_summary(institute, academic_year, today)
+        set_dashboard_summary(institute.pk, academic_year.pk, summary)
 
-    students = StudentAcademicSession.objects.filter(**institute_filter)
-    if academic_year:
-        students = students.filter(academic_year=academic_year)
-    batches = Batch.objects.filter(**institute_filter)
-    courses = Course.objects.filter(**institute_filter)
-    if academic_year:
-        batches = batches.filter(academic_year=academic_year)
-        courses = courses.filter(academic_year=academic_year)
-    today = date.today()
-    today_attendance = Attendance.objects.filter(date=today)
-    if institute:
-        today_attendance = today_attendance.filter(batch__institute=institute)
-    if academic_year:
-        today_attendance = today_attendance.filter(academic_session__academic_year=academic_year)
-    today_attendance_count = today_attendance.count()
-    today_present_count = today_attendance.filter(status=Attendance.Status.PRESENT).count()
-    today_absent_count = today_attendance.filter(status=Attendance.Status.ABSENT).count()
-    today_late_count = today_attendance.filter(status=Attendance.Status.LATE).count()
-    attendance_rate = round((today_present_count / today_attendance_count) * 100, 1) if today_attendance_count else 0
-    recent_payments = Payment.objects.filter(status=Payment.Status.ACTIVE).select_related(
+    students = StudentAcademicSession.objects.filter(institute=institute, academic_year=academic_year)
+    recent_payments = Payment.objects.filter(
+        status=Payment.Status.ACTIVE,
+        invoice__institute=institute,
+        invoice__academic_session__academic_year=academic_year,
+    ).select_related(
         "invoice",
         "invoice__student",
         "invoice__student__user",
     )
-    if institute:
-        recent_payments = recent_payments.filter(invoice__institute=institute)
-    if academic_year:
-        recent_payments = recent_payments.filter(invoice__academic_session__academic_year=academic_year)
-    today_collection = recent_payments.filter(paid_on=today).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
-    month_collection = recent_payments.filter(paid_on__year=today.year, paid_on__month=today.month).aggregate(
-        total=Sum("amount")
-    )["total"] or Decimal("0.00")
-
-    invoice_amount = Decimal("0.00")
-    paid_amount = Decimal("0.00")
-    due_amount = Decimal("0.00")
-    due_invoice_rows = []
-    dashboard_sessions = list(students.select_related("student", "student__user"))
-    dashboard_session_ids = [student_session.pk for student_session in dashboard_sessions]
-
-    enrollment_fee_by_session = defaultdict(lambda: Decimal("0.00"))
-    invoiced_amount_by_session = defaultdict(lambda: Decimal("0.00"))
-    additional_fee_by_session = defaultdict(lambda: Decimal("0.00"))
-    paid_amount_by_session = defaultdict(lambda: Decimal("0.00"))
-    enrollment_titles_by_session = defaultdict(list)
-    enrollment_dates_by_session = defaultdict(list)
-
-    if dashboard_session_ids:
-        active_enrollments = StudentEnrollment.objects.filter(
-            academic_session_id__in=dashboard_session_ids,
-        ).exclude(status=StudentEnrollment.Status.CANCELLED)
-
-        custom_fee_rows = (
-            active_enrollments.filter(custom_fee_amount__isnull=False)
-            .values("academic_session_id")
-            .annotate(total=Sum("custom_fee_amount"))
-        )
-        for row in custom_fee_rows:
-            enrollment_fee_by_session[row["academic_session_id"]] += row["total"] or Decimal("0.00")
-
-        course_fee_rows = (
-            Course.objects.filter(
-                student_enrollments__academic_session_id__in=dashboard_session_ids,
-                student_enrollments__custom_fee_amount__isnull=True,
-            )
-            .exclude(student_enrollments__status=StudentEnrollment.Status.CANCELLED)
-            .values("student_enrollments__academic_session_id")
-            .annotate(total=Sum("fee_amount"))
-        )
-        for row in course_fee_rows:
-            enrollment_fee_by_session[row["student_enrollments__academic_session_id"]] += row["total"] or Decimal("0.00")
-
-        enrollment_rows = active_enrollments.select_related("batch").values(
-            "academic_session_id",
-            "batch__name",
-            "enrolled_on",
-        )
-        for row in enrollment_rows:
-            session_id = row["academic_session_id"]
-            if len(enrollment_titles_by_session[session_id]) < 2 and row["batch__name"]:
-                enrollment_titles_by_session[session_id].append(row["batch__name"])
-            if row["enrolled_on"]:
-                enrollment_dates_by_session[session_id].append(row["enrolled_on"])
-
-        invoice_amount_rows = (
-            invoices.values("academic_session_id")
-            .annotate(total=Sum("amount"))
-        )
-        for row in invoice_amount_rows:
-            invoiced_amount_by_session[row["academic_session_id"]] = row["total"] or Decimal("0.00")
-
-        additional_fee_rows = (
-            invoices.filter(enrollment__isnull=True)
-            .values("academic_session_id")
-            .annotate(total=Sum("amount"))
-        )
-        for row in additional_fee_rows:
-            additional_fee_by_session[row["academic_session_id"]] = row["total"] or Decimal("0.00")
-
-        payment_rows = (
-            Payment.objects.filter(
-                invoice__academic_session_id__in=dashboard_session_ids,
-                status=Payment.Status.ACTIVE,
-            )
-            .exclude(invoice__status=FeeInvoice.Status.CANCELLED)
-            .values("invoice__academic_session_id")
-            .annotate(total=Sum("amount"))
-        )
-        for row in payment_rows:
-            paid_amount_by_session[row["invoice__academic_session_id"]] = row["total"] or Decimal("0.00")
-
-    for student_session in dashboard_sessions:
-        session_id = student_session.pk
-        enrollment_fee_amount = enrollment_fee_by_session[session_id]
-        invoiced_amount = invoiced_amount_by_session[session_id]
-        additional_fee_amount = additional_fee_by_session[session_id]
-        session_paid_amount = paid_amount_by_session[session_id]
-
-        session_total_fee = enrollment_fee_amount + additional_fee_amount if enrollment_fee_amount > 0 else invoiced_amount
-        session_due_amount = session_total_fee - session_paid_amount
-        if session_due_amount < 0:
-            session_due_amount = Decimal("0.00")
-
-        invoice_amount += session_total_fee
-        paid_amount += session_paid_amount
-        due_amount += session_due_amount
-
-        if session_due_amount > 0:
-            due_invoice_rows.append(
-                {
-                    "student_name": student_session.student.user.get_full_name() or student_session.student.user.username,
-                    "title": ", ".join(enrollment_titles_by_session[session_id]) or "Pending fees",
-                    "due_date": min(enrollment_dates_by_session[session_id], default=None),
-                    "due_amount": session_due_amount,
-                }
-            )
-
-    collection_rate = round((paid_amount / invoice_amount) * 100, 1) if invoice_amount else 0
-    due_invoice_rows = sorted(due_invoice_rows, key=lambda row: row["due_amount"], reverse=True)
 
     latest_students = students.select_related("student", "student__user").order_by("-id")[:5]
 
     context = {
         "profile": profile,
         "institute": institute,
-        "course_count": courses.count(),
-        "batch_count": batches.count(),
-        "active_batch_count": batches.filter(is_active=True).count(),
-        "student_count": students.count(),
-        "active_student_count": students.filter(status=StudentAcademicSession.Status.ACTIVE, student__is_active=True).count(),
-        "teacher_count": UserProfile.objects.filter(
-            institute=institute,
-            role=UserProfile.Role.TEACHER,
-        ).count() if institute else 0,
-        "accountant_count": UserProfile.objects.filter(
-            institute=institute,
-            role=UserProfile.Role.ACCOUNTANT,
-        ).count() if institute else 0,
-        "invoice_count": invoices.count(),
-        "invoice_amount": invoice_amount,
-        "due_amount": due_amount,
-        "paid_amount": paid_amount or 0,
-        "collection_rate": collection_rate,
         "today": today,
-        "today_attendance_count": today_attendance_count,
-        "today_present_count": today_present_count,
-        "today_absent_count": today_absent_count,
-        "today_late_count": today_late_count,
-        "attendance_rate": attendance_rate,
-        "today_collection": today_collection,
-        "month_collection": month_collection,
         "recent_payments": recent_payments.order_by("-created_at", "-pk")[:5],
-        "due_invoice_rows": due_invoice_rows[:6],
         "latest_students": latest_students,
         "recent_notices": Notice.objects.filter(**institute_filter)[:5],
         "recent_homework": Homework.objects.filter(
@@ -1091,6 +1248,7 @@ def dashboard(request):
             batch__academic_year=academic_year,
         )[:5] if institute and academic_year else [],
     }
+    context.update(summary)
     return render(request, "institute_admin/dashboard.html", context)
 
 
@@ -1840,6 +1998,97 @@ def get_student_session_fee_summaries(session_ids, display_session_ids=None):
     return summaries
 
 
+def get_student_list_financial_totals(sessions):
+    target_sql, target_params = sessions.order_by().values("pk").query.sql_with_params()
+    enrollment_table = connection.ops.quote_name(StudentEnrollment._meta.db_table)
+    enrollment_course_table = connection.ops.quote_name(
+        StudentEnrollment.courses.through._meta.db_table
+    )
+    course_table = connection.ops.quote_name(Course._meta.db_table)
+    invoice_table = connection.ops.quote_name(FeeInvoice._meta.db_table)
+    payment_table = connection.ops.quote_name(Payment._meta.db_table)
+    sql = f"""
+        WITH target_session_ids AS (
+            {target_sql}
+        ),
+        target_sessions AS (
+            SELECT pk AS id FROM target_session_ids
+        ),
+        enrollment_course_fees AS (
+            SELECT sec.studentenrollment_id AS enrollment_id, SUM(c.fee_amount) AS total
+            FROM {enrollment_course_table} sec
+            INNER JOIN {course_table} c ON c.id = sec.course_id
+            GROUP BY sec.studentenrollment_id
+        ),
+        enrollment_summary AS (
+            SELECT
+                se.academic_session_id AS session_id,
+                SUM(
+                    CASE
+                        WHEN se.custom_fee_amount IS NOT NULL THEN se.custom_fee_amount
+                        ELSE COALESCE(ecf.total, 0)
+                    END
+                ) AS enrollment_total
+            FROM {enrollment_table} se
+            INNER JOIN target_sessions ts ON ts.id = se.academic_session_id
+            LEFT JOIN enrollment_course_fees ecf ON ecf.enrollment_id = se.id
+            WHERE se.status <> %s
+            GROUP BY se.academic_session_id
+        ),
+        invoice_summary AS (
+            SELECT
+                fi.academic_session_id AS session_id,
+                SUM(fi.amount) AS invoiced_total,
+                SUM(CASE WHEN fi.enrollment_id IS NULL THEN fi.amount ELSE 0 END) AS additional_total
+            FROM {invoice_table} fi
+            INNER JOIN target_sessions ts ON ts.id = fi.academic_session_id
+            WHERE fi.status <> %s
+            GROUP BY fi.academic_session_id
+        ),
+        payment_summary AS (
+            SELECT fi.academic_session_id AS session_id, SUM(p.amount) AS paid_total
+            FROM {payment_table} p
+            INNER JOIN {invoice_table} fi ON fi.id = p.invoice_id
+            INNER JOIN target_sessions ts ON ts.id = fi.academic_session_id
+            WHERE p.status = %s AND fi.status <> %s
+            GROUP BY fi.academic_session_id
+        ),
+        financial AS (
+            SELECT
+                CASE
+                    WHEN COALESCE(es.enrollment_total, 0) > 0
+                    THEN COALESCE(es.enrollment_total, 0) + COALESCE(ins.additional_total, 0)
+                    ELSE COALESCE(ins.invoiced_total, 0)
+                END AS total_fee,
+                COALESCE(ps.paid_total, 0) AS paid_amount
+            FROM target_sessions ts
+            LEFT JOIN enrollment_summary es ON es.session_id = ts.id
+            LEFT JOIN invoice_summary ins ON ins.session_id = ts.id
+            LEFT JOIN payment_summary ps ON ps.session_id = ts.id
+        )
+        SELECT
+            COALESCE(SUM(total_fee), 0),
+            COALESCE(SUM(paid_amount), 0),
+            COALESCE(SUM(CASE WHEN total_fee > paid_amount THEN total_fee - paid_amount ELSE 0 END), 0)
+        FROM financial
+    """
+    params = [
+        *target_params,
+        StudentEnrollment.Status.CANCELLED,
+        FeeInvoice.Status.CANCELLED,
+        Payment.Status.ACTIVE,
+        FeeInvoice.Status.CANCELLED,
+    ]
+    with connection.cursor() as cursor:
+        cursor.execute(sql, params)
+        total_fee, paid_amount, due_amount = cursor.fetchone()
+    return {
+        "filtered_total_fee_amount": Decimal(str(total_fee or 0)),
+        "filtered_paid_amount": Decimal(str(paid_amount or 0)),
+        "filtered_due_amount": Decimal(str(due_amount or 0)),
+    }
+
+
 @institute_admin_required
 def student_list(request):
     institute = get_current_institute(request)
@@ -1887,7 +2136,6 @@ def student_list(request):
     elif status_filter == "inactive":
         sessions = sessions.exclude(status=StudentAcademicSession.Status.ACTIVE, student__is_active=True)
 
-    session_ids = list(sessions.values_list("pk", flat=True))
     paginator = Paginator(sessions, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
     sessions_page = list(
@@ -1896,19 +2144,22 @@ def student_list(request):
         )
     )
     page_session_ids = [session.pk for session in sessions_page]
-    fee_summaries = get_student_session_fee_summaries(session_ids, display_session_ids=page_session_ids)
-    filtered_total_fee_amount = sum(
-        (summary["total_fee_amount"] for summary in fee_summaries.values()),
-        Decimal("0.00"),
+    fee_summaries = get_student_session_fee_summaries(page_session_ids)
+
+    filtered_session_ids = sessions.order_by().values("pk")
+    student_counts = StudentAcademicSession.objects.filter(
+        pk__in=Subquery(filtered_session_ids),
+    ).aggregate(
+        total=Count("pk"),
+        active=Count(
+            "pk",
+            filter=Q(status=StudentAcademicSession.Status.ACTIVE, student__is_active=True),
+        ),
     )
-    filtered_paid_amount = sum(
-        (summary["paid_amount"] for summary in fee_summaries.values()),
-        Decimal("0.00"),
-    )
-    filtered_due_amount = sum(
-        (summary["due_amount"] for summary in fee_summaries.values()),
-        Decimal("0.00"),
-    )
+    total_enrollments = StudentEnrollment.objects.filter(
+        academic_session_id__in=Subquery(filtered_session_ids),
+    ).count()
+    financial_totals = get_student_list_financial_totals(sessions)
     query_params = request.GET.copy()
     query_params.pop("page", None)
     pagination_query = query_params.urlencode()
@@ -1934,19 +2185,11 @@ def student_list(request):
         "selected_batch": selected_batch,
         "student_export_field_options": STUDENT_EXPORT_FIELD_OPTIONS,
         "student_export_default_fields": STUDENT_EXPORT_DEFAULT_FIELDS,
-        "total_students": len(session_ids),
-        "active_students": sessions.filter(
-            status=StudentAcademicSession.Status.ACTIVE,
-            student__is_active=True,
-        ).count(),
-        "inactive_students": sessions.exclude(
-            status=StudentAcademicSession.Status.ACTIVE,
-            student__is_active=True,
-        ).count(),
-        "total_enrollments": StudentEnrollment.objects.filter(academic_session_id__in=session_ids).count(),
-        "filtered_total_fee_amount": filtered_total_fee_amount,
-        "filtered_paid_amount": filtered_paid_amount,
-        "filtered_due_amount": filtered_due_amount,
+        "total_students": student_counts["total"],
+        "active_students": student_counts["active"],
+        "inactive_students": student_counts["total"] - student_counts["active"],
+        "total_enrollments": total_enrollments,
+        **financial_totals,
     }
     return render(request, "institute_admin/student_list.html", context)
 
@@ -2031,16 +2274,6 @@ def student_promote(request):
                 enrollments__status=StudentEnrollment.Status.ACTIVE,
             ).values_list("student_id", flat=True)
         )
-
-    if promotion_loaded:
-        for source_session in source_sessions:
-            matching_enrollments = source_session.enrollments.filter(
-                courses=source_course,
-                status=StudentEnrollment.Status.ACTIVE,
-            ).select_related("batch")
-            if source_batch:
-                matching_enrollments = matching_enrollments.filter(batch=source_batch)
-            source_session.promotion_source_enrollment = matching_enrollments.first()
 
     if request.method == "POST":
         selected_ids = [student_id for student_id in request.POST.getlist("students") if student_id.isdigit()]
@@ -2150,7 +2383,6 @@ def student_promote(request):
         and target_batch
         and source_year != target_year
     )
-    visible_students = source_sessions if promotion_ready else StudentAcademicSession.objects.none()
     context = {
         "academic_years": academic_years,
         "source_year": source_year,
@@ -2163,11 +2395,10 @@ def student_promote(request):
         "target_batches": target_batches,
         "source_batch": source_batch,
         "target_batch": target_batch,
-        "students": visible_students,
         "promotion_loaded": promotion_loaded,
         "promotion_ready": promotion_ready,
         "already_promoted_student_ids": fully_promoted_student_ids,
-        "available_count": visible_students.exclude(student_id__in=fully_promoted_student_ids).count(),
+        "available_count": source_sessions.exclude(student_id__in=fully_promoted_student_ids).count(),
         "choice_data": choice_data,
     }
     return render(request, "institute_admin/student_promote.html", context)
@@ -2302,6 +2533,32 @@ def bool_from_excel(value):
     return text not in {"no", "false", "0", "inactive"}
 
 
+def match_student_import_headers(headers):
+    expected = student_import_columns()
+    submitted = headers[: len(expected)]
+    if len(submitted) < len(expected):
+        submitted.extend([""] * (len(expected) - len(submitted)))
+
+    mismatched = [
+        (index, actual, expected_header)
+        for index, (actual, expected_header) in enumerate(zip(submitted, expected), start=1)
+        if actual and actual != expected_header
+    ]
+    if mismatched:
+        return False, []
+
+    matching_count = sum(actual == expected_header for actual, expected_header in zip(submitted, expected))
+    if matching_count < len(expected) - 2:
+        return False, []
+
+    missing_headers = [
+        expected_header
+        for actual, expected_header in zip(submitted, expected)
+        if not actual
+    ]
+    return True, missing_headers
+
+
 def validate_student_import_file(upload, institute, academic_year=None):
     academic_year = academic_year or get_or_create_academic_year(institute)
     try:
@@ -2317,7 +2574,8 @@ def validate_student_import_file(upload, institute, academic_year=None):
 
     expected = student_import_columns()
     headers = [str(cell.value or "").strip() for cell in sheet[3]]
-    if headers[: len(expected)] != expected:
+    headers_match, missing_headers = match_student_import_headers(headers)
+    if not headers_match:
         return {
             "valid": False,
             "valid_count": 0,
@@ -2327,6 +2585,12 @@ def validate_student_import_file(upload, institute, academic_year=None):
 
     errors = []
     warnings = []
+    if missing_headers:
+        warnings.append(
+            "Blank column header(s) were recovered from their template positions: "
+            + ", ".join(missing_headers)
+            + "."
+        )
     cell_errors = {}
     preview_rows = []
     valid_count = 0
@@ -2626,7 +2890,8 @@ def student_bulk_import(request):
 
     headers = [str(cell.value or "").strip() for cell in sheet[3]]
     expected = student_import_columns()
-    if headers[: len(expected)] != expected:
+    headers_match, _missing_headers = match_student_import_headers(headers)
+    if not headers_match:
         messages.error(request, "Invalid template format. Download the latest template and try again.")
         return redirect("institute_admin:student_list")
 
@@ -2791,6 +3056,7 @@ def student_bulk_import(request):
         return redirect("institute_admin:student_list")
 
     if created_count:
+        invalidate_dashboard_summary(institute.pk, academic_year.pk)
         messages.success(request, f"{created_count} student(s) imported successfully.")
     return redirect("institute_admin:student_list")
 
@@ -3362,6 +3628,266 @@ def student_create(request):
             "button_text": "Save Student",
         },
     )
+
+
+@require_POST
+@institute_admin_required
+def student_dummy_create(request):
+    institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
+    if not institute or not academic_year:
+        messages.error(request, "Select an institute and academic year before creating dummy students.")
+        return redirect("institute_admin:student_list")
+
+    form = DummyStudentCreateForm(request.POST)
+    if not form.is_valid():
+        error = form.errors.get("count", ["Enter a valid record count from 1 to 5000."])[0]
+        messages.error(request, str(error))
+        return redirect("institute_admin:student_list")
+
+    batches = list(
+        Batch.objects.filter(
+            institute=institute,
+            academic_year=academic_year,
+            is_active=True,
+        ).prefetch_related("courses")
+    )
+    if not batches:
+        messages.error(
+            request,
+            "Create at least one active batch in the selected academic year before generating dummy students.",
+        )
+        return redirect("institute_admin:student_list")
+
+    count = form.cleaned_data["count"]
+    rng = random.SystemRandom()
+    first_names = [
+        "Aarav", "Aditi", "Advait", "Ananya", "Arjun", "Avni", "Diya", "Ishaan",
+        "Kabir", "Kavya", "Krisha", "Meera", "Neel", "Nisha", "Pranav", "Riya",
+        "Rohan", "Saanvi", "Sara", "Vihaan",
+    ]
+    last_names = [
+        "Bhosale", "Chavan", "Deshmukh", "Gupta", "Iyer", "Jadhav", "Joshi",
+        "Kapoor", "Kulkarni", "Mehta", "Mishra", "Nair", "Patel", "Rao",
+        "Shah", "Sharma", "Singh", "Verma",
+    ]
+    relations = ["Father", "Mother", "Guardian"]
+    previous_classes = ["5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"]
+    localities = [
+        "Aundh", "Baner", "Hadapsar", "Hinjewadi", "Kharadi", "Kothrud",
+        "Pimpri", "Shivajinagar", "Viman Nagar", "Wakad",
+    ]
+    schools = [
+        "Bright Future School", "City International School", "Green Valley Academy",
+        "New Horizon School", "Scholars Public School", "Sunrise English School",
+    ]
+    batch_courses = {
+        batch.pk: list(batch.courses.all())
+        for batch in batches
+    }
+    existing_phones = set(
+        UserProfile.objects.exclude(phone="").values_list("phone", flat=True)
+    )
+    existing_phones.update(
+        GuardianProfile.objects.exclude(phone="").values_list("phone", flat=True)
+    )
+
+    def reserve_phone():
+        while True:
+            phone = f"{rng.choice('6789')}{rng.randrange(10**9):09d}"
+            if phone not in existing_phones:
+                existing_phones.add(phone)
+                return phone
+
+    try:
+        with transaction.atomic():
+            academic_year = AcademicYear.objects.select_for_update().get(
+                pk=academic_year.pk,
+                institute=institute,
+            )
+            prefix = get_student_admission_prefix(institute, academic_year)
+            sequence = get_last_student_admission_sequence(institute, academic_year) + 1
+            username_prefix = build_student_username(institute, prefix)
+            reserved_usernames = set(
+                User.objects.filter(username__startswith=username_prefix).values_list("username", flat=True)
+            )
+            default_password = make_password("Student@123")
+            rows = []
+            users = []
+            for index in range(count):
+                while True:
+                    admission_number = f"{prefix}{sequence:04d}"
+                    username = build_student_username(institute, admission_number)
+                    sequence += 1
+                    if username not in reserved_usernames:
+                        reserved_usernames.add(username)
+                        break
+
+                first_name = rng.choice(first_names)
+                last_name = rng.choice(last_names)
+                locality = rng.choice(localities)
+                school = rng.choice(schools)
+                joined_span = max((academic_year.end_date - academic_year.start_date).days, 0)
+                joined_on = academic_year.start_date + timedelta(days=rng.randint(0, joined_span))
+                age = rng.randint(6, 18)
+                date_of_birth = joined_on - timedelta(days=(age * 365) + rng.randint(0, 364))
+                phone = reserve_phone()
+                guardian_phone = reserve_phone()
+                batch = rng.choice(batches)
+                row = {
+                    "admission_number": admission_number,
+                    "username": username,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "email": f"{username.lower()}@dummy.ultracoachmatrix.test",
+                    "phone": phone,
+                    "date_of_birth": date_of_birth,
+                    "joined_on": joined_on,
+                    "address": f"House {rng.randint(1, 999)}, {locality}, Pune, Maharashtra",
+                    "current_school_name": institute.name,
+                    "current_school_address": institute.address or f"Main Road, {locality}, Pune, Maharashtra",
+                    "previous_school_name": school,
+                    "previous_class": rng.choice(previous_classes),
+                    "guardian_name": f"{rng.choice(first_names)} {last_name}",
+                    "guardian_relation": rng.choice(relations),
+                    "guardian_phone": guardian_phone,
+                    "guardian_email": f"guardian.{username.lower()}@dummy.ultracoachmatrix.test",
+                    "batch": batch,
+                    "courses": batch_courses[batch.pk],
+                }
+                rows.append(row)
+                users.append(
+                    User(
+                        username=username,
+                        first_name=first_name,
+                        last_name=last_name,
+                        email=row["email"],
+                        password=default_password,
+                        is_active=True,
+                    )
+                )
+
+            User.objects.bulk_create(users, batch_size=500)
+            users_by_username = User.objects.in_bulk(
+                [row["username"] for row in rows],
+                field_name="username",
+            )
+            UserProfile.objects.bulk_create(
+                [
+                    UserProfile(
+                        user=users_by_username[row["username"]],
+                        institute=institute,
+                        role=UserProfile.Role.STUDENT_PARENT,
+                        phone=row["phone"],
+                    )
+                    for row in rows
+                ],
+                batch_size=500,
+            )
+            StudentProfile.objects.bulk_create(
+                [
+                    StudentProfile(
+                        institute=institute,
+                        academic_year=academic_year,
+                        user=users_by_username[row["username"]],
+                        admission_number=row["admission_number"],
+                        date_of_birth=row["date_of_birth"],
+                        joined_on=row["joined_on"],
+                        address=row["address"],
+                        current_school_name=row["current_school_name"],
+                        current_school_address=row["current_school_address"],
+                        previous_school_name=row["previous_school_name"],
+                        previous_class=row["previous_class"],
+                        is_active=True,
+                    )
+                    for row in rows
+                ],
+                batch_size=500,
+            )
+            students_by_user_id = StudentProfile.objects.in_bulk(
+                [user.pk for user in users_by_username.values()],
+                field_name="user_id",
+            )
+            sessions = [
+                StudentAcademicSession(
+                    institute=institute,
+                    student=students_by_user_id[users_by_username[row["username"]].pk],
+                    academic_year=academic_year,
+                    admission_number=row["admission_number"],
+                    joined_on=row["joined_on"],
+                    status=StudentAcademicSession.Status.ACTIVE,
+                    current_school_name=row["current_school_name"],
+                    current_school_address=row["current_school_address"],
+                    previous_school_name=row["previous_school_name"],
+                    previous_class=row["previous_class"],
+                )
+                for row in rows
+            ]
+            StudentAcademicSession.objects.bulk_create(sessions, batch_size=500)
+            sessions_by_student_id = {
+                session.student_id: session
+                for session in StudentAcademicSession.objects.filter(
+                    student_id__in=[student.pk for student in students_by_user_id.values()],
+                    academic_year=academic_year,
+                )
+            }
+            GuardianProfile.objects.bulk_create(
+                [
+                    GuardianProfile(
+                        student=students_by_user_id[users_by_username[row["username"]].pk],
+                        name=row["guardian_name"],
+                        relation=row["guardian_relation"],
+                        phone=row["guardian_phone"],
+                        email=row["guardian_email"],
+                        is_primary=True,
+                    )
+                    for row in rows
+                ],
+                batch_size=500,
+            )
+            enrollments = []
+            for row in rows:
+                student = students_by_user_id[users_by_username[row["username"]].pk]
+                courses = row["courses"]
+                enrollments.append(
+                    StudentEnrollment(
+                        student=student,
+                        academic_session=sessions_by_student_id[student.pk],
+                        batch=row["batch"],
+                        enrolled_on=row["joined_on"],
+                        status=StudentEnrollment.Status.ACTIVE,
+                        custom_fee_amount=sum(
+                            (course.fee_amount for course in courses),
+                            Decimal("0.00"),
+                        ),
+                    )
+                )
+            StudentEnrollment.objects.bulk_create(enrollments, batch_size=500)
+            enrollment_courses = []
+            for enrollment, row in zip(enrollments, rows):
+                enrollment_courses.extend(
+                    StudentEnrollment.courses.through(
+                        studentenrollment_id=enrollment.pk,
+                        course_id=course.pk,
+                    )
+                    for course in row["courses"]
+                )
+            if enrollment_courses:
+                StudentEnrollment.courses.through.objects.bulk_create(
+                    enrollment_courses,
+                    batch_size=1000,
+                )
+    except Exception as exc:
+        messages.error(request, f"Dummy student creation failed. No records were created: {exc}")
+        return redirect("institute_admin:student_list")
+
+    invalidate_dashboard_summary(institute.pk, academic_year.pk)
+    messages.success(
+        request,
+        f"{count} complete dummy student record(s) created for {academic_year.name}. "
+        "Default password: Student@123",
+    )
+    return redirect("institute_admin:student_list")
 
 
 @institute_admin_required
@@ -4055,18 +4581,9 @@ def attendance_list(request):
     selected_batch = batch_queryset.filter(pk=batch_id).first() if batch_id else batch_queryset.first()
 
     student_sessions = StudentAcademicSession.objects.none()
-    export_student_sessions = StudentAcademicSession.objects.filter(
-        status=StudentAcademicSession.Status.ACTIVE,
-        student__is_active=True,
-    ).select_related("student", "student__user")
-    if institute:
-        export_student_sessions = export_student_sessions.filter(institute=institute)
-    if academic_year:
-        export_student_sessions = export_student_sessions.filter(academic_year=academic_year)
-    export_student_sessions = export_student_sessions.order_by(
-        "admission_number", "student__user__first_name", "student__user__username"
-    )
     attendance_map = {}
+    attendance_page = None
+    display_student_sessions = StudentAcademicSession.objects.none()
     if selected_batch:
         student_sessions = (
             StudentAcademicSession.objects.filter(
@@ -4079,12 +4596,6 @@ def attendance_list(request):
             .order_by("admission_number", "student__user__first_name", "student__user__username")
             .distinct()
         )
-        existing_attendance = Attendance.objects.filter(
-            batch=selected_batch,
-            date=selected_date,
-            academic_session__in=student_sessions,
-        ).select_related("academic_session", "student", "marked_by")
-        attendance_map = {record.academic_session_id: record for record in existing_attendance}
 
     if request.method == "POST" and selected_batch:
         posted_student_ids = request.POST.getlist("student_ids")
@@ -4112,6 +4623,16 @@ def attendance_list(request):
         messages.success(request, f"Attendance saved for {saved_count} student(s).")
         return redirect(f"{reverse('institute_admin:attendance_list')}?batch={selected_batch.pk}&date={selected_date.isoformat()}")
 
+    if selected_batch:
+        attendance_page = Paginator(student_sessions, 100).get_page(request.GET.get("page"))
+        display_student_sessions = attendance_page.object_list
+        existing_attendance = Attendance.objects.filter(
+            batch=selected_batch,
+            date=selected_date,
+            academic_session__in=display_student_sessions,
+        ).select_related("academic_session", "student", "marked_by")
+        attendance_map = {record.academic_session_id: record for record in existing_attendance}
+
     selected_date_records = Attendance.objects.filter(date=selected_date)
     all_records = Attendance.objects.all()
     if institute:
@@ -4131,7 +4652,7 @@ def attendance_list(request):
     rate_today = round((present_today / total_today) * 100, 1) if total_today else 0
 
     rows = []
-    for student_session in student_sessions:
+    for student_session in display_student_sessions:
         record = attendance_map.get(student_session.pk)
         rows.append(
             {
@@ -4148,7 +4669,7 @@ def attendance_list(request):
         "selected_batch": selected_batch,
         "selected_date": selected_date,
         "attendance_rows": rows,
-        "export_students": export_student_sessions,
+        "attendance_page": attendance_page,
         "status_choices": Attendance.Status.choices,
         "present_value": Attendance.Status.PRESENT,
         "absent_value": Attendance.Status.ABSENT,

@@ -352,75 +352,28 @@
             <section class="review-card">
                 <div class="review-header">
                     <div>
-                        <div class="review-title">Review Students</div>
-                        <div class="review-meta"><span id="selectedStudentCount">0</span> selected · {{ available_count }} available</div>
+                        <div class="review-title">Select Students</div>
+                        <div class="review-meta">Type at least 2 characters. Each search returns at most 20 matching students.</div>
                     </div>
-                    <div class="d-flex align-items-center gap-3 flex-wrap">
-                        <label class="select-all-wrap">
-                            <input type="checkbox" id="selectAllStudents">
-                            <span>Select all</span>
-                        </label>
-                        <button type="submit" class="btn-main" id="promoteStudentsButton">
-                            <i class="bi bi-arrow-up-right-circle"></i> Promote Students
-                        </button>
-                    </div>
+                    <button type="submit" class="btn-main" id="promoteStudentsButton">
+                        <i class="bi bi-arrow-up-right-circle"></i> Promote Students
+                    </button>
                 </div>
-                <div class="table-responsive">
-                    <table class="table student-table align-middle">
-                        <thead>
-                            <tr>
-                                <th style="width:58px;">Select</th>
-                                <th>Student</th>
-                                <th>Admission</th>
-                                <th>Current Course</th>
-                                <th>Current Batch</th>
-                                <th>Guardian</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for session in students %}
-                                <tr>
-                                    <td>
-                                        {% if session.student_id in already_promoted_student_ids %}
-                                            <input type="checkbox" class="form-check-input" disabled>
-                                        {% else %}
-                                            <input type="checkbox" class="promote-check" name="students" value="{{ session.student_id }}">
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="student-name">{{ session.student.user.get_full_name|default:session.student.user.username }}</div>
-                                        <div class="student-meta">@{{ session.student.user.username }}{% if session.student.user.profile.phone %} · {{ session.student.user.profile.phone }}{% endif %}</div>
-                                    </td>
-                                    <td>{{ session.admission_number }}</td>
-                                    <td>{{ source_course.name }}</td>
-                                    <td>{{ session.promotion_source_enrollment.batch.name|default:"Not assigned" }}</td>
-                                    <td>
-                                        {% with guardian=session.student.guardians.all.0 %}
-                                            {{ guardian.name|default:"No Guardian" }}
-                                            {% if guardian.phone %}<div class="student-meta">{{ guardian.phone }}</div>{% endif %}
-                                        {% endwith %}
-                                    </td>
-                                    <td>
-                                        {% if session.student_id in already_promoted_student_ids %}
-                                            <span class="status-pill status-done"><i class="bi bi-shield-check"></i> Already Promoted</span>
-                                        {% else %}
-                                            <span class="status-pill status-ready"><i class="bi bi-check-circle"></i> Ready</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% empty %}
-                                <tr>
-                                    <td colspan="7">
-                                        <div class="empty-box">
-                                            <i class="bi bi-inbox" style="font-size:2.3rem;"></i>
-                                            <div class="mt-2">No active students match the selected source course and batch.</div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="p-4">
+                    <select
+                        name="students"
+                        multiple
+                        class="form-select"
+                        data-student-autocomplete="true"
+                        data-searchable="false"
+                        data-autocomplete-url="{% url 'institute_admin:student_autocomplete' %}"
+                        data-minimum-input-length="2"
+                        data-placeholder="Search eligible students"
+                        data-academic-year="{{ source_year.pk }}"
+                        data-batch="{{ source_batch.pk }}"
+                        data-course="{{ source_course.pk }}"
+                    ></select>
+                    <div class="review-meta mt-2">{{ available_count }} student(s) currently eligible for this promotion path.</div>
                 </div>
             </section>
         </form>
@@ -521,37 +474,15 @@
     });
     preventSameAcademicSession();
 
-    const selectAllStudents = document.getElementById("selectAllStudents");
-    const promoteChecks = Array.from(document.querySelectorAll(".promote-check"));
-    const selectedStudentCount = document.getElementById("selectedStudentCount");
     const promotionForm = document.getElementById("promotionForm");
-
-    function updateSelectedStudents() {
-        const selected = promoteChecks.filter(function(check) { return check.checked; }).length;
-        if (selectedStudentCount) selectedStudentCount.textContent = selected;
-        if (selectAllStudents) {
-            selectAllStudents.checked = promoteChecks.length > 0 && selected === promoteChecks.length;
-            selectAllStudents.indeterminate = selected > 0 && selected < promoteChecks.length;
-        }
-    }
-
-    if (selectAllStudents) {
-        selectAllStudents.addEventListener("change", function() {
-            promoteChecks.forEach(function(check) { check.checked = selectAllStudents.checked; });
-            updateSelectedStudents();
-        });
-    }
-    promoteChecks.forEach(function(check) {
-        check.addEventListener("change", updateSelectedStudents);
-    });
     if (promotionForm) {
         promotionForm.addEventListener("submit", function(event) {
-            if (!promoteChecks.some(function(check) { return check.checked; })) {
+            const studentSelect = promotionForm.querySelector("select[name='students']");
+            if (!studentSelect || !Array.from(studentSelect.selectedOptions).some(function(option) { return option.value; })) {
                 event.preventDefault();
                 window.alert("Select at least one student to promote.");
             }
         });
     }
-    updateSelectedStudents();
 </script>
 {% endblock content %}

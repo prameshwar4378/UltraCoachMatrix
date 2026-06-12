@@ -790,6 +790,9 @@
             <a href="{% url 'institute_admin:student_promote' %}" class="btn-outline-tool">
                 <i class="bi bi-arrow-up-right-circle"></i> Promote
             </a>
+            <button type="button" class="btn-outline-tool" data-bs-toggle="modal" data-bs-target="#dummyStudentModal">
+                <i class="bi bi-database-add"></i> Dummy Students
+            </button>
             <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_create' %}" class="btn btn-gradient" onclick="openStudentWindow(this)">
                 <i class="bi bi-person-plus"></i> New Student
             </a>
@@ -1021,6 +1024,48 @@
                 <div class="modal-footer" style="background:#ffffff;">
                     <button type="button" class="btn btn-light border" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancel</button>
                     <button type="submit" class="btn btn-gradient"><i class="bi bi-download"></i> Export Selected Fields</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="dummyStudentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header" style="background:linear-gradient(135deg,#0f766e,#115e59); color:#ffffff;">
+                <h5 class="modal-title"><i class="bi bi-database-add me-2"></i>Create Dummy Students</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'institute_admin:student_dummy_create' %}">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <label for="dummyStudentCount" class="form-label fw-bold">Number of records</label>
+                    <input
+                        type="number"
+                        class="form-control"
+                        id="dummyStudentCount"
+                        name="count"
+                        value="100"
+                        min="1"
+                        max="5000"
+                        required
+                    >
+                    <div class="form-text mt-2">
+                        Creates 1 to 5,000 complete students for the selected institute and academic year.
+                        Each student receives unique login/contact data, a guardian, and an enrollment.
+                    </div>
+                    <div class="alert alert-warning mt-3 mb-0">
+                        These are real database records. The default login password is <strong>Student@123</strong>.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-gradient">
+                        <i class="bi bi-database-add"></i> Create Records
+                    </button>
                 </div>
             </form>
         </div>

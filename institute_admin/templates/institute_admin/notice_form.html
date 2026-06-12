@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{% static 'css/student-autocomplete.css' %}">
     <style>
         :root { --primary:#0f766e; --dark:#115e59; --soft:#f0fdfa; --line:#ccfbf1; --ink:#0f172a; --muted:#64748b; }
         body { min-height:100vh; margin:0; padding:20px; background:linear-gradient(135deg,#f8fafc,#ecfeff); font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:var(--ink); }
@@ -157,6 +159,7 @@
         </div>
     </form>
 </div>
+<script src="{% static 'js/student-autocomplete.js' %}"></script>
 <script>
     const noticeForm = document.getElementById("noticeForm");
     const messageInput = document.getElementById("id_message");

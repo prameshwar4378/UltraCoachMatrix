@@ -161,6 +161,18 @@ LOGIN_URL = 'login'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+DASHBOARD_CACHE_TIMEOUT = int(os.environ.get("DASHBOARD_CACHE_TIMEOUT", "180"))
+CACHES = {
+    "default": {
+        "BACKEND": os.environ.get(
+            "DJANGO_CACHE_BACKEND",
+            "django.core.cache.backends.locmem.LocMemCache",
+        ),
+        "LOCATION": os.environ.get("DJANGO_CACHE_LOCATION", "ultracoachmatrix"),
+        "TIMEOUT": DASHBOARD_CACHE_TIMEOUT,
+    }
+}
+
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",

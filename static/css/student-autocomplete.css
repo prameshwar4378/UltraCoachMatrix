@@ -1,0 +1,105 @@
+.student-autocomplete {
+    position: relative;
+}
+
+.student-autocomplete__control {
+    min-height: 46px;
+    padding: 7px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    border: 2px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.student-autocomplete__control:focus-within {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .14);
+}
+
+.student-autocomplete__input {
+    flex: 1 1 230px;
+    min-width: 150px;
+    border: 0;
+    outline: 0;
+    padding: 5px 7px;
+    background: transparent;
+    color: #0f172a;
+}
+
+.student-autocomplete__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    padding: 6px 9px;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #1e3a8a;
+    font-size: .82rem;
+    font-weight: 800;
+}
+
+.student-autocomplete__chip span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.student-autocomplete__remove {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.student-autocomplete__results {
+    position: absolute;
+    z-index: 1080;
+    top: calc(100% + 5px);
+    left: 0;
+    right: 0;
+    display: none;
+    max-height: 280px;
+    overflow-y: auto;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, .16);
+}
+
+.student-autocomplete__results.is-open {
+    display: block;
+}
+
+.student-autocomplete__option,
+.student-autocomplete__message {
+    width: 100%;
+    padding: 11px 13px;
+    border: 0;
+    border-bottom: 1px solid #eef2f7;
+    background: #fff;
+    color: #0f172a;
+    text-align: left;
+}
+
+.student-autocomplete__option:hover,
+.student-autocomplete__option:focus {
+    background: #eff6ff;
+    outline: 0;
+}
+
+.student-autocomplete__option strong,
+.student-autocomplete__option small {
+    display: block;
+}
+
+.student-autocomplete__option small,
+.student-autocomplete__message {
+    color: #64748b;
+    font-size: .8rem;
+}

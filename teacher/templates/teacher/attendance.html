@@ -227,6 +227,19 @@
                         <button type="submit" class="btn-main"><i class="bi bi-save2"></i> Save Attendance</button>
                     </div>
                 {% endif %}
+                {% if attendance_page and attendance_page.paginator.num_pages > 1 %}
+                    <nav class="p-3" aria-label="Attendance students">
+                        <ul class="pagination justify-content-center mb-0">
+                            {% if attendance_page.has_previous %}
+                                <li class="page-item"><a class="page-link" href="?batch={{ selected_batch.pk }}&date={{ selected_date|date:'Y-m-d' }}&page={{ attendance_page.previous_page_number }}">Previous</a></li>
+                            {% endif %}
+                            <li class="page-item disabled"><span class="page-link">Page {{ attendance_page.number }} of {{ attendance_page.paginator.num_pages }}</span></li>
+                            {% if attendance_page.has_next %}
+                                <li class="page-item"><a class="page-link" href="?batch={{ selected_batch.pk }}&date={{ selected_date|date:'Y-m-d' }}&page={{ attendance_page.next_page_number }}">Next</a></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
             </div>
 
             <div class="attendance-card">
@@ -292,7 +305,7 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Batch</label>
-                            <select name="batch" class="form-select">
+                            <select name="batch" id="teacherAttendanceExportBatch" class="form-select">
                                 <option value="">All Batches</option>
                                 {% for batch in batches %}
                                     <option value="{{ batch.pk }}" {% if selected_batch and selected_batch.pk == batch.pk %}selected{% endif %}>{{ batch.name }}</option>
@@ -310,11 +323,18 @@
                         </div>
                         <div class="col-md-12">
                             <label class="form-label fw-bold">Student</label>
-                            <select name="student" class="form-select">
+                            <select
+                                name="student"
+                                class="form-select"
+                                data-student-autocomplete="true"
+                                data-searchable="false"
+                                data-autocomplete-url="{% url 'institute_admin:student_autocomplete' %}"
+                                data-minimum-input-length="2"
+                                data-placeholder="All students, or type to search"
+                                data-academic-year="{{ selected_academic_year.pk|default:'' }}"
+                                data-batch-selector="#teacherAttendanceExportBatch"
+                            >
                                 <option value="">All Students</option>
-                                {% for student in export_students %}
-                                    <option value="{{ student.student.pk }}">{{ student.admission_number }} - {{ student.student.user.get_full_name|default:student.student.user.username }}</option>
-                                {% endfor %}
                             </select>
                         </div>
                         <div class="col-md-6">

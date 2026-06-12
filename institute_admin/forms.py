@@ -24,6 +24,46 @@ from teacher.models import Homework, HomeworkAttachment, TeacherProfile
 from .models import AcademicYear, Batch, Course, Lead, Notice, Subject, SupportTicket, Visitor
 
 
+STUDENT_AUTOCOMPLETE_URL = "/institute/students/autocomplete/"
+
+
+def ajax_student_widget(*, multiple=False):
+    widget_class = forms.SelectMultiple if multiple else forms.Select
+    return widget_class(
+        attrs={
+            "class": "form-select",
+            "data-student-autocomplete": "true",
+            "data-searchable": "false",
+            "data-autocomplete-url": STUDENT_AUTOCOMPLETE_URL,
+            "data-minimum-input-length": "2",
+            "data-placeholder": "Type admission number, name, username or phone",
+        }
+    )
+
+
+def selected_student_ids(form, field_name):
+    if form.is_bound:
+        if hasattr(form.data, "getlist"):
+            values = form.data.getlist(field_name)
+        else:
+            value = form.data.get(field_name)
+            values = value if isinstance(value, (list, tuple)) else [value]
+        return [value for value in values if str(value or "").isdigit()]
+
+    initial = form.initial.get(field_name)
+    if initial is None and form.instance and form.instance.pk:
+        relation = getattr(form.instance, field_name, None)
+        if hasattr(relation, "values_list"):
+            return list(relation.values_list("pk", flat=True))
+        if relation is not None:
+            initial = relation
+    if hasattr(initial, "pk"):
+        return [initial.pk]
+    if isinstance(initial, (list, tuple, set)):
+        return [value.pk if hasattr(value, "pk") else value for value in initial]
+    return [initial] if initial else []
+
+
 class SecurityPasswordChangeForm(forms.Form):
     current_password = forms.CharField(
         label="Current password",
@@ -1102,6 +1142,22 @@ class StudentForm(forms.Form):
         return student
 
 
+class DummyStudentCreateForm(forms.Form):
+    count = forms.IntegerField(
+        min_value=1,
+        max_value=5000,
+        initial=100,
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "min": "1",
+                "max": "5000",
+                "placeholder": "Number of dummy students",
+            }
+        ),
+    )
+
+
 class StudentBasicForm(forms.Form):
     first_name = forms.CharField(max_length=150)
     last_name = forms.CharField(max_length=150, required=False)
@@ -1409,6 +1465,7 @@ class NoticeForm(forms.ModelForm):
             "message": forms.HiddenInput(),
             "publish_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
             "expires_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "target_students": ajax_student_widget(multiple=True),
         }
 
     def __init__(self, *args, institute=None, academic_year=None, **kwargs):
@@ -1418,14 +1475,20 @@ class NoticeForm(forms.ModelForm):
         if institute:
             batches = Batch.objects.filter(institute=institute, is_active=True)
             courses = Course.objects.filter(institute=institute, is_active=True)
-            students = StudentProfile.objects.filter(institute=institute, is_active=True)
             if academic_year:
                 batches = batches.filter(academic_year=academic_year)
                 courses = courses.filter(academic_year=academic_year)
-                students = students.filter(academic_sessions__academic_year=academic_year).distinct()
             self.fields["target_batches"].queryset = batches
             self.fields["target_courses"].queryset = courses
-            self.fields["target_students"].queryset = students.select_related("user")
+            student_ids = selected_student_ids(self, "target_students")
+            students = StudentProfile.objects.filter(
+                institute=institute,
+                is_active=True,
+                pk__in=student_ids,
+            )
+            if academic_year:
+                students = students.filter(academic_sessions__academic_year=academic_year)
+            self.fields["target_students"].queryset = students.select_related("user").distinct()
         else:
             self.fields["target_batches"].queryset = Batch.objects.none()
             self.fields["target_courses"].queryset = Course.objects.none()
@@ -1462,6 +1525,7 @@ class StudentEnrollmentForm(forms.ModelForm):
         fields = ("student", "batch", "courses", "enrolled_on", "status", "custom_fee_amount")
         widgets = {
             "enrolled_on": forms.DateInput(attrs={"type": "date"}),
+            "student": ajax_student_widget(),
         }
 
     def __init__(self, *args, institute=None, academic_year=None, **kwargs):
@@ -1470,10 +1534,15 @@ class StudentEnrollmentForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         if institute:
-            students = StudentProfile.objects.filter(institute=institute, is_active=True)
+            student_ids = selected_student_ids(self, "student")
+            students = StudentProfile.objects.filter(
+                institute=institute,
+                is_active=True,
+                pk__in=student_ids,
+            )
             if academic_year:
-                students = students.filter(academic_sessions__academic_year=academic_year).distinct()
-            self.fields["student"].queryset = students
+                students = students.filter(academic_sessions__academic_year=academic_year)
+            self.fields["student"].queryset = students.select_related("user").distinct()
             batches = Batch.objects.filter(institute=institute, is_active=True).prefetch_related("courses")
             courses = Course.objects.filter(institute=institute, is_active=True)
             if academic_year:
