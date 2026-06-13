@@ -7,7 +7,11 @@ from super_admin.models import UserProfile
 from teacher.models import Attendance
 
 from .dashboard_cache import invalidate_dashboard_summary
-from .models import Batch, Course
+from .lookup_cache import (
+    invalidate_academic_years_cache,
+    invalidate_lookup_data_cache,
+)
+from .models import AcademicYear, Batch, Course
 
 
 def invalidate_session(session):
@@ -70,12 +74,20 @@ def invalidate_student_profile_dashboard(sender, instance, **kwargs):
 @receiver([post_save, post_delete], sender=Batch)
 def invalidate_academic_setup_dashboard(sender, instance, **kwargs):
     invalidate_dashboard_summary(instance.institute_id, instance.academic_year_id)
+    invalidate_lookup_data_cache(instance.institute_id, instance.academic_year_id)
+
+
+@receiver([post_save, post_delete], sender=AcademicYear)
+def invalidate_academic_year_cache(sender, instance, **kwargs):
+    invalidate_academic_years_cache(instance.institute_id)
+    invalidate_lookup_data_cache(instance.institute_id, instance.pk)
 
 
 @receiver(m2m_changed, sender=Batch.courses.through)
 def invalidate_batch_courses_dashboard(sender, instance, action, **kwargs):
     if action in {"post_add", "post_remove", "post_clear"}:
         invalidate_dashboard_summary(instance.institute_id, instance.academic_year_id)
+        invalidate_lookup_data_cache(instance.institute_id, instance.academic_year_id)
 
 
 @receiver([post_save, post_delete], sender=UserProfile)

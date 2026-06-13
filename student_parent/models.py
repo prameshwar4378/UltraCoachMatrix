@@ -79,6 +79,10 @@ class StudentAcademicSession(models.Model):
         indexes = [
             models.Index(fields=["student", "status"], name="sas_student_status_idx"),
             models.Index(fields=["institute", "academic_year", "status"], name="sas_inst_year_status_idx"),
+            models.Index(
+                fields=["institute", "academic_year", "status", "admission_number"],
+                name="sas_scope_status_adm_idx",
+            ),
         ]
 
     def __str__(self):

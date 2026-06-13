@@ -31,7 +31,7 @@ def create_access_token(user):
     return signing.dumps(payload, salt=ACCESS_TOKEN_SALT)
 
 
-def verify_access_token(token):
+def verify_access_token(token, *, check_institute_access=True):
     try:
         payload = signing.loads(token, salt=ACCESS_TOKEN_SALT, max_age=ACCESS_TOKEN_SECONDS)
     except signing.BadSignature:
@@ -39,9 +39,10 @@ def verify_access_token(token):
     user = User.objects.filter(pk=payload.get("user_id"), is_active=True).first()
     if not user:
         return None
-    allowed, _message = institute_access_status(user)
-    if not allowed:
-        return None
+    if check_institute_access:
+        allowed, _message = institute_access_status(user)
+        if not allowed:
+            return None
     return user
 
 
@@ -55,14 +56,15 @@ def create_refresh_token(user):
     return raw_token
 
 
-def get_active_refresh_token(raw_token):
+def get_active_refresh_token(raw_token, *, check_institute_access=True):
     token_hash = hash_token(raw_token)
     refresh_token = MobileRefreshToken.objects.select_related("user").filter(token_hash=token_hash).first()
     if not refresh_token or not refresh_token.is_active or not refresh_token.user.is_active:
         return None
-    allowed, _message = institute_access_status(refresh_token.user)
-    if not allowed:
-        return None
+    if check_institute_access:
+        allowed, _message = institute_access_status(refresh_token.user)
+        if not allowed:
+            return None
     return refresh_token
 
 
@@ -83,3 +85,13 @@ def bearer_user(request):
     if not token:
         return None
     return verify_access_token(token)
+
+
+def bearer_identity_user(request):
+    authorization = request.headers.get("Authorization", "")
+    if not authorization.startswith("Bearer "):
+        return None
+    token = authorization.removeprefix("Bearer ").strip()
+    if not token:
+        return None
+    return verify_access_token(token, check_institute_access=False)

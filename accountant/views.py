@@ -501,6 +501,23 @@ def _fee_summary(student, request):
     }
 
 
+def _fee_dashboard_payload(student, request, *, invoice_limit=6, payment_limit=3):
+    summary_payload = _fee_summary_payload(student, request)
+    fee_rows, _total_paid_raw = _fee_service_rows(student, request)
+    due_rows = sorted(
+        (row for row in fee_rows if row["due_amount"] > 0),
+        key=lambda row: (row["due_date"] is None, row["due_date"], row["title"]),
+    )
+    payments = _payment_queryset(student, request)[:payment_limit]
+    return {
+        **summary_payload,
+        "fees": [_fee_row_payload(row) for row in due_rows[:invoice_limit]],
+        "category_wise": [],
+        "batch_wise": [],
+        "payment_history": [_payment_payload(payment, request) for payment in payments],
+    }
+
+
 @require_GET
 def mobile_health(request):
     return JsonResponse({"status": "ok", "service": "mobile-api"})

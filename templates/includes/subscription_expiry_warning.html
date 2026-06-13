@@ -1,0 +1,117 @@
+{% if subscription_expiry_warning.show %}
+<style>
+    .subscription-warning-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 20000;
+        display: grid;
+        place-items: center;
+        padding: 20px;
+        background: rgba(15, 23, 42, .68);
+        backdrop-filter: blur(5px);
+    }
+    .subscription-warning-dialog {
+        width: min(100%, 520px);
+        overflow: hidden;
+        border-radius: 22px;
+        background: #fff;
+        box-shadow: 0 28px 80px rgba(15, 23, 42, .35);
+    }
+    .subscription-warning-head {
+        padding: 24px;
+        color: #fff;
+        background: linear-gradient(135deg, #b42318, #e5484d);
+    }
+    .subscription-warning-icon {
+        display: grid;
+        width: 52px;
+        height: 52px;
+        margin-bottom: 14px;
+        place-items: center;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, .17);
+        font-size: 26px;
+    }
+    .subscription-warning-head h2 {
+        margin: 0;
+        color: #fff;
+        font-size: clamp(1.35rem, 4vw, 1.8rem);
+        font-weight: 900;
+    }
+    .subscription-warning-body { padding: 24px; }
+    .subscription-warning-body p {
+        margin: 0 0 14px;
+        color: #475467;
+        line-height: 1.65;
+        font-weight: 650;
+    }
+    .subscription-warning-date {
+        padding: 14px 16px;
+        border: 1px solid #fecaca;
+        border-radius: 14px;
+        color: #991b1b;
+        background: #fff1f2;
+        font-weight: 850;
+    }
+    .subscription-warning-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .subscription-warning-actions .warning-accept {
+        flex: 1 1 260px;
+        min-height: 46px;
+        border: 0;
+        border-radius: 12px;
+        color: #fff;
+        background: #b42318;
+        font-weight: 850;
+    }
+    .subscription-warning-actions .warning-billing {
+        display: inline-flex;
+        min-height: 46px;
+        align-items: center;
+        justify-content: center;
+        padding: 0 16px;
+        border: 1px solid #d0d5dd;
+        border-radius: 12px;
+        color: #344054;
+        background: #fff;
+        text-decoration: none;
+        font-weight: 800;
+    }
+    @media (max-width: 480px) {
+        .subscription-warning-backdrop { padding: 12px; }
+        .subscription-warning-head, .subscription-warning-body { padding: 20px; }
+        .subscription-warning-actions > * { width: 100%; }
+    }
+</style>
+<div class="subscription-warning-backdrop" role="dialog" aria-modal="true" aria-labelledby="subscription-warning-title">
+    <section class="subscription-warning-dialog">
+        <header class="subscription-warning-head">
+            <div class="subscription-warning-icon" aria-hidden="true">&#9888;</div>
+            <h2 id="subscription-warning-title">Subscription expiry reminder</h2>
+        </header>
+        <div class="subscription-warning-body">
+            {% if subscription_expiry_warning.days_remaining == 0 %}
+                <p>Your {{ subscription_expiry_warning.plan_name }} subscription expires today. Renew it to avoid interruption from tomorrow.</p>
+            {% else %}
+                <p>Your {{ subscription_expiry_warning.plan_name }} subscription expires in {{ subscription_expiry_warning.days_remaining }} day{{ subscription_expiry_warning.days_remaining|pluralize }}.</p>
+            {% endif %}
+            <div class="subscription-warning-date">
+                Expiry date: {{ subscription_expiry_warning.expires_on|date:"d F Y" }}
+            </div>
+            <p style="margin-top:14px;">This reminder will appear once each day until the subscription expires.</p>
+            <form method="post" action="{% url 'acknowledge_subscription_expiry' %}" class="subscription-warning-actions">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="warning-accept">OK, do not show again today</button>
+                {% if subscription_expiry_warning.is_institute_admin %}
+                    <a class="warning-billing" href="{% url 'subscription_billing' %}">View subscription</a>
+                {% endif %}
+            </form>
+        </div>
+    </section>
+</div>
+{% endif %}

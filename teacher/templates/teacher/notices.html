@@ -1,0 +1,92 @@
+{% extends "teacher_base.html" %}
+
+{% block title %}Teacher Notices{% endblock title %}
+
+{% block content %}
+<style>
+    .notice-page { --ink:#111827; --muted:#667085; --border:#e5e7eb; --primary:#6042c8; }
+    .notice-toolbar, .notice-filter, .notice-card, .notice-stat { background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 12px 30px rgba(16,24,40,.06); }
+    .notice-toolbar { padding:22px; margin-bottom:18px; }
+    .notice-toolbar h2 { margin:0; color:var(--ink); font-weight:900; }
+    .notice-toolbar p { margin:6px 0 0; color:var(--muted); font-weight:650; }
+    .notice-stats { display:grid; grid-template-columns:repeat(2,minmax(0,220px)); gap:14px; margin-bottom:18px; }
+    .notice-stat { padding:17px; }
+    .notice-stat strong { display:block; color:var(--ink); font-size:1.65rem; font-weight:950; }
+    .notice-stat span { color:var(--muted); font-weight:750; }
+    .notice-filter { padding:18px; margin-bottom:18px; }
+    .notice-list { display:grid; gap:14px; }
+    .notice-card { padding:20px; border-left:5px solid #cbd5e1; }
+    .notice-card.unread { border-left-color:var(--primary); background:#fdfcff; }
+    .notice-card.urgent { border-left-color:#dc2626; }
+    .notice-meta { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+    .notice-pill { padding:5px 9px; border-radius:999px; background:#f1edff; color:#5133b8; font-size:.75rem; font-weight:850; }
+    .notice-card h3 { margin:0 0 8px; color:var(--ink); font-size:1.15rem; font-weight:900; }
+    .notice-message { color:#475467; line-height:1.65; overflow-wrap:anywhere; }
+    .notice-footer { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:14px; color:var(--muted); font-size:.82rem; font-weight:700; }
+    .empty-notices { padding:48px 20px; text-align:center; color:var(--muted); }
+    @media(max-width:576px) { .notice-stats { grid-template-columns:1fr 1fr; } .notice-footer { align-items:flex-start; flex-direction:column; } }
+</style>
+
+<main id="main" class="main notice-page">
+    <div class="pagetitle">
+        <h1>Notices</h1>
+        <nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'teacher:dashboard' %}">Home</a></li><li class="breadcrumb-item active">Notices</li></ol></nav>
+    </div>
+
+    <section class="notice-toolbar">
+        <h2>Institute Notices</h2>
+        <p>Announcements shared with teachers and your assigned batches or courses.</p>
+    </section>
+
+    <div class="notice-stats">
+        <div class="notice-stat"><strong>{{ total_count }}</strong><span>Active notices</span></div>
+        <div class="notice-stat"><strong>{{ unread_count }}</strong><span>Unread notices</span></div>
+    </div>
+
+    <section class="notice-filter">
+        <form method="get" class="row g-3">
+            <div class="col-lg-4"><input class="form-control" name="search" value="{{ search_query }}" placeholder="Search notices"></div>
+            <div class="col-lg-3"><select class="form-select" name="category"><option value="">All categories</option>{% for value, label in category_choices %}<option value="{{ value }}" {% if category_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+            <div class="col-lg-3"><select class="form-select" name="priority"><option value="">All priorities</option>{% for value, label in priority_choices %}<option value="{{ value }}" {% if priority_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+            <div class="col-lg-2 d-flex gap-2"><button class="btn btn-primary flex-grow-1" type="submit">Filter</button><a class="btn btn-light border" href="{% url 'teacher:notices' %}">Clear</a></div>
+            <div class="col-12"><label class="form-check"><input class="form-check-input" type="checkbox" name="unread" value="1" {% if unread_only %}checked{% endif %} onchange="this.form.submit()"> <span class="form-check-label">Show unread only</span></label></div>
+        </form>
+    </section>
+
+    <div class="notice-list">
+        {% for row in notice_rows %}
+            <article class="notice-card {% if not row.is_read %}unread{% endif %} {% if row.notice.priority == 'URGENT' %}urgent{% endif %}">
+                <div class="notice-meta">
+                    <span class="notice-pill">{{ row.notice.get_category_display }}</span>
+                    <span class="notice-pill">{{ row.notice.get_priority_display }}</span>
+                    {% if not row.is_read %}<span class="notice-pill">New</span>{% endif %}
+                </div>
+                <h3>{{ row.notice.title }}</h3>
+                <div class="notice-message">{{ row.notice.message|safe }}</div>
+                <div class="notice-footer">
+                    <span>Published {{ row.notice.publish_at|default:row.notice.created_at|date:"d M Y, h:i A" }}</span>
+                    {% if not row.is_read %}
+                        <form method="post" action="{% url 'teacher:notice_mark_read' row.notice.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <button class="btn btn-sm btn-outline-primary" type="submit">Mark as read</button>
+                        </form>
+                    {% else %}
+                        <span><i class="bi bi-check2-circle"></i> Read</span>
+                    {% endif %}
+                </div>
+            </article>
+        {% empty %}
+            <div class="notice-card empty-notices">No active notices are available for your assigned classes.</div>
+        {% endfor %}
+    </div>
+
+    {% if page_obj.has_other_pages %}
+        <nav class="mt-4"><ul class="pagination">
+            {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ search_query|urlencode }}&category={{ category_filter }}&priority={{ priority_filter }}{% if unread_only %}&unread=1{% endif %}">Previous</a></li>{% endif %}
+            <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
+            {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ search_query|urlencode }}&category={{ category_filter }}&priority={{ priority_filter }}{% if unread_only %}&unread=1{% endif %}">Next</a></li>{% endif %}
+        </ul></nav>
+    {% endif %}
+</main>
+{% endblock content %}

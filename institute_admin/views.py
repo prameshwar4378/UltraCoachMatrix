@@ -96,7 +96,12 @@ from .dashboard_cache import (
     set_dashboard_summary,
 )
 from .attendance_service import bulk_save_attendance
-from .models import AcademicYear, Batch, Course, Lead, Notice, Subject, SupportTicket, Visitor
+from .background_jobs import enqueue_background_job
+from .lookup_cache import (
+    get_cached_batch_course_data,
+    get_cached_course_batch_data,
+)
+from .models import AcademicYear, BackgroundJob, Batch, Course, Lead, Notice, Subject, SupportTicket, Visitor
 
 
 def close_popup_response(receipt_url=None):
@@ -436,38 +441,21 @@ def get_current_academic_year(request, institute=None):
 
 
 def get_batch_course_data(institute, academic_year=None):
-    batches = Batch.objects.filter(institute=institute).prefetch_related("courses") if institute else Batch.objects.none()
-    if academic_year:
-        batches = batches.filter(academic_year=academic_year)
-    return {
-        str(batch.pk): [
-            {
-                "id": str(course.pk),
-                "name": course.name,
-                "fee": str(course.fee_amount),
-            }
-            for course in batch.courses.all()
-        ]
-        for batch in batches
-    }
+    if not institute:
+        return {}
+    return get_cached_batch_course_data(
+        institute.pk,
+        academic_year.pk if academic_year else None,
+    )
 
 
 def get_course_batch_data(institute, academic_year=None):
-    batches = (
-        Batch.objects.filter(institute=institute, is_active=True).prefetch_related("courses")
-        if institute
-        else Batch.objects.none()
+    if not institute:
+        return {}
+    return get_cached_course_batch_data(
+        institute.pk,
+        academic_year.pk if academic_year else None,
     )
-    if academic_year:
-        batches = batches.filter(academic_year=academic_year)
-
-    course_batch_data = {}
-    for batch in batches:
-        for course in batch.courses.all():
-            course_batch_data.setdefault(str(course.pk), []).append(
-                {"id": str(batch.pk), "name": batch.name}
-            )
-    return course_batch_data
 
 
 @institute_admin_required
@@ -2602,17 +2590,52 @@ def get_student_export_field_keys(request):
     return requested_fields or STUDENT_EXPORT_DEFAULT_FIELDS
 
 
-def student_export_row(session, selected_fields, fee_summaries):
+def get_student_export_related_summaries(sessions):
+    session_ids = sessions.order_by().values("pk")
+    student_ids = sessions.order_by().values("student_id")
+    guardian_summaries = {}
+    for guardian in (
+        GuardianProfile.objects.filter(student_id__in=Subquery(student_ids))
+        .order_by("student_id", "-is_primary", "pk")
+        .iterator(chunk_size=1000)
+    ):
+        guardian_summaries.setdefault(guardian.student_id, guardian)
+
+    batch_summaries = defaultdict(list)
+    batch_rows = (
+        StudentEnrollment.objects.filter(academic_session_id__in=Subquery(session_ids))
+        .exclude(status=StudentEnrollment.Status.CANCELLED)
+        .values_list("academic_session_id", "batch__name")
+        .order_by("academic_session_id", "batch__name")
+    )
+    for session_id, batch_name in batch_rows.iterator(chunk_size=1000):
+        if batch_name and batch_name not in batch_summaries[session_id]:
+            batch_summaries[session_id].append(batch_name)
+    return guardian_summaries, batch_summaries
+
+
+def student_export_row(
+    session,
+    selected_fields,
+    fee_summaries,
+    guardian_summaries=None,
+    batch_summaries=None,
+):
     student = session.student
     profile = getattr(student.user, "profile", None)
-    guardians = list(student.guardians.all())
-    guardian = next((item for item in guardians if item.is_primary), guardians[0] if guardians else None)
-    active_enrollments = list(session.enrollments.all())
-    batch_names = ", ".join(
-        enrollment.batch.name
-        for enrollment in active_enrollments
-        if enrollment.batch_id
-    )
+    if guardian_summaries is None:
+        guardians = list(student.guardians.all())
+        guardian = next((item for item in guardians if item.is_primary), guardians[0] if guardians else None)
+    else:
+        guardian = guardian_summaries.get(student.pk)
+    if batch_summaries is None:
+        batch_names = ", ".join(
+            enrollment.batch.name
+            for enrollment in session.enrollments.all()
+            if enrollment.batch_id
+        )
+    else:
+        batch_names = ", ".join(batch_summaries.get(session.pk, []))
     total_fee_amount, paid_amount, due_amount = fee_summaries.get(
         session.pk,
         (Decimal("0.00"), Decimal("0.00"), Decimal("0.00")),
@@ -2924,18 +2947,8 @@ def student_export(request):
     columns = [field_labels[field] for field in selected_fields]
     session_count = sessions.count()
     fee_summaries = get_student_export_fee_summaries(sessions)
-    sessions = sessions.prefetch_related(
-        Prefetch(
-            "student__guardians",
-            queryset=GuardianProfile.objects.order_by("-is_primary", "pk"),
-        ),
-        Prefetch(
-            "enrollments",
-            queryset=StudentEnrollment.objects.exclude(
-                status=StudentEnrollment.Status.CANCELLED
-            ).select_related("batch"),
-        ),
-    ).order_by("admission_number")
+    guardian_summaries, batch_summaries = get_student_export_related_summaries(sessions)
+    sessions = sessions.order_by("admission_number")
 
     export_format = request.GET.get("format", "").strip().lower()
     stream_threshold = int(getattr(settings, "STUDENT_EXPORT_CSV_THRESHOLD", 2000))
@@ -2951,7 +2964,13 @@ def student_export(request):
             yield writer.writerow(columns)
             for session in sessions.iterator(chunk_size=500):
                 yield writer.writerow(
-                    student_export_row(session, selected_fields, fee_summaries)
+                    student_export_row(
+                        session,
+                        selected_fields,
+                        fee_summaries,
+                        guardian_summaries,
+                        batch_summaries,
+                    )
                 )
 
         response = StreamingHttpResponse(
@@ -2970,7 +2989,13 @@ def student_export(request):
         sheet.cell(row=3, column=col, value=header)
         sheet.column_dimensions[get_column_letter(col)].width = 22
     for row, session in enumerate(sessions, start=4):
-        values = student_export_row(session, selected_fields, fee_summaries)
+        values = student_export_row(
+            session,
+            selected_fields,
+            fee_summaries,
+            guardian_summaries,
+            batch_summaries,
+        )
         for col, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=col, value=value)
             cell.border = border
@@ -3020,6 +3045,27 @@ def student_bulk_import(request):
         upload.seek(0)
     if validation["errors"]:
         messages.error(request, "Fix validation errors before importing: " + " | ".join(validation["errors"][:5]))
+        return redirect("institute_admin:student_list")
+
+    background_threshold = int(
+        getattr(settings, "STUDENT_IMPORT_BACKGROUND_THRESHOLD", 500)
+    )
+    if validation["valid_count"] >= background_threshold:
+        if hasattr(upload, "seek"):
+            upload.seek(0)
+        job = enqueue_background_job(
+            BackgroundJob.JobType.STUDENT_IMPORT,
+            institute=institute,
+            academic_year=academic_year,
+            created_by=request.user,
+            payload={"row_count": validation["valid_count"]},
+            input_file=upload,
+        )
+        messages.success(
+            request,
+            f"Import of {validation['valid_count']} students queued as job #{job.pk}. "
+            "It will run in the background.",
+        )
         return redirect("institute_admin:student_list")
 
     try:

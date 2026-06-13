@@ -1,3 +1,4 @@
+from datetime import timedelta
 from io import BytesIO
 
 from django.contrib.auth.models import User
@@ -7,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
-from institute_admin.models import AcademicYear, Batch, Course, Subject
+from institute_admin.models import AcademicYear, Batch, Course, Notice, NoticeRead, Subject
 from student_parent.models import StudentAcademicSession, StudentEnrollment, StudentProfile
 from super_admin.models import Institute, UserProfile
 from teacher.forms import TeacherExamForm, TeacherHomeworkForm
@@ -249,6 +250,110 @@ class ExamYearScopeTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Homework.objects.filter(title="Should Not Save").exists())
+
+    def test_teacher_notices_follow_institute_targeting_and_live_updates(self):
+        visible = Notice.objects.create(
+            institute=self.institute,
+            title="Assigned batch notice",
+            message="Original message",
+            audience=Notice.Audience.TEACHERS,
+            push_to_app=False,
+        )
+        visible.target_batches.add(self.batch_a)
+        unassigned = Notice.objects.create(
+            institute=self.institute,
+            title="Unassigned batch notice",
+            message="Private",
+            audience=Notice.Audience.TEACHERS,
+        )
+        unassigned.target_batches.add(self.unassigned_batch)
+        student_only = Notice.objects.create(
+            institute=self.institute,
+            title="Student only notice",
+            message="Students",
+            audience=Notice.Audience.STUDENTS_PARENTS,
+        )
+        self.client.login(username="teacher", password="pass")
+        session = self.client.session
+        session["academic_year_id"] = self.year_a.pk
+        session.save()
+
+        response = self.client.get(reverse("teacher:notices"))
+
+        self.assertContains(response, visible.title)
+        self.assertContains(response, "Original message")
+        self.assertNotContains(response, unassigned.title)
+        self.assertNotContains(response, student_only.title)
+
+        visible.message = "Updated by institute"
+        visible.save(update_fields=["message"])
+        response = self.client.get(reverse("teacher:notices"))
+        self.assertContains(response, "Updated by institute")
+        self.assertNotContains(response, "Original message")
+
+    def test_teacher_notices_exclude_future_expired_and_other_institute(self):
+        future = Notice.objects.create(
+            institute=self.institute,
+            title="Future notice",
+            message="Later",
+            audience=Notice.Audience.EVERYONE,
+            publish_at=timezone.now() + timedelta(days=1),
+        )
+        expired = Notice.objects.create(
+            institute=self.institute,
+            title="Expired notice",
+            message="Past",
+            audience=Notice.Audience.EVERYONE,
+            expires_at=timezone.now() - timedelta(days=1),
+        )
+        other_institute = Institute.objects.create(name="Other Institute", code="other-notice")
+        other = Notice.objects.create(
+            institute=other_institute,
+            title="Other institute notice",
+            message="Private",
+            audience=Notice.Audience.EVERYONE,
+        )
+        self.client.login(username="teacher", password="pass")
+        session = self.client.session
+        session["academic_year_id"] = self.year_a.pk
+        session.save()
+
+        response = self.client.get(reverse("teacher:notices"))
+
+        self.assertNotContains(response, future.title)
+        self.assertNotContains(response, expired.title)
+        self.assertNotContains(response, other.title)
+
+    def test_teacher_can_mark_only_accessible_notice_as_read(self):
+        visible = Notice.objects.create(
+            institute=self.institute,
+            title="Readable notice",
+            message="Read this",
+            audience=Notice.Audience.TEACHERS,
+        )
+        hidden = Notice.objects.create(
+            institute=self.institute,
+            title="Hidden notice",
+            message="No access",
+            audience=Notice.Audience.TEACHERS,
+        )
+        hidden.target_batches.add(self.unassigned_batch)
+        self.client.login(username="teacher", password="pass")
+        session = self.client.session
+        session["academic_year_id"] = self.year_a.pk
+        session.save()
+
+        response = self.client.post(
+            reverse("teacher:notice_mark_read", args=[visible.pk]),
+            {"next": reverse("teacher:notices")},
+        )
+
+        self.assertRedirects(response, reverse("teacher:notices"))
+        self.assertTrue(NoticeRead.objects.filter(notice=visible, user=self.teacher_user).exists())
+        self.assertEqual(
+            self.client.post(reverse("teacher:notice_mark_read", args=[hidden.pk])).status_code,
+            404,
+        )
 
     def test_teacher_attendance_ignores_unassigned_batch_and_students(self):
         self.client.login(username="teacher", password="pass")

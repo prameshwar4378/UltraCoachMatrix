@@ -1,5 +1,5 @@
 from .forms import get_academic_year_label, get_or_create_academic_year
-from .models import AcademicYear
+from .lookup_cache import get_cached_academic_years, invalidate_academic_years_cache
 from super_admin.models import UserProfile
 
 
@@ -16,9 +16,7 @@ def academic_year_context(request):
         return {}
 
     institute = profile.institute
-    academic_years = list(
-        AcademicYear.objects.filter(institute=institute).order_by("-start_date", "-pk")
-    )
+    academic_years = get_cached_academic_years(institute.pk)
 
     selected_id = request.session.get("academic_year_id")
     selected_year = getattr(request, "_selected_academic_year", None)
@@ -38,6 +36,7 @@ def academic_year_context(request):
 
     if not selected_year:
         selected_year = get_or_create_academic_year(institute, get_academic_year_label())
+        invalidate_academic_years_cache(institute.pk)
         academic_years = [selected_year]
 
     if str(request.session.get("academic_year_id", "")) != str(selected_year.pk):

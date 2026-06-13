@@ -12,6 +12,7 @@ from django.core.management.base import CommandError
 from django.db import IntegrityError, connection, transaction
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
+from django.test.utils import override_settings
 from django.urls import reverse
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
@@ -35,7 +36,11 @@ from .forms import (
     build_student_username,
     get_student_admission_prefix,
 )
-from .models import AcademicYear, Batch, Course, Lead, Notice, SupportTicket, Visitor
+from .lookup_cache import (
+    get_cached_academic_years,
+    get_cached_batch_course_data,
+)
+from .models import AcademicYear, BackgroundJob, Batch, Course, Lead, Notice, SupportTicket, Visitor
 
 
 class InstituteProfileTests(TestCase):
@@ -1378,6 +1383,58 @@ class AcademicSessionIsolationTests(TestCase):
         session["academic_year_id"] = academic_year.pk
         session.save()
 
+    def test_academic_year_list_is_cached_and_invalidated(self):
+        with CaptureQueriesContext(connection) as first_queries:
+            first = get_cached_academic_years(self.institute.pk)
+        with CaptureQueriesContext(connection) as cached_queries:
+            cached = get_cached_academic_years(self.institute.pk)
+
+        self.assertEqual([year.pk for year in first], [year.pk for year in cached])
+        self.assertEqual(len(first_queries), 1)
+        self.assertEqual(len(cached_queries), 0)
+
+        AcademicYear.objects.create(
+            institute=self.institute,
+            name="2028-29",
+            start_date=date(2028, 4, 1),
+            end_date=date(2029, 3, 31),
+        )
+        with CaptureQueriesContext(connection) as refreshed_queries:
+            refreshed = get_cached_academic_years(self.institute.pk)
+
+        self.assertEqual(len(refreshed_queries), 1)
+        self.assertEqual(refreshed[0].name, "2028-29")
+
+    def test_batch_course_lookup_is_cached_and_invalidated(self):
+        with CaptureQueriesContext(connection) as first_queries:
+            first = get_cached_batch_course_data(
+                self.institute.pk,
+                self.year_2026.pk,
+            )
+        with CaptureQueriesContext(connection) as cached_queries:
+            cached = get_cached_batch_course_data(
+                self.institute.pk,
+                self.year_2026.pk,
+            )
+
+        self.assertEqual(first, cached)
+        self.assertGreater(len(first_queries), 0)
+        self.assertEqual(len(cached_queries), 0)
+
+        self.course.fee_amount = Decimal("1250.00")
+        self.course.save(update_fields=["fee_amount"])
+        with CaptureQueriesContext(connection) as refreshed_queries:
+            refreshed = get_cached_batch_course_data(
+                self.institute.pk,
+                self.year_2026.pk,
+            )
+
+        self.assertGreater(len(refreshed_queries), 0)
+        self.assertEqual(
+            refreshed[str(self.batch_2026.pk)][0]["fee"],
+            "1250.00",
+        )
+
     def test_student_list_uses_selected_academic_session(self):
         self.select_year(self.year_2026)
         response = self.client.get(reverse("institute_admin:student_list"))
@@ -1932,6 +1989,118 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertEqual(Decimal(str(values[3])), Decimal("1000"))
         self.assertEqual(Decimal(str(values[4])), Decimal("250"))
         self.assertEqual(Decimal(str(values[5])), Decimal("750"))
+
+    @override_settings(STUDENT_EXPORT_CSV_THRESHOLD=1)
+    def test_large_student_export_streams_csv_with_bulk_fee_summary(self):
+        self.select_year(self.year_2026)
+
+        with patch.object(
+            views,
+            "get_student_session_fee_summary",
+            wraps=views.get_student_session_fee_summary,
+        ) as per_student_fee_summary:
+            with CaptureQueriesContext(connection) as queries:
+                response = self.client.get(
+                    reverse("institute_admin:student_export"),
+                    {
+                        "fields": [
+                            "admission_number",
+                            "name",
+                            "batch",
+                            "total_fees",
+                            "paid_amount",
+                            "due_amount",
+                        ],
+                    },
+                )
+                content = b"".join(response.streaming_content).decode("utf-8-sig")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.streaming)
+        self.assertEqual(response["X-Export-Mode"], "streamed")
+        self.assertIn("Admission Number,Name,Batch,Total Fees,Paid Amount,Due Amount", content)
+        self.assertIn("SMIS-2026-27-0001,Student One,11th Batch,1000,250,750", content)
+        self.assertEqual(per_student_fee_summary.call_count, 0)
+        self.assertLess(len(queries), 25)
+
+    @override_settings(STUDENT_IMPORT_BACKGROUND_THRESHOLD=1)
+    def test_large_student_import_is_processed_by_background_worker(self):
+        self.select_year(self.year_2026)
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Students"
+        sheet.append(["Student Bulk Import Template"])
+        sheet.append(["Generated admission numbers"])
+        sheet.append(views.student_import_columns())
+        sheet.append(
+            [
+                "Queued",
+                "Student",
+                "Student@123",
+                "queued@example.com",
+                "9333333399",
+                "2012-01-01",
+                "2026-06-12",
+                "Queued address",
+                "Current School",
+                "School address",
+                "Previous School",
+                "9th",
+                "Queued Guardian",
+                "Father",
+                "9444444499",
+                "guardian.queued@example.com",
+                "Yes",
+            ]
+        )
+        upload_buffer = BytesIO()
+        workbook.save(upload_buffer)
+        upload = SimpleUploadedFile(
+            "queued-students.xlsx",
+            upload_buffer.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        response = self.client.post(
+            reverse("institute_admin:student_bulk_import"),
+            {"student_file": upload},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        job = BackgroundJob.objects.get(job_type=BackgroundJob.JobType.STUDENT_IMPORT)
+        self.assertEqual(job.status, BackgroundJob.Status.PENDING)
+        self.assertFalse(User.objects.filter(first_name="Queued", last_name="Student").exists())
+
+        call_command("run_background_jobs", "--once")
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, BackgroundJob.Status.COMPLETED)
+        self.assertEqual(job.result["created_count"], 1)
+        self.assertTrue(User.objects.filter(first_name="Queued", last_name="Student").exists())
+
+    def test_notification_fan_out_is_queued_as_durable_jobs(self):
+        from student_parent.notifications import (
+            enqueue_fee_paid_notification,
+            enqueue_notice_published_notification,
+        )
+
+        notice = Notice.objects.create(
+            institute=self.institute,
+            title="Queued notice",
+            message="Process this outside the request.",
+            push_to_app=True,
+            is_published=True,
+        )
+
+        fee_job = enqueue_fee_paid_notification(self.payment_2026)
+        notice_job = enqueue_notice_published_notification(notice)
+
+        self.assertEqual(fee_job.status, BackgroundJob.Status.PENDING)
+        self.assertEqual(fee_job.job_type, BackgroundJob.JobType.FEE_NOTIFICATION)
+        self.assertEqual(fee_job.payload["payment_id"], self.payment_2026.pk)
+        self.assertEqual(notice_job.status, BackgroundJob.Status.PENDING)
+        self.assertEqual(notice_job.job_type, BackgroundJob.JobType.NOTICE_NOTIFICATION)
+        self.assertEqual(notice_job.payload["notice_id"], notice.pk)
 
     def test_student_dashboard_context_is_limited_to_selected_session(self):
         self.select_year(self.year_2026)

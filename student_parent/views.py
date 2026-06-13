@@ -346,34 +346,7 @@ def mobile_exams(request):
     student, error = _student_for_request(request)
     if error:
         return error
-    academic_session = _student_exam_session(request, student)
-    exam_list = _student_exam_queryset(student, academic_session)
-    attempts = {
-        attempt.exam_id: attempt
-        for attempt in ExamAttempt.objects.filter(academic_session=academic_session, exam__in=exam_list)
-    } if academic_session else {}
-    exams_payload = [_mobile_exam_item(exam, attempts.get(exam.pk)) for exam in exam_list]
-    return JsonResponse(
-        {
-            "student": {
-                "id": student.pk,
-                "name": student.user.get_full_name() or student.user.username,
-                "username": student.user.username,
-                "admission_number": student.admission_number,
-            },
-            "academic_session": {
-                "id": academic_session.pk if academic_session else None,
-                "admission_number": academic_session.admission_number if academic_session else "",
-                "academic_year": academic_session.academic_year.name if academic_session else "",
-            },
-            "summary": {
-                "exam_count": len(exams_payload),
-                "submitted_count": sum(1 for item in exams_payload if item["attempt"]["status"] == "submitted"),
-                "pending_count": sum(1 for item in exams_payload if item["attempt"]["status"] != "submitted"),
-            },
-            "exams": exams_payload,
-        }
-    )
+    return JsonResponse(_mobile_exams_payload(student, request))
 
 
 @csrf_exempt
@@ -982,8 +955,12 @@ def _homework_payload(homework, request):
     }
 
 
-def _homework_planner_payload(student, request):
-    homework_items = [_homework_payload(homework, request) for homework in _student_homework_queryset(student, request)]
+def _homework_planner_payload(student, request, *, item_limit=None):
+    queryset = _student_homework_queryset(student, request)
+    total_count = queryset.count() if item_limit is not None else None
+    if item_limit is not None:
+        queryset = queryset[:item_limit]
+    homework_items = [_homework_payload(homework, request) for homework in queryset]
     subject_groups = {}
     batch_groups = {}
 
@@ -1014,7 +991,7 @@ def _homework_planner_payload(student, request):
             "institute": {"id": student.institute_id, "name": student.institute.name},
         },
         "summary": {
-            "homework_count": len(homework_items),
+            "homework_count": total_count if total_count is not None else len(homework_items),
             "subject_count": len(subject_groups),
             "batch_count": len(batch_groups),
         },
@@ -1031,6 +1008,75 @@ def mobile_homework_planner(request):
     if error:
         return error
     return JsonResponse(_homework_planner_payload(student, request))
+
+
+def _mobile_exams_payload(student, request, *, item_limit=None):
+    academic_session = _student_exam_session(request, student)
+    exam_list = list(_student_exam_queryset(student, academic_session))
+    attempts = {
+        attempt.exam_id: attempt
+        for attempt in ExamAttempt.objects.filter(
+            academic_session=academic_session,
+            exam_id__in=[exam.pk for exam in exam_list],
+        )
+    } if academic_session else {}
+    all_items = [_mobile_exam_item(exam, attempts.get(exam.pk)) for exam in exam_list]
+    visible_items = all_items[:item_limit] if item_limit is not None else all_items
+    return {
+        "student": {
+            "id": student.pk,
+            "name": student.user.get_full_name() or student.user.username,
+            "username": student.user.username,
+            "admission_number": student.admission_number,
+        },
+        "academic_session": {
+            "id": academic_session.pk if academic_session else None,
+            "admission_number": academic_session.admission_number if academic_session else "",
+            "academic_year": academic_session.academic_year.name if academic_session else "",
+        },
+        "summary": {
+            "exam_count": len(all_items),
+            "submitted_count": sum(1 for item in all_items if item["attempt"]["status"] == "submitted"),
+            "pending_count": sum(1 for item in all_items if item["attempt"]["status"] != "submitted"),
+        },
+        "exams": visible_items,
+    }
+
+
+@require_GET
+def mobile_bootstrap(request):
+    student, error = _student_for_request(request)
+    if error:
+        return error
+
+    from accountant.views import _fee_dashboard_payload
+    from super_admin.views import _mobile_profile_payload
+
+    attendance = _attendance_payload(student, request)
+    attendance["records"] = attendance["records"][:10]
+    notices = _mobile_notices_payload(student, request)
+    notices["notices"] = notices["notices"][:8]
+    homework = _homework_planner_payload(student, request, item_limit=8)
+    exams = _mobile_exams_payload(student, request, item_limit=8)
+    fees = _fee_dashboard_payload(student, request)
+
+    return JsonResponse(
+        {
+            "profile": _mobile_profile_payload(student, request),
+            "dashboard_summary": {
+                "attendance_rate": attendance["summary"]["attendance_rate"],
+                "fee_due_amount": fees["summary"]["total_due_amount"],
+                "homework_count": homework["summary"]["homework_count"],
+                "unread_notice_count": notices["summary"]["unread_count"],
+                "upcoming_exam_count": exams["summary"]["pending_count"],
+            },
+            "recent_attendance": attendance,
+            "fee_summary": fees,
+            "recent_homework": homework,
+            "notices": notices,
+            "upcoming_exams": exams,
+        }
+    )
 
 
 @csrf_exempt

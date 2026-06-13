@@ -6,7 +6,10 @@ from django.contrib import admin
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.test import TestCase
+from django.test.client import RequestFactory
+from django.contrib.sessions.middleware import SessionMiddleware
 from django.urls import reverse
+from unittest.mock import patch
 
 from accountant.models import FeeInvoice
 from institute_admin.models import AcademicYear, Batch, Course
@@ -19,6 +22,8 @@ from .models import (
     SubscriptionPayment,
     UserProfile,
 )
+from .mobile_auth import create_access_token, create_refresh_token
+from .subscription_warning import SESSION_KEY, subscription_expiry_warning
 
 
 class SaaSAdminTests(TestCase):
@@ -97,6 +102,243 @@ class SaaSBillingModelTests(TestCase):
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 403)
+
+
+class ExpiredSubscriptionAccessTests(TestCase):
+    def setUp(self):
+        self.institute = Institute.objects.create(
+            name="Expired Institute",
+            code="expired-institute",
+            status=Institute.Status.ACTIVE,
+        )
+        self.subscription = InstituteSubscription.objects.create(
+            institute=self.institute,
+            plan=InstituteSubscription.Plan.PREMIUM,
+            starts_on=date.today() - timedelta(days=60),
+            ends_on=date.today() - timedelta(days=1),
+        )
+
+    def create_user(self, username, role):
+        user = User.objects.create_user(username=username, password="pass12345")
+        UserProfile.objects.create(user=user, institute=self.institute, role=role)
+        return user
+
+    def assert_locked(self, user, url):
+        self.client.force_login(user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url.split("?")[0], reverse("subscription_expired"))
+        self.client.logout()
+
+    def test_all_institute_roles_are_blocked_from_panel_pages(self):
+        cases = (
+            (UserProfile.Role.INSTITUTE_ADMIN, reverse("institute_admin:dashboard")),
+            (UserProfile.Role.TEACHER, reverse("teacher:dashboard")),
+            (UserProfile.Role.STUDENT_PARENT, reverse("student_parent:download_app")),
+        )
+        for index, (role, url) in enumerate(cases):
+            with self.subTest(role=role):
+                self.assert_locked(self.create_user(f"expired-{index}", role), url)
+
+    def test_previously_exempt_help_and_security_pages_are_blocked(self):
+        admin_user = self.create_user("expired-help-admin", UserProfile.Role.INSTITUTE_ADMIN)
+        self.client.force_login(admin_user)
+
+        for url in (reverse("security_settings"), reverse("help_support")):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(response.url.split("?")[0], reverse("subscription_expired"))
+
+    def test_expired_api_request_returns_machine_readable_renewal_response(self):
+        teacher = self.create_user("expired-api-teacher", UserProfile.Role.TEACHER)
+        self.client.force_login(teacher)
+
+        response = self.client.get("/api/mobile/bootstrap/")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["code"], "subscription_expired")
+        self.assertTrue(response.json()["renewal_required"])
+
+    def test_expired_student_mobile_identity_and_refresh_remain_valid(self):
+        student = self.create_user(
+            "expired-mobile-student",
+            UserProfile.Role.STUDENT_PARENT,
+        )
+        access_token = create_access_token(student)
+        refresh_token = create_refresh_token(student)
+
+        me_response = self.client.get(
+            reverse("mobile_me"),
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        refresh_response = self.client.post(
+            reverse("mobile_token_refresh"),
+            data=json.dumps({"refresh": refresh_token}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(me_response.status_code, 200)
+        self.assertFalse(
+            me_response.json()["user"]["subscription_access_allowed"]
+        )
+        self.assertEqual(refresh_response.status_code, 200)
+        self.assertFalse(
+            refresh_response.json()["user"]["subscription_access_allowed"]
+        )
+
+    def test_institute_admin_can_open_renewal_and_billing_pages(self):
+        admin_user = self.create_user("expired-renew-admin", UserProfile.Role.INSTITUTE_ADMIN)
+        self.client.force_login(admin_user)
+
+        expired_response = self.client.get(reverse("subscription_expired"))
+        billing_response = self.client.get(reverse("subscription_billing"))
+
+        self.assertEqual(expired_response.status_code, 200)
+        self.assertContains(expired_response, "Renew subscription")
+        self.assertContains(expired_response, self.institute.name)
+        self.assertEqual(billing_response.status_code, 200)
+
+    def test_teacher_sees_locked_page_without_renewal_control(self):
+        teacher = self.create_user("expired-locked-teacher", UserProfile.Role.TEACHER)
+        self.client.force_login(teacher)
+
+        response = self.client.get(reverse("subscription_expired"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "contact your institute administrator")
+        self.assertNotContains(response, "Renew subscription")
+
+
+class SubscriptionExpiryWarningTests(TestCase):
+    def setUp(self):
+        self.today = date(2026, 6, 13)
+        self.institute = Institute.objects.create(
+            name="Reminder Institute",
+            code="reminder-institute",
+            status=Institute.Status.ACTIVE,
+        )
+        self.subscription = InstituteSubscription.objects.create(
+            institute=self.institute,
+            plan=InstituteSubscription.Plan.PREMIUM,
+            starts_on=self.today - timedelta(days=30),
+            ends_on=self.today + timedelta(days=5),
+        )
+        self.user = User.objects.create_user(username="reminder-admin", password="pass12345")
+        UserProfile.objects.create(
+            user=self.user,
+            institute=self.institute,
+            role=UserProfile.Role.INSTITUTE_ADMIN,
+        )
+
+    def request_for(self, user=None):
+        request = RequestFactory().get("/institute/")
+        request.user = user or self.user
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        return request
+
+    @patch("super_admin.subscription_warning.timezone.localdate")
+    def test_warning_starts_at_five_days_and_includes_expiry_day(self, localdate):
+        localdate.return_value = self.today
+        warning = subscription_expiry_warning(self.request_for())
+        self.assertTrue(warning["show"])
+        self.assertEqual(warning["days_remaining"], 5)
+
+        localdate.return_value = self.subscription.ends_on
+        warning = subscription_expiry_warning(self.request_for())
+        self.assertTrue(warning["show"])
+        self.assertEqual(warning["days_remaining"], 0)
+
+    @patch("super_admin.subscription_warning.timezone.localdate")
+    def test_warning_does_not_show_before_five_day_window_or_after_expiry(self, localdate):
+        localdate.return_value = self.today
+        self.subscription.ends_on = self.today + timedelta(days=6)
+        self.subscription.save(update_fields=["ends_on"])
+        self.assertIsNone(subscription_expiry_warning(self.request_for()))
+
+        self.subscription.ends_on = self.today - timedelta(days=1)
+        self.subscription.save(update_fields=["ends_on"])
+        self.assertIsNone(subscription_expiry_warning(self.request_for()))
+
+    @patch("super_admin.subscription_warning.timezone.localdate")
+    def test_acknowledgement_hides_only_current_day_and_current_expiry(self, localdate):
+        localdate.return_value = self.today
+        request = self.request_for()
+        warning = subscription_expiry_warning(request)
+        request.session[SESSION_KEY] = warning["acknowledgement"]
+        request.session.save()
+        self.assertFalse(subscription_expiry_warning(request)["show"])
+
+        localdate.return_value = self.today + timedelta(days=1)
+        self.assertTrue(subscription_expiry_warning(request)["show"])
+
+        localdate.return_value = self.today
+        self.subscription.ends_on = self.today + timedelta(days=4)
+        self.subscription.save(update_fields=["ends_on"])
+        self.assertTrue(subscription_expiry_warning(request)["show"])
+
+    @patch("super_admin.subscription_warning.timezone.localdate")
+    def test_acknowledgement_endpoint_suppresses_modal_for_same_day(self, localdate):
+        localdate.return_value = self.today
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("acknowledge_subscription_expiry"),
+            {"next": reverse("institute_admin:dashboard")},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("institute_admin:dashboard"),
+            fetch_redirect_response=False,
+        )
+        session = self.client.session
+        self.assertEqual(
+            session[SESSION_KEY],
+            f"{self.subscription.ends_on.isoformat()}:{self.today.isoformat()}",
+        )
+
+    @patch("super_admin.models.timezone.localdate")
+    @patch("super_admin.context_processors.timezone.localdate")
+    @patch("super_admin.subscription_warning.timezone.localdate")
+    def test_institute_layout_renders_warning_then_hides_after_acknowledgement(
+        self,
+        warning_localdate,
+        context_localdate,
+        model_localdate,
+    ):
+        warning_localdate.return_value = self.today
+        context_localdate.return_value = self.today
+        model_localdate.return_value = self.today
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("institute_admin:dashboard"))
+        self.assertContains(response, "Subscription expiry reminder")
+        self.assertContains(response, "OK, do not show again today")
+
+        self.client.post(
+            reverse("acknowledge_subscription_expiry"),
+            {"next": reverse("institute_admin:dashboard")},
+        )
+        response = self.client.get(reverse("institute_admin:dashboard"))
+        self.assertNotContains(response, "Subscription expiry reminder")
+
+    @patch("super_admin.subscription_warning.timezone.localdate")
+    def test_acknowledgement_rejects_external_redirect(self, localdate):
+        localdate.return_value = self.today
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("acknowledge_subscription_expiry"),
+            {"next": "https://example.com/steal"},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("school_dashboard"),
+            fetch_redirect_response=False,
+        )
 
 
 class AuthEndpointTests(TestCase):

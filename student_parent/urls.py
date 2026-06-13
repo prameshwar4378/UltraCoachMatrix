@@ -9,6 +9,7 @@ urlpatterns = [
     path("exams/", views.exams, name="exams"),
     path("exams/<int:pk>/attempt/", views.exam_attempt, name="exam_attempt"),
     path("exam-attempts/<int:pk>/result/", views.exam_result, name="exam_result"),
+    path("api/mobile/bootstrap/", views.mobile_bootstrap, name="mobile_bootstrap"),
     path("api/mobile/exams/", views.mobile_exams, name="mobile_exams"),
     path("api/mobile/exams/<int:pk>/start/", views.mobile_exam_start, name="mobile_exam_start"),
     path("api/mobile/exam-attempts/<int:attempt_id>/submit/", views.mobile_exam_submit, name="mobile_exam_submit"),

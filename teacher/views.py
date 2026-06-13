@@ -19,7 +19,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 from institute_admin.forms import get_or_create_academic_year
 from institute_admin.attendance_service import bulk_save_attendance
-from institute_admin.models import Batch, Course, Subject
+from institute_admin.models import Batch, Course, Notice, NoticeRead, Subject
 from student_parent.models import StudentAcademicSession, StudentEnrollment
 from super_admin.decorators import teacher_required
 from .forms import ExamQuestionForm, ExamQuestionOptionFormSet, TeacherExamForm, TeacherHomeworkForm
@@ -635,6 +635,77 @@ def homework(request):
         "subject_count": subjects.count(),
     }
     return render(request, "teacher/homework.html", context)
+
+
+@teacher_required
+def notices(request):
+    selected_year = teacher_selected_academic_year(request)
+    academic_year_id = selected_year.pk if selected_year else None
+    base_qs = Notice.for_teacher(request.user, academic_year_id=academic_year_id)
+    notice_qs = base_qs.select_related("created_by").prefetch_related(
+        "target_batches",
+        "target_courses",
+    )
+    search_query = request.GET.get("search", "").strip()
+    category_filter = request.GET.get("category", "").strip().upper()
+    priority_filter = request.GET.get("priority", "").strip().upper()
+    unread_only = request.GET.get("unread", "").strip() == "1"
+    read_ids = set(
+        NoticeRead.objects.filter(user=request.user, notice__in=base_qs)
+        .values_list("notice_id", flat=True)
+    )
+
+    if search_query:
+        notice_qs = notice_qs.filter(
+            Q(title__icontains=search_query) | Q(message__icontains=search_query)
+        )
+    if category_filter in Notice.Category.values:
+        notice_qs = notice_qs.filter(category=category_filter)
+    else:
+        category_filter = ""
+    if priority_filter in Notice.Priority.values:
+        notice_qs = notice_qs.filter(priority=priority_filter)
+    else:
+        priority_filter = ""
+    if unread_only:
+        notice_qs = notice_qs.exclude(pk__in=read_ids)
+
+    page_obj = Paginator(notice_qs, 20).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "teacher/notices.html",
+        {
+            "notice_rows": [
+                {"notice": notice, "is_read": notice.pk in read_ids}
+                for notice in page_obj.object_list
+            ],
+            "page_obj": page_obj,
+            "search_query": search_query,
+            "category_filter": category_filter,
+            "priority_filter": priority_filter,
+            "unread_only": unread_only,
+            "category_choices": Notice.Category.choices,
+            "priority_choices": Notice.Priority.choices,
+            "total_count": base_qs.count(),
+            "unread_count": base_qs.exclude(pk__in=read_ids).count(),
+        },
+    )
+
+
+@teacher_required
+@require_POST
+def notice_mark_read(request, pk):
+    selected_year = teacher_selected_academic_year(request)
+    notice = get_object_or_404(
+        Notice.for_teacher(
+            request.user,
+            academic_year_id=selected_year.pk if selected_year else None,
+        ),
+        pk=pk,
+    )
+    NoticeRead.objects.get_or_create(notice=notice, user=request.user)
+    next_url = request.POST.get("next", "").strip()
+    return redirect(next_url if next_url.startswith("/") else "teacher:notices")
 
 
 @teacher_required

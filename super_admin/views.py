@@ -10,11 +10,20 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from .forms import InstituteSignupForm
-from .mobile_auth import bearer_user, create_access_token, create_refresh_token, get_active_refresh_token, revoke_refresh_token
+from .mobile_auth import (
+    bearer_identity_user,
+    bearer_user,
+    create_access_token,
+    create_refresh_token,
+    get_active_refresh_token,
+    revoke_refresh_token,
+)
 from .role_redirects import role_redirect_url
 from .subscription_access import institute_access_status
+from .subscription_warning import SESSION_KEY, subscription_expiry_warning
 from student_parent.models import StudentAcademicSession
 
 from django.utils.decorators import method_decorator
@@ -43,7 +52,43 @@ def role_home(request):
 
 def subscription_expired(request):
     reason = request.GET.get("reason") or "Your software subscription has expired."
-    return render(request, "super_admin/subscription_expired.html", {"reason": reason})
+    profile = getattr(request.user, "profile", None) if request.user.is_authenticated else None
+    institute = profile.institute if profile and profile.institute_id else None
+    subscription = getattr(institute, "subscription", None) if institute else None
+    can_renew = bool(
+        profile
+        and profile.role == profile.Role.INSTITUTE_ADMIN
+        and institute
+    )
+    return render(
+        request,
+        "super_admin/subscription_expired.html",
+        {
+            "reason": reason,
+            "institute": institute,
+            "subscription": subscription,
+            "can_renew": can_renew,
+        },
+    )
+
+
+@require_POST
+def acknowledge_subscription_expiry(request):
+    if not request.user.is_authenticated:
+        return redirect("login")
+
+    warning = subscription_expiry_warning(request)
+    if warning:
+        request.session[SESSION_KEY] = warning["acknowledgement"]
+
+    next_url = request.POST.get("next", "")
+    if not url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        next_url = reverse("school_dashboard")
+    return redirect(next_url)
 
 
 def _json_request_data(request):
@@ -57,6 +102,7 @@ def _json_request_data(request):
 
 def _user_payload(user):
     profile = getattr(user, "profile", None)
+    allowed, access_message = institute_access_status(user)
     return {
         "id": user.pk,
         "username": user.get_username(),
@@ -64,6 +110,8 @@ def _user_payload(user):
         "name": user.get_full_name(),
         "role": profile.role if profile else None,
         "institute_id": profile.institute_id if profile else None,
+        "subscription_access_allowed": allowed,
+        "subscription_access_message": access_message,
     }
 
 
@@ -159,7 +207,7 @@ def mobile_token_refresh(request):
         return JsonResponse({"detail": "Invalid JSON body."}, status=400)
 
     refresh = data.get("refresh") or ""
-    refresh_token = get_active_refresh_token(refresh)
+    refresh_token = get_active_refresh_token(refresh, check_institute_access=False)
     if not refresh_token:
         return JsonResponse({"detail": "Invalid or expired refresh token."}, status=401)
 
@@ -187,7 +235,7 @@ def mobile_logout(request):
 
 
 def mobile_me(request):
-    user = bearer_user(request)
+    user = bearer_identity_user(request)
     if not user:
         return JsonResponse({"detail": "Invalid or expired access token."}, status=401)
     return JsonResponse({"user": _user_payload(user)})
@@ -233,15 +281,7 @@ def _absolute_file_url(request, file_field):
         return ""
 
 
-def mobile_profile(request):
-    user = bearer_user(request)
-    if not user:
-        return JsonResponse({"detail": "Invalid or expired access token."}, status=401)
-
-    student = getattr(user, "student_profile", None)
-    if not student:
-        return JsonResponse({"detail": "No student profile is linked to this user."}, status=404)
-
+def _mobile_profile_payload(student, request):
     sessions = (
         StudentAcademicSession.objects.filter(
             Q(student=student) | Q(enrollments__student=student)
@@ -260,8 +300,7 @@ def mobile_profile(request):
     guardians = student.guardians.all()
     documents = student.documents.all()
 
-    return JsonResponse(
-        {
+    return {
             "student": {
                 "id": student.pk,
                 "admission_number": student.admission_number,
@@ -350,4 +389,15 @@ def mobile_profile(request):
                 for document in documents
             ],
         }
-    )
+
+
+def mobile_profile(request):
+    user = bearer_user(request)
+    if not user:
+        return JsonResponse({"detail": "Invalid or expired access token."}, status=401)
+
+    student = getattr(user, "student_profile", None)
+    if not student:
+        return JsonResponse({"detail": "No student profile is linked to this user."}, status=404)
+
+    return JsonResponse(_mobile_profile_payload(student, request))

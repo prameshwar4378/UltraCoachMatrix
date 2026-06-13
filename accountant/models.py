@@ -84,6 +84,7 @@ class FeeInvoice(models.Model):
         ordering = ["-due_date"]
         indexes = [
             models.Index(fields=["academic_session", "status", "-due_date"], name="inv_session_status_idx"),
+            models.Index(fields=["academic_session", "-due_date"], name="inv_session_due_idx"),
             models.Index(fields=["student", "status", "-due_date"], name="inv_student_status_idx"),
             models.Index(fields=["institute", "status", "-due_date"], name="inv_inst_status_idx"),
             models.Index(fields=["enrollment", "status"], name="inv_enroll_status_idx"),
@@ -144,6 +145,7 @@ class Payment(models.Model):
         indexes = [
             models.Index(fields=["invoice", "status", "-paid_on"], name="pay_invoice_status_idx"),
             models.Index(fields=["status", "-paid_on"], name="pay_status_date_idx"),
+            models.Index(fields=["status", "-created_at", "-id"], name="pay_status_created_idx"),
             models.Index(fields=["receipt_number"], name="pay_receipt_idx"),
         ]
 

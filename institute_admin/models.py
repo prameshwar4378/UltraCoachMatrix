@@ -27,6 +27,61 @@ class AcademicYear(models.Model):
         return f"{self.institute} - {self.name}"
 
 
+class BackgroundJob(models.Model):
+    class JobType(models.TextChoices):
+        STUDENT_IMPORT = "STUDENT_IMPORT", "Student import"
+        FEE_NOTIFICATION = "FEE_NOTIFICATION", "Fee notification"
+        NOTICE_NOTIFICATION = "NOTICE_NOTIFICATION", "Notice notification"
+
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        RUNNING = "RUNNING", "Running"
+        COMPLETED = "COMPLETED", "Completed"
+        FAILED = "FAILED", "Failed"
+
+    institute = models.ForeignKey(
+        "super_admin.Institute",
+        on_delete=models.CASCADE,
+        related_name="background_jobs",
+        null=True,
+        blank=True,
+    )
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.SET_NULL,
+        related_name="background_jobs",
+        null=True,
+        blank=True,
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="background_jobs",
+        null=True,
+        blank=True,
+    )
+    job_type = models.CharField(max_length=40, choices=JobType.choices)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    payload = models.JSONField(default=dict, blank=True)
+    input_file = models.FileField(upload_to="background_jobs/input/", blank=True)
+    result = models.JSONField(default=dict, blank=True)
+    error_message = models.TextField(blank=True)
+    attempts = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["status", "created_at"], name="bgjob_status_created_idx"),
+            models.Index(fields=["institute", "job_type", "status"], name="bgjob_inst_type_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.get_job_type_display()} - {self.get_status_display()}"
+
+
 class Course(models.Model):
     institute = models.ForeignKey(
         "super_admin.Institute",
@@ -355,6 +410,41 @@ class Notice(models.Model):
             | Q(target_students=student)
         )
         return cls.active_for_app().filter(institute=student.institute).filter(audience_filter).filter(target_filter).distinct()
+
+    @classmethod
+    def for_teacher(cls, user, academic_year_id=None):
+        from django.db.models import Q
+        from django.utils import timezone
+
+        profile = getattr(user, "profile", None)
+        if not profile or not profile.institute_id:
+            return cls.objects.none()
+
+        batches = Batch.objects.filter(
+            institute_id=profile.institute_id,
+            teachers=user,
+            is_active=True,
+        )
+        if academic_year_id:
+            batches = batches.filter(academic_year_id=academic_year_id)
+        batch_ids = batches.values_list("pk", flat=True)
+        course_ids = Course.objects.filter(batches__in=batches).values_list("pk", flat=True)
+        audience_filter = Q(audience=cls.Audience.EVERYONE) | Q(audience=cls.Audience.TEACHERS)
+        target_filter = (
+            Q(target_batches__isnull=True, target_courses__isnull=True, target_students__isnull=True)
+            | Q(target_batches__in=batch_ids)
+            | Q(target_courses__in=course_ids)
+        )
+        now = timezone.now()
+        return (
+            cls.objects.filter(is_published=True)
+            .filter(Q(publish_at__isnull=True) | Q(publish_at__lte=now))
+            .filter(Q(expires_at__isnull=True) | Q(expires_at__gte=now))
+            .filter(institute_id=profile.institute_id)
+            .filter(audience_filter)
+            .filter(target_filter)
+            .distinct()
+        )
 
 
 class NoticeRead(models.Model):

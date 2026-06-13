@@ -195,6 +195,48 @@ class MobileHomeworkPlannerTests(TestCase):
 
         self.assertEqual(response.status_code, 401)
 
+    def test_mobile_bootstrap_returns_compact_dashboard_payload(self):
+        for index in range(10):
+            Homework.objects.create(
+                batch=self.batch,
+                course=self.math,
+                title=f"Extra homework {index}",
+                instructions="Short dashboard item.",
+                due_date=date(2026, 6, 10),
+            )
+
+        response = self.client.get(
+            "/api/mobile/bootstrap/",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(
+            set(data),
+            {
+                "profile",
+                "dashboard_summary",
+                "recent_attendance",
+                "fee_summary",
+                "recent_homework",
+                "notices",
+                "upcoming_exams",
+            },
+        )
+        self.assertEqual(data["profile"]["active_session"]["id"], self.session.pk)
+        self.assertEqual(data["recent_homework"]["summary"]["homework_count"], 12)
+        self.assertLessEqual(len(data["recent_homework"]["homework"]), 8)
+        self.assertLessEqual(len(data["recent_attendance"]["records"]), 10)
+        self.assertLessEqual(len(data["notices"]["notices"]), 8)
+        self.assertLessEqual(len(data["upcoming_exams"]["exams"]), 8)
+        self.assertLess(len(response.content), 150 * 1024)
+
+    def test_mobile_bootstrap_requires_valid_token(self):
+        response = self.client.get("/api/mobile/bootstrap/")
+
+        self.assertEqual(response.status_code, 401)
+
     def test_student_exam_list_shows_result_pending_when_teacher_hides_results(self):
         exam = Exam.objects.create(
             academic_year=self.academic_year,

@@ -87,6 +87,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'institute_admin.context_processors.academic_year_context',
+                'super_admin.context_processors.subscription_context',
             ],
         },
     },
@@ -162,6 +163,9 @@ LOGIN_URL = 'login'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 DASHBOARD_CACHE_TIMEOUT = int(os.environ.get("DASHBOARD_CACHE_TIMEOUT", "180"))
+LOOKUP_CACHE_TIMEOUT = int(os.environ.get("LOOKUP_CACHE_TIMEOUT", "300"))
+STUDENT_EXPORT_CSV_THRESHOLD = int(os.environ.get("STUDENT_EXPORT_CSV_THRESHOLD", "2000"))
+STUDENT_IMPORT_BACKGROUND_THRESHOLD = int(os.environ.get("STUDENT_IMPORT_BACKGROUND_THRESHOLD", "500"))
 CACHES = {
     "default": {
         "BACKEND": os.environ.get(

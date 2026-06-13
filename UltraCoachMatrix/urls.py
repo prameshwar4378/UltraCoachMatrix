@@ -25,6 +25,7 @@ from super_admin import views as super_admin_views
 from super_admin import urls as super_admin_urls
 from Website import urls as website_urls
 urlpatterns = [
+    path('api/mobile/bootstrap/', student_parent_views.mobile_bootstrap, name='mobile_bootstrap'),
     path('api/mobile/attendance/', student_parent_views.mobile_attendance, name='mobile_attendance'),
     path('api/mobile/homework/', student_parent_views.mobile_homework_planner, name='mobile_homework_planner'),
     path('api/mobile/exams/', student_parent_views.mobile_exams, name='mobile_exams'),
