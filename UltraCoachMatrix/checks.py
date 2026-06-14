@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.core.checks import Error, Warning, register
+from django.core.checks import Warning, register
 
 
 @register()
@@ -10,16 +10,18 @@ def email_configuration_check(app_configs, **kwargs):
     errors = []
     if not settings.EMAIL_HOST_USER:
         errors.append(
-            Error(
+            Warning(
                 "EMAIL_HOST_USER is not configured.",
-                id="ultracoachmatrix.E001",
+                hint="Configure SMTP environment variables before sending email.",
+                id="ultracoachmatrix.W001",
             )
         )
     if not settings.EMAIL_HOST_PASSWORD:
         errors.append(
-            Error(
+            Warning(
                 "EMAIL_HOST_PASSWORD is not configured.",
-                id="ultracoachmatrix.E002",
+                hint="Configure SMTP environment variables before sending email.",
+                id="ultracoachmatrix.W002",
             )
         )
     if (
@@ -31,7 +33,7 @@ def email_configuration_check(app_configs, **kwargs):
             Warning(
                 "The Gmail app password must contain exactly 16 characters.",
                 hint="Generate a new Google app password and copy all four groups of four characters.",
-                id="ultracoachmatrix.E003",
+                id="ultracoachmatrix.W003",
             )
         )
     return errors
