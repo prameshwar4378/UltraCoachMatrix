@@ -1,0 +1,130 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Academic Sessions{% endblock title %}
+
+{% block content %}
+<style>
+    .session-page{max-width:1180px;margin:0 auto;color:#0f172a}
+    .session-hero{padding:26px 28px;margin-bottom:22px;border-radius:22px;color:#fff;background:linear-gradient(135deg,#0f172a,#2563eb 60%,#06b6d4);box-shadow:0 20px 48px rgba(37,99,235,.18)}
+    .session-hero h2{margin:0 0 8px;font-weight:900;letter-spacing:-.03em}
+    .session-hero p{margin:0;max-width:760px;color:rgba(255,255,255,.82)}
+    .session-grid{display:grid;grid-template-columns:minmax(280px,380px) minmax(0,1fr);gap:22px;align-items:start}
+    .session-card{background:#fff;border:1px solid #e2e8f0;border-radius:20px;box-shadow:0 12px 35px rgba(15,23,42,.07)}
+    .session-card-head{padding:20px 22px;border-bottom:1px solid #e2e8f0}
+    .session-card-head h3{margin:0;font-size:1.05rem;font-weight:900}
+    .session-card-body{padding:22px}
+    .session-form .form-label{font-weight:800;color:#334155}
+    .session-form .form-control{border-radius:11px;min-height:44px}
+    .field-error{margin-top:6px;color:#dc2626;font-size:.82rem;font-weight:700}
+    .session-row{padding:18px 20px;border-bottom:1px solid #edf2f7}
+    .session-row:last-child{border-bottom:0}
+    .session-row-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+    .session-name{font-size:1.05rem;font-weight:900}
+    .session-dates{margin-top:5px;color:#64748b;font-size:.88rem}
+    .session-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .session-pill{padding:5px 9px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:.76rem;font-weight:800}
+    .session-pill.active{background:#dcfce7;color:#166534}
+    .session-pill.inactive{background:#fee2e2;color:#991b1b}
+    .session-pill.current{background:#dbeafe;color:#1d4ed8}
+    .session-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+    .session-actions form{margin:0}
+    .empty-session{padding:42px 20px;text-align:center;color:#64748b}
+    @media(max-width:900px){.session-grid{grid-template-columns:1fr}}
+</style>
+
+<div class="session-page">
+    <section class="session-hero">
+        <h2>Academic Sessions</h2>
+        <p>Manage sessions for {{ institute.name }}. Courses, batches, students, fees, attendance, and exams remain connected to their original session.</p>
+    </section>
+
+    <div class="session-grid">
+        <section class="session-card">
+            <div class="session-card-head">
+                <h3>{% if editing_session %}Edit {{ editing_session.name }}{% else %}Add Academic Session{% endif %}</h3>
+            </div>
+            <div class="session-card-body">
+                <form method="post" class="session-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save">
+                    {% if editing_session %}<input type="hidden" name="session_id" value="{{ editing_session.pk }}">{% endif %}
+                    {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+                    {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+                        {{ form.name }}
+                        {% for error in form.name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.start_date.id_for_label }}">{{ form.start_date.label }}</label>
+                        {{ form.start_date }}
+                        {% for error in form.start_date.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.end_date.id_for_label }}">{{ form.end_date.label }}</label>
+                        {{ form.end_date }}
+                        {% for error in form.end_date.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="form-check mb-4">
+                        {{ form.is_active }}
+                        <label class="form-check-label fw-bold" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        {% if editing_session %}Update Session{% else %}Create Session{% endif %}
+                    </button>
+                    {% if editing_session %}
+                        <a href="{% url 'institute_admin:academic_session_settings' %}" class="btn btn-light border">Cancel</a>
+                    {% endif %}
+                </form>
+            </div>
+        </section>
+
+        <section class="session-card">
+            <div class="session-card-head"><h3>Your Institute Sessions</h3></div>
+            {% for academic_session in academic_sessions %}
+                <div class="session-row">
+                    <div class="session-row-top">
+                        <div>
+                            <div class="session-name">{{ academic_session.name }}</div>
+                            <div class="session-dates">{{ academic_session.start_date|date:"d M Y" }} to {{ academic_session.end_date|date:"d M Y" }}</div>
+                        </div>
+                        <span class="session-pill {% if academic_session.is_active %}active{% else %}inactive{% endif %}">
+                            {% if academic_session.is_active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </div>
+                    <div class="session-meta">
+                        {% if selected_academic_year.pk == academic_session.pk %}<span class="session-pill current">Current session</span>{% endif %}
+                        <span class="session-pill">{{ academic_session.course_count }} course{{ academic_session.course_count|pluralize }}</span>
+                        <span class="session-pill">{{ academic_session.batch_count }} batch{{ academic_session.batch_count|pluralize:"es" }}</span>
+                        <span class="session-pill">{{ academic_session.student_count }} student record{{ academic_session.student_count|pluralize }}</span>
+                    </div>
+                    <div class="session-actions">
+                        <a class="btn btn-sm btn-outline-primary" href="?edit={{ academic_session.pk }}">Edit</a>
+                        <form method="post">
+                            {% csrf_token %}<input type="hidden" name="action" value="sync_students"><input type="hidden" name="session_id" value="{{ academic_session.pk }}">
+                            <button class="btn btn-sm btn-outline-success" type="submit">Sync Students</button>
+                        </form>
+                        {% if selected_academic_year.pk != academic_session.pk %}
+                        <form method="post">
+                            {% csrf_token %}<input type="hidden" name="action" value="set_current"><input type="hidden" name="session_id" value="{{ academic_session.pk }}">
+                            <button class="btn btn-sm btn-outline-info" type="submit">Set Current</button>
+                        </form>
+                        {% endif %}
+                        <form method="post">
+                            {% csrf_token %}<input type="hidden" name="action" value="toggle_active"><input type="hidden" name="session_id" value="{{ academic_session.pk }}">
+                            <button class="btn btn-sm btn-outline-secondary" type="submit">Mark {% if academic_session.is_active %}Inactive{% else %}Active{% endif %}</button>
+                        </form>
+                        <form method="post" onsubmit="return confirm('Delete {{ academic_session.name|escapejs }}? Sessions with linked academic records cannot be deleted.');">
+                            {% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="session_id" value="{{ academic_session.pk }}">
+                            <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                        </form>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="empty-session">No academic sessions found.</div>
+            {% endfor %}
+        </section>
+    </div>
+</div>
+{% endblock content %}

@@ -12,6 +12,8 @@ from institute_admin.models import BackgroundJob, Notice
 from .models import PushNotification, StudentEnrollment, StudentProfile, UserDevice
 
 logger = logging.getLogger(__name__)
+FIREBASE_MULTICAST_LIMIT = 500
+ANDROID_NOTIFICATION_CHANNEL_ID = "ultracoachmatrix_notifications"
 
 INVALID_TOKEN_ERROR_MARKERS = (
     "registration-token-not-registered",
@@ -127,7 +129,13 @@ def send_push_to_user(user, notification_type, title, body, data=None):
             token=device.token,
             notification=messaging.Notification(title=title, body=body),
             data=payload,
-            android=messaging.AndroidConfig(priority="high"),
+            android=messaging.AndroidConfig(
+                priority="high",
+                notification=messaging.AndroidNotification(
+                    channel_id=ANDROID_NOTIFICATION_CHANNEL_ID,
+                    sound="default",
+                ),
+            ),
             apns=messaging.APNSConfig(
                 payload=messaging.APNSPayload(aps=messaging.Aps(sound="default"))
             ),
@@ -230,26 +238,167 @@ def students_for_notice(notice):
     return queryset
 
 
+def _chunks(items, size):
+    for start in range(0, len(items), size):
+        yield items[start : start + size]
+
+
+def _notice_multicast_message(messaging, notice, tokens):
+    payload = {
+        "type": PushNotification.NotificationType.NOTICE,
+        "notice_id": str(notice.pk),
+        "category": str(notice.category),
+        "priority": str(notice.priority),
+    }
+    return messaging.MulticastMessage(
+        tokens=tokens,
+        notification=messaging.Notification(
+            title=notice.title,
+            body=notice.message,
+        ),
+        data=payload,
+        android=messaging.AndroidConfig(
+            priority="high",
+            notification=messaging.AndroidNotification(
+                channel_id=ANDROID_NOTIFICATION_CHANNEL_ID,
+                sound="default",
+            ),
+        ),
+        apns=messaging.APNSConfig(
+            payload=messaging.APNSPayload(
+                aps=messaging.Aps(sound="default")
+            )
+        ),
+    )
+
+
+def _finalize_notice_records(records, devices_by_user, deliveries, configuration_error=""):
+    sent_at = timezone.now()
+    for record in records:
+        devices = devices_by_user.get(record.user_id, [])
+        delivery = deliveries.get(record.user_id, {"sent_ids": [], "errors": []})
+        sent_ids = delivery["sent_ids"]
+        errors = delivery["errors"]
+
+        if not devices:
+            record.status = PushNotification.Status.SKIPPED
+            record.error_message = "No active device token registered for this user."
+        elif configuration_error:
+            record.status = PushNotification.Status.SKIPPED
+            record.error_message = configuration_error
+        elif sent_ids:
+            record.status = PushNotification.Status.SENT
+            record.firebase_message_id = ",".join(sent_ids)[:255]
+            record.sent_at = sent_at
+            record.error_message = "; ".join(errors)
+        else:
+            record.status = PushNotification.Status.FAILED
+            record.error_message = "; ".join(errors) or "Firebase did not accept the notification."
+
+    PushNotification.objects.bulk_update(
+        records,
+        [
+            "status",
+            "firebase_message_id",
+            "error_message",
+            "sent_at",
+        ],
+        batch_size=500,
+    )
+
+
 def notify_notice_published(notice):
     if not notice.push_to_app or not notice.is_published or not notice.is_active_for_app:
         return []
-    records = []
-    for student in students_for_notice(notice):
-        records.append(
-            send_push_to_user(
-                student.user,
-                PushNotification.NotificationType.NOTICE,
-                notice.title,
-                notice.message,
-                {
+
+    students = list(students_for_notice(notice))
+    if not students:
+        return []
+
+    records = PushNotification.objects.bulk_create(
+        [
+            PushNotification(
+                user=student.user,
+                notification_type=PushNotification.NotificationType.NOTICE,
+                title=notice.title,
+                body=notice.message,
+                data={
                     "type": PushNotification.NotificationType.NOTICE,
-                    "notice_id": notice.pk,
-                    "category": notice.category,
-                    "priority": notice.priority,
-                    "student_id": student.pk,
+                    "notice_id": str(notice.pk),
+                    "category": str(notice.category),
+                    "priority": str(notice.priority),
+                    "student_id": str(student.pk),
                 },
             )
+            for student in students
+        ],
+        batch_size=500,
+    )
+    records_by_user = {record.user_id: record for record in records}
+    devices = list(
+        UserDevice.objects.filter(
+            user_id__in=records_by_user,
+            is_active=True,
+        ).order_by("pk")
+    )
+    devices_by_user = {}
+    for device in devices:
+        devices_by_user.setdefault(device.user_id, []).append(device)
+
+    messaging, configuration_error = _firebase_messaging()
+    deliveries = {
+        user_id: {"sent_ids": [], "errors": []}
+        for user_id in records_by_user
+    }
+    if messaging is None:
+        _finalize_notice_records(
+            records,
+            devices_by_user,
+            deliveries,
+            configuration_error,
         )
+        return records
+
+    invalid_devices = []
+    for device_chunk in _chunks(devices, FIREBASE_MULTICAST_LIMIT):
+        message = _notice_multicast_message(
+            messaging,
+            notice,
+            [device.token for device in device_chunk],
+        )
+        try:
+            batch_response = messaging.send_each_for_multicast(message)
+        except Exception as exc:
+            error_message = str(exc)
+            for device in device_chunk:
+                deliveries[device.user_id]["errors"].append(
+                    f"{device.platform}:{device.pk}: {error_message}"
+                )
+            continue
+
+        for device, response in zip(device_chunk, batch_response.responses):
+            delivery = deliveries[device.user_id]
+            if response.success:
+                delivery["sent_ids"].append(response.message_id or "")
+                continue
+
+            error_message = str(response.exception or "Firebase delivery failed.")
+            delivery["errors"].append(
+                f"{device.platform}:{device.pk}: {error_message}"
+            )
+            if _is_invalid_token_error(error_message):
+                device.is_active = False
+                device.updated_at = timezone.now()
+                invalid_devices.append(device)
+
+    if invalid_devices:
+        UserDevice.objects.bulk_update(
+            invalid_devices,
+            ["is_active", "updated_at"],
+            batch_size=500,
+        )
+
+    _finalize_notice_records(records, devices_by_user, deliveries)
     return records
 
 

@@ -140,15 +140,14 @@ class ExpiredSubscriptionAccessTests(TestCase):
             with self.subTest(role=role):
                 self.assert_locked(self.create_user(f"expired-{index}", role), url)
 
-    def test_previously_exempt_help_and_security_pages_are_blocked(self):
+    def test_recovery_help_and_security_pages_remain_available(self):
         admin_user = self.create_user("expired-help-admin", UserProfile.Role.INSTITUTE_ADMIN)
         self.client.force_login(admin_user)
 
         for url in (reverse("security_settings"), reverse("help_support")):
             with self.subTest(url=url):
                 response = self.client.get(url)
-                self.assertEqual(response.status_code, 302)
-                self.assertEqual(response.url.split("?")[0], reverse("subscription_expired"))
+                self.assertEqual(response.status_code, 200)
 
     def test_expired_api_request_returns_machine_readable_renewal_response(self):
         teacher = self.create_user("expired-api-teacher", UserProfile.Role.TEACHER)

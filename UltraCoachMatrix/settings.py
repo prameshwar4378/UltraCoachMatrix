@@ -198,7 +198,45 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 FIREBASE_CREDENTIALS_FILE = os.environ.get(
     "FIREBASE_CREDENTIALS_FILE",
-    os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", str(BASE_DIR / "firebase-service-account.json")),
+    os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", ""),
 )
 FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "")
 PUSH_NOTIFICATIONS_ENABLED = os.environ.get("PUSH_NOTIFICATIONS_ENABLED", "true").lower() in {"1", "true", "yes"}
+
+# Background jobs
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://127.0.0.1:6379/1")
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_CONNECTION_TIMEOUT = int(
+    os.environ.get("CELERY_BROKER_CONNECTION_TIMEOUT", "2")
+)
+CELERY_TASK_PUBLISH_RETRY = False
+CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "false").lower() in {
+    "1",
+    "true",
+    "yes",
+}
+CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = int(
+    os.environ.get("CELERY_WORKER_PREFETCH_MULTIPLIER", "1")
+)
+CELERY_BEAT_SCHEDULE = {
+    "recover-stale-background-jobs": {
+        "task": "institute_admin.recover_stale_background_jobs",
+        "schedule": float(os.environ.get("BACKGROUND_JOB_RECOVERY_INTERVAL", "300")),
+    },
+}
+
+BACKGROUND_JOB_MAX_RETRIES = int(os.environ.get("BACKGROUND_JOB_MAX_RETRIES", "3"))
+BACKGROUND_JOB_RETRY_DELAY = int(os.environ.get("BACKGROUND_JOB_RETRY_DELAY", "30"))
+BACKGROUND_JOB_STALE_MINUTES = int(os.environ.get("BACKGROUND_JOB_STALE_MINUTES", "30"))
+BACKGROUND_JOB_PENDING_REDISPATCH_MINUTES = int(
+    os.environ.get("BACKGROUND_JOB_PENDING_REDISPATCH_MINUTES", "5")
+)

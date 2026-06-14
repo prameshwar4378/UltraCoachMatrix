@@ -20,6 +20,8 @@ class InstituteSubscriptionMiddleware:
         "/signup/",
         "/subscription-expired/",
         "/institute/billing/",
+        "/institute/security/",
+        "/institute/help/",
     }
     exempt_api_paths = {
         "/api/auth/login/",

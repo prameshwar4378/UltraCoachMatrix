@@ -25,10 +25,12 @@ from super_admin.models import (
     SubscriptionPayment,
     UserProfile,
 )
+from super_admin.mobile_auth import create_access_token
 from teacher.models import Attendance, Exam, ExamAttempt, ExamAttemptUpload, ExamResult, Homework
 
 from . import views
 from .forms import (
+    AcademicYearForm,
     BatchForm,
     PaymentUpdateForm,
     ReceiveFeeForm,
@@ -41,6 +43,205 @@ from .lookup_cache import (
     get_cached_batch_course_data,
 )
 from .models import AcademicYear, BackgroundJob, Batch, Course, Lead, Notice, SupportTicket, Visitor
+
+
+class AcademicSessionSettingsTests(TestCase):
+    def setUp(self):
+        self.institute = Institute.objects.create(
+            name="Session Institute",
+            code="session-institute",
+            status=Institute.Status.ACTIVE,
+        )
+        self.other_institute = Institute.objects.create(
+            name="Other Institute",
+            code="other-session-institute",
+            status=Institute.Status.ACTIVE,
+        )
+        self.admin_user = User.objects.create_user(
+            username="session-admin",
+            password="pass12345",
+        )
+        UserProfile.objects.create(
+            user=self.admin_user,
+            institute=self.institute,
+            role=UserProfile.Role.INSTITUTE_ADMIN,
+        )
+        self.session = AcademicYear.objects.create(
+            institute=self.institute,
+            name="2025-26",
+            start_date=date(2025, 4, 1),
+            end_date=date(2026, 3, 31),
+        )
+        self.other_session = AcademicYear.objects.create(
+            institute=self.other_institute,
+            name="2025-26",
+            start_date=date(2025, 4, 1),
+            end_date=date(2026, 3, 31),
+        )
+        self.client.force_login(self.admin_user)
+
+    def test_page_lists_only_current_institute_sessions(self):
+        response = self.client.get(reverse("institute_admin:academic_session_settings"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.session.name)
+        self.assertNotContains(response, self.other_institute.name)
+
+    def test_create_session_assigns_current_institute(self):
+        student_user = User.objects.create_user(
+            username="mobile-session-student",
+            password="pass12345",
+        )
+        UserProfile.objects.create(
+            user=student_user,
+            institute=self.institute,
+            role=UserProfile.Role.STUDENT_PARENT,
+        )
+        student = StudentProfile.objects.create(
+            institute=self.institute,
+            user=student_user,
+            admission_number="OLD-001",
+            is_active=True,
+        )
+        response = self.client.post(
+            reverse("institute_admin:academic_session_settings"),
+            {
+                "action": "save",
+                "name": "2026-27",
+                "start_date": "2026-04-01",
+                "end_date": "2027-03-31",
+                "is_active": "on",
+            },
+        )
+
+        self.assertRedirects(response, reverse("institute_admin:academic_session_settings"))
+        self.assertTrue(
+            AcademicYear.objects.filter(
+                institute=self.institute,
+                name="2026-27",
+            ).exists()
+        )
+        created_year = AcademicYear.objects.get(institute=self.institute, name="2026-27")
+        student_session = StudentAcademicSession.objects.get(
+            student=student,
+            academic_year=created_year,
+        )
+        mobile_response = self.client.get(
+            reverse("mobile_profile"),
+            HTTP_AUTHORIZATION=f"Bearer {create_access_token(student_user)}",
+        )
+        self.assertEqual(mobile_response.status_code, 200)
+        self.assertIn(
+            student_session.pk,
+            [item["id"] for item in mobile_response.json()["academic_sessions"]],
+        )
+
+    def test_sync_students_adds_missing_links_only_once(self):
+        student_user = User.objects.create_user(
+            username="existing-session-student",
+            password="pass12345",
+        )
+        UserProfile.objects.create(
+            user=student_user,
+            institute=self.institute,
+            role=UserProfile.Role.STUDENT_PARENT,
+        )
+        student = StudentProfile.objects.create(
+            institute=self.institute,
+            user=student_user,
+            admission_number="OLD-002",
+            is_active=True,
+        )
+
+        for _index in range(2):
+            response = self.client.post(
+                reverse("institute_admin:academic_session_settings"),
+                {
+                    "action": "sync_students",
+                    "session_id": self.session.pk,
+                },
+            )
+            self.assertRedirects(
+                response,
+                reverse("institute_admin:academic_session_settings"),
+            )
+
+        self.assertEqual(
+            StudentAcademicSession.objects.filter(
+                student=student,
+                academic_year=self.session,
+            ).count(),
+            1,
+        )
+
+    def test_form_rejects_overlapping_dates_and_duplicate_name(self):
+        overlap_form = AcademicYearForm(
+            {
+                "name": "Overlap",
+                "start_date": "2026-03-01",
+                "end_date": "2027-02-28",
+                "is_active": "on",
+            },
+            institute=self.institute,
+        )
+        duplicate_form = AcademicYearForm(
+            {
+                "name": "2025-26",
+                "start_date": "2027-04-01",
+                "end_date": "2028-03-31",
+                "is_active": "on",
+            },
+            institute=self.institute,
+        )
+
+        self.assertFalse(overlap_form.is_valid())
+        self.assertIn("start_date", overlap_form.errors)
+        self.assertFalse(duplicate_form.is_valid())
+        self.assertIn("name", duplicate_form.errors)
+
+    def test_cannot_modify_another_institute_session(self):
+        response = self.client.post(
+            reverse("institute_admin:academic_session_settings"),
+            {
+                "action": "toggle_active",
+                "session_id": self.other_session.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.other_session.refresh_from_db()
+        self.assertTrue(self.other_session.is_active)
+
+    def test_set_current_updates_selected_session(self):
+        response = self.client.post(
+            reverse("institute_admin:academic_session_settings"),
+            {
+                "action": "set_current",
+                "session_id": self.session.pk,
+            },
+        )
+
+        self.assertRedirects(response, reverse("institute_admin:academic_session_settings"))
+        self.assertEqual(self.client.session["academic_year_id"], self.session.pk)
+
+    def test_linked_session_is_not_deleted(self):
+        Course.objects.create(
+            institute=self.institute,
+            academic_year=self.session,
+            name="Protected Course",
+        )
+
+        response = self.client.post(
+            reverse("institute_admin:academic_session_settings"),
+            {
+                "action": "delete",
+                "session_id": self.session.pk,
+            },
+            follow=True,
+        )
+
+        self.assertTrue(AcademicYear.objects.filter(pk=self.session.pk).exists())
+        self.assertContains(response, "cannot be deleted")
 
 
 class InstituteProfileTests(TestCase):

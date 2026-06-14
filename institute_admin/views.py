@@ -59,6 +59,7 @@ from teacher.forms import ExamQuestionForm, ExamQuestionOptionFormSet, TeacherEx
 
 from .forms import (
     AddStudentFeeForm,
+    AcademicYearForm,
     BatchForm,
     build_student_username,
     CourseForm,
@@ -100,8 +101,49 @@ from .background_jobs import enqueue_background_job
 from .lookup_cache import (
     get_cached_batch_course_data,
     get_cached_course_batch_data,
+    invalidate_academic_years_cache,
 )
 from .models import AcademicYear, BackgroundJob, Batch, Course, Lead, Notice, Subject, SupportTicket, Visitor
+
+
+def sync_students_to_academic_session(institute, academic_year):
+    with transaction.atomic():
+        locked_year = AcademicYear.objects.select_for_update().get(
+            pk=academic_year.pk,
+            institute=institute,
+        )
+        students = list(
+            StudentProfile.objects.filter(
+                institute=institute,
+                is_active=True,
+            )
+            .exclude(academic_sessions__academic_year=locked_year)
+            .order_by("pk")
+        )
+        if not students:
+            return 0
+
+        prefix = get_student_admission_prefix(institute, locked_year)
+        sequence = get_last_student_admission_sequence(institute, locked_year)
+        sessions = []
+        for student in students:
+            sequence += 1
+            sessions.append(
+                StudentAcademicSession(
+                    institute=institute,
+                    student=student,
+                    academic_year=locked_year,
+                    admission_number=f"{prefix}{sequence:04d}",
+                    joined_on=timezone.localdate(),
+                    status=StudentAcademicSession.Status.ACTIVE,
+                    current_school_name=student.current_school_name,
+                    current_school_address=student.current_school_address,
+                    previous_school_name=student.previous_school_name,
+                    previous_class=student.previous_class,
+                )
+            )
+        StudentAcademicSession.objects.bulk_create(sessions, batch_size=500)
+        return len(sessions)
 
 
 def close_popup_response(receipt_url=None):
@@ -247,6 +289,111 @@ def institute_profile(request):
         "institute_admin/institute_profile.html",
         {
             "form": form,
+            "institute": institute,
+        },
+    )
+
+
+@institute_admin_required
+def academic_session_settings(request):
+    institute = get_current_institute(request)
+    edit_id = request.GET.get("edit", "").strip()
+    editing_session = None
+    if edit_id:
+        editing_session = get_object_or_404(AcademicYear, pk=edit_id, institute=institute)
+
+    form = AcademicYearForm(instance=editing_session, institute=institute)
+    if request.method == "POST":
+        action = request.POST.get("action", "save")
+        session_id = request.POST.get("session_id", "").strip()
+
+        if action == "save":
+            instance = None
+            if session_id:
+                instance = get_object_or_404(AcademicYear, pk=session_id, institute=institute)
+            form = AcademicYearForm(request.POST, instance=instance, institute=institute)
+            if form.is_valid():
+                academic_session = form.save(commit=False)
+                academic_session.institute = institute
+                academic_session.save()
+                synced_count = sync_students_to_academic_session(institute, academic_session)
+                invalidate_academic_years_cache(institute.pk)
+                messages.success(
+                    request,
+                    f"Academic session {academic_session.name} "
+                    f"{'updated' if instance else 'created'} successfully. "
+                    f"{synced_count} active student session(s) synced for mobile access.",
+                )
+                return redirect("institute_admin:academic_session_settings")
+            editing_session = instance
+
+        elif action == "sync_students":
+            academic_session = get_object_or_404(AcademicYear, pk=session_id, institute=institute)
+            synced_count = sync_students_to_academic_session(institute, academic_session)
+            if synced_count:
+                messages.success(
+                    request,
+                    f"{synced_count} active student session(s) added to {academic_session.name}.",
+                )
+            else:
+                messages.info(
+                    request,
+                    f"All active students are already synced with {academic_session.name}.",
+                )
+            return redirect("institute_admin:academic_session_settings")
+
+        elif action == "set_current":
+            academic_session = get_object_or_404(AcademicYear, pk=session_id, institute=institute)
+            request.session["academic_year_id"] = academic_session.pk
+            request._selected_academic_year = academic_session
+            request._academic_year_context = None
+            messages.success(request, f"{academic_session.name} is now your current session.")
+            return redirect("institute_admin:academic_session_settings")
+
+        elif action == "toggle_active":
+            academic_session = get_object_or_404(AcademicYear, pk=session_id, institute=institute)
+            academic_session.is_active = not academic_session.is_active
+            academic_session.save(update_fields=["is_active"])
+            messages.success(
+                request,
+                f"{academic_session.name} marked "
+                f"{'active' if academic_session.is_active else 'inactive'}.",
+            )
+            return redirect("institute_admin:academic_session_settings")
+
+        elif action == "delete":
+            academic_session = get_object_or_404(AcademicYear, pk=session_id, institute=institute)
+            session_name = academic_session.name
+            try:
+                academic_session.delete()
+            except ProtectedError:
+                messages.error(
+                    request,
+                    f"{session_name} cannot be deleted because academic records are linked to it. "
+                    "Mark it inactive instead.",
+                )
+            else:
+                if str(request.session.get("academic_year_id", "")) == str(session_id):
+                    request.session.pop("academic_year_id", None)
+                messages.success(request, f"Academic session {session_name} deleted.")
+            return redirect("institute_admin:academic_session_settings")
+
+        else:
+            messages.error(request, "Invalid academic session action.")
+            return redirect("institute_admin:academic_session_settings")
+
+    academic_sessions = AcademicYear.objects.filter(institute=institute).annotate(
+        course_count=Count("courses", distinct=True),
+        batch_count=Count("batches", distinct=True),
+        student_count=Count("student_sessions", distinct=True),
+    )
+    return render(
+        request,
+        "institute_admin/academic_session_settings.html",
+        {
+            "form": form,
+            "editing_session": editing_session,
+            "academic_sessions": academic_sessions,
             "institute": institute,
         },
     )

@@ -1,3 +1,7 @@
+import logging
+from datetime import timedelta
+
+from django.conf import settings
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
@@ -5,8 +9,11 @@ from django.utils import timezone
 from .models import BackgroundJob
 
 
+logger = logging.getLogger(__name__)
+
+
 def enqueue_background_job(job_type, *, institute=None, academic_year=None, created_by=None, payload=None, input_file=None):
-    return BackgroundJob.objects.create(
+    job = BackgroundJob.objects.create(
         job_type=job_type,
         institute=institute,
         academic_year=academic_year,
@@ -14,6 +21,48 @@ def enqueue_background_job(job_type, *, institute=None, academic_year=None, crea
         payload=payload or {},
         input_file=input_file,
     )
+    transaction.on_commit(lambda job_id=job.pk: dispatch_background_job(job_id))
+    return job
+
+
+def dispatch_background_job(job_id):
+    from .tasks import process_background_job
+
+    try:
+        process_background_job.delay(job_id)
+    except Exception:
+        # The durable database record remains pending and can be recovered once
+        # Redis is available or by the run_background_jobs fallback command.
+        logger.exception("Could not dispatch background job %s to Celery.", job_id)
+        return False
+    return True
+
+
+def claim_background_job(job_id):
+    with transaction.atomic():
+        job = (
+            BackgroundJob.objects.select_for_update()
+            .filter(pk=job_id, status=BackgroundJob.Status.PENDING)
+            .first()
+        )
+        if not job:
+            return None
+        job.status = BackgroundJob.Status.RUNNING
+        job.started_at = timezone.now()
+        job.completed_at = None
+        job.error_message = ""
+        job.attempts = F("attempts") + 1
+        job.save(
+            update_fields=[
+                "status",
+                "started_at",
+                "completed_at",
+                "error_message",
+                "attempts",
+            ]
+        )
+        job.refresh_from_db()
+        return job
 
 
 def claim_next_background_job():
@@ -28,8 +77,18 @@ def claim_next_background_job():
             return None
         job.status = BackgroundJob.Status.RUNNING
         job.started_at = timezone.now()
+        job.completed_at = None
+        job.error_message = ""
         job.attempts = F("attempts") + 1
-        job.save(update_fields=["status", "started_at", "attempts"])
+        job.save(
+            update_fields=[
+                "status",
+                "started_at",
+                "completed_at",
+                "error_message",
+                "attempts",
+            ]
+        )
         job.refresh_from_db()
         return job
 
@@ -44,8 +103,8 @@ def execute_background_job(job):
             "invoice__student",
             "invoice__student__user",
         ).get(pk=job.payload["payment_id"])
-        records = notify_fee_paid(payment)
-        return {"notification_count": len(records)}
+        notification = notify_fee_paid(payment)
+        return {"notification_count": 1 if notification else 0}
 
     if job.job_type == BackgroundJob.JobType.NOTICE_NOTIFICATION:
         from student_parent.notifications import notify_notice_published
@@ -62,6 +121,45 @@ def execute_background_job(job):
     raise ValueError(f"Unsupported background job type: {job.job_type}")
 
 
+def mark_job_completed(job, result):
+    job.status = BackgroundJob.Status.COMPLETED
+    job.result = result or {}
+    job.error_message = ""
+    job.completed_at = timezone.now()
+    job.save(update_fields=["status", "result", "error_message", "completed_at"])
+
+
+def mark_job_failed(job, error):
+    job.status = BackgroundJob.Status.FAILED
+    job.error_message = str(error)
+    job.completed_at = timezone.now()
+    job.save(update_fields=["status", "error_message", "completed_at"])
+
+
+def mark_job_pending_for_retry(job, error):
+    job.status = BackgroundJob.Status.PENDING
+    job.error_message = str(error)
+    job.started_at = None
+    job.completed_at = None
+    job.save(
+        update_fields=["status", "error_message", "started_at", "completed_at"]
+    )
+
+
+def run_background_job(job_id, *, mark_failure=True):
+    job = claim_background_job(job_id)
+    if not job:
+        return None
+    try:
+        result = execute_background_job(job)
+    except Exception as exc:
+        if mark_failure:
+            mark_job_failed(job, exc)
+        raise
+    mark_job_completed(job, result)
+    return job
+
+
 def run_next_background_job():
     job = claim_next_background_job()
     if not job:
@@ -69,14 +167,51 @@ def run_next_background_job():
     try:
         result = execute_background_job(job)
     except Exception as exc:
-        job.status = BackgroundJob.Status.FAILED
-        job.error_message = str(exc)
-        job.completed_at = timezone.now()
-        job.save(update_fields=["status", "error_message", "completed_at"])
+        mark_job_failed(job, exc)
         raise
-    job.status = BackgroundJob.Status.COMPLETED
-    job.result = result or {}
-    job.error_message = ""
-    job.completed_at = timezone.now()
-    job.save(update_fields=["status", "result", "error_message", "completed_at"])
+    mark_job_completed(job, result)
     return job
+
+
+def recover_stale_background_jobs(*, dispatch=True):
+    stale_before = timezone.now() - timedelta(
+        minutes=int(getattr(settings, "BACKGROUND_JOB_STALE_MINUTES", 30))
+    )
+    stale_jobs = list(
+        BackgroundJob.objects.filter(
+            status=BackgroundJob.Status.RUNNING,
+            started_at__lt=stale_before,
+        ).values_list("pk", flat=True)
+    )
+    if not stale_jobs:
+        return []
+
+    BackgroundJob.objects.filter(pk__in=stale_jobs).update(
+        status=BackgroundJob.Status.PENDING,
+        started_at=None,
+        completed_at=None,
+        error_message="Recovered after the previous worker stopped responding.",
+    )
+    if dispatch:
+        for job_id in stale_jobs:
+            dispatch_background_job(job_id)
+    return stale_jobs
+
+
+def redispatch_pending_background_jobs():
+    pending_before = timezone.now() - timedelta(
+        minutes=int(
+            getattr(settings, "BACKGROUND_JOB_PENDING_REDISPATCH_MINUTES", 5)
+        )
+    )
+    pending_ids = list(
+        BackgroundJob.objects.filter(
+            status=BackgroundJob.Status.PENDING,
+            created_at__lt=pending_before,
+        )
+        .order_by("created_at")
+        .values_list("pk", flat=True)
+    )
+    for job_id in pending_ids:
+        dispatch_background_job(job_id)
+    return pending_ids

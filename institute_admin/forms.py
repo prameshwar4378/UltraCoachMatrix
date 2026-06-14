@@ -210,6 +210,68 @@ class InstituteProfileForm(forms.ModelForm):
         return self.cleaned_data["address"].strip()
 
 
+class AcademicYearForm(forms.ModelForm):
+    class Meta:
+        model = AcademicYear
+        fields = ("name", "start_date", "end_date", "is_active")
+        widgets = {
+            "start_date": forms.DateInput(attrs={"type": "date"}),
+            "end_date": forms.DateInput(attrs={"type": "date"}),
+        }
+        labels = {
+            "name": "Session name",
+            "is_active": "Active session",
+        }
+
+    def __init__(self, *args, institute=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.institute = institute
+        self.fields["name"].widget.attrs.update(
+            {
+                "class": "form-control",
+                "placeholder": "Example: 2026-27",
+                "autocomplete": "off",
+            }
+        )
+        for field_name in ("start_date", "end_date"):
+            self.fields[field_name].widget.attrs["class"] = "form-control"
+        self.fields["is_active"].widget.attrs["class"] = "form-check-input"
+
+    def clean_name(self):
+        name = self.cleaned_data["name"].strip()
+        queryset = AcademicYear.objects.filter(institute=self.institute, name__iexact=name)
+        if self.instance.pk:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise ValidationError("A session with this name already exists for your institute.")
+        return name
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get("start_date")
+        end_date = cleaned_data.get("end_date")
+        if not start_date or not end_date:
+            return cleaned_data
+
+        if end_date <= start_date:
+            self.add_error("end_date", "End date must be after the start date.")
+            return cleaned_data
+
+        overlapping = AcademicYear.objects.filter(
+            institute=self.institute,
+            start_date__lte=end_date,
+            end_date__gte=start_date,
+        )
+        if self.instance.pk:
+            overlapping = overlapping.exclude(pk=self.instance.pk)
+        if overlapping.exists():
+            self.add_error(
+                "start_date",
+                "These dates overlap another academic session for your institute.",
+            )
+        return cleaned_data
+
+
 def get_academic_year_label(today=None):
     today = today or timezone.localdate()
     start_year = today.year if today.month >= 4 else today.year - 1

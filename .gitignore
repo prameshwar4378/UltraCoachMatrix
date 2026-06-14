@@ -1,6 +1,10 @@
-firebase-service-account.json
+firebase-service-account*.json
+*service-account*.json
+**/*service-account*.json
 *.pem
 *.key
+.env.*
+!.env.example
 .env
 db.sqlite3
 __pycache__/

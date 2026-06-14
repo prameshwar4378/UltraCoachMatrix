@@ -8,6 +8,11 @@ urlpatterns = [
     path("", views.dashboard, name="dashboard"),
     path("software-tour/", views.software_tour, name="software_tour"),
     path(
+        "settings/academic-sessions/",
+        views.academic_session_settings,
+        name="academic_session_settings",
+    ),
+    path(
         "billing/payments/<int:pk>/bill/",
         views.subscription_payment_bill,
         name="subscription_payment_bill",
