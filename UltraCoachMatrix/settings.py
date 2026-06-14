@@ -240,3 +240,11 @@ BACKGROUND_JOB_STALE_MINUTES = int(os.environ.get("BACKGROUND_JOB_STALE_MINUTES"
 BACKGROUND_JOB_PENDING_REDISPATCH_MINUTES = int(
     os.environ.get("BACKGROUND_JOB_PENDING_REDISPATCH_MINUTES", "5")
 )
+BACKGROUND_JOB_SYNC_FEE_FALLBACK = os.environ.get(
+    "BACKGROUND_JOB_SYNC_FEE_FALLBACK",
+    "true",
+).lower() in {"1", "true", "yes"}
+BACKGROUND_JOB_SYNC_NOTICE_FALLBACK = os.environ.get(
+    "BACKGROUND_JOB_SYNC_NOTICE_FALLBACK",
+    "false",
+).lower() in {"1", "true", "yes"}

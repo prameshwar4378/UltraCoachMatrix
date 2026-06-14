@@ -39,6 +39,8 @@ BACKGROUND_JOB_RETRY_DELAY=30
 BACKGROUND_JOB_STALE_MINUTES=30
 BACKGROUND_JOB_PENDING_REDISPATCH_MINUTES=5
 BACKGROUND_JOB_RECOVERY_INTERVAL=300
+BACKGROUND_JOB_SYNC_FEE_FALLBACK=true
+BACKGROUND_JOB_SYNC_NOTICE_FALLBACK=false
 ```
 
 Retry delays use exponential backoff. A job left in `RUNNING` after a worker
@@ -53,3 +55,13 @@ the worker or by the fallback command:
 ```powershell
 python manage.py run_background_jobs
 ```
+
+Fee notifications have an additional safe fallback. When Celery dispatch
+fails, the single-student notification is processed synchronously so receiving
+a payment can still notify the student on hosts without a continuously running
+worker.
+
+On a temporary deployment without a worker, set
+`BACKGROUND_JOB_SYNC_NOTICE_FALLBACK=true` to send notices synchronously too.
+This can make the notice request slower for large institutes, so disable it
+after Redis and Celery are running.

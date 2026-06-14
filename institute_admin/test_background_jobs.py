@@ -26,7 +26,8 @@ class CeleryBackgroundJobTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, BackgroundJob.Status.PENDING)
 
-    def test_broker_failure_keeps_job_pending(self):
+    @override_settings(BACKGROUND_JOB_SYNC_NOTICE_FALLBACK=False)
+    def test_broker_failure_keeps_notice_pending_when_fallback_is_disabled(self):
         job = BackgroundJob.objects.create(
             job_type=BackgroundJob.JobType.NOTICE_NOTIFICATION
         )
@@ -40,6 +41,45 @@ class CeleryBackgroundJobTests(TestCase):
         self.assertFalse(dispatched)
         job.refresh_from_db()
         self.assertEqual(job.status, BackgroundJob.Status.PENDING)
+
+    def test_broker_failure_processes_fee_notification_synchronously(self):
+        job = BackgroundJob.objects.create(
+            job_type=BackgroundJob.JobType.FEE_NOTIFICATION
+        )
+
+        with (
+            patch(
+                "institute_admin.tasks.process_background_job.delay",
+                side_effect=ConnectionError("Redis unavailable"),
+            ),
+            patch(
+                "institute_admin.background_jobs.run_background_job"
+            ) as run_job,
+        ):
+            dispatched = dispatch_background_job(job.pk)
+
+        self.assertTrue(dispatched)
+        run_job.assert_called_once_with(job.pk)
+
+    @override_settings(BACKGROUND_JOB_SYNC_NOTICE_FALLBACK=True)
+    def test_broker_failure_processes_notice_notification_synchronously(self):
+        job = BackgroundJob.objects.create(
+            job_type=BackgroundJob.JobType.NOTICE_NOTIFICATION
+        )
+
+        with (
+            patch(
+                "institute_admin.tasks.process_background_job.delay",
+                side_effect=ConnectionError("Redis unavailable"),
+            ),
+            patch(
+                "institute_admin.background_jobs.run_background_job"
+            ) as run_job,
+        ):
+            dispatched = dispatch_background_job(job.pk)
+
+        self.assertTrue(dispatched)
+        run_job.assert_called_once_with(job.pk)
 
     def test_run_background_job_updates_durable_status(self):
         job = BackgroundJob.objects.create(

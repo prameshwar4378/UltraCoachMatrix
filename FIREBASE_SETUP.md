@@ -38,3 +38,38 @@ otherwise exposed:
 
 Removing the local JSON file does not revoke the key. Revocation must happen in
 Google Cloud.
+
+## PythonAnywhere
+
+Uploading the JSON file is not enough. The web application must receive its
+absolute path when the WSGI process starts.
+
+1. Store the replacement credential outside the repository, for example:
+
+   ```text
+   /home/<pythonanywhere-username>/.secrets/firebase-service-account.json
+   ```
+
+2. In the PythonAnywhere Web tab, open the WSGI configuration file and add this
+   before the Django application is imported:
+
+   ```python
+   import os
+
+   os.environ["FIREBASE_CREDENTIALS_FILE"] = (
+       "/home/<pythonanywhere-username>/.secrets/firebase-service-account.json"
+   )
+   os.environ["BACKGROUND_JOB_SYNC_FEE_FALLBACK"] = "true"
+   os.environ["BACKGROUND_JOB_SYNC_NOTICE_FALLBACK"] = "true"
+   ```
+
+3. Reload the web application from the Web tab.
+4. Open a Bash console in the deployed project directory and verify:
+
+   ```bash
+   python manage.py check_push_notifications
+   python manage.py check_push_notifications --send-test STUDENT_USERNAME
+   ```
+
+The first command must report `Ready: True`. The second command must report
+`Notification status: SENT`.

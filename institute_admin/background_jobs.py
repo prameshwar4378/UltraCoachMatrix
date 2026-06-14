@@ -34,6 +34,25 @@ def dispatch_background_job(job_id):
         # The durable database record remains pending and can be recovered once
         # Redis is available or by the run_background_jobs fallback command.
         logger.exception("Could not dispatch background job %s to Celery.", job_id)
+        job = BackgroundJob.objects.filter(pk=job_id).only("job_type").first()
+        sync_fallback_types = set()
+        if getattr(settings, "BACKGROUND_JOB_SYNC_FEE_FALLBACK", True):
+            sync_fallback_types.add(BackgroundJob.JobType.FEE_NOTIFICATION)
+        if getattr(settings, "BACKGROUND_JOB_SYNC_NOTICE_FALLBACK", False):
+            sync_fallback_types.add(BackgroundJob.JobType.NOTICE_NOTIFICATION)
+        if (
+            job
+            and job.job_type in sync_fallback_types
+        ):
+            try:
+                run_background_job(job_id)
+            except Exception:
+                logger.exception(
+                    "Could not process notification job %s synchronously.",
+                    job_id,
+                )
+                return False
+            return True
         return False
     return True
 
