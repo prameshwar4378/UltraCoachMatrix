@@ -10,6 +10,7 @@ from .background_jobs import (
     run_background_job,
 )
 from .models import BackgroundJob
+from UltraCoachMatrix.email_notifications import send_all_scheduled_reminders
 
 
 @shared_task(
@@ -55,3 +56,11 @@ def recover_stale_background_jobs_task():
         "recovered_job_ids": recovered_ids,
         "redispatched_job_ids": pending_ids,
     }
+
+
+@shared_task(
+    name="institute_admin.send_scheduled_email_reminders",
+    ignore_result=True,
+)
+def send_scheduled_email_reminders_task():
+    return send_all_scheduled_reminders()

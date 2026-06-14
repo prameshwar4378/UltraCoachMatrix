@@ -3,6 +3,7 @@ from django.db import transaction
 from teacher.models import Attendance
 
 from .dashboard_cache import invalidate_dashboard_summary
+from UltraCoachMatrix.email_notifications import on_commit_email, send_attendance_alerts
 
 
 def bulk_save_attendance(
@@ -44,6 +45,7 @@ def bulk_save_attendance(
     }
     to_create = []
     to_update = []
+    alert_records = []
 
     for student_id, session in sessions.items():
         status = form_data.get(f"status_{student_id}", Attendance.Status.PRESENT)
@@ -52,23 +54,27 @@ def bulk_save_attendance(
         note = form_data.get(f"note_{student_id}", "").strip()
         record = existing_records.get(session.pk)
         if record:
+            previous_status = record.status
             record.student_id = student_id
             record.status = status
             record.note = note
             record.marked_by = marked_by
             to_update.append(record)
+            if status in {Attendance.Status.ABSENT, Attendance.Status.LATE} and status != previous_status:
+                alert_records.append(record)
         else:
-            to_create.append(
-                Attendance(
-                    student_id=student_id,
-                    academic_session_id=session.pk,
-                    batch=batch,
-                    date=attendance_date,
-                    status=status,
-                    note=note,
-                    marked_by=marked_by,
-                )
+            record = Attendance(
+                student_id=student_id,
+                academic_session_id=session.pk,
+                batch=batch,
+                date=attendance_date,
+                status=status,
+                note=note,
+                marked_by=marked_by,
             )
+            to_create.append(record)
+            if status in {Attendance.Status.ABSENT, Attendance.Status.LATE}:
+                alert_records.append(record)
 
     with transaction.atomic():
         if to_create:
@@ -79,6 +85,9 @@ def bulk_save_attendance(
                 ["student", "status", "note", "marked_by"],
                 batch_size=500,
             )
+        alert_ids = [record.pk for record in alert_records if record.pk]
+        if alert_ids:
+            on_commit_email(send_attendance_alerts, alert_ids)
 
     sample_session = next(iter(sessions.values()))
     invalidate_dashboard_summary(

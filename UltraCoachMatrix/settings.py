@@ -11,10 +11,15 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
+
+from dotenv import load_dotenv
+from . import checks  # noqa: F401
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -203,6 +208,38 @@ FIREBASE_CREDENTIALS_FILE = os.environ.get(
 FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "")
 PUSH_NOTIFICATIONS_ENABLED = os.environ.get("PUSH_NOTIFICATIONS_ENABLED", "true").lower() in {"1", "true", "yes"}
 
+# Email
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() in {"1", "true", "yes"}
+EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "false").lower() in {"1", "true", "yes"}
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DEFAULT_FROM_EMAIL",
+    EMAIL_HOST_USER or "UltraCoachMatrix <no-reply@ultracoachmatrix.local>",
+)
+EMAIL_REPLY_TO = os.environ.get("EMAIL_REPLY_TO", EMAIL_HOST_USER)
+EMAIL_BASE_URL = os.environ.get(
+    "EMAIL_BASE_URL",
+    "https://ultracoachmatrix.pythonanywhere.com",
+)
+EMAIL_NOTIFICATIONS_RUN_SYNC = os.environ.get(
+    "EMAIL_NOTIFICATIONS_RUN_SYNC",
+    "false",
+).lower() in {"1", "true", "yes"}
+if "test" in sys.argv:
+    EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    EMAIL_NOTIFICATIONS_RUN_SYNC = True
+FEE_REMINDER_DAYS_BEFORE = [3, 1]
+FEE_OVERDUE_REMINDER_DAYS = [1, 7, 15, 30]
+SUBSCRIPTION_RENEWAL_REMINDER_DAYS = [30]
+SUBSCRIPTION_EXPIRY_REMINDER_DAYS = [7, 3, 1, 0]
+
 # Background jobs
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://127.0.0.1:6379/1")
@@ -231,6 +268,10 @@ CELERY_BEAT_SCHEDULE = {
     "recover-stale-background-jobs": {
         "task": "institute_admin.recover_stale_background_jobs",
         "schedule": float(os.environ.get("BACKGROUND_JOB_RECOVERY_INTERVAL", "300")),
+    },
+    "send-scheduled-email-reminders": {
+        "task": "institute_admin.send_scheduled_email_reminders",
+        "schedule": float(os.environ.get("EMAIL_REMINDER_INTERVAL", "86400")),
     },
 }
 

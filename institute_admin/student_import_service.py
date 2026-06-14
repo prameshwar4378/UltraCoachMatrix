@@ -7,6 +7,7 @@ from student_parent.models import GuardianProfile, StudentAcademicSession, Stude
 from super_admin.models import UserProfile
 
 from .models import AcademicYear
+from UltraCoachMatrix.email_notifications import on_commit_email, send_bulk_student_welcomes
 
 
 def process_student_import_job(job):
@@ -168,5 +169,13 @@ def process_student_import_job(job):
         ]
         if guardians:
             GuardianProfile.objects.bulk_create(guardians, batch_size=500)
+        student_credentials = [
+            (
+                students_by_user_id[users_by_username[row["username"]].pk].pk,
+                row["password"],
+            )
+            for row in rows
+        ]
+        on_commit_email(send_bulk_student_welcomes, student_credentials)
 
     return {"created_count": len(rows)}

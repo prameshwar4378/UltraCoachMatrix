@@ -1,0 +1,20 @@
+{% extends "email_templates/base_email.html" %}
+{% block subject %}Exam published: {{ exam_title }}{% endblock %}
+{% block preheader %}{{ exam_title }} is scheduled for {{ exam_date|date:"d M Y" }}.{% endblock %}
+{% block accent %}linear-gradient(135deg,#49308c,#7357c8){% endblock %}
+{% block heading %}Exam Published{% endblock %}
+{% block subtitle %}Please review the schedule and instructions.{% endblock %}
+{% block content %}
+<p class="greeting">Hello {{ student_name }},</p>
+<p class="copy">{{ institute_name }} has published a new exam for your batch.</p>
+<table role="presentation" class="panel" width="100%">
+  <tr><td class="label">Exam</td><td class="value">{{ exam_title }}</td></tr>
+  <tr><td class="label">Date</td><td class="value">{{ exam_date|date:"d M Y" }}</td></tr>
+  <tr><td class="label">Batch</td><td class="value">{{ batch_name }}</td></tr>
+  {% if subject_name %}<tr><td class="label">Subject</td><td class="value">{{ subject_name }}</td></tr>{% endif %}
+  <tr><td class="label">Duration</td><td class="value">{{ duration_minutes }} minutes</td></tr>
+  <tr><td class="label">Total marks</td><td class="value">{{ total_marks }}</td></tr>
+</table>
+{% if instructions %}<div class="message">{{ instructions|linebreaksbr }}</div>{% endif %}
+{% if exam_url %}<div class="button-wrap"><a class="button" href="{{ exam_url }}">View exam</a></div>{% endif %}
+{% endblock %}

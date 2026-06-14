@@ -1,28 +1,18 @@
-from django.shortcuts import render
+from datetime import datetime
 
-from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.core.mail import EmailMessage
 from django.core.validators import validate_email
 from django.shortcuts import redirect, render
-from django.template.loader import render_to_string
 
-
-# Create your views here.
-def index(request):
-    return render(request, 'index.html')
-
-
-def send_email_in_background(email_message):
-    try:
-        email_message.send()
-    except Exception as e:
-        print(f"Error sending email: {e}")
+from UltraCoachMatrix.email_notifications import queue_template_email
 
 from .models import ContactEnquiry
-import threading
-from datetime import datetime
+
+
+def index(request):
+    return render(request, "index.html")
+
 
 def contact_us(request):
     if request.method == "POST":
@@ -66,7 +56,7 @@ def contact_us(request):
             message=message,
         )
 
-        email_body = render_to_string("Enquiry_Mail.html", {
+        email_context = {
             "enquiry": enquiry,
             "full_name": name,
             "name": name,
@@ -77,17 +67,14 @@ def contact_us(request):
             "institution_size": enquiry.get_institution_size_display() if enquiry.institution_size else "N/A",
             "message": message or "No message provided.",
             "submitted_on": datetime.now().strftime("%d %B %Y, %I:%M %p"),
-        })
-
-        email_message = EmailMessage(
+        }
+        queue_template_email(
             subject="New UltraCoachMatrix Coaching Software Enquiry",
-            body=email_body,
-            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", settings.EMAIL_HOST_USER),
-            to=["prameshwar4378@gmail.com"],
+            template_name="Enquiry_Mail.html",
+            recipients=["prameshwar4378@gmail.com"],
+            context=email_context,
             reply_to=[email],
         )
-        email_message.content_subtype = "html"
-        threading.Thread(target=send_email_in_background, args=(email_message,)).start()
 
         messages.success(request, "Thank you. Your enquiry has been submitted successfully.")
         return redirect("web_contact_us")

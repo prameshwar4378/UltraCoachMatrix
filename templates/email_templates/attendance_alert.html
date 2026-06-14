@@ -1,0 +1,19 @@
+{% extends "email_templates/base_email.html" %}
+{% block subject %}Attendance alert for {{ student_name }}{% endblock %}
+{% block preheader %}{{ student_name }} was marked {{ attendance_status|lower }} on {{ attendance_date|date:"d M Y" }}.{% endblock %}
+{% block accent %}{% if attendance_status == "ABSENT" %}linear-gradient(135deg,#8f1d2c,#d83c50){% else %}linear-gradient(135deg,#9a5a00,#e39a18){% endif %}{% endblock %}
+{% block heading %}{% if attendance_status == "ABSENT" %}Absence Alert{% else %}Late Attendance Alert{% endif %}{% endblock %}
+{% block subtitle %}An attendance update from {{ institute_name }}.{% endblock %}
+{% block content %}
+<p class="greeting">Hello {{ recipient_name }},</p>
+<p class="copy">{{ student_name }} was marked <strong>{{ attendance_status_display|default:attendance_status }}</strong> for the class shown below.</p>
+<table role="presentation" class="panel" width="100%">
+  <tr><td class="label">Student</td><td class="value">{{ student_name }}</td></tr>
+  <tr><td class="label">Date</td><td class="value">{{ attendance_date|date:"d M Y" }}</td></tr>
+  <tr><td class="label">Batch</td><td class="value">{{ batch_name }}</td></tr>
+  <tr><td class="label">Status</td><td class="value">{{ attendance_status_display|default:attendance_status }}</td></tr>
+  {% if attendance_note %}<tr><td class="label">Note</td><td class="value">{{ attendance_note }}</td></tr>{% endif %}
+</table>
+<div class="alert">Please contact the institute if this attendance record needs clarification or correction.</div>
+{% if attendance_url %}<div class="button-wrap"><a class="button" href="{{ attendance_url }}">View attendance</a></div>{% endif %}
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "email_templates/base_email.html" %}
+{% block subject %}Subscription expiry reminder for {{ institute_name }}{% endblock %}
+{% block preheader %}Your subscription expires on {{ expiry_date|date:"d M Y" }}.{% endblock %}
+{% block accent %}linear-gradient(135deg,#8f1d2c,#d83c50){% endblock %}
+{% block heading %}Subscription Expiring Soon{% endblock %}
+{% block subtitle %}Renew now to avoid disruption to institute access.{% endblock %}
+{% block content %}
+<p class="greeting">Hello {{ owner_name }},</p>
+<p class="copy">The {{ plan_name }} subscription for {{ institute_name }} is nearing its expiry date.</p>
+<table role="presentation" class="panel" width="100%">
+  <tr><td class="label">Plan</td><td class="value">{{ plan_name }}</td></tr>
+  <tr><td class="label">Expiry date</td><td class="value">{{ expiry_date|date:"d M Y" }}</td></tr>
+  {% if days_remaining %}<tr><td class="label">Time remaining</td><td class="value">{{ days_remaining }} day{{ days_remaining|pluralize }}</td></tr>{% endif %}
+</table>
+<div class="alert">Access may be restricted after expiry. Renew before the date above to avoid interruption for administrators, teachers, and students.</div>
+{% if renewal_url %}<div class="button-wrap"><a class="button" href="{{ renewal_url }}">Renew subscription</a></div>{% endif %}
+{% endblock %}

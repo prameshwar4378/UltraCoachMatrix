@@ -1,0 +1,18 @@
+{% extends "email_templates/base_email.html" %}
+{% block subject %}Result published: {{ exam_title }}{% endblock %}
+{% block preheader %}Your result for {{ exam_title }} is now available.{% endblock %}
+{% block accent %}linear-gradient(135deg,#155e40,#24a36a){% endblock %}
+{% block heading %}Exam Result Published{% endblock %}
+{% block subtitle %}Your result is now available to view.{% endblock %}
+{% block content %}
+<p class="greeting">Hello {{ student_name }},</p>
+<p class="copy">{{ institute_name }} has published your result for {{ exam_title }}.</p>
+<table role="presentation" class="panel" width="100%">
+  <tr><td class="label">Exam</td><td class="value">{{ exam_title }}</td></tr>
+  <tr><td class="label">Marks obtained</td><td class="value">{{ marks_obtained }} / {{ total_marks }}</td></tr>
+  {% if percentage %}<tr><td class="label">Percentage</td><td class="value">{{ percentage|floatformat:2 }}%</td></tr>{% endif %}
+  {% if rank %}<tr><td class="label">Rank</td><td class="value">{{ rank }}</td></tr>{% endif %}
+  {% if remark %}<tr><td class="label">Remark</td><td class="value">{{ remark }}</td></tr>{% endif %}
+</table>
+{% if result_url %}<div class="button-wrap"><a class="button" href="{{ result_url }}">View full result</a></div>{% endif %}
+{% endblock %}

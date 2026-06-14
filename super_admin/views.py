@@ -25,6 +25,7 @@ from .role_redirects import role_redirect_url
 from .subscription_access import institute_access_status
 from .subscription_warning import SESSION_KEY, subscription_expiry_warning
 from student_parent.models import StudentAcademicSession
+from UltraCoachMatrix.email_notifications import on_commit_email, send_institute_welcome
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -130,6 +131,11 @@ def signup(request):
         form = InstituteSignupForm(request.POST)
         if form.is_valid():
             user = form.save()
+            on_commit_email(
+                send_institute_welcome,
+                user.pk,
+                form.cleaned_data["password1"],
+            )
             login(request, user)
             return redirect(role_redirect_url(user))
     else:

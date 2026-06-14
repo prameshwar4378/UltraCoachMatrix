@@ -3,6 +3,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import Group, User
 from django.db.models import Q
 from django.utils import timezone
+from UltraCoachMatrix.email_notifications import on_commit_email, send_support_ticket_response
 
 from institute_admin.models import SupportTicket
 
@@ -246,6 +247,9 @@ class SupportTicketAdmin(admin.ModelAdmin):
     )
 
     def save_model(self, request, obj, form, change):
-        if obj.admin_response and "admin_response" in form.changed_data:
+        response_changed = obj.admin_response and "admin_response" in form.changed_data
+        if response_changed:
             obj.responded_at = timezone.now()
         super().save_model(request, obj, form, change)
+        if response_changed:
+            on_commit_email(send_support_ticket_response, obj.pk)

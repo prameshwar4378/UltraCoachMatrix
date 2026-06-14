@@ -1,0 +1,17 @@
+{% extends "email_templates/base_email.html" %}
+{% block subject %}Renewal reminder for {{ institute_name }}{% endblock %}
+{% block preheader %}Your UltraCoachMatrix subscription expires on {{ expiry_date|date:"d M Y" }}.{% endblock %}
+{% block accent %}linear-gradient(135deg,#5b2d90,#8b55c7){% endblock %}
+{% block heading %}Subscription Renewal Reminder{% endblock %}
+{% block subtitle %}Keep your institute services running without interruption.{% endblock %}
+{% block content %}
+<p class="greeting">Hello {{ owner_name }},</p>
+<p class="copy">The UltraCoachMatrix subscription for {{ institute_name }} is approaching renewal. Renew before the expiry date to maintain uninterrupted access.</p>
+<table role="presentation" class="panel" width="100%">
+  <tr><td class="label">Current plan</td><td class="value">{{ plan_name }}</td></tr>
+  <tr><td class="label">Expiry date</td><td class="value">{{ expiry_date|date:"d M Y" }}</td></tr>
+  {% if days_remaining %}<tr><td class="label">Time remaining</td><td class="value">{{ days_remaining }} day{{ days_remaining|pluralize }}</td></tr>{% endif %}
+  {% if renewal_amount %}<tr><td class="label">Renewal amount</td><td class="value">₹{{ renewal_amount|floatformat:2 }}</td></tr>{% endif %}
+</table>
+{% if renewal_url %}<div class="button-wrap"><a class="button" href="{{ renewal_url }}">Review renewal</a></div>{% endif %}
+{% endblock %}

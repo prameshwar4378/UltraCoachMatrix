@@ -1,0 +1,19 @@
+{% extends "email_templates/base_email.html" %}
+{% block subject %}Support request received - Ticket #{{ ticket_id }}{% endblock %}
+{% block preheader %}We received your support request and will review it shortly.{% endblock %}
+{% block accent %}linear-gradient(135deg,#0f6170,#1697aa){% endblock %}
+{% block heading %}Support Request Received{% endblock %}
+{% block subtitle %}Your request has been added to our support queue.{% endblock %}
+{% block content %}
+<p class="greeting">Hello {{ requester_name }},</p>
+<p class="copy">We have received your support request from {{ institute_name }}. Keep the ticket number below for future reference.</p>
+<table role="presentation" class="panel" width="100%">
+  <tr><td class="label">Ticket number</td><td class="value">#{{ ticket_id }}</td></tr>
+  <tr><td class="label">Subject</td><td class="value">{{ ticket_subject }}</td></tr>
+  <tr><td class="label">Category</td><td class="value">{{ ticket_category }}</td></tr>
+  <tr><td class="label">Priority</td><td class="value">{{ ticket_priority }}</td></tr>
+  <tr><td class="label">Status</td><td class="value">{{ ticket_status|default:"New" }}</td></tr>
+</table>
+<div class="message">{{ ticket_message|linebreaksbr }}</div>
+{% if ticket_url %}<div class="button-wrap"><a class="button" href="{{ ticket_url }}">View support ticket</a></div>{% endif %}
+{% endblock %}

@@ -104,6 +104,20 @@ from .lookup_cache import (
     invalidate_academic_years_cache,
 )
 from .models import AcademicYear, BackgroundJob, Batch, Course, Lead, Notice, Subject, SupportTicket, Visitor
+from UltraCoachMatrix.email_notifications import (
+    on_commit_email,
+    send_admission_confirmation,
+    send_exam_published,
+    send_exam_results_published,
+    send_homework_published,
+    send_institute_welcome,
+    send_notice_published,
+    send_payment_confirmation,
+    send_bulk_student_welcomes,
+    send_student_welcome,
+    send_support_ticket_acknowledgement,
+    send_teacher_welcome,
+)
 
 
 def sync_students_to_academic_session(institute, academic_year):
@@ -543,6 +557,7 @@ def help_support(request):
         ticket.institute = institute
         ticket.created_by = request.user
         ticket.save()
+        on_commit_email(send_support_ticket_acknowledgement, ticket.pk)
         messages.success(
             request,
             f"Support request #{ticket.pk} submitted successfully.",
@@ -929,6 +944,8 @@ def lead_convert(request, pk):
                     "updated_at",
                 ]
             )
+            on_commit_email(send_student_welcome, student.pk, "Student@123")
+            on_commit_email(send_admission_confirmation, enrollment.pk)
     except IntegrityError:
         messages.error(
             request,
@@ -1962,7 +1979,19 @@ def user_create(request):
     if request.method == "POST":
         form = InstituteUserForm(request.POST, institute=institute)
         if form.is_valid():
-            form.save()
+            profile = form.save()
+            if profile.role == UserProfile.Role.TEACHER and hasattr(profile.user, "teacher_profile"):
+                on_commit_email(
+                    send_teacher_welcome,
+                    profile.user.teacher_profile.pk,
+                    form.cleaned_data["password"],
+                )
+            elif profile.role == UserProfile.Role.INSTITUTE_ADMIN:
+                on_commit_email(
+                    send_institute_welcome,
+                    profile.user.pk,
+                    form.cleaned_data["password"],
+                )
             messages.success(request, "User account created successfully.")
             return close_popup_response()
     else:
@@ -3385,6 +3414,14 @@ def student_bulk_import(request):
             if guardians:
                 GuardianProfile.objects.bulk_create(guardians, batch_size=500)
             created_count = len(rows_to_import)
+            student_credentials = [
+                (
+                    students_by_user_id[users_by_username[row["username"]].pk].pk,
+                    row["password"],
+                )
+                for row in rows_to_import
+            ]
+            on_commit_email(send_bulk_student_welcomes, student_credentials)
     except Exception as exc:
         messages.error(request, f"Import failed. No students were created: {exc}")
         return redirect("institute_admin:student_list")
@@ -3744,6 +3781,7 @@ def student_receive_fee(request, pk):
                     )
                     refresh_invoice_status(invoice)
                     transaction.on_commit(lambda payment_id=payment.pk: enqueue_fee_paid_notification(payment_id))
+                    on_commit_email(send_payment_confirmation, payment.pk)
                     messages.success(request, "Fee payment received successfully.")
                     receipt_url = reverse("institute_admin:payment_receipt", args=[payment.pk])
                     return close_popup_response(receipt_url)
@@ -3946,7 +3984,9 @@ def student_create(request):
     if request.method == "POST":
         form = StudentForm(request.POST, request.FILES, institute=institute, academic_year=academic_year)
         if form.is_valid():
-            form.save()
+            student = form.save()
+            temporary_password = form.cleaned_data.get("password") or "Student@123"
+            on_commit_email(send_student_welcome, student.pk, temporary_password)
             messages.success(request, "Student created successfully.")
             return close_popup_response()
     else:
@@ -4529,6 +4569,7 @@ def enrollment_create(request):
             )
             enrollment.save()
             form.save_m2m()
+            on_commit_email(send_admission_confirmation, enrollment.pk)
             messages.success(request, "Enrollment created successfully.")
             return close_popup_response()
     else:
@@ -4702,6 +4743,7 @@ def homework_create(request):
             homework.created_by = request.user
             homework.save()
             form.save_attachments(homework)
+            on_commit_email(send_homework_published, homework.pk)
             messages.success(request, "Homework created successfully.")
             return close_popup_response()
     else:
@@ -4853,6 +4895,7 @@ def notice_create(request):
             notice.save()
             form.save_m2m()
             transaction.on_commit(lambda notice_id=notice.pk: enqueue_notice_published_notification(notice_id))
+            on_commit_email(send_notice_published, notice.pk)
             messages.success(request, "Notice created successfully.")
             return close_popup_response()
     else:
@@ -5394,7 +5437,12 @@ def teacher_create(request):
     if request.method == "POST":
         form = TeacherForm(request.POST, institute=institute)
         if form.is_valid():
-            form.save()
+            teacher = form.save()
+            on_commit_email(
+                send_teacher_welcome,
+                teacher.pk,
+                form.cleaned_data["password"],
+            )
             messages.success(request, "Teacher created successfully.")
             return close_popup_response()
     else:
@@ -6062,6 +6110,7 @@ def exam_publish(request, pk):
     else:
         exam.is_published = True
         exam.save(update_fields=["is_published"])
+        on_commit_email(send_exam_published, exam.pk)
         messages.success(request, "Exam published successfully. Students can now view and attempt this exam.")
     return redirect("institute_admin:institute_exam_submissions", pk=exam.pk)
 
@@ -6074,6 +6123,7 @@ def exam_toggle_result_publish(request, pk):
     if action == "publish":
         exam.show_result_after_submit = True
         exam.save(update_fields=["show_result_after_submit"])
+        on_commit_email(send_exam_results_published, exam.pk)
         messages.success(request, "Exam results published successfully. Students can now view their scores.")
     elif action == "hide":
         exam.show_result_after_submit = False

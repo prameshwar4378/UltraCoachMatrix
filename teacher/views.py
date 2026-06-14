@@ -34,6 +34,12 @@ from .models import (
     ExamResult,
     Homework,
 )
+from UltraCoachMatrix.email_notifications import (
+    on_commit_email,
+    send_exam_published,
+    send_exam_results_published,
+    send_homework_published,
+)
 
 
 BULK_QUESTION_HEADERS = [
@@ -717,6 +723,7 @@ def homework_create(request):
         homework.created_by = request.user
         homework.save()
         form.save_attachments(homework)
+        on_commit_email(send_homework_published, homework.pk)
         messages.success(request, "Homework created successfully.")
         return close_teacher_popup_response("/teacher/homework/")
     return render(
@@ -1322,6 +1329,7 @@ def exam_publish(request, pk):
     else:
         exam.is_published = True
         exam.save(update_fields=["is_published"])
+        on_commit_email(send_exam_published, exam.pk)
         messages.success(request, "Exam published successfully. Students can now view and attempt this exam.")
     return redirect("teacher:exam_submissions", pk=exam.pk)
 
@@ -1334,6 +1342,7 @@ def exam_toggle_result_publish(request, pk):
     if action == "publish":
         exam.show_result_after_submit = True
         exam.save(update_fields=["show_result_after_submit"])
+        on_commit_email(send_exam_results_published, exam.pk)
         messages.success(request, "Exam results published successfully. Students can now view their scores.")
     elif action == "hide":
         exam.show_result_after_submit = False
