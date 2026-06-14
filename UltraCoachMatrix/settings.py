@@ -228,6 +228,10 @@ EMAIL_BASE_URL = os.environ.get(
     "EMAIL_BASE_URL",
     "https://ultracoachmatrix.pythonanywhere.com",
 )
+STUDENT_APP_DOWNLOAD_URL = os.environ.get("STUDENT_APP_DOWNLOAD_URL", "")
+STUDENT_APP_APK_PATH = os.environ.get("STUDENT_APP_APK_PATH") or str(
+    BASE_DIR / "static" / "apk" / "Ultra Coach Matrix.apk"
+)
 EMAIL_NOTIFICATIONS_RUN_SYNC = os.environ.get(
     "EMAIL_NOTIFICATIONS_RUN_SYNC",
     "false",
@@ -235,10 +239,6 @@ EMAIL_NOTIFICATIONS_RUN_SYNC = os.environ.get(
 if "test" in sys.argv:
     EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     EMAIL_NOTIFICATIONS_RUN_SYNC = True
-FEE_REMINDER_DAYS_BEFORE = [3, 1]
-FEE_OVERDUE_REMINDER_DAYS = [1, 7, 15, 30]
-SUBSCRIPTION_RENEWAL_REMINDER_DAYS = [30]
-SUBSCRIPTION_EXPIRY_REMINDER_DAYS = [7, 3, 1, 0]
 
 # Background jobs
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/0")
@@ -268,10 +268,6 @@ CELERY_BEAT_SCHEDULE = {
     "recover-stale-background-jobs": {
         "task": "institute_admin.recover_stale_background_jobs",
         "schedule": float(os.environ.get("BACKGROUND_JOB_RECOVERY_INTERVAL", "300")),
-    },
-    "send-scheduled-email-reminders": {
-        "task": "institute_admin.send_scheduled_email_reminders",
-        "schedule": float(os.environ.get("EMAIL_REMINDER_INTERVAL", "86400")),
     },
 }
 

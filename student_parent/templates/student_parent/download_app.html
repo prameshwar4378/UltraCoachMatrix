@@ -10,8 +10,8 @@
     <main class="min-vh-100 d-flex align-items-center justify-content-center p-3">
         <section class="bg-white border rounded-3 shadow-sm p-4 text-center" style="max-width: 520px;">
             <h1 class="h3 fw-bold">Student access is available on Android</h1>
-            <p class="text-muted mb-4">Please download the UltraCoachMatrix Android application to view attendance, homework, exams, results, notices, and fee updates.</p>
-            <div class="alert alert-info mb-4">Android app download link will be shared by your institute.</div>
+            <p class="text-muted mb-4">Download the UltraCoachMatrix Android application to view attendance, homework, exams, results, notices, and fee updates.</p>
+            <a class="btn btn-primary mb-4" href="{% url 'apk_download' %}">Download Android application</a>
             <form method="post" action="{% url 'logout' %}">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-outline-secondary">Logout</button>

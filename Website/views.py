@@ -1,17 +1,29 @@
-from datetime import datetime
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
+from django.http import FileResponse, Http404
 from django.shortcuts import redirect, render
-
-from UltraCoachMatrix.email_notifications import queue_template_email
 
 from .models import ContactEnquiry
 
 
 def index(request):
     return render(request, "index.html")
+
+
+def download_android_app(request):
+    apk_path = Path(settings.STUDENT_APP_APK_PATH)
+    if not apk_path.is_file():
+        raise Http404("The Android application is not available.")
+    return FileResponse(
+        apk_path.open("rb"),
+        as_attachment=True,
+        filename="UltraCoachMatrix.apk",
+        content_type="application/vnd.android.package-archive",
+    )
 
 
 def contact_us(request):
@@ -46,7 +58,7 @@ def contact_us(request):
         phone = request.POST.get("phone", "").strip()
         message = request.POST.get("message", "").strip()
 
-        enquiry = ContactEnquiry.objects.create(
+        ContactEnquiry.objects.create(
             name=name,
             school=school,
             phone=phone,
@@ -54,26 +66,6 @@ def contact_us(request):
             enquiry_type=enquiry_type,
             institution_size=institution_size,
             message=message,
-        )
-
-        email_context = {
-            "enquiry": enquiry,
-            "full_name": name,
-            "name": name,
-            "school": school,
-            "phone": phone,
-            "email": email,
-            "enquiry_type": enquiry.get_enquiry_type_display(),
-            "institution_size": enquiry.get_institution_size_display() if enquiry.institution_size else "N/A",
-            "message": message or "No message provided.",
-            "submitted_on": datetime.now().strftime("%d %B %Y, %I:%M %p"),
-        }
-        queue_template_email(
-            subject="New UltraCoachMatrix Coaching Software Enquiry",
-            template_name="Enquiry_Mail.html",
-            recipients=["prameshwar4378@gmail.com"],
-            context=email_context,
-            reply_to=[email],
         )
 
         messages.success(request, "Thank you. Your enquiry has been submitted successfully.")

@@ -106,16 +106,11 @@ from .lookup_cache import (
 from .models import AcademicYear, BackgroundJob, Batch, Course, Lead, Notice, Subject, SupportTicket, Visitor
 from UltraCoachMatrix.email_notifications import (
     on_commit_email,
-    send_admission_confirmation,
-    send_exam_published,
-    send_exam_results_published,
-    send_homework_published,
     send_institute_welcome,
-    send_notice_published,
     send_payment_confirmation,
+    send_payment_update,
     send_bulk_student_welcomes,
     send_student_welcome,
-    send_support_ticket_acknowledgement,
     send_teacher_welcome,
 )
 
@@ -557,7 +552,6 @@ def help_support(request):
         ticket.institute = institute
         ticket.created_by = request.user
         ticket.save()
-        on_commit_email(send_support_ticket_acknowledgement, ticket.pk)
         messages.success(
             request,
             f"Support request #{ticket.pk} submitted successfully.",
@@ -945,7 +939,6 @@ def lead_convert(request, pk):
                 ]
             )
             on_commit_email(send_student_welcome, student.pk, "Student@123")
-            on_commit_email(send_admission_confirmation, enrollment.pk)
     except IntegrityError:
         messages.error(
             request,
@@ -3862,6 +3855,7 @@ def payment_update(request, pk):
                 note=form.cleaned_data["correction_reason"],
             )
             refresh_invoice_status(payment.invoice)
+            on_commit_email(send_payment_update, payment.pk)
             messages.success(request, "Payment corrected successfully.")
             return close_popup_response()
     else:
@@ -4569,7 +4563,6 @@ def enrollment_create(request):
             )
             enrollment.save()
             form.save_m2m()
-            on_commit_email(send_admission_confirmation, enrollment.pk)
             messages.success(request, "Enrollment created successfully.")
             return close_popup_response()
     else:
@@ -4743,7 +4736,6 @@ def homework_create(request):
             homework.created_by = request.user
             homework.save()
             form.save_attachments(homework)
-            on_commit_email(send_homework_published, homework.pk)
             messages.success(request, "Homework created successfully.")
             return close_popup_response()
     else:
@@ -4895,7 +4887,6 @@ def notice_create(request):
             notice.save()
             form.save_m2m()
             transaction.on_commit(lambda notice_id=notice.pk: enqueue_notice_published_notification(notice_id))
-            on_commit_email(send_notice_published, notice.pk)
             messages.success(request, "Notice created successfully.")
             return close_popup_response()
     else:
@@ -6110,7 +6101,6 @@ def exam_publish(request, pk):
     else:
         exam.is_published = True
         exam.save(update_fields=["is_published"])
-        on_commit_email(send_exam_published, exam.pk)
         messages.success(request, "Exam published successfully. Students can now view and attempt this exam.")
     return redirect("institute_admin:institute_exam_submissions", pk=exam.pk)
 
@@ -6123,7 +6113,6 @@ def exam_toggle_result_publish(request, pk):
     if action == "publish":
         exam.show_result_after_submit = True
         exam.save(update_fields=["show_result_after_submit"])
-        on_commit_email(send_exam_results_published, exam.pk)
         messages.success(request, "Exam results published successfully. Students can now view their scores.")
     elif action == "hide":
         exam.show_result_after_submit = False
