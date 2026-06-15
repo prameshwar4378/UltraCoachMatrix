@@ -22,10 +22,12 @@ urlpatterns = [
     path("api/mobile/attendance/", views.mobile_attendance, name="mobile_attendance"),
     path("api/mobile/homework/", views.mobile_homework_planner, name="mobile_homework_planner"),
     path("api/mobile/notices/", views.mobile_notices, name="mobile_notices"),
+    path("api/mobile/notices/<int:notice_id>/", views.mobile_notice_detail, name="mobile_notice_detail"),
     path("api/mobile/notices/<int:notice_id>/read/", views.mobile_notice_mark_read, name="mobile_notice_mark_read"),
     path("api/mobile/devices/register/", views.mobile_register_device, name="mobile_register_device"),
     path("api/mobile/devices/unregister/", views.mobile_unregister_device, name="mobile_unregister_device"),
     path("api/mobile/notifications/", views.mobile_notifications, name="mobile_notifications"),
+    path("api/mobile/notifications/read/", views.mobile_notification_mark_read, name="mobile_notification_mark_read"),
     path("api/mobile/push/status/", views.mobile_push_status, name="mobile_push_status"),
     path(
         "api/mobile/homework/document/download/",

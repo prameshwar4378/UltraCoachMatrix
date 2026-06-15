@@ -7,14 +7,23 @@ from django.utils import timezone
 from .background_jobs import (
     dispatch_background_job,
     enqueue_background_job,
+    enqueue_due_notice_notifications,
+    execute_background_job,
     recover_stale_background_jobs,
     redispatch_pending_background_jobs,
     run_background_job,
 )
-from .models import BackgroundJob
+from .models import BackgroundJob, Notice
+from super_admin.models import Institute
 
 
 class CeleryBackgroundJobTests(TestCase):
+    def setUp(self):
+        self.institute = Institute.objects.create(
+            name="Scheduled Notice Institute",
+            code="scheduled-notice",
+        )
+
     def test_enqueue_dispatches_only_after_transaction_commit(self):
         with patch(
             "institute_admin.background_jobs.dispatch_background_job"
@@ -150,3 +159,82 @@ class CeleryBackgroundJobTests(TestCase):
 
         self.assertEqual(redispatched_ids, [job.pk])
         dispatch.assert_called_once_with(job.pk)
+
+    def test_future_notice_is_queued_once_when_publish_time_arrives(self):
+        notice = Notice.objects.create(
+            institute=self.institute,
+            title="Scheduled notice",
+            message="Send this later.",
+            publish_at=timezone.now() + timedelta(minutes=10),
+            is_published=True,
+            push_to_app=True,
+        )
+
+        self.assertEqual(enqueue_due_notice_notifications(), [])
+        self.assertFalse(
+            BackgroundJob.objects.filter(
+                job_type=BackgroundJob.JobType.NOTICE_NOTIFICATION
+            ).exists()
+        )
+
+        Notice.objects.filter(pk=notice.pk).update(
+            publish_at=timezone.now() - timedelta(seconds=1)
+        )
+        with (
+            patch(
+                "institute_admin.background_jobs.dispatch_background_job"
+            ) as dispatch,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            jobs = enqueue_due_notice_notifications()
+
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0].payload["notice_id"], notice.pk)
+        self.assertEqual(
+            jobs[0].payload["notification_version"],
+            notice.push_notification_version,
+        )
+        dispatch.assert_called_once_with(jobs[0].pk)
+        notice.refresh_from_db()
+        self.assertIsNotNone(notice.push_notification_queued_at)
+        self.assertEqual(enqueue_due_notice_notifications(), [])
+
+    def test_edited_notice_skips_an_older_queued_notification(self):
+        notice = Notice.objects.create(
+            institute=self.institute,
+            title="Updated notice",
+            message="This is the latest content.",
+            is_published=True,
+            push_to_app=True,
+            push_notification_version=2,
+        )
+        job = BackgroundJob.objects.create(
+            job_type=BackgroundJob.JobType.NOTICE_NOTIFICATION,
+            institute=self.institute,
+            payload={
+                "notice_id": notice.pk,
+                "notification_version": 1,
+            },
+        )
+
+        with patch(
+            "student_parent.notifications.notify_notice_published"
+        ) as notify_notice:
+            result = execute_background_job(job)
+
+        self.assertEqual(result["notification_count"], 0)
+        self.assertIn("edited", result["skipped"].lower())
+        notify_notice.assert_not_called()
+
+    def test_expired_scheduled_notice_is_not_queued(self):
+        Notice.objects.create(
+            institute=self.institute,
+            title="Expired notice",
+            message="Do not send this.",
+            publish_at=timezone.now() - timedelta(minutes=2),
+            expires_at=timezone.now() - timedelta(minutes=1),
+            is_published=True,
+            push_to_app=True,
+        )
+
+        self.assertEqual(enqueue_due_notice_notifications(), [])

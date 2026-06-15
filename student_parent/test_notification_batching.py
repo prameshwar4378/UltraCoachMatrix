@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -15,6 +16,7 @@ class FakeMessaging:
     def __init__(self, failed_tokens=None):
         self.failed_tokens = failed_tokens or {}
         self.multicast_sizes = []
+        self.messages = []
 
     @staticmethod
     def Notification(**kwargs):
@@ -46,6 +48,7 @@ class FakeMessaging:
 
     def send_each_for_multicast(self, message):
         self.multicast_sizes.append(len(message.tokens))
+        self.messages.append(message)
         responses = []
         for token in message.tokens:
             error = self.failed_tokens.get(token)
@@ -118,6 +121,14 @@ class NoticeNotificationBatchingTests(TestCase):
             delivered.data["student_id"],
             str(self.student_with_devices.pk),
         )
+        self.assertEqual(delivered.data["route"], "notices")
+        self.assertEqual(delivered.data["action"], "OPEN_NOTICE")
+        self.assertEqual(delivered.data["title"], self.notice.title)
+        self.assertEqual(delivered.data["body"], self.notice.message)
+        firebase_payload = messaging.messages[0]
+        self.assertNotIn("body", firebase_payload.data)
+        self.assertNotIn("title", firebase_payload.data)
+        self.assertNotIn(self.notice.message, json.dumps(firebase_payload.data))
         self.assertEqual(skipped.status, PushNotification.Status.SKIPPED)
         self.assertFalse(UserDevice.objects.get(token=failed_token).is_active)
 
@@ -158,3 +169,24 @@ class NoticeNotificationBatchingTests(TestCase):
             record.error_message,
             "Firebase credentials are unavailable.",
         )
+
+    def test_long_notice_uses_bounded_firebase_preview(self):
+        self.notice.message = "Long notice content " * 1000
+        self.notice.save(update_fields=["message"])
+        UserDevice.objects.create(
+            user=self.user_with_devices,
+            token="long-notice-token",
+            platform=UserDevice.Platform.ANDROID,
+        )
+        messaging = FakeMessaging()
+
+        with patch(
+            "student_parent.notifications._firebase_messaging",
+            return_value=(messaging, ""),
+        ):
+            notify_notice_published(self.notice)
+
+        message = messaging.messages[0]
+        self.assertLessEqual(len(message.notification["body"]), 180)
+        self.assertNotIn("body", message.data)
+        self.assertLess(len(json.dumps(message.data).encode("utf-8")), 1024)

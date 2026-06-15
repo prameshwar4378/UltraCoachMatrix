@@ -90,7 +90,6 @@
     const enrollmentSelect = document.getElementById("id_enrollment");
     const categorySelect = document.getElementById("id_category");
     const receiveFeeForm = document.getElementById("receiveFeeForm");
-    const receiveFeeSubmitButton = document.getElementById("receiveFeeSubmitButton");
     const titleInput = document.getElementById("id_title");
     const invoiceAmountInput = document.getElementById("id_invoice_amount");
     const paymentAmountInput = document.getElementById("id_payment_amount");
@@ -261,15 +260,12 @@
                     alert(`Payment amount must be between 0.01 and ${formatAmount(maxAmount)}.`);
                     return;
                 }
-                if (receiveFeeSubmitButton) {
-                    receiveFeeSubmitButton.disabled = true;
-                    receiveFeeSubmitButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
-                }
             });
         }
         applyEnrollmentDue();
         applyCategoryDue(false);
     }
 </script>
+<script src="/static/js/form-submit-lock.js"></script>
 </body>
 </html>

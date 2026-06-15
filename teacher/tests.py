@@ -1,5 +1,6 @@
 from datetime import timedelta
 from io import BytesIO
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -715,6 +716,11 @@ class ExamYearScopeTests(TestCase):
     def test_teacher_can_publish_and_hide_exam_results_from_submissions(self):
         self.exam_a.show_result_after_submit = False
         self.exam_a.save()
+        result = ExamResult.objects.create(
+            exam=self.exam_a,
+            student=self.student,
+            marks_obtained="82.00",
+        )
         self.client.login(username="teacher", password="pass")
         session = self.client.session
         session["academic_year_id"] = self.year_a.pk
@@ -725,14 +731,34 @@ class ExamYearScopeTests(TestCase):
         self.assertContains(response, "Results are hidden")
         self.assertContains(response, "Publish Results")
 
-        response = self.client.post(
-            reverse("teacher:exam_toggle_result_publish", args=[self.exam_a.pk]),
-            {"action": "publish"},
-        )
+        with (
+            patch(
+                "student_parent.notifications.notify_result_declared"
+            ) as notify_result,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            response = self.client.post(
+                reverse("teacher:exam_toggle_result_publish", args=[self.exam_a.pk]),
+                {"action": "publish"},
+            )
 
         self.assertRedirects(response, reverse("teacher:exam_submissions", args=[self.exam_a.pk]))
         self.exam_a.refresh_from_db()
         self.assertTrue(self.exam_a.show_result_after_submit)
+        notify_result.assert_called_once()
+        self.assertEqual(notify_result.call_args.args[0].pk, result.pk)
+
+        with (
+            patch(
+                "student_parent.notifications.notify_result_declared"
+            ) as notify_result,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            self.client.post(
+                reverse("teacher:exam_toggle_result_publish", args=[self.exam_a.pk]),
+                {"action": "publish"},
+            )
+        notify_result.assert_not_called()
 
         self.client.post(
             reverse("teacher:exam_toggle_result_publish", args=[self.exam_a.pk]),

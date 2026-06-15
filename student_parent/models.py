@@ -245,12 +245,14 @@ class PushNotification(models.Model):
     error_message = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     sent_at = models.DateTimeField(null=True, blank=True)
+    read_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["user", "-created_at"], name="push_user_created_idx"),
             models.Index(fields=["user", "status", "-created_at"], name="push_user_status_idx"),
+            models.Index(fields=["user", "read_at", "-created_at"], name="push_user_read_idx"),
         ]
 
     def __str__(self):

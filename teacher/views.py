@@ -21,6 +21,7 @@ from institute_admin.forms import get_or_create_academic_year
 from institute_admin.attendance_service import bulk_save_attendance
 from institute_admin.models import Batch, Course, Notice, NoticeRead, Subject
 from student_parent.models import StudentAcademicSession, StudentEnrollment
+from student_parent.notifications import notify_exam_results_declared
 from super_admin.decorators import teacher_required
 from .forms import ExamQuestionForm, ExamQuestionOptionFormSet, TeacherExamForm, TeacherHomeworkForm
 from .models import (
@@ -1332,9 +1333,15 @@ def exam_toggle_result_publish(request, pk):
     exam = get_object_or_404(teacher_exam_queryset(request), pk=pk)
     action = request.POST.get("action")
     if action == "publish":
-        exam.show_result_after_submit = True
-        exam.save(update_fields=["show_result_after_submit"])
-        messages.success(request, "Exam results published successfully. Students can now view their scores.")
+        if exam.show_result_after_submit:
+            messages.info(request, "Exam results are already published to students.")
+        else:
+            exam.show_result_after_submit = True
+            exam.save(update_fields=["show_result_after_submit"])
+            transaction.on_commit(
+                lambda exam_id=exam.pk: notify_exam_results_declared(exam_id)
+            )
+            messages.success(request, "Exam results published successfully. Students can now view their scores.")
     elif action == "hide":
         exam.show_result_after_submit = False
         exam.save(update_fields=["show_result_after_submit"])

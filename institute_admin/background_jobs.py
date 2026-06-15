@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 
 from .models import BackgroundJob
@@ -23,6 +23,49 @@ def enqueue_background_job(job_type, *, institute=None, academic_year=None, crea
     )
     transaction.on_commit(lambda job_id=job.pk: dispatch_background_job(job_id))
     return job
+
+
+def enqueue_due_notice_notifications(*, limit=100, notice_ids=None):
+    from .models import Notice
+
+    queued_jobs = []
+    now = timezone.now()
+    limit = max(int(limit), 1)
+
+    while len(queued_jobs) < limit:
+        with transaction.atomic():
+            queryset = (
+                Notice.objects.select_for_update()
+                .filter(
+                    is_published=True,
+                    push_to_app=True,
+                    push_notification_queued_at__isnull=True,
+                )
+                .filter(Q(publish_at__isnull=True) | Q(publish_at__lte=now))
+                .filter(Q(expires_at__isnull=True) | Q(expires_at__gte=now))
+                .order_by("publish_at", "created_at")
+            )
+            if notice_ids is not None:
+                queryset = queryset.filter(pk__in=notice_ids)
+            notice = queryset.first()
+            if notice is None:
+                break
+
+            notice.push_notification_queued_at = now
+            notice.save(update_fields=["push_notification_queued_at"])
+            queued_jobs.append(
+                enqueue_background_job(
+                    BackgroundJob.JobType.NOTICE_NOTIFICATION,
+                    institute=notice.institute,
+                    created_by=notice.created_by,
+                    payload={
+                        "notice_id": notice.pk,
+                        "notification_version": notice.push_notification_version,
+                    },
+                )
+            )
+
+    return queued_jobs
 
 
 def dispatch_background_job(job_id):
@@ -129,6 +172,15 @@ def execute_background_job(job):
         from student_parent.notifications import notify_notice_published
 
         notice = job.institute.notices.get(pk=job.payload["notice_id"])
+        notification_version = job.payload.get("notification_version")
+        if (
+            notification_version is not None
+            and int(notification_version) != notice.push_notification_version
+        ):
+            return {
+                "notification_count": 0,
+                "skipped": "Notice was edited after this job was queued.",
+            }
         records = notify_notice_published(notice)
         return {"notification_count": len(records)}
 

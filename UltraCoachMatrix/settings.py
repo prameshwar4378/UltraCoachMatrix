@@ -265,6 +265,12 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = int(
     os.environ.get("CELERY_WORKER_PREFETCH_MULTIPLIER", "1")
 )
 CELERY_BEAT_SCHEDULE = {
+    "enqueue-due-notice-notifications": {
+        "task": "institute_admin.enqueue_due_notice_notifications",
+        "schedule": float(
+            os.environ.get("SCHEDULED_NOTICE_SCAN_INTERVAL", "60")
+        ),
+    },
     "recover-stale-background-jobs": {
         "task": "institute_admin.recover_stale_background_jobs",
         "schedule": float(os.environ.get("BACKGROUND_JOB_RECOVERY_INTERVAL", "300")),

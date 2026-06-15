@@ -34,10 +34,12 @@ urlpatterns = [
     path('api/mobile/exam-attempts/<int:attempt_id>/rough-work/', student_parent_views.mobile_exam_rough_work_upload, name='mobile_exam_rough_work_upload'),
     path('api/mobile/exam-attempts/<int:attempt_id>/result/', student_parent_views.mobile_exam_result, name='mobile_exam_result'),
     path('api/mobile/notices/', student_parent_views.mobile_notices, name='mobile_notices'),
+    path('api/mobile/notices/<int:notice_id>/', student_parent_views.mobile_notice_detail, name='mobile_notice_detail'),
     path('api/mobile/notices/<int:notice_id>/read/', student_parent_views.mobile_notice_mark_read, name='mobile_notice_mark_read'),
     path('api/mobile/devices/register/', student_parent_views.mobile_register_device, name='mobile_register_device'),
     path('api/mobile/devices/unregister/', student_parent_views.mobile_unregister_device, name='mobile_unregister_device'),
     path('api/mobile/notifications/', student_parent_views.mobile_notifications, name='mobile_notifications'),
+    path('api/mobile/notifications/read/', student_parent_views.mobile_notification_mark_read, name='mobile_notification_mark_read'),
     path('api/mobile/push/status/', student_parent_views.mobile_push_status, name='mobile_push_status'),
     path(
         'api/mobile/homework/document/download/',

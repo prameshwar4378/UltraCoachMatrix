@@ -2302,6 +2302,72 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertEqual(notice_job.status, BackgroundJob.Status.PENDING)
         self.assertEqual(notice_job.job_type, BackgroundJob.JobType.NOTICE_NOTIFICATION)
         self.assertEqual(notice_job.payload["notice_id"], notice.pk)
+        self.assertEqual(
+            notice_job.payload["notification_version"],
+            notice.push_notification_version,
+        )
+
+    def test_editing_notice_queues_a_new_notification_version(self):
+        self.select_year(self.year_2026)
+        notice = Notice.objects.create(
+            institute=self.institute,
+            created_by=self.admin_user,
+            title="Original notice",
+            message="Original message.",
+            audience=Notice.Audience.STUDENTS_PARENTS,
+            category=Notice.Category.GENERAL,
+            priority=Notice.Priority.NORMAL,
+            push_to_app=True,
+            is_published=True,
+            push_notification_queued_at=timezone.now(),
+        )
+        old_job = BackgroundJob.objects.create(
+            job_type=BackgroundJob.JobType.NOTICE_NOTIFICATION,
+            institute=self.institute,
+            created_by=self.admin_user,
+            payload={
+                "notice_id": notice.pk,
+                "notification_version": notice.push_notification_version,
+            },
+        )
+
+        with (
+            patch(
+                "institute_admin.background_jobs.dispatch_background_job"
+            ) as dispatch,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            response = self.client.post(
+                reverse("institute_admin:notice_update", args=[notice.pk]),
+                {
+                    "title": "Updated notice",
+                    "message": "Updated message.",
+                    "audience": Notice.Audience.STUDENTS_PARENTS,
+                    "category": Notice.Category.ACADEMIC,
+                    "priority": Notice.Priority.IMPORTANT,
+                    "publish_at": "",
+                    "expires_at": "",
+                    "is_published": "on",
+                    "push_to_app": "on",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        notice.refresh_from_db()
+        self.assertEqual(notice.title, "Updated notice")
+        self.assertEqual(notice.push_notification_version, 2)
+        self.assertIsNotNone(notice.push_notification_queued_at)
+
+        new_job = (
+            BackgroundJob.objects.filter(
+                job_type=BackgroundJob.JobType.NOTICE_NOTIFICATION,
+                payload__notice_id=notice.pk,
+            )
+            .exclude(pk=old_job.pk)
+            .get()
+        )
+        self.assertEqual(new_job.payload["notification_version"], 2)
+        dispatch.assert_called_once_with(new_job.pk)
 
     def test_student_dashboard_context_is_limited_to_selected_session(self):
         self.select_year(self.year_2026)
@@ -3377,6 +3443,56 @@ class TenantIsolationTests(TestCase):
         self.assertRedirects(response, reverse("institute_admin:institute_exam_submissions", args=[self.exam_a.pk]))
         self.exam_a.refresh_from_db()
         self.assertTrue(self.exam_a.is_published)
+
+    def test_institute_admin_publishing_results_notifies_each_result_student(self):
+        self.exam_a.show_result_after_submit = False
+        self.exam_a.save(update_fields=["show_result_after_submit"])
+        result = ExamResult.objects.create(
+            exam=self.exam_a,
+            student=self.student_a["profile"],
+            marks_obtained="91.00",
+        )
+
+        with (
+            patch(
+                "student_parent.notifications.notify_result_declared"
+            ) as notify_result,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            response = self.client.post(
+                reverse(
+                    "institute_admin:institute_exam_toggle_result_publish",
+                    args=[self.exam_a.pk],
+                ),
+                {"action": "publish"},
+            )
+
+        self.assertRedirects(
+            response,
+            reverse(
+                "institute_admin:institute_exam_submissions",
+                args=[self.exam_a.pk],
+            ),
+        )
+        self.exam_a.refresh_from_db()
+        self.assertTrue(self.exam_a.show_result_after_submit)
+        notify_result.assert_called_once()
+        self.assertEqual(notify_result.call_args.args[0].pk, result.pk)
+
+        with (
+            patch(
+                "student_parent.notifications.notify_result_declared"
+            ) as notify_result,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            self.client.post(
+                reverse(
+                    "institute_admin:institute_exam_toggle_result_publish",
+                    args=[self.exam_a.pk],
+                ),
+                {"action": "publish"},
+            )
+        notify_result.assert_not_called()
 
     def test_exam_submissions_shows_upload_count_and_uniform_actions(self):
         attempt = ExamAttempt.objects.create(

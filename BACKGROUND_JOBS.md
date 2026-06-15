@@ -41,6 +41,7 @@ BACKGROUND_JOB_PENDING_REDISPATCH_MINUTES=5
 BACKGROUND_JOB_RECOVERY_INTERVAL=300
 BACKGROUND_JOB_SYNC_FEE_FALLBACK=true
 BACKGROUND_JOB_SYNC_NOTICE_FALLBACK=false
+SCHEDULED_NOTICE_SCAN_INTERVAL=60
 ```
 
 Retry delays use exponential backoff. A job left in `RUNNING` after a worker
@@ -48,12 +49,23 @@ crash is returned to `PENDING` by the periodic recovery task. Old `PENDING`
 jobs are redispatched automatically, covering jobs created while Redis was
 temporarily unavailable.
 
+Celery Beat also scans for notices whose `publish_at` time has arrived. Each
+notice is atomically marked as queued before its durable notification job is
+created, preventing duplicate sends when multiple scheduler processes overlap.
+
 If Redis is temporarily unavailable, job creation still succeeds and the
 database record remains `PENDING`. After Redis returns, it can be processed by
 the worker or by the fallback command:
 
 ```powershell
 python manage.py run_background_jobs
+```
+
+The fallback worker scans for due scheduled notices before processing jobs. A
+cron-only deployment can instead run this command once per minute:
+
+```powershell
+python manage.py enqueue_scheduled_notices
 ```
 
 Fee notifications have an additional safe fallback. When Celery dispatch

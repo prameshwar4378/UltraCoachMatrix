@@ -3,6 +3,7 @@ from django.conf import settings
 
 from .background_jobs import (
     dispatch_background_job,
+    enqueue_due_notice_notifications,
     mark_job_failed,
     mark_job_pending_for_retry,
     recover_stale_background_jobs,
@@ -55,3 +56,12 @@ def recover_stale_background_jobs_task():
         "recovered_job_ids": recovered_ids,
         "redispatched_job_ids": pending_ids,
     }
+
+
+@shared_task(
+    name="institute_admin.enqueue_due_notice_notifications",
+    ignore_result=True,
+)
+def enqueue_due_notice_notifications_task():
+    jobs = enqueue_due_notice_notifications()
+    return {"queued_job_ids": [job.pk for job in jobs]}

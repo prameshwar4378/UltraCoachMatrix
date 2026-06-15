@@ -860,6 +860,24 @@ def mobile_notices(request):
     return JsonResponse(_mobile_notices_payload(student, request))
 
 
+@require_GET
+def mobile_notice_detail(request, notice_id):
+    student, error = _student_for_request(request)
+    if error:
+        return error
+    notice = get_object_or_404(
+        Notice.for_student(student).select_related("created_by"),
+        pk=notice_id,
+    )
+    read_ids = set(
+        NoticeRead.objects.filter(
+            user=student.user,
+            notice_id=notice.pk,
+        ).values_list("notice_id", flat=True)
+    )
+    return JsonResponse({"notice": _notice_payload(notice, read_ids)})
+
+
 @csrf_exempt
 @require_POST
 def mobile_notice_mark_read(request, notice_id):
@@ -1141,8 +1159,13 @@ def mobile_notifications(request):
     if not user:
         return _unauthorized()
     notifications = PushNotification.objects.filter(user=user)[:50]
+    unread_count = PushNotification.objects.filter(user=user, read_at__isnull=True).count()
     return JsonResponse(
         {
+            "summary": {
+                "total_count": PushNotification.objects.filter(user=user).count(),
+                "unread_count": unread_count,
+            },
             "notifications": [
                 {
                     "id": notification.pk,
@@ -1153,9 +1176,65 @@ def mobile_notifications(request):
                     "status": notification.status,
                     "created_at": _datetime(notification.created_at),
                     "sent_at": _datetime(notification.sent_at),
+                    "is_read": notification.read_at is not None,
+                    "read_at": _datetime(notification.read_at),
                 }
                 for notification in notifications
             ]
+        }
+    )
+
+
+@csrf_exempt
+@require_POST
+def mobile_notification_mark_read(request):
+    user = _api_user(request)
+    if not user:
+        return _unauthorized()
+    data = _json_request_data(request)
+    if data is None:
+        return JsonResponse({"detail": "Invalid JSON body."}, status=400)
+
+    notifications = PushNotification.objects.filter(user=user).order_by("-created_at")
+    notification_id = str(data.get("notification_id") or "").strip()
+    notification = None
+    if notification_id.isdigit():
+        notification = notifications.filter(pk=int(notification_id)).first()
+
+    if notification is None:
+        notification_type = str(
+            data.get("type") or data.get("notification_type") or ""
+        ).strip().upper()
+        source_keys = ("notice_id", "payment_id", "result_id", "exam_id")
+        source_values = {
+            key: str(data.get(key)).strip()
+            for key in source_keys
+            if data.get(key) is not None and str(data.get(key)).strip()
+        }
+        for candidate in notifications[:50]:
+            if notification_type and candidate.notification_type != notification_type:
+                continue
+            candidate_data = candidate.data or {}
+            if source_values and not all(
+                str(candidate_data.get(key) or "") == value
+                for key, value in source_values.items()
+            ):
+                continue
+            if notification_type or source_values:
+                notification = candidate
+                break
+
+    if notification is None:
+        return JsonResponse({"detail": "Notification not found."}, status=404)
+
+    if notification.read_at is None:
+        notification.read_at = timezone.now()
+        notification.save(update_fields=["read_at"])
+    return JsonResponse(
+        {
+            "detail": "Notification marked as read.",
+            "notification_id": notification.pk,
+            "read_at": _datetime(notification.read_at),
         }
     )
 

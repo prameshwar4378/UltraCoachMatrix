@@ -356,6 +356,8 @@ class Notice(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     is_published = models.BooleanField(default=True)
+    push_notification_queued_at = models.DateTimeField(null=True, blank=True)
+    push_notification_version = models.PositiveIntegerField(default=1)
 
     class Meta:
         ordering = ["-pin_on_top", "-created_at"]
@@ -363,6 +365,10 @@ class Notice(models.Model):
             models.Index(fields=["institute", "is_published", "push_to_app", "-pin_on_top", "-created_at"], name="notice_app_feed_idx"),
             models.Index(fields=["institute", "category", "-created_at"], name="notice_category_idx"),
             models.Index(fields=["institute", "priority", "-created_at"], name="notice_priority_idx"),
+            models.Index(
+                fields=["is_published", "push_to_app", "push_notification_queued_at", "publish_at"],
+                name="notice_push_due_idx",
+            ),
         ]
 
     def __str__(self):

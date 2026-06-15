@@ -4,7 +4,10 @@ import time
 from django.core.management.base import BaseCommand
 from django.db import close_old_connections
 
-from institute_admin.background_jobs import run_next_background_job
+from institute_admin.background_jobs import (
+    enqueue_due_notice_notifications,
+    run_next_background_job,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -21,6 +24,7 @@ class Command(BaseCommand):
         while True:
             close_old_connections()
             try:
+                enqueue_due_notice_notifications()
                 job = run_next_background_job()
             except Exception:
                 logger.exception("Background job failed.")

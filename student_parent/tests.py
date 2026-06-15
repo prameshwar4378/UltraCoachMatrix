@@ -542,6 +542,23 @@ class MobilePushNotificationTests(TestCase):
         self.assertEqual(device.platform, UserDevice.Platform.ANDROID)
         self.assertTrue(device.is_active)
 
+    def test_mobile_notice_detail_returns_full_authorized_message(self):
+        notice = Notice.objects.create(
+            institute=self.institute,
+            title="Detailed notice",
+            message="Full notice body " * 500,
+            is_published=True,
+            push_to_app=True,
+        )
+
+        response = self.client.get(
+            f"/api/mobile/notices/{notice.pk}/",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["notice"]["message"], notice.message.strip())
+
     def test_notification_log_is_created_for_particular_result_student(self):
         exam = Exam.objects.create(batch=self.batch, title="Unit Test", exam_date=date(2026, 6, 1))
         result = ExamResult.objects.create(exam=exam, student=self.student, marks_obtained="88.00")
@@ -551,4 +568,62 @@ class MobilePushNotificationTests(TestCase):
         self.assertEqual(notification.user, self.user)
         self.assertEqual(notification.notification_type, PushNotification.NotificationType.RESULT_DECLARED)
         self.assertEqual(notification.status, PushNotification.Status.SKIPPED)
+        self.assertEqual(notification.data["route"], "results")
+        self.assertEqual(notification.data["action"], "OPEN_RESULTS")
+        self.assertEqual(notification.data["title"], "Result declared")
+        self.assertIn("88.00", notification.data["body"])
+        self.assertEqual(notification.data["notification_id"], str(notification.pk))
         self.assertEqual(PushNotification.objects.count(), 1)
+
+    def test_notification_feed_tracks_read_state(self):
+        notification = PushNotification.objects.create(
+            user=self.user,
+            notification_type=PushNotification.NotificationType.NOTICE,
+            title="New notice",
+            body="Please read this notice.",
+            data={"type": "NOTICE", "notice_id": "77"},
+            status=PushNotification.Status.SENT,
+        )
+
+        response = self.client.get(
+            "/api/mobile/notifications/",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["summary"]["unread_count"], 1)
+        self.assertFalse(payload["notifications"][0]["is_read"])
+        self.assertIsNone(payload["notifications"][0]["read_at"])
+
+        read_response = self.client.post(
+            "/api/mobile/notifications/read/",
+            data=json.dumps({"notification_id": notification.pk}),
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(read_response.status_code, 200)
+        notification.refresh_from_db()
+        self.assertIsNotNone(notification.read_at)
+
+    def test_system_notice_payload_can_mark_notification_read(self):
+        notification = PushNotification.objects.create(
+            user=self.user,
+            notification_type=PushNotification.NotificationType.NOTICE,
+            title="System notice",
+            body="Opened from Android.",
+            data={"type": "NOTICE", "notice_id": "81"},
+            status=PushNotification.Status.SENT,
+        )
+
+        response = self.client.post(
+            "/api/mobile/notifications/read/",
+            data=json.dumps({"type": "NOTICE", "notice_id": "81"}),
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        notification.refresh_from_db()
+        self.assertIsNotNone(notification.read_at)

@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.html import strip_tags
 
 from institute_admin.models import BackgroundJob, Notice
 
@@ -14,6 +15,8 @@ from .models import PushNotification, StudentEnrollment, StudentProfile, UserDev
 logger = logging.getLogger(__name__)
 FIREBASE_MULTICAST_LIMIT = 500
 ANDROID_NOTIFICATION_CHANNEL_ID = "ultracoachmatrix_notifications"
+ANDROID_NOTIFICATION_COLOR = "#0700A8"
+NOTICE_PUSH_PREVIEW_LENGTH = 180
 
 INVALID_TOKEN_ERROR_MARKERS = (
     "registration-token-not-registered",
@@ -101,6 +104,9 @@ def _firebase_messaging():
 
 def send_push_to_user(user, notification_type, title, body, data=None):
     payload = {key: str(value) for key, value in (data or {}).items() if value is not None}
+    payload.setdefault("title", title)
+    payload.setdefault("body", body)
+    payload.setdefault("created_at", timezone.now().isoformat())
     record = PushNotification.objects.create(
         user=user,
         notification_type=notification_type,
@@ -108,6 +114,9 @@ def send_push_to_user(user, notification_type, title, body, data=None):
         body=body,
         data=payload,
     )
+    payload["notification_id"] = str(record.pk)
+    record.data = payload
+    record.save(update_fields=["data"])
     devices = list(UserDevice.objects.filter(user=user, is_active=True))
     if not devices:
         record.status = PushNotification.Status.SKIPPED
@@ -133,7 +142,12 @@ def send_push_to_user(user, notification_type, title, body, data=None):
                 priority="high",
                 notification=messaging.AndroidNotification(
                     channel_id=ANDROID_NOTIFICATION_CHANNEL_ID,
+                    icon="ic_stat_notification",
+                    color=ANDROID_NOTIFICATION_COLOR,
                     sound="default",
+                    tag=f"ucm-{notification_type.lower()}-{user.pk}",
+                    default_vibrate_timings=True,
+                    visibility="public",
                 ),
             ),
             apns=messaging.APNSConfig(
@@ -184,6 +198,8 @@ def notify_fee_paid(payment):
         body,
         {
             "type": PushNotification.NotificationType.FEE_PAID,
+            "route": "fees",
+            "action": "OPEN_FEES",
             "payment_id": payment.pk,
             "invoice_id": invoice.pk,
             "student_id": student.pk,
@@ -205,6 +221,8 @@ def notify_result_declared(result):
         body,
         {
             "type": PushNotification.NotificationType.RESULT_DECLARED,
+            "route": "results",
+            "action": "OPEN_RESULTS",
             "result_id": result.pk,
             "exam_id": exam.pk,
             "student_id": student.pk,
@@ -212,6 +230,17 @@ def notify_result_declared(result):
             "total_marks": exam.total_marks,
         },
     )
+
+
+def notify_exam_results_declared(exam):
+    from teacher.models import ExamResult
+
+    exam_id = exam.pk if hasattr(exam, "pk") else exam
+    results = ExamResult.objects.filter(exam_id=exam_id).select_related(
+        "exam",
+        "student__user",
+    )
+    return [notify_result_declared(result) for result in results]
 
 
 def students_for_notice(notice):
@@ -244,24 +273,36 @@ def _chunks(items, size):
 
 
 def _notice_multicast_message(messaging, notice, tokens):
+    preview = strip_tags(notice.message or "").strip()
+    if len(preview) > NOTICE_PUSH_PREVIEW_LENGTH:
+        preview = f"{preview[:NOTICE_PUSH_PREVIEW_LENGTH - 1].rstrip()}…"
     payload = {
         "type": PushNotification.NotificationType.NOTICE,
+        "route": "notices",
+        "action": "OPEN_NOTICE",
         "notice_id": str(notice.pk),
         "category": str(notice.category),
         "priority": str(notice.priority),
+        "category_label": notice.get_category_display(),
+        "priority_label": notice.get_priority_display(),
     }
     return messaging.MulticastMessage(
         tokens=tokens,
         notification=messaging.Notification(
             title=notice.title,
-            body=notice.message,
+            body=preview,
         ),
         data=payload,
         android=messaging.AndroidConfig(
             priority="high",
             notification=messaging.AndroidNotification(
                 channel_id=ANDROID_NOTIFICATION_CHANNEL_ID,
+                icon="ic_stat_notification",
+                color=ANDROID_NOTIFICATION_COLOR,
                 sound="default",
+                tag=f"ucm-notice-{notice.pk}",
+                default_vibrate_timings=True,
+                visibility="public",
             ),
         ),
         apns=messaging.APNSConfig(
@@ -324,9 +365,16 @@ def notify_notice_published(notice):
                 body=notice.message,
                 data={
                     "type": PushNotification.NotificationType.NOTICE,
+                    "route": "notices",
+                    "action": "OPEN_NOTICE",
                     "notice_id": str(notice.pk),
                     "category": str(notice.category),
                     "priority": str(notice.priority),
+                    "category_label": notice.get_category_display(),
+                    "priority_label": notice.get_priority_display(),
+                    "title": notice.title,
+                    "body": notice.message,
+                    "created_at": notice.created_at.isoformat(),
                     "student_id": str(student.pk),
                 },
             )
@@ -421,12 +469,8 @@ def enqueue_fee_paid_notification(payment):
 
 
 def enqueue_notice_published_notification(notice):
-    from institute_admin.background_jobs import enqueue_background_job
+    from institute_admin.background_jobs import enqueue_due_notice_notifications
 
     notice_id = notice.pk if hasattr(notice, "pk") else notice
-    notice_record = Notice.objects.select_related("institute").get(pk=notice_id)
-    return enqueue_background_job(
-        BackgroundJob.JobType.NOTICE_NOTIFICATION,
-        institute=notice_record.institute,
-        payload={"notice_id": notice_id},
-    )
+    jobs = enqueue_due_notice_notifications(limit=1, notice_ids=[notice_id])
+    return jobs[0] if jobs else None

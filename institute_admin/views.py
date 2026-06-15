@@ -38,7 +38,11 @@ from student_parent.models import (
     StudentEnrollment,
     StudentProfile,
 )
-from student_parent.notifications import enqueue_fee_paid_notification, enqueue_notice_published_notification
+from student_parent.notifications import (
+    enqueue_fee_paid_notification,
+    enqueue_notice_published_notification,
+    notify_exam_results_declared,
+)
 from super_admin.models import SubscriptionPayment, UserProfile
 from super_admin.decorators import institute_admin_required
 from super_admin.session_security import user_web_sessions
@@ -4916,7 +4920,33 @@ def notice_update(request, pk):
     if request.method == "POST":
         form = NoticeForm(request.POST, institute=notice.institute, academic_year=academic_year, instance=notice)
         if form.is_valid():
-            form.save()
+            notification_fields = {
+                "title",
+                "message",
+                "audience",
+                "category",
+                "priority",
+                "target_batches",
+                "target_courses",
+                "target_students",
+                "publish_at",
+                "expires_at",
+                "is_published",
+                "push_to_app",
+            }
+            should_notify = bool(notification_fields.intersection(form.changed_data))
+            with transaction.atomic():
+                notice = form.save()
+                if should_notify:
+                    Notice.objects.filter(pk=notice.pk).update(
+                        push_notification_queued_at=None,
+                        push_notification_version=F("push_notification_version") + 1,
+                    )
+                    transaction.on_commit(
+                        lambda notice_id=notice.pk: enqueue_notice_published_notification(
+                            notice_id
+                        )
+                    )
             messages.success(request, "Notice updated successfully.")
             return close_popup_response()
     else:
@@ -6111,9 +6141,15 @@ def exam_toggle_result_publish(request, pk):
     exam = get_object_or_404(institute_exam_queryset(request), pk=pk)
     action = request.POST.get("action")
     if action == "publish":
-        exam.show_result_after_submit = True
-        exam.save(update_fields=["show_result_after_submit"])
-        messages.success(request, "Exam results published successfully. Students can now view their scores.")
+        if exam.show_result_after_submit:
+            messages.info(request, "Exam results are already published to students.")
+        else:
+            exam.show_result_after_submit = True
+            exam.save(update_fields=["show_result_after_submit"])
+            transaction.on_commit(
+                lambda exam_id=exam.pk: notify_exam_results_declared(exam_id)
+            )
+            messages.success(request, "Exam results published successfully. Students can now view their scores.")
     elif action == "hide":
         exam.show_result_after_submit = False
         exam.save(update_fields=["show_result_after_submit"])
