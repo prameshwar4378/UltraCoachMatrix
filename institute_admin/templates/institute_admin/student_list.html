@@ -331,6 +331,63 @@
         transform: translateY(-1px);
     }
 
+    .student-search-suggest {
+        position: relative;
+    }
+
+    .student-search-suggest__results {
+        position: absolute;
+        z-index: 9999;
+        top: calc(100% + 8px);
+        left: 0;
+        right: 0;
+        display: none;
+        max-height: 320px;
+        overflow-y: auto;
+        border: 1px solid #ccfbf1;
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 22px 52px rgba(15, 23, 42, .16);
+    }
+
+    .student-search-suggest__results.is-open {
+        display: block;
+    }
+
+    .student-search-suggest__option,
+    .student-search-suggest__message {
+        width: 100%;
+        padding: 12px 14px;
+        border: 0;
+        border-bottom: 1px solid #edf2f7;
+        background: #ffffff;
+        color: #0f172a;
+        text-align: left;
+    }
+
+    .student-search-suggest__option:hover,
+    .student-search-suggest__option:focus {
+        background: #f0fdfa;
+        outline: 0;
+    }
+
+    .student-search-suggest__option strong,
+    .student-search-suggest__option small {
+        display: block;
+    }
+
+    .student-search-suggest__option strong {
+        font-size: .92rem;
+        font-weight: 900;
+    }
+
+    .student-search-suggest__option small,
+    .student-search-suggest__message {
+        color: #64748b;
+        font-size: .8rem;
+        line-height: 1.45;
+    }
+
     .student-page .select2-container {
         width: 100% !important;
         z-index: 9999;
@@ -397,8 +454,17 @@
         transition: background-color .22s ease, transform .22s ease, box-shadow .22s ease;
     }
 
+    .student-clickable-row {
+        cursor: pointer;
+    }
+
     .table-modern tbody tr:hover {
         background: #f0fdfa;
+    }
+
+    .student-clickable-row:focus-visible {
+        outline: 3px solid rgba(20, 184, 166, .32);
+        outline-offset: -3px;
     }
 
     .student-avatar {
@@ -828,7 +894,7 @@
     </div>
 
     <div class="filter-panel">
-        <form method="get" class="row g-3">
+        <form method="get" class="row g-3" id="studentListFilterForm">
             <div class="col-lg-3 col-md-6">
                 <label class="form-label">Status</label>
                 <select name="status" class="form-select">
@@ -848,7 +914,21 @@
             </div>
             <div class="col-lg-4 col-md-12">
                 <label class="form-label">Search</label>
-                <input type="text" name="search" class="form-control" placeholder="Search student, admission no, parent, phone..." value="{{ search_query }}">
+                <div class="student-search-suggest">
+                    <input
+                        type="search"
+                        name="search"
+                        class="form-control"
+                        id="studentListSearchInput"
+                        placeholder="Search student, admission no, parent, phone..."
+                        value="{{ search_query }}"
+                        autocomplete="off"
+                        data-autocomplete-url="{% url 'institute_admin:student_autocomplete' %}"
+                        data-dashboard-url-template="{% url 'institute_admin:student_dashboard' 0 %}"
+                        data-minimum-input-length="2"
+                    >
+                    <div class="student-search-suggest__results" id="studentListSearchSuggestions" role="listbox" aria-label="Student suggestions"></div>
+                </div>
             </div>
             <div class="col-lg-2 col-md-12 d-flex align-items-end gap-2">
                 <button type="submit" class="btn btn-gradient"><i class="bi bi-search"></i> Filter</button>
@@ -886,9 +966,9 @@
                 </thead>
                 <tbody>
                     {% for student in students %}
-                    <tr>
+                    <tr class="student-clickable-row" data-dashboard-url="{% url 'institute_admin:student_dashboard' student.student_id %}" tabindex="0" role="link" aria-label="Open dashboard for {{ student.student.user.get_full_name|default:student.student.user.username }}">
                         <td class="bulk-select-cell">
-                            <input type="checkbox" class="student-select-checkbox" value="{{ student.student.pk }}" aria-label="Select {{ student.student.user.get_full_name|default:student.student.user.username }}">
+                            <input type="checkbox" class="student-select-checkbox" value="{{ student.student_id }}" aria-label="Select {{ student.student.user.get_full_name|default:student.student.user.username }}">
                         </td>
                         <td>
                             <div class="d-flex align-items-center gap-3">
@@ -936,16 +1016,16 @@
                         </td>
                         <td class="text-end">
                             <div class="btn-group">
-                                <a href="{% url 'institute_admin:student_dashboard' student.student.pk %}" class="btn btn-sm btn-outline-primary action-btn" title="Dashboard">
+                                <a href="{% url 'institute_admin:student_dashboard' student.student_id %}" class="btn btn-sm btn-outline-primary action-btn" title="Dashboard">
                                     <i class="bi bi-speedometer2"></i>
                                 </a>
-                                <a href="javascript:void(0);" class="btn btn-sm btn-outline-success action-btn" data-url="{% url 'institute_admin:enrollment_create' %}?student={{ student.student.pk }}" onclick="openStudentWindow(this)" title="Enroll">
+                                <a href="javascript:void(0);" class="btn btn-sm btn-outline-success action-btn" data-url="{% url 'institute_admin:enrollment_create' %}?student={{ student.student_id }}" onclick="openStudentWindow(this)" title="Enroll">
                                     <i class="bi bi-diagram-3"></i>
                                 </a>
-                                <a href="javascript:void(0);" class="btn btn-sm btn-outline-warning action-btn" data-url="{% url 'institute_admin:student_basic_update' student.student.pk %}" onclick="openStudentWindow(this, 780, 700)" title="Edit Basic">
+                                <a href="javascript:void(0);" class="btn btn-sm btn-outline-warning action-btn" data-url="{% url 'institute_admin:student_basic_update' student.student_id %}" onclick="openStudentWindow(this, 780, 700)" title="Edit Basic">
                                     <i class="bi bi-pencil-square"></i>
                                 </a>
-                                <button type="button" class="btn btn-sm btn-outline-danger action-btn" data-delete-url="{% url 'institute_admin:student_delete' student.student.pk %}" data-student-name="{{ student.student.user.get_full_name|default:student.student.user.username }}" onclick="openDeleteStudentModal(this)" title="Delete">
+                                <button type="button" class="btn btn-sm btn-outline-danger action-btn" data-delete-url="{% url 'institute_admin:student_delete' student.student_id %}" data-student-name="{{ student.student.user.get_full_name|default:student.student.user.username }}" onclick="openDeleteStudentModal(this)" title="Delete">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>
@@ -1183,6 +1263,163 @@
         const modal = new bootstrap.Modal(document.getElementById("deleteStudentModal"));
         modal.show();
     }
+
+    function debounce(callback, delay) {
+        let timer;
+        return function() {
+            const args = arguments;
+            clearTimeout(timer);
+            timer = setTimeout(function() {
+                callback.apply(null, args);
+            }, delay);
+        };
+    }
+
+    const studentListFilterForm = document.getElementById("studentListFilterForm");
+    const studentListSearchInput = document.getElementById("studentListSearchInput");
+    const studentListSearchSuggestions = document.getElementById("studentListSearchSuggestions");
+    let studentSearchController = null;
+
+    function studentDashboardUrl(studentId) {
+        const template = studentListSearchInput?.dataset.dashboardUrlTemplate || "";
+        return template ? template.replace(/0\/?$/, String(studentId) + "/") : "";
+    }
+
+    function closeStudentSearchSuggestions() {
+        if (studentListSearchSuggestions) {
+            studentListSearchSuggestions.classList.remove("is-open");
+        }
+    }
+
+    function showStudentSearchMessage(message) {
+        if (!studentListSearchSuggestions) {
+            return;
+        }
+        studentListSearchSuggestions.innerHTML = "";
+        const item = document.createElement("div");
+        item.className = "student-search-suggest__message";
+        item.textContent = message;
+        studentListSearchSuggestions.appendChild(item);
+        studentListSearchSuggestions.classList.add("is-open");
+    }
+
+    function renderStudentSearchSuggestions(items) {
+        if (!studentListSearchSuggestions) {
+            return;
+        }
+        studentListSearchSuggestions.innerHTML = "";
+        if (!items.length) {
+            showStudentSearchMessage("No matching students found.");
+            return;
+        }
+        items.forEach(function(student) {
+            const button = document.createElement("button");
+            const title = document.createElement("strong");
+            const meta = document.createElement("small");
+            button.type = "button";
+            button.className = "student-search-suggest__option";
+            button.setAttribute("role", "option");
+            title.textContent = student.text || "Student";
+            meta.textContent = student.meta || "";
+            button.appendChild(title);
+            button.appendChild(meta);
+            button.addEventListener("click", function() {
+                const dashboardUrl = studentDashboardUrl(student.id);
+                closeStudentSearchSuggestions();
+                if (dashboardUrl) {
+                    window.location.href = dashboardUrl;
+                }
+            });
+            studentListSearchSuggestions.appendChild(button);
+        });
+        studentListSearchSuggestions.classList.add("is-open");
+    }
+
+    const searchStudentsForFilter = debounce(function() {
+        if (!studentListSearchInput || !studentListFilterForm) {
+            return;
+        }
+        const query = studentListSearchInput.value.trim();
+        const minimumLength = Number(studentListSearchInput.dataset.minimumInputLength || 2);
+        if (query.length < minimumLength) {
+            closeStudentSearchSuggestions();
+            return;
+        }
+        if (studentSearchController) {
+            studentSearchController.abort();
+        }
+        studentSearchController = new AbortController();
+        const url = new URL(studentListSearchInput.dataset.autocompleteUrl, window.location.origin);
+        const batchField = studentListFilterForm.querySelector("[name='batch']");
+        url.searchParams.set("q", query);
+        if (batchField && batchField.value) {
+            url.searchParams.set("batch", batchField.value);
+        }
+        showStudentSearchMessage("Searching...");
+        fetch(url.toString(), {
+            headers: {"Accept": "application/json"},
+            signal: studentSearchController.signal,
+        })
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error("Student search failed.");
+                }
+                return response.json();
+            })
+            .then(function(payload) {
+                renderStudentSearchSuggestions(payload.results || []);
+            })
+            .catch(function(error) {
+                if (error.name !== "AbortError") {
+                    showStudentSearchMessage("Unable to load students.");
+                }
+            });
+    }, 250);
+
+    if (studentListSearchInput) {
+        studentListSearchInput.addEventListener("input", searchStudentsForFilter);
+        studentListSearchInput.addEventListener("focus", function() {
+            const minimumLength = Number(studentListSearchInput.dataset.minimumInputLength || 2);
+            if (studentListSearchInput.value.trim().length >= minimumLength) {
+                searchStudentsForFilter();
+            }
+        });
+        document.addEventListener("click", function(event) {
+            if (!event.target.closest(".student-search-suggest")) {
+                closeStudentSearchSuggestions();
+            }
+        });
+    }
+
+    function shouldSkipStudentRowNavigation(target) {
+        return Boolean(target.closest("a, button, input, select, textarea, label, .btn-group, [data-no-row-click]"));
+    }
+
+    document.querySelectorAll(".student-clickable-row").forEach(function(row) {
+        row.addEventListener("click", function(event) {
+            if (shouldSkipStudentRowNavigation(event.target)) {
+                return;
+            }
+            const dashboardUrl = row.dataset.dashboardUrl;
+            if (dashboardUrl) {
+                window.location.href = dashboardUrl;
+            }
+        });
+
+        row.addEventListener("keydown", function(event) {
+            if (event.key !== "Enter" && event.key !== " ") {
+                return;
+            }
+            if (shouldSkipStudentRowNavigation(event.target)) {
+                return;
+            }
+            const dashboardUrl = row.dataset.dashboardUrl;
+            if (dashboardUrl) {
+                event.preventDefault();
+                window.location.href = dashboardUrl;
+            }
+        });
+    });
 
     const selectAllStudents = document.getElementById("selectAllStudents");
     const studentCheckboxes = Array.from(document.querySelectorAll(".student-select-checkbox"));

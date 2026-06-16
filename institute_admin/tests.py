@@ -1653,6 +1653,28 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertNotContains(response, "SMIS-2026-27-0001")
         self.assertNotContains(response, "11th Batch")
 
+    def test_student_list_rows_link_to_student_dashboard(self):
+        self.select_year(self.year_2026)
+        response = self.client.get(reverse("institute_admin:student_list"))
+        dashboard_url = reverse("institute_admin:student_dashboard", args=[self.student.pk])
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="student-clickable-row"')
+        self.assertContains(response, f'data-dashboard-url="{dashboard_url}"')
+        self.assertContains(response, f'href="{dashboard_url}"')
+
+    def test_student_list_search_has_autocomplete_suggestions(self):
+        self.select_year(self.year_2026)
+        response = self.client.get(reverse("institute_admin:student_list"))
+        autocomplete_url = reverse("institute_admin:student_autocomplete")
+        dashboard_url_template = reverse("institute_admin:student_dashboard", args=[0])
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="studentListSearchInput"')
+        self.assertContains(response, f'data-autocomplete-url="{autocomplete_url}"')
+        self.assertContains(response, f'data-dashboard-url-template="{dashboard_url_template}"')
+        self.assertContains(response, 'id="studentListSearchSuggestions"')
+
     def test_student_list_calculates_fee_details_for_current_page_only(self):
         users = [
             User(username=f"page-student-{index}", first_name=f"Page {index}")
