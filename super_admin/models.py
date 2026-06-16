@@ -21,6 +21,7 @@ class Institute(models.Model):
     owner_name = models.CharField(max_length=120, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
+    logo = models.ImageField(upload_to="institutes/logos/", blank=True)
     address = models.TextField(blank=True)
     status = models.CharField(
         max_length=20,

@@ -128,7 +128,7 @@ def _token_payload(user):
 
 def signup(request):
     if request.method == "POST":
-        form = InstituteSignupForm(request.POST)
+        form = InstituteSignupForm(request.POST, request.FILES)
         if form.is_valid():
             user = form.save()
             on_commit_email(
@@ -314,7 +314,11 @@ def _mobile_profile_payload(student, request):
                 "username": student.user.username,
                 "email": student.user.email,
                 "phone": getattr(getattr(student.user, "profile", None), "phone", ""),
-                "institute": {"id": student.institute_id, "name": student.institute.name},
+                "institute": {
+                    "id": student.institute_id,
+                    "name": student.institute.name,
+                    "logo_url": _absolute_file_url(request, student.institute.logo),
+                },
                 "profile_image_url": _absolute_file_url(request, student.profile_image),
                 "date_of_birth": student.date_of_birth.isoformat() if student.date_of_birth else None,
                 "joined_on": student.joined_on.isoformat() if student.joined_on else None,

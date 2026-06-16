@@ -290,7 +290,7 @@ def software_tour(request):
 @institute_admin_required
 def institute_profile(request):
     institute = get_current_institute(request)
-    form = InstituteProfileForm(request.POST or None, instance=institute)
+    form = InstituteProfileForm(request.POST or None, request.FILES or None, instance=institute)
 
     if request.method == "POST" and form.is_valid():
         form.save()

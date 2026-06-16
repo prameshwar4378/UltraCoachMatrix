@@ -55,6 +55,7 @@ class SubscriptionPaymentInline(admin.TabularInline):
 class InstituteAdmin(admin.ModelAdmin):
     list_display = (
         "name",
+        "logo_preview",
         "owner_name",
         "phone",
         "subscription_plan",
@@ -72,7 +73,7 @@ class InstituteAdmin(admin.ModelAdmin):
     )
     search_fields = ("name", "code", "owner_name", "phone", "email")
     prepopulated_fields = {"code": ("name",)}
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("logo_preview", "created_at", "updated_at")
     inlines = (
         InstituteSubscriptionInline,
         SubscriptionPaymentInline,
@@ -82,7 +83,7 @@ class InstituteAdmin(admin.ModelAdmin):
     fieldsets = (
         (
             "School details",
-            {"fields": ("name", "code", "owner_name", "phone", "email", "address")},
+            {"fields": ("name", "code", "logo", "logo_preview", "owner_name", "phone", "email", "address")},
         ),
         (
             "Account control",
@@ -96,6 +97,17 @@ class InstituteAdmin(admin.ModelAdmin):
         ),
         ("Audit", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
+
+    @admin.display(description="Logo")
+    def logo_preview(self, obj):
+        if not obj or not obj.logo:
+            return "-"
+        from django.utils.html import format_html
+
+        return format_html(
+            '<img src="{}" style="width:42px;height:42px;object-fit:cover;border-radius:10px;border:1px solid #d1d5db;" />',
+            obj.logo.url,
+        )
 
     @admin.display(description="Start date", ordering="subscription__starts_on")
     def subscription_start(self, obj):

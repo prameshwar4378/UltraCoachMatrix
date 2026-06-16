@@ -169,9 +169,10 @@ class SupportTicketForm(forms.ModelForm):
 class InstituteProfileForm(forms.ModelForm):
     class Meta:
         model = Institute
-        fields = ("name", "code", "owner_name", "phone", "email", "address")
+        fields = ("name", "code", "logo", "owner_name", "phone", "email", "address")
         widgets = {
             "address": forms.Textarea(attrs={"rows": 4}),
+            "logo": forms.ClearableFileInput(attrs={"accept": "image/*"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -179,6 +180,7 @@ class InstituteProfileForm(forms.ModelForm):
         placeholders = {
             "name": "Institute name",
             "code": "Unique institute code",
+            "logo": "Upload institute logo",
             "owner_name": "Owner or director name",
             "phone": "Primary contact number",
             "email": "Primary email address",

@@ -133,6 +133,7 @@ def send_push_to_user(user, notification_type, title, body, data=None):
 
     sent_ids = []
     errors = []
+    logo_url = payload.get("institute_logo_url") or None
     for device in devices:
         message = messaging.Message(
             token=device.token,
@@ -144,6 +145,7 @@ def send_push_to_user(user, notification_type, title, body, data=None):
                     channel_id=ANDROID_NOTIFICATION_CHANNEL_ID,
                     icon="ic_stat_notification",
                     color=ANDROID_NOTIFICATION_COLOR,
+                    image=logo_url,
                     sound="default",
                     tag=f"ucm-{notification_type.lower()}-{user.pk}",
                     default_vibrate_timings=True,
@@ -181,6 +183,29 @@ def send_push_to_user(user, notification_type, title, body, data=None):
     return record
 
 
+def _absolute_logo_url(institute):
+    if not institute or not getattr(institute, "logo", None):
+        return ""
+    try:
+        logo_url = institute.logo.url
+    except ValueError:
+        return ""
+    base_url = str(getattr(settings, "EMAIL_BASE_URL", "") or "").rstrip("/")
+    if not base_url:
+        return logo_url
+    return f"{base_url}{logo_url}"
+
+
+def _institute_payload(institute):
+    if not institute:
+        return {}
+    return {
+        "institute_id": institute.pk,
+        "institute_name": institute.name,
+        "institute_logo_url": _absolute_logo_url(institute),
+    }
+
+
 def _is_invalid_token_error(error_message):
     normalized = error_message.lower()
     return any(marker in normalized for marker in INVALID_TOKEN_ERROR_MARKERS)
@@ -205,6 +230,7 @@ def notify_fee_paid(payment):
             "student_id": student.pk,
             "receipt_number": payment.receipt_number,
             "amount": payment.amount,
+            **_institute_payload(invoice.institute),
         },
     )
 
@@ -228,6 +254,7 @@ def notify_result_declared(result):
             "student_id": student.pk,
             "marks_obtained": result.marks_obtained,
             "total_marks": exam.total_marks,
+            **_institute_payload(student.institute),
         },
     )
 
@@ -285,6 +312,7 @@ def _notice_multicast_message(messaging, notice, tokens):
         "priority": str(notice.priority),
         "category_label": notice.get_category_display(),
         "priority_label": notice.get_priority_display(),
+        **_institute_payload(notice.institute),
     }
     return messaging.MulticastMessage(
         tokens=tokens,
@@ -295,11 +323,12 @@ def _notice_multicast_message(messaging, notice, tokens):
         data=payload,
         android=messaging.AndroidConfig(
             priority="high",
-            notification=messaging.AndroidNotification(
-                channel_id=ANDROID_NOTIFICATION_CHANNEL_ID,
-                icon="ic_stat_notification",
-                color=ANDROID_NOTIFICATION_COLOR,
-                sound="default",
+                notification=messaging.AndroidNotification(
+                    channel_id=ANDROID_NOTIFICATION_CHANNEL_ID,
+                    icon="ic_stat_notification",
+                    color=ANDROID_NOTIFICATION_COLOR,
+                    image=payload.get("institute_logo_url") or None,
+                    sound="default",
                 tag=f"ucm-notice-{notice.pk}",
                 default_vibrate_timings=True,
                 visibility="public",
@@ -376,6 +405,7 @@ def notify_notice_published(notice):
                     "body": notice.message,
                     "created_at": notice.created_at.isoformat(),
                     "student_id": str(student.pk),
+                    **_institute_payload(notice.institute),
                 },
             )
             for student in students

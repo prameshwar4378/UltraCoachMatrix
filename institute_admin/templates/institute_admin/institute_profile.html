@@ -115,6 +115,13 @@
         flex:0 0 auto;
     }
 
+    .profile-avatar img{
+        width:100%;
+        height:100%;
+        object-fit:cover;
+        border-radius:24px;
+    }
+
     .profile-card{
         max-width:1050px;
         background:#fff;
@@ -410,7 +417,11 @@
                 </div>
 
                 <div class="profile-avatar">
-                    <i class="bi bi-building-check"></i>
+                    {% if institute.logo %}
+                        <img src="{{ institute.logo.url }}" alt="{{ institute.name }} logo">
+                    {% else %}
+                        <i class="bi bi-building-check"></i>
+                    {% endif %}
                 </div>
             </div>
         </section>
@@ -432,7 +443,7 @@
                 </div>
             </div>
 
-            <form method="post" class="profile-form">
+            <form method="post" enctype="multipart/form-data" class="profile-form">
                 {% csrf_token %}
 
                 {% if form.non_field_errors %}
@@ -478,6 +489,21 @@
                         </label>
                         {{ form.code }}
                         {{ form.code.errors }}
+                    </div>
+
+                    <div class="profile-field profile-field-wide">
+                        <label class="form-label" for="{{ form.logo.id_for_label }}">
+                            <i class="bi bi-image"></i>
+                            Institute Logo
+                        </label>
+                        {% if institute.logo %}
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <img src="{{ institute.logo.url }}" alt="{{ institute.name }} logo" style="width:72px;height:72px;object-fit:cover;border-radius:18px;border:1px solid #dbe4f0;background:#fff;padding:4px;">
+                                <div class="text-muted small">This logo is used in mobile notifications and institute branding.</div>
+                            </div>
+                        {% endif %}
+                        {{ form.logo }}
+                        {{ form.logo.errors }}
                     </div>
 
                     <div class="profile-field">
