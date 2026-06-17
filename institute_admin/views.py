@@ -618,6 +618,76 @@ def get_course_batch_data(institute, academic_year=None):
     )
 
 
+LEAD_EXPORT_FIELD_OPTIONS = [
+    ("name", "Name"),
+    ("mobile_number", "Mobile Number"),
+    ("email", "Email"),
+    ("status", "Status"),
+    ("source", "Source"),
+    ("interested_class", "Interested Class"),
+    ("interested_batch", "Interested Batch"),
+    ("follow_up_on", "Follow Up Date"),
+    ("message", "Message / Notes"),
+    ("created_by", "Created By"),
+    ("created_at", "Created Date"),
+    ("updated_at", "Updated Date"),
+    ("converted_at", "Converted Date"),
+]
+
+LEAD_EXPORT_DEFAULT_FIELDS = [
+    "name",
+    "mobile_number",
+    "email",
+    "status",
+    "interested_class",
+    "interested_batch",
+    "follow_up_on",
+    "created_at",
+]
+
+
+def get_lead_export_field_keys(request):
+    allowed_fields = {field for field, _label in LEAD_EXPORT_FIELD_OPTIONS}
+    selected_fields = [
+        field
+        for field in request.GET.getlist("columns")
+        if field in allowed_fields
+    ]
+    return selected_fields or LEAD_EXPORT_DEFAULT_FIELDS
+
+
+def get_lead_export_value(lead, field):
+    if field == "name":
+        return lead.full_name
+    if field == "mobile_number":
+        return lead.mobile_number
+    if field == "email":
+        return lead.email
+    if field == "status":
+        return lead.get_status_display()
+    if field == "source":
+        return lead.get_source_display()
+    if field == "interested_class":
+        return lead.interested_class.name if lead.interested_class else ""
+    if field == "interested_batch":
+        return lead.interested_batch.name if lead.interested_batch else ""
+    if field == "follow_up_on":
+        return lead.follow_up_on.strftime("%Y-%m-%d") if lead.follow_up_on else ""
+    if field == "message":
+        return lead.message
+    if field == "created_by":
+        if not lead.created_by:
+            return ""
+        return lead.created_by.get_full_name() or lead.created_by.username
+    if field == "created_at":
+        return timezone.localtime(lead.created_at).strftime("%Y-%m-%d %H:%M") if lead.created_at else ""
+    if field == "updated_at":
+        return timezone.localtime(lead.updated_at).strftime("%Y-%m-%d %H:%M") if lead.updated_at else ""
+    if field == "converted_at":
+        return timezone.localtime(lead.converted_at).strftime("%Y-%m-%d %H:%M") if lead.converted_at else ""
+    return ""
+
+
 @institute_admin_required
 def lead_list(request):
     institute = get_current_institute(request)
@@ -656,12 +726,55 @@ def lead_list(request):
             "search_query": search_query,
             "status_filter": status_filter,
             "status_choices": Lead.Status.choices,
+            "lead_export_field_options": LEAD_EXPORT_FIELD_OPTIONS,
+            "lead_export_default_fields": LEAD_EXPORT_DEFAULT_FIELDS,
             "total_leads": base_queryset.count(),
             "new_leads": base_queryset.filter(status=Lead.Status.NEW).count(),
             "follow_up_leads": base_queryset.filter(status=Lead.Status.FOLLOW_UP).count(),
             "converted_leads": base_queryset.filter(status=Lead.Status.CONVERTED).count(),
         },
     )
+
+
+@institute_admin_required
+def lead_export(request):
+    institute = get_current_institute(request)
+    leads = Lead.objects.select_related(
+        "interested_class",
+        "interested_batch",
+        "created_by",
+    )
+    if institute:
+        leads = leads.filter(institute=institute)
+    else:
+        leads = leads.none()
+
+    status_filter = request.GET.get("status", "").strip()
+    start_date = parse_date(request.GET.get("start_date", "").strip())
+    end_date = parse_date(request.GET.get("end_date", "").strip())
+
+    if status_filter in Lead.Status.values:
+        leads = leads.filter(status=status_filter)
+    if start_date:
+        leads = leads.filter(created_at__date__gte=start_date)
+    if end_date:
+        leads = leads.filter(created_at__date__lte=end_date)
+
+    selected_fields = get_lead_export_field_keys(request)
+    field_labels = dict(LEAD_EXPORT_FIELD_OPTIONS)
+    columns = [field_labels[field] for field in selected_fields]
+
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
+    response["Content-Disposition"] = f'attachment; filename="lead_export_{stamp}.csv"'
+    response.write("\ufeff")
+
+    writer = csv.writer(response)
+    writer.writerow(columns)
+    for lead in leads.order_by("-created_at"):
+        writer.writerow([get_lead_export_value(lead, field) for field in selected_fields])
+
+    return response
 
 
 @institute_admin_required
@@ -742,6 +855,78 @@ def lead_delete(request, pk):
     return redirect("institute_admin:lead_list")
 
 
+VISITOR_EXPORT_FIELD_OPTIONS = [
+    ("visitor_name", "Visitor Name"),
+    ("phone_number", "Phone Number"),
+    ("id_card_number", "ID Card / Pass No"),
+    ("meeting_with", "Meeting With"),
+    ("total_person", "Total Persons"),
+    ("visit_date", "Visit Date"),
+    ("entry_time", "Entry Time"),
+    ("exit_time", "Exit Time"),
+    ("purpose", "Purpose"),
+    ("attachment", "Attachment"),
+    ("created_by", "Created By"),
+    ("created_at", "Created Date"),
+    ("updated_at", "Updated Date"),
+]
+
+VISITOR_EXPORT_DEFAULT_FIELDS = [
+    "visitor_name",
+    "phone_number",
+    "meeting_with",
+    "total_person",
+    "visit_date",
+    "entry_time",
+    "exit_time",
+    "purpose",
+]
+
+
+def get_visitor_export_field_keys(request):
+    allowed_fields = {field for field, _label in VISITOR_EXPORT_FIELD_OPTIONS}
+    selected_fields = [
+        field
+        for field in request.GET.getlist("columns")
+        if field in allowed_fields
+    ]
+    return selected_fields or VISITOR_EXPORT_DEFAULT_FIELDS
+
+
+def get_visitor_export_value(visitor, field, request=None):
+    if field == "visitor_name":
+        return visitor.visitor_name
+    if field == "phone_number":
+        return visitor.phone_number
+    if field == "id_card_number":
+        return visitor.id_card_number
+    if field == "meeting_with":
+        return visitor.meeting_with
+    if field == "total_person":
+        return visitor.total_person
+    if field == "visit_date":
+        return visitor.visit_date.strftime("%Y-%m-%d") if visitor.visit_date else ""
+    if field == "entry_time":
+        return visitor.entry_time.strftime("%H:%M") if visitor.entry_time else ""
+    if field == "exit_time":
+        return visitor.exit_time.strftime("%H:%M") if visitor.exit_time else ""
+    if field == "purpose":
+        return visitor.purpose
+    if field == "attachment":
+        if not visitor.attachment:
+            return ""
+        return request.build_absolute_uri(visitor.attachment.url) if request else visitor.attachment.url
+    if field == "created_by":
+        if not visitor.created_by:
+            return ""
+        return visitor.created_by.get_full_name() or visitor.created_by.username
+    if field == "created_at":
+        return timezone.localtime(visitor.created_at).strftime("%Y-%m-%d %H:%M") if visitor.created_at else ""
+    if field == "updated_at":
+        return timezone.localtime(visitor.updated_at).strftime("%Y-%m-%d %H:%M") if visitor.updated_at else ""
+    return ""
+
+
 @institute_admin_required
 def visitor_list(request):
     institute = get_current_institute(request)
@@ -773,8 +958,53 @@ def visitor_list(request):
             "page_obj": page_obj,
             "search_query": search_query,
             "visit_date_filter": visit_date_filter,
+            "visitor_export_field_options": VISITOR_EXPORT_FIELD_OPTIONS,
+            "visitor_export_default_fields": VISITOR_EXPORT_DEFAULT_FIELDS,
         },
     )
+
+
+@institute_admin_required
+def visitor_export(request):
+    institute = get_current_institute(request)
+    visitors = Visitor.objects.select_related("created_by")
+    if institute:
+        visitors = visitors.filter(institute=institute)
+    else:
+        visitors = visitors.none()
+
+    search_query = request.GET.get("search", "").strip()
+    start_date = parse_date(request.GET.get("start_date", "").strip())
+    end_date = parse_date(request.GET.get("end_date", "").strip())
+
+    if search_query:
+        visitors = visitors.filter(
+            Q(visitor_name__icontains=search_query)
+            | Q(phone_number__icontains=search_query)
+            | Q(id_card_number__icontains=search_query)
+            | Q(meeting_with__icontains=search_query)
+            | Q(purpose__icontains=search_query)
+        )
+    if start_date:
+        visitors = visitors.filter(visit_date__gte=start_date)
+    if end_date:
+        visitors = visitors.filter(visit_date__lte=end_date)
+
+    selected_fields = get_visitor_export_field_keys(request)
+    field_labels = dict(VISITOR_EXPORT_FIELD_OPTIONS)
+    columns = [field_labels[field] for field in selected_fields]
+
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
+    response["Content-Disposition"] = f'attachment; filename="visitor_export_{stamp}.csv"'
+    response.write("\ufeff")
+
+    writer = csv.writer(response)
+    writer.writerow(columns)
+    for visitor in visitors.order_by("-visit_date", "-entry_time", "-created_at"):
+        writer.writerow([get_visitor_export_value(visitor, field, request) for field in selected_fields])
+
+    return response
 
 
 @institute_admin_required
@@ -2562,6 +2792,7 @@ def student_promote(request):
         "promotion_loaded": promotion_loaded,
         "promotion_ready": promotion_ready,
         "already_promoted_student_ids": fully_promoted_student_ids,
+        "promotion_students": source_sessions,
         "available_count": source_sessions.exclude(student_id__in=fully_promoted_student_ids).count(),
         "choice_data": choice_data,
     }

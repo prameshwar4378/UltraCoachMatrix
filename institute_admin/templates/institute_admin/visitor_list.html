@@ -118,6 +118,33 @@
         box-shadow: 0 18px 34px rgba(79, 70, 229, 0.35);
     }
 
+    .toolbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .btn-export {
+        border: 1px solid rgba(79, 70, 229, 0.22);
+        border-radius: 14px;
+        padding: 12px 18px;
+        color: var(--primary);
+        background: #fff;
+        font-weight: 850;
+        box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+        transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+        white-space: nowrap;
+    }
+
+    .btn-export:hover,
+    .btn-export:focus {
+        color: var(--primary-dark);
+        background: var(--primary-soft);
+        transform: translateY(-2px);
+        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+    }
+
     .mini-stat-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -343,6 +370,28 @@
         text-decoration: none;
     }
 
+    .export-column-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .export-column-option {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: #f8fafc;
+        color: var(--text);
+        font-weight: 750;
+    }
+
+    .export-column-option .form-check-input {
+        margin: 0;
+    }
+
     .empty-state {
         padding: 64px 20px;
         text-align: center;
@@ -391,6 +440,7 @@
         }
 
         .btn-gradient,
+        .btn-export,
         .filter-panel .btn {
             width: 100%;
             justify-content: center;
@@ -405,6 +455,14 @@
             display: flex;
             justify-content: flex-end;
             gap: 6px;
+        }
+
+        .toolbar-actions {
+            width: 100%;
+        }
+
+        .export-column-grid {
+            grid-template-columns: 1fr;
         }
     }
 </style>
@@ -426,12 +484,21 @@
             <p class="page-subtitle">Track campus visitors, meetings, entry time, exit time and attachments.</p>
         </div>
 
-        <a href="javascript:void(0);"
-           data-url="{% url 'institute_admin:visitor_create' %}"
-           class="btn btn-gradient"
-           onclick="openVisitorWindow(this)">
-            <i class="bi bi-plus-circle"></i> Add Visitor
-        </a>
+        <div class="toolbar-actions">
+            <button type="button"
+                    class="btn btn-export"
+                    data-bs-toggle="modal"
+                    data-bs-target="#visitorExportModal">
+                <i class="bi bi-download"></i> Export
+            </button>
+
+            <a href="javascript:void(0);"
+               data-url="{% url 'institute_admin:visitor_create' %}"
+               class="btn btn-gradient"
+               onclick="openVisitorWindow(this)">
+                <i class="bi bi-plus-circle"></i> Add Visitor
+            </a>
+        </div>
     </div>
 
     <section class="section">
@@ -649,6 +716,83 @@
     </section>
 </main>
 
+<div class="modal fade" id="visitorExportModal" tabindex="-1" aria-labelledby="visitorExportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form method="get" action="{% url 'institute_admin:visitor_export' %}" data-submit-lock="off">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="visitorExportModalLabel">
+                        <i class="bi bi-download me-2"></i> Export Visitors
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label">Search</label>
+                            <input type="search"
+                                   name="search"
+                                   value="{{ search_query }}"
+                                   class="form-control"
+                                   placeholder="Name, phone, meeting or purpose">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" name="start_date" class="form-control" value="{{ visit_date_filter }}">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">End Date</label>
+                            <input type="date" name="end_date" class="form-control" value="{{ visit_date_filter }}">
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+                        <div>
+                            <div class="filter-title mb-1">
+                                <i class="bi bi-layout-three-columns"></i> Select Columns
+                            </div>
+                            <div class="small text-muted fw-semibold">Important columns are already selected.</div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-light border" onclick="resetVisitorExportColumns()">
+                            <i class="bi bi-arrow-counterclockwise"></i> Defaults
+                        </button>
+                    </div>
+
+                    <div class="export-column-grid">
+                        {% for field, label in visitor_export_field_options %}
+                            <label class="export-column-option">
+                                <input class="form-check-input visitor-export-column"
+                                       type="checkbox"
+                                       name="columns"
+                                       value="{{ field }}"
+                                       {% if field in visitor_export_default_fields %}checked data-default="1"{% endif %}>
+                                <span>{{ label }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button"
+                            class="btn border"
+                            data-bs-dismiss="modal"
+                            style="min-width: 112px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 12px; color: #0f172a !important; background: #ffffff !important; border-color: #cbd5e1 !important; font-weight: 700;">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </button>
+                    <button type="submit"
+                            class="btn"
+                            style="min-width: 160px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 12px; color: #ffffff !important; background: linear-gradient(135deg, #4f46e5, #312e81) !important; font-weight: 800; box-shadow: 0 14px 30px rgba(79, 70, 229, 0.26);">
+                        <i class="bi bi-filetype-csv"></i> Download CSV
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="deleteVisitorModal" tabindex="-1" aria-labelledby="deleteVisitorModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -762,6 +906,12 @@ function closeDeleteVisitorModal() {
         document.body.classList.remove("modal-open");
         if (backdrop) backdrop.remove();
     }
+}
+
+function resetVisitorExportColumns() {
+    document.querySelectorAll(".visitor-export-column").forEach(function(input) {
+        input.checked = input.dataset.default === "1";
+    });
 }
 </script>
 {% endblock content %}

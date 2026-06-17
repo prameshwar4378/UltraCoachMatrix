@@ -167,6 +167,50 @@
     }
     .review-title { color: var(--ink); font-weight: 900; }
     .review-meta { color: var(--muted); font-size: .84rem; font-weight: 700; }
+    .review-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .bulk-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--line);
+        background: #f8fafc;
+    }
+    .bulk-buttons {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .btn-mini {
+        min-height: 38px;
+        border-radius: 10px;
+        padding: 8px 12px;
+        border: 1px solid #cbd5e1;
+        background: #fff;
+        color: var(--ink);
+        font-weight: 850;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+    }
+    .btn-mini.primary {
+        border-color: transparent;
+        color: #fff;
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    }
+    .selected-count {
+        color: var(--muted);
+        font-weight: 850;
+        font-size: .86rem;
+    }
     .student-table { margin: 0; min-width: 920px; }
     .student-table thead th {
         background: #0f172a;
@@ -198,6 +242,9 @@
     }
     .status-ready { background: #dcfce7; color: #166534; }
     .status-done { background: #ffedd5; color: #9a3412; }
+    .student-row-disabled {
+        background: #fff7ed;
+    }
     .select-all-wrap {
         display: inline-flex;
         align-items: center;
@@ -225,7 +272,10 @@
     @media(max-width: 576px) {
         .summary-strip { grid-template-columns: 1fr; }
         .promote-header { padding: 20px; }
-        .review-header .btn-main { width: 100%; }
+        .review-header .btn-main,
+        .review-actions,
+        .bulk-buttons,
+        .bulk-buttons .btn-mini { width: 100%; }
     }
 </style>
 
@@ -353,27 +403,93 @@
                 <div class="review-header">
                     <div>
                         <div class="review-title">Select Students</div>
-                        <div class="review-meta">Type at least 2 characters. Each search returns at most 20 matching students.</div>
+                        <div class="review-meta">{{ available_count }} student(s) currently eligible for this promotion path.</div>
                     </div>
-                    <button type="submit" class="btn-main" id="promoteStudentsButton">
-                        <i class="bi bi-arrow-up-right-circle"></i> Promote Students
-                    </button>
+                    <div class="review-actions">
+                        <span class="selected-count" id="selectedStudentCount">0 selected</span>
+                        <button type="submit" class="btn-main" id="promoteStudentsButton">
+                            <i class="bi bi-arrow-up-right-circle"></i> Promote Selected
+                        </button>
+                    </div>
                 </div>
-                <div class="p-4">
-                    <select
-                        name="students"
-                        multiple
-                        class="form-select"
-                        data-student-autocomplete="true"
-                        data-searchable="false"
-                        data-autocomplete-url="{% url 'institute_admin:student_autocomplete' %}"
-                        data-minimum-input-length="2"
-                        data-placeholder="Search eligible students"
-                        data-academic-year="{{ source_year.pk }}"
-                        data-batch="{{ source_batch.pk }}"
-                        data-course="{{ source_course.pk }}"
-                    ></select>
-                    <div class="review-meta mt-2">{{ available_count }} student(s) currently eligible for this promotion path.</div>
+
+                <div class="bulk-actions">
+                    <label class="select-all-wrap mb-0">
+                        <input type="checkbox" id="selectAllStudents">
+                        <span>Mark all students</span>
+                    </label>
+                    <div class="bulk-buttons">
+                        <button type="button" class="btn-mini primary" id="markAllStudentsButton">
+                            <i class="bi bi-check2-square"></i> Mark All
+                        </button>
+                        <button type="button" class="btn-mini" id="clearStudentsButton">
+                            <i class="bi bi-square"></i> Clear
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table student-table align-middle">
+                        <thead>
+                            <tr>
+                                <th style="width: 54px;">Select</th>
+                                <th>Student</th>
+                                <th>Admission No.</th>
+                                <th>Contact</th>
+                                <th>Current Batch</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for session in promotion_students %}
+                                <tr {% if session.student_id in already_promoted_student_ids %}class="student-row-disabled"{% endif %}>
+                                    <td>
+                                        <input
+                                            type="checkbox"
+                                            name="students"
+                                            value="{{ session.student_id }}"
+                                            class="promote-check"
+                                            {% if session.student_id in already_promoted_student_ids %}disabled{% endif %}
+                                        >
+                                    </td>
+                                    <td>
+                                        <div class="student-name">{{ session.student.user.get_full_name|default:session.student.user.username }}</div>
+                                        <div class="student-meta">{{ session.student.user.email|default:"No email" }}</div>
+                                    </td>
+                                    <td>
+                                        <strong>{{ session.admission_number|default:"-" }}</strong>
+                                    </td>
+                                    <td>
+                                        <div class="student-meta">{{ session.student.user.profile.phone|default:"-" }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="student-meta">{{ source_batch.name }}</div>
+                                        <div class="student-meta">{{ source_course.name }}</div>
+                                    </td>
+                                    <td>
+                                        {% if session.student_id in already_promoted_student_ids %}
+                                            <span class="status-pill status-done">
+                                                <i class="bi bi-check-circle"></i> Already Promoted
+                                            </span>
+                                        {% else %}
+                                            <span class="status-pill status-ready">
+                                                <i class="bi bi-arrow-up-right-circle"></i> Ready
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="6">
+                                        <div class="empty-box">
+                                            <i class="bi bi-people d-block mb-2" style="font-size: 2.4rem;"></i>
+                                            No students found for the selected source course and batch.
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </section>
         </form>
@@ -476,9 +592,59 @@
 
     const promotionForm = document.getElementById("promotionForm");
     if (promotionForm) {
+        const selectAllStudents = document.getElementById("selectAllStudents");
+        const markAllStudentsButton = document.getElementById("markAllStudentsButton");
+        const clearStudentsButton = document.getElementById("clearStudentsButton");
+        const selectedStudentCount = document.getElementById("selectedStudentCount");
+
+        function promotableChecks() {
+            return Array.from(promotionForm.querySelectorAll(".promote-check:not(:disabled)"));
+        }
+
+        function updateSelectedCount() {
+            const checks = promotableChecks();
+            const selected = checks.filter(function(input) { return input.checked; }).length;
+            if (selectedStudentCount) {
+                selectedStudentCount.textContent = selected + " selected";
+            }
+            if (selectAllStudents) {
+                selectAllStudents.checked = checks.length > 0 && selected === checks.length;
+                selectAllStudents.indeterminate = selected > 0 && selected < checks.length;
+            }
+        }
+
+        function setAllPromotableStudents(checked) {
+            promotableChecks().forEach(function(input) {
+                input.checked = checked;
+            });
+            updateSelectedCount();
+        }
+
+        if (selectAllStudents) {
+            selectAllStudents.addEventListener("change", function() {
+                setAllPromotableStudents(selectAllStudents.checked);
+            });
+        }
+        if (markAllStudentsButton) {
+            markAllStudentsButton.addEventListener("click", function() {
+                setAllPromotableStudents(true);
+            });
+        }
+        if (clearStudentsButton) {
+            clearStudentsButton.addEventListener("click", function() {
+                setAllPromotableStudents(false);
+            });
+        }
+        promotionForm.querySelectorAll(".promote-check").forEach(function(input) {
+            input.addEventListener("change", updateSelectedCount);
+        });
+        updateSelectedCount();
+
         promotionForm.addEventListener("submit", function(event) {
-            const studentSelect = promotionForm.querySelector("select[name='students']");
-            if (!studentSelect || !Array.from(studentSelect.selectedOptions).some(function(option) { return option.value; })) {
+            const selectedStudents = promotableChecks().some(function(input) {
+                return input.checked;
+            });
+            if (!selectedStudents) {
                 event.preventDefault();
                 window.alert("Select at least one student to promote.");
             }
