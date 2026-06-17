@@ -220,3 +220,26 @@ class Expense(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.amount}"
+
+
+class ExpenseDocument(models.Model):
+    expense = models.ForeignKey(
+        Expense,
+        on_delete=models.CASCADE,
+        related_name="documents",
+    )
+    file = models.FileField(upload_to="expenses/documents/")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+        indexes = [
+            models.Index(fields=["expense", "-uploaded_at"], name="expdoc_expense_time_idx"),
+        ]
+
+    def __str__(self):
+        return self.file_name
+
+    @property
+    def file_name(self):
+        return self.file.name.rsplit("/", 1)[-1] if self.file else "Document"

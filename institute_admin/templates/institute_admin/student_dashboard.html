@@ -520,6 +520,64 @@
         font-weight: 800;
     }
 
+    .attendance-toolbar {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+        background: #fbfefc;
+    }
+
+    .attendance-filter-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+        align-items: end;
+    }
+
+    .attendance-filter-grid .form-label {
+        color: var(--muted);
+        font-size: .74rem;
+        font-weight: 950;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+
+    .attendance-filter-grid .form-control,
+    .attendance-filter-grid .form-select {
+        min-height: 42px;
+        border-radius: 12px;
+        border: 1px solid #dbe4ee;
+        color: var(--ink);
+        font-weight: 750;
+    }
+
+    .attendance-export-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .attendance-export-actions .btn {
+        min-height: 42px;
+        border-radius: 12px;
+        font-weight: 900;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+    }
+
+    @media (max-width: 1199.98px) {
+        .attendance-filter-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .attendance-export-actions {
+            justify-content: flex-start;
+        }
+    }
+
     @media (max-width: 991.98px) {
         .student-dashboard {
             padding-left: 12px !important;
@@ -658,6 +716,15 @@
 
         .student-dashboard .table-modern tbody td:empty::after {
             content: "-";
+        }
+
+        .attendance-filter-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .attendance-export-actions,
+        .attendance-export-actions .btn {
+            width: 100%;
         }
 
         .student-dashboard .table-modern tbody td[colspan] {
@@ -1037,7 +1104,62 @@
     <div class="tab-pane" data-tab-pane="attendance">
         <div class="content-panel" style="--panel-color: var(--green); --panel-soft: #f0fdf4;">
             <div class="panel-header">
-                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-check2-square"></i></div><div><h5 class="panel-title">Attendance</h5><div class="panel-subtitle">Present: {{ present_count }} &middot; Absent: {{ absent_count }} &middot; Late: {{ late_count }}</div></div></div>
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-check2-square"></i></div><div><h5 class="panel-title">Attendance</h5><div class="panel-subtitle">Present: {{ present_count }} &middot; Absent: {{ absent_count }} &middot; Late: {{ late_count }}{% if attendance_filter_active %} &middot; Showing {{ attendance_filtered_count }} filtered record(s){% else %} &middot; Showing recent 10 records{% endif %}</div></div></div>
+            </div>
+            <div class="attendance-toolbar">
+                <form method="get" class="attendance-filter-grid">
+                    <div>
+                        <label class="form-label">Start Date</label>
+                        <input type="date" name="attendance_date_from" value="{{ attendance_date_from }}" class="form-control">
+                    </div>
+                    <div>
+                        <label class="form-label">End Date</label>
+                        <input type="date" name="attendance_date_to" value="{{ attendance_date_to }}" class="form-control">
+                    </div>
+                    <div>
+                        <label class="form-label">Status</label>
+                        <select name="attendance_status" class="form-select">
+                            <option value="">All Status</option>
+                            {% for value, label in attendance_status_choices %}
+                                <option value="{{ value }}" {% if attendance_status_filter == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Batch</label>
+                        <select name="attendance_batch" class="form-select">
+                            <option value="">All Batches</option>
+                            {% for batch in attendance_batch_options %}
+                                <option value="{{ batch.pk }}" {% if attendance_batch_filter == batch.pk|stringformat:"s" %}selected{% endif %}>{{ batch.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="attendance-export-actions">
+                        <button type="submit" class="btn btn-main">
+                            <i class="bi bi-funnel"></i> Filter
+                        </button>
+                        <a href="{% url 'institute_admin:student_dashboard' student.pk %}" class="btn btn-light border">
+                            <i class="bi bi-x-circle"></i> Reset
+                        </a>
+                    </div>
+                </form>
+
+                <div class="attendance-export-actions mt-2">
+                    <a
+                        class="btn btn-outline-danger"
+                        target="_blank"
+                        href="{% url 'institute_admin:attendance_export' %}?format=pdf&student={{ student.pk }}&date_from={{ attendance_date_from }}&date_to={{ attendance_date_to }}&status={{ attendance_status_filter }}&batch={{ attendance_batch_filter }}&include_notes=1"
+                    >
+                        <i class="bi bi-filetype-pdf"></i> Download PDF
+                    </a>
+                    <a
+                        class="btn btn-outline-success"
+                        target="_blank"
+                        href="{% url 'institute_admin:attendance_export' %}?format=excel&student={{ student.pk }}&date_from={{ attendance_date_from }}&date_to={{ attendance_date_to }}&status={{ attendance_status_filter }}&batch={{ attendance_batch_filter }}&include_notes=1"
+                    >
+                        <i class="bi bi-file-earmark-excel"></i> Export Excel
+                    </a>
+                </div>
             </div>
             <div class="table-responsive">
                 <table class="table table-modern align-middle">

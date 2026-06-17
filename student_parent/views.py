@@ -623,9 +623,9 @@ def _attendance_payload(student, request):
     status_filter = (request.GET.get("status") or "").strip().upper()
     batch_id = (request.GET.get("batch_id") or "").strip()
     try:
-        limit = min(max(int(request.GET.get("limit", 90)), 1), 180)
+        limit = min(max(int(request.GET.get("limit", 180)), 1), 500)
     except (TypeError, ValueError):
-        limit = 90
+        limit = 180
 
     selected_session = _selected_academic_session(student, request)
     sessions = (

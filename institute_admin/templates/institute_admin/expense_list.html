@@ -1,0 +1,873 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Expenses{% endblock title %}
+
+{% block content %}
+<style>
+    .expenses-page {
+        --primary: #dc2626;
+        --primary-dark: #7f1d1d;
+        --primary-soft: #fee2e2;
+        --accent: #f97316;
+        --accent-soft: #fff7ed;
+        --success: #16a34a;
+        --danger: #dc2626;
+        --warning: #f59e0b;
+        --surface: rgba(255, 255, 255, 0.94);
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        --shadow: 0 20px 55px rgba(127, 29, 29, 0.10);
+        position: relative;
+        isolation: isolate;
+        padding-bottom: 36px;
+    }
+
+    .expenses-page::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: -1;
+        background:
+            radial-gradient(circle at 12% 12%, rgba(220, 38, 38, 0.15), transparent 30%),
+            radial-gradient(circle at 88% 8%, rgba(249, 115, 22, 0.12), transparent 26%),
+            linear-gradient(180deg, #fff7f7 0%, #fff1f2 38%, #f8fafc 100%);
+    }
+
+    .pagetitle h1 {
+        color: var(--text);
+        font-weight: 900;
+        letter-spacing: -0.04em;
+    }
+
+    .breadcrumb {
+        background: transparent;
+        margin-bottom: 0;
+    }
+
+    .page-toolbar,
+    .filter-panel,
+    .table-card,
+    .stat-card {
+        background: var(--surface);
+        border: 1px solid rgba(254, 202, 202, 0.9);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(14px);
+    }
+
+    .page-toolbar {
+        position: relative;
+        overflow: hidden;
+        padding: 26px;
+        margin-bottom: 24px;
+        background:
+            linear-gradient(135deg, rgba(255,255,255,0.95), rgba(254,226,226,0.86)),
+            linear-gradient(135deg, rgba(220,38,38,0.10), rgba(249,115,22,0.08));
+    }
+
+    .page-toolbar::after {
+        content: "";
+        position: absolute;
+        width: 220px;
+        height: 220px;
+        right: -90px;
+        top: -110px;
+        background: radial-gradient(circle, rgba(220,38,38,0.20), transparent 68%);
+        border-radius: 999px;
+    }
+
+    .page-toolbar > * {
+        position: relative;
+        z-index: 1;
+    }
+
+    .page-title {
+        margin: 0;
+        color: var(--text);
+        font-size: clamp(1.65rem, 2vw, 2.15rem);
+        font-weight: 900;
+        letter-spacing: -0.045em;
+    }
+
+    .page-subtitle {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-weight: 500;
+    }
+
+    .toolbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .btn-gradient,
+    .btn-export-submit {
+        border: 0;
+        border-radius: 14px;
+        padding: 12px 18px;
+        color: #fff !important;
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark)) !important;
+        font-weight: 850;
+        box-shadow: 0 14px 28px rgba(220, 38, 38, 0.28);
+        transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+        white-space: nowrap;
+    }
+
+    .btn-gradient:hover,
+    .btn-gradient:focus,
+    .btn-export-submit:hover,
+    .btn-export-submit:focus {
+        color: #fff !important;
+        transform: translateY(-2px);
+        filter: saturate(1.06);
+        box-shadow: 0 18px 34px rgba(220, 38, 38, 0.35);
+    }
+
+    .btn-export {
+        border: 1px solid rgba(220, 38, 38, 0.24);
+        border-radius: 14px;
+        padding: 12px 18px;
+        color: var(--primary);
+        background: #fff;
+        font-weight: 850;
+        box-shadow: 0 12px 26px rgba(127, 29, 29, 0.08);
+        transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+        white-space: nowrap;
+    }
+
+    .btn-export:hover,
+    .btn-export:focus {
+        color: var(--primary-dark);
+        background: var(--primary-soft);
+        transform: translateY(-2px);
+        box-shadow: 0 16px 32px rgba(127, 29, 29, 0.12);
+    }
+
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 24px;
+    }
+
+    .stat-card {
+        position: relative;
+        overflow: hidden;
+        padding: 24px;
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .stat-card::after {
+        content: "";
+        position: absolute;
+        inset: auto -48px -58px auto;
+        width: 140px;
+        height: 140px;
+        border-radius: 999px;
+        background: rgba(220, 38, 38, 0.08);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 24px 60px rgba(127, 29, 29, 0.14);
+    }
+
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 17px;
+        background: linear-gradient(135deg, var(--primary-soft), var(--accent-soft));
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        margin-bottom: 16px;
+        box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.10);
+    }
+
+    .stat-number {
+        color: var(--text);
+        font-size: 2.05rem;
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: -0.05em;
+    }
+
+    .stat-label {
+        color: var(--muted);
+        font-size: .92rem;
+        margin-top: 9px;
+        font-weight: 700;
+    }
+
+    .filter-panel {
+        padding: 24px;
+        margin-bottom: 24px;
+        overflow: visible !important;
+    }
+
+    .filter-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text);
+        font-weight: 900;
+        margin-bottom: 18px;
+        letter-spacing: -0.02em;
+    }
+
+    .form-label {
+        color: #334155;
+        font-size: .84rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+    .form-control,
+    .form-select {
+        min-height: 46px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        padding: 11px 14px;
+        background-color: #fff;
+        color: var(--text);
+        box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: rgba(220, 38, 38, 0.65);
+        box-shadow: 0 0 0 .22rem rgba(220, 38, 38, 0.12);
+    }
+
+    .table-card {
+        overflow: hidden;
+    }
+
+    .table-header {
+        padding: 22px 24px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+    }
+
+    .table-header h5 {
+        margin: 0;
+        color: var(--text);
+        font-weight: 900;
+        letter-spacing: -0.02em;
+    }
+
+    .table-modern {
+        margin: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .table-modern thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #fff7f7;
+        color: #7f1d1d;
+        border-bottom: 1px solid #fecaca;
+        padding: 16px 18px;
+        font-size: .76rem;
+        text-transform: uppercase;
+        letter-spacing: .075em;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .table-modern tbody td {
+        padding: 18px;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+        color: #1e293b;
+    }
+
+    .table-modern tbody tr:hover {
+        background: #fff7f7;
+    }
+
+    .expense-avatar {
+        width: 44px;
+        min-width: 44px;
+        height: 44px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        box-shadow: 0 12px 24px rgba(220, 38, 38, 0.24);
+        text-transform: uppercase;
+    }
+
+    .badge-soft {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: .78rem;
+        font-weight: 800;
+        border: 1px solid transparent;
+        white-space: nowrap;
+    }
+
+    .badge-danger-soft {
+        background: #fee2e2;
+        color: #991b1b;
+        border-color: #fecaca;
+    }
+
+    .badge-muted-soft {
+        background: #f1f5f9;
+        color: #475569;
+        border-color: #e2e8f0;
+    }
+
+    .action-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px !important;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 5px;
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(127, 29, 29, 0.12);
+    }
+
+    .empty-state {
+        padding: 64px 20px;
+        text-align: center;
+        color: var(--muted);
+    }
+
+    .empty-state i {
+        font-size: 3.4rem;
+        color: #fecaca;
+        margin-bottom: 14px;
+    }
+
+    .pagination {
+        margin: 18px 24px 22px;
+    }
+
+    .page-link {
+        border-radius: 12px;
+        margin-left: 6px;
+        color: var(--primary);
+        border-color: var(--border);
+        font-weight: 800;
+    }
+
+    .page-item.active .page-link {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        border-color: transparent;
+    }
+
+    .modal-content {
+        border-radius: 22px;
+        overflow: hidden;
+        border: 0;
+        box-shadow: 0 25px 70px rgba(15, 23, 42, 0.22);
+    }
+
+    .modal-header {
+        color: #fff;
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        border-bottom: 0;
+        padding: 20px 24px;
+    }
+
+    .modal-title {
+        font-weight: 900;
+        letter-spacing: -0.02em;
+    }
+
+    .btn-close {
+        filter: invert(1) grayscale(100%) brightness(200%);
+    }
+
+    .modal-body {
+        padding: 26px;
+    }
+
+    .modal-footer {
+        border-top: 1px solid var(--border);
+        padding: 18px 24px;
+    }
+
+    .export-column-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .export-column-option {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: #f8fafc;
+        color: var(--text);
+        font-weight: 750;
+    }
+
+    .export-column-option .form-check-input {
+        margin: 0;
+    }
+
+    .delete-warning-icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 18px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fee2e2;
+        color: var(--danger);
+        font-size: 1.8rem;
+    }
+
+    .delete-expense-name {
+        display: inline-block;
+        padding: 7px 12px;
+        border-radius: 10px;
+        background: #f1f5f9;
+        color: var(--text);
+        font-weight: 900;
+    }
+
+    @media(max-width: 992px) {
+        .stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media(max-width: 576px) {
+        .stat-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .page-toolbar,
+        .table-header {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 14px;
+        }
+
+        .toolbar-actions,
+        .btn-gradient,
+        .btn-export,
+        .filter-panel .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .filter-actions {
+            flex-direction: column;
+            align-items: stretch !important;
+        }
+
+        .expense-action-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+
+        .export-column-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<main id="main" class="main expenses-page">
+    <div class="pagetitle">
+        <h1>Expenses</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'institute_admin:dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item">Fees & Accounts</li>
+                <li class="breadcrumb-item active">Expenses</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="page-toolbar d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="page-title">Expense Management</h2>
+            <p class="page-subtitle">Track institute spending, filter records, and export expense data.</p>
+        </div>
+
+        <div class="toolbar-actions">
+            <button type="button" class="btn btn-export" data-bs-toggle="modal" data-bs-target="#expenseExportModal">
+                <i class="bi bi-download"></i> Export
+            </button>
+
+            <a href="javascript:void(0);"
+               data-url="{% url 'institute_admin:expense_create' %}"
+               class="btn btn-gradient"
+               onclick="openExpenseWindow(this)">
+                <i class="bi bi-plus-circle"></i> Add Expense
+            </a>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <section class="section">
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="bi bi-receipt-cutoff"></i></div>
+                <div class="stat-number">{{ total_expenses }}</div>
+                <div class="stat-label">Total Expenses</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon"><i class="bi bi-currency-rupee"></i></div>
+                <div class="stat-number">{{ total_amount|floatformat:2 }}</div>
+                <div class="stat-label">Total Amount</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon"><i class="bi bi-calendar-month"></i></div>
+                <div class="stat-number">{{ month_amount|floatformat:2 }}</div>
+                <div class="stat-label">This Month</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon"><i class="bi bi-funnel"></i></div>
+                <div class="stat-number">{{ filtered_amount|floatformat:2 }}</div>
+                <div class="stat-label">Filtered Amount</div>
+            </div>
+        </div>
+
+        <div class="filter-panel">
+            <div class="filter-title">
+                <i class="bi bi-funnel me-1"></i> Filter Expenses
+            </div>
+
+            <form method="get" class="row g-3">
+                <div class="col-lg-4 col-md-12">
+                    <label class="form-label">Search</label>
+                    <input type="text" name="search" value="{{ search_query }}" class="form-control" placeholder="Search title, note or recorded by">
+                </div>
+
+                <div class="col-lg-3 col-md-6">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" name="start_date" value="{{ start_date }}" class="form-control">
+                </div>
+
+                <div class="col-lg-3 col-md-6">
+                    <label class="form-label">End Date</label>
+                    <input type="date" name="end_date" value="{{ end_date }}" class="form-control">
+                </div>
+
+                <div class="col-lg-2 col-md-12 d-flex align-items-end gap-2 filter-actions">
+                    <button type="submit" class="btn btn-gradient">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
+                    <a href="{% url 'institute_admin:expense_list' %}" class="btn btn-light border">
+                        <i class="bi bi-x-circle"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-card">
+            <div class="table-header">
+                <h5><i class="bi bi-list-ul me-1"></i> Expense Records</h5>
+                <span class="text-muted small">Showing latest spending entries</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-modern align-middle">
+                    <thead>
+                        <tr>
+                            <th>Expense</th>
+                            <th>Amount</th>
+                            <th>Spent Date</th>
+                            <th>Recorded By</th>
+                            <th>Note</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for expense in expenses %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="expense-avatar">{{ expense.title|slice:":1" }}</div>
+                                        <div>
+                                            <strong>{{ expense.title }}</strong>
+                                            <div class="small text-muted">Expense #{{ expense.pk }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <span class="badge-soft badge-danger-soft">
+                                        <i class="bi bi-currency-rupee"></i> {{ expense.amount|floatformat:2 }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <span class="fw-bold">{{ expense.spent_on|date:"d M Y" }}</span>
+                                </td>
+
+                                <td>
+                                    {% if expense.recorded_by %}
+                                        <span class="fw-bold">{{ expense.recorded_by.get_full_name|default:expense.recorded_by.username }}</span>
+                                    {% else %}
+                                        <span class="badge-soft badge-muted-soft">Not recorded</span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    <span class="text-muted">{{ expense.note|default:"-"|truncatechars:80 }}</span>
+                                </td>
+
+                                <td class="text-end text-nowrap">
+                                    <div class="expense-action-wrap">
+                                        <a href="javascript:void(0);"
+                                           data-url="{% url 'institute_admin:expense_update' expense.pk %}"
+                                           class="btn btn-sm btn-outline-warning action-btn"
+                                           onclick="openExpenseWindow(this)"
+                                           title="Edit">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </a>
+
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger action-btn"
+                                                data-delete-url="{% url 'institute_admin:expense_delete' expense.pk %}"
+                                                data-expense-name="{{ expense.title }}"
+                                                onclick="openDeleteExpenseModal(this)"
+                                                title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6">
+                                    <div class="empty-state">
+                                        <i class="bi bi-graph-down-arrow"></i>
+                                        <h5>No Expenses Found</h5>
+                                        <p>Institute spending records will appear here.</p>
+                                        <a href="javascript:void(0);"
+                                           data-url="{% url 'institute_admin:expense_create' %}"
+                                           class="btn btn-gradient mt-2"
+                                           onclick="openExpenseWindow(this)">
+                                            <i class="bi bi-plus-circle"></i> Add First Expense
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page_obj.has_other_pages %}
+                <nav>
+                    <ul class="pagination justify-content-end">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ search_query }}&start_date={{ start_date }}&end_date={{ end_date }}">Previous</a>
+                            </li>
+                        {% endif %}
+
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_obj.number }}</span>
+                        </li>
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ search_query }}&start_date={{ start_date }}&end_date={{ end_date }}">Next</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        </div>
+    </section>
+</main>
+
+<div class="modal fade" id="expenseExportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form method="get" action="{% url 'institute_admin:expense_export' %}" data-submit-lock="off">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-download me-2"></i> Export Expenses
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Search</label>
+                            <input type="text" name="search" value="{{ search_query }}" class="form-control" placeholder="Search title or note">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" name="start_date" value="{{ start_date }}" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">End Date</label>
+                            <input type="date" name="end_date" value="{{ end_date }}" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <h6 class="fw-bold mb-1"><i class="bi bi-layout-three-columns me-1"></i> Select Columns</h6>
+                            <p class="text-muted small mb-0">Important columns are already selected.</p>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-light border" onclick="resetExpenseExportColumns()">
+                            <i class="bi bi-arrow-clockwise"></i> Defaults
+                        </button>
+                    </div>
+
+                    <div class="export-column-grid">
+                        {% for value, label in expense_export_field_options %}
+                            <label class="export-column-option">
+                                <input class="form-check-input expense-export-column"
+                                       type="checkbox"
+                                       name="columns"
+                                       value="{{ value }}"
+                                       {% if value in expense_export_default_fields %}checked data-default="true"{% endif %}>
+                                <span>{{ label }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-export-submit">
+                        <i class="bi bi-filetype-csv"></i> Download CSV
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteExpenseModal" tabindex="-1" aria-labelledby="deleteExpenseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteExpenseModalLabel">
+                    <i class="bi bi-trash3 me-2"></i> Delete Expense
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeDeleteExpenseModal()"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="delete-warning-icon">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+                <h5 class="fw-bold">Are you sure?</h5>
+                <p class="text-muted mb-0">
+                    This will permanently delete
+                    <span class="delete-expense-name" id="deleteExpenseName"></span>.
+                </p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal" onclick="closeDeleteExpenseModal()">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </button>
+                <form method="post" id="deleteExpenseForm" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash3"></i> Delete Expense
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openExpenseWindow(element, customWidth = 960, customHeight = 780) {
+    const url = element.dataset.url || element.getAttribute("href");
+    const left = Math.max(0, (window.screen.width - customWidth) / 2);
+    const top = Math.max(0, (window.screen.height - customHeight) / 2);
+    window.open(
+        url,
+        "expenseWindow",
+        `width=${customWidth},height=${customHeight},left=${left},top=${top},scrollbars=yes,resizable=yes`
+    );
+}
+
+function openDeleteExpenseModal(button) {
+    const deleteForm = document.getElementById("deleteExpenseForm");
+    const deleteName = document.getElementById("deleteExpenseName");
+    const modalElement = document.getElementById("deleteExpenseModal");
+    deleteForm.action = button.dataset.deleteUrl;
+    deleteName.textContent = button.dataset.expenseName || "this expense";
+
+    if (window.bootstrap && bootstrap.Modal) {
+        bootstrap.Modal.getOrCreateInstance(modalElement).show();
+        return;
+    }
+    modalElement.classList.add("show");
+    modalElement.style.display = "block";
+    modalElement.removeAttribute("aria-hidden");
+    document.body.classList.add("modal-open");
+}
+
+function closeDeleteExpenseModal() {
+    const modalElement = document.getElementById("deleteExpenseModal");
+    if (window.bootstrap && bootstrap.Modal) {
+        const instance = bootstrap.Modal.getInstance(modalElement);
+        if (instance) {
+            instance.hide();
+        }
+        return;
+    }
+    modalElement.classList.remove("show");
+    modalElement.style.display = "none";
+    modalElement.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("modal-open");
+}
+
+function resetExpenseExportColumns() {
+    document.querySelectorAll(".expense-export-column").forEach((input) => {
+        input.checked = input.dataset.default === "true";
+    });
+}
+</script>
+{% endblock content %}

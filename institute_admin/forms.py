@@ -10,7 +10,7 @@ from django.db import transaction
 from django.db.models import Prefetch, Q, Sum
 from django.utils import timezone
 
-from accountant.models import FeeCategory, FeeInvoice, Payment, PaymentActivity
+from accountant.models import Expense, FeeCategory, FeeInvoice, Payment, PaymentActivity
 from super_admin.models import Institute, UserProfile
 from student_parent.models import (
     GuardianProfile,
@@ -677,6 +677,41 @@ class LeadForm(forms.ModelForm):
         if course and course.institute_id != getattr(self.institute, "pk", None):
             raise ValidationError("Select a course from this institute.")
         return course
+
+
+class ExpenseForm(forms.ModelForm):
+    files = MultipleFileField(
+        required=False,
+        label="Expense Documents",
+        help_text="Upload bills, receipts or supporting files. You can select multiple files.",
+    )
+
+    class Meta:
+        model = Expense
+        fields = ("title", "amount", "spent_on", "note")
+        widgets = {
+            "spent_on": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "amount": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
+            "note": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["files"].widget.attrs.update(
+            {
+                "class": "form-control",
+                "multiple": True,
+                "accept": ".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.csv",
+            }
+        )
+        for field in self.fields.values():
+            field.widget.attrs.setdefault("class", "form-control")
+
+    def clean_amount(self):
+        amount = self.cleaned_data["amount"]
+        if amount <= 0:
+            raise ValidationError("Expense amount must be greater than zero.")
+        return amount
 
 
 class VisitorForm(forms.ModelForm):

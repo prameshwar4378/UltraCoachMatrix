@@ -30,7 +30,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from accountant.models import FeeCategory, FeeInvoice, Payment, PaymentActivity
+from accountant.models import Expense, ExpenseDocument, FeeCategory, FeeInvoice, Payment, PaymentActivity
 from student_parent.models import (
     GuardianProfile,
     StudentAcademicSession,
@@ -68,6 +68,7 @@ from .forms import (
     build_student_username,
     CourseForm,
     DummyStudentCreateForm,
+    ExpenseForm,
     LeadForm,
     FeeCategoryForm,
     generate_student_admission_number,
@@ -853,6 +854,220 @@ def lead_delete(request, pk):
     lead.delete()
     messages.success(request, "Lead deleted successfully.")
     return redirect("institute_admin:lead_list")
+
+
+EXPENSE_EXPORT_FIELD_OPTIONS = [
+    ("title", "Title"),
+    ("amount", "Amount"),
+    ("spent_on", "Spent Date"),
+    ("note", "Note"),
+    ("recorded_by", "Recorded By"),
+]
+
+EXPENSE_EXPORT_DEFAULT_FIELDS = ["title", "amount", "spent_on", "recorded_by"]
+
+
+def get_expense_export_field_keys(request):
+    allowed = {field for field, _ in EXPENSE_EXPORT_FIELD_OPTIONS}
+    selected = [field for field in request.GET.getlist("columns") if field in allowed]
+    return selected or EXPENSE_EXPORT_DEFAULT_FIELDS
+
+
+def get_expense_export_value(expense, field):
+    if field == "title":
+        return expense.title
+    if field == "amount":
+        return expense.amount
+    if field == "spent_on":
+        return expense.spent_on.strftime("%Y-%m-%d") if expense.spent_on else ""
+    if field == "note":
+        return expense.note
+    if field == "recorded_by":
+        if not expense.recorded_by:
+            return ""
+        return expense.recorded_by.get_full_name() or expense.recorded_by.username
+    return ""
+
+
+def save_expense_documents(expense, uploaded_files):
+    for uploaded_file in uploaded_files or []:
+        if uploaded_file:
+            ExpenseDocument.objects.create(expense=expense, file=uploaded_file)
+
+
+@institute_admin_required
+def expense_list(request):
+    institute = get_current_institute(request)
+    expenses = Expense.objects.select_related("recorded_by").prefetch_related("documents")
+    if institute:
+        expenses = expenses.filter(institute=institute)
+    else:
+        expenses = expenses.none()
+
+    search_query = request.GET.get("search", "").strip()
+    start_date_value = request.GET.get("start_date", "").strip()
+    end_date_value = request.GET.get("end_date", "").strip()
+    start_date = parse_date(start_date_value)
+    end_date = parse_date(end_date_value)
+
+    if search_query:
+        expenses = expenses.filter(
+            Q(title__icontains=search_query)
+            | Q(note__icontains=search_query)
+            | Q(recorded_by__username__icontains=search_query)
+            | Q(recorded_by__first_name__icontains=search_query)
+            | Q(recorded_by__last_name__icontains=search_query)
+        )
+    if start_date:
+        expenses = expenses.filter(spent_on__gte=start_date)
+    if end_date:
+        expenses = expenses.filter(spent_on__lte=end_date)
+
+    base_queryset = Expense.objects.filter(institute=institute) if institute else Expense.objects.none()
+    today = timezone.localdate()
+    month_start = today.replace(day=1)
+    filtered_total = expenses.aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
+    paginator = Paginator(expenses, 20)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "institute_admin/expense_list.html",
+        {
+            "expenses": page_obj.object_list,
+            "page_obj": page_obj,
+            "search_query": search_query,
+            "start_date": start_date_value,
+            "end_date": end_date_value,
+            "expense_export_field_options": EXPENSE_EXPORT_FIELD_OPTIONS,
+            "expense_export_default_fields": EXPENSE_EXPORT_DEFAULT_FIELDS,
+            "total_expenses": base_queryset.count(),
+            "total_amount": base_queryset.aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"],
+            "month_amount": base_queryset.filter(spent_on__gte=month_start).aggregate(
+                total=Coalesce(Sum("amount"), Decimal("0"))
+            )["total"],
+            "filtered_amount": filtered_total,
+        },
+    )
+
+
+@institute_admin_required
+def expense_export(request):
+    institute = get_current_institute(request)
+    expenses = Expense.objects.select_related("recorded_by").prefetch_related("documents")
+    if institute:
+        expenses = expenses.filter(institute=institute)
+    else:
+        expenses = expenses.none()
+
+    search_query = request.GET.get("search", "").strip()
+    start_date = parse_date(request.GET.get("start_date", "").strip())
+    end_date = parse_date(request.GET.get("end_date", "").strip())
+
+    if search_query:
+        expenses = expenses.filter(
+            Q(title__icontains=search_query)
+            | Q(note__icontains=search_query)
+            | Q(recorded_by__username__icontains=search_query)
+            | Q(recorded_by__first_name__icontains=search_query)
+            | Q(recorded_by__last_name__icontains=search_query)
+        )
+    if start_date:
+        expenses = expenses.filter(spent_on__gte=start_date)
+    if end_date:
+        expenses = expenses.filter(spent_on__lte=end_date)
+
+    selected_fields = get_expense_export_field_keys(request)
+    field_labels = dict(EXPENSE_EXPORT_FIELD_OPTIONS)
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
+    response["Content-Disposition"] = f'attachment; filename="expense_export_{stamp}.csv"'
+    response.write("\ufeff")
+
+    writer = csv.writer(response)
+    writer.writerow([field_labels[field] for field in selected_fields])
+    for expense in expenses.order_by("-spent_on", "-pk"):
+        writer.writerow([get_expense_export_value(expense, field) for field in selected_fields])
+    return response
+
+
+@institute_admin_required
+def expense_create(request):
+    institute = get_current_institute(request)
+    if request.method == "POST":
+        form = ExpenseForm(request.POST, request.FILES)
+        if form.is_valid():
+            expense = form.save(commit=False)
+            expense.institute = institute
+            expense.recorded_by = request.user
+            expense.save()
+            save_expense_documents(expense, form.cleaned_data.get("files"))
+            messages.success(request, "Expense created successfully.")
+            return close_popup_response()
+    else:
+        form = ExpenseForm()
+
+    return render(
+        request,
+        "institute_admin/expense_form.html",
+        {"form": form, "title": "Create Expense", "button_text": "Save Expense"},
+    )
+
+
+@institute_admin_required
+def expense_update(request, pk):
+    institute = get_current_institute(request)
+    expense = get_object_or_404(
+        Expense.objects.prefetch_related("documents"),
+        pk=pk,
+        institute=institute,
+    )
+    if request.method == "POST":
+        form = ExpenseForm(request.POST, request.FILES, instance=expense)
+        if form.is_valid():
+            expense = form.save()
+            save_expense_documents(expense, form.cleaned_data.get("files"))
+            messages.success(request, "Expense updated successfully.")
+            return close_popup_response()
+    else:
+        form = ExpenseForm(instance=expense)
+
+    return render(
+        request,
+        "institute_admin/expense_form.html",
+        {
+            "form": form,
+            "title": "Edit Expense",
+            "button_text": "Update Expense",
+            "expense": expense,
+        },
+    )
+
+
+@institute_admin_required
+@require_POST
+def expense_delete(request, pk):
+    institute = get_current_institute(request)
+    expense = get_object_or_404(Expense, pk=pk, institute=institute)
+    expense.delete()
+    messages.success(request, "Expense deleted successfully.")
+    return redirect("institute_admin:expense_list")
+
+
+@institute_admin_required
+@require_POST
+def expense_document_delete(request, pk):
+    institute = get_current_institute(request)
+    document = get_object_or_404(
+        ExpenseDocument.objects.select_related("expense"),
+        pk=pk,
+        expense__institute=institute,
+    )
+    if document.file:
+        document.file.delete(save=False)
+    document.delete()
+    messages.success(request, "Expense document deleted successfully.")
+    return close_popup_response()
 
 
 VISITOR_EXPORT_FIELD_OPTIONS = [
@@ -3706,10 +3921,47 @@ def student_dashboard(request, pk):
         )
         .order_by("-performed_at", "-pk")[:20]
     )
-    attendance_records = (
-        Attendance.objects.filter(student=student, academic_session=student_session)
-        .select_related("batch", "marked_by")
-        .order_by("-date", "-pk")[:10]
+    attendance_date_from = request.GET.get("attendance_date_from", "").strip()
+    attendance_date_to = request.GET.get("attendance_date_to", "").strip()
+    attendance_status_filter = request.GET.get("attendance_status", "").strip()
+    attendance_batch_filter = request.GET.get("attendance_batch", "").strip()
+    attendance_filter_active = any(
+        [
+            attendance_date_from,
+            attendance_date_to,
+            attendance_status_filter,
+            attendance_batch_filter,
+        ]
+    )
+    attendance_records_queryset = Attendance.objects.filter(
+        student=student,
+        academic_session=student_session,
+    ).select_related("batch", "marked_by")
+    date_from = parse_date(attendance_date_from)
+    date_to = parse_date(attendance_date_to)
+    if date_from:
+        attendance_records_queryset = attendance_records_queryset.filter(date__gte=date_from)
+    if date_to:
+        attendance_records_queryset = attendance_records_queryset.filter(date__lte=date_to)
+    if attendance_status_filter in Attendance.Status.values:
+        attendance_records_queryset = attendance_records_queryset.filter(status=attendance_status_filter)
+    else:
+        attendance_status_filter = ""
+    if attendance_batch_filter:
+        attendance_records_queryset = attendance_records_queryset.filter(batch_id=attendance_batch_filter)
+    attendance_records_queryset = attendance_records_queryset.order_by("-date", "-pk")
+    attendance_records = list(
+        attendance_records_queryset if attendance_filter_active else attendance_records_queryset[:10]
+    )
+    attendance_batch_options = (
+        Batch.objects.filter(
+            pk__in=Attendance.objects.filter(
+                student=student,
+                academic_session=student_session,
+            ).values("batch_id")
+        )
+        .order_by("name")
+        .distinct()
     )
 
     invoice_rows = []
@@ -3844,6 +4096,14 @@ def student_dashboard(request, pk):
         "payment_activities": payment_activities,
         "documents": student.documents.all(),
         "attendance_records": attendance_records,
+        "attendance_status_choices": Attendance.Status.choices,
+        "attendance_batch_options": attendance_batch_options,
+        "attendance_filter_active": attendance_filter_active,
+        "attendance_filtered_count": attendance_records_queryset.count(),
+        "attendance_date_from": attendance_date_from,
+        "attendance_date_to": attendance_date_to,
+        "attendance_status_filter": attendance_status_filter,
+        "attendance_batch_filter": attendance_batch_filter,
         "total_fee_amount": total_fee_amount,
         "total_paid_amount": total_paid_amount,
         "raw_paid_amount": raw_paid_amount,
@@ -4663,58 +4923,131 @@ def student_delete(request, pk):
         queryset = queryset.filter(institute=institute)
     if academic_year:
         queryset = queryset.filter(academic_year=academic_year)
+    current_session_id = request.POST.get("current_session_id")
+    if current_session_id and current_session_id.isdigit():
+        queryset = StudentAcademicSession.objects.select_related("student", "student__user").filter(
+            institute=institute,
+            pk=current_session_id,
+            student_id=pk,
+        )
     student_session = get_object_or_404(queryset, student_id=pk)
     student = student_session.student
 
     if request.method == "POST":
-        if student_session.fee_invoices.exists():
-            messages.error(request, "This student has fee invoices. Mark inactive instead of deleting.")
-        else:
+        delete_scope = request.POST.get("delete_scope", "current_session")
+        if delete_scope == "all_sessions":
             student.user.delete()
-            messages.success(request, "Student deleted successfully.")
+            messages.success(request, "Student and all academic sessions deleted successfully.")
+        else:
+            with transaction.atomic():
+                student_session.delete()
+                remaining_sessions = StudentAcademicSession.objects.filter(
+                    institute=institute,
+                    student=student,
+                ).exists()
+                if not remaining_sessions:
+                    student.user.delete()
+                    messages.success(request, "Student deleted successfully because no other sessions were available.")
+                else:
+                    messages.success(request, "Student removed from the current academic session successfully.")
 
     return redirect("institute_admin:student_list")
 
 
 @institute_admin_required
-@require_POST
-def student_bulk_delete(request):
+def student_delete_details(request, pk):
     institute = get_current_institute(request)
-    academic_year = get_current_academic_year(request, institute)
-    selected_ids = {int(student_id) for student_id in request.POST.getlist("student_ids") if student_id.isdigit()}
+    current_session_id = request.GET.get("current_session_id", "").strip()
+    student_queryset = StudentProfile.objects.select_related("user", "user__profile").filter(institute=institute)
+    student = get_object_or_404(student_queryset, pk=pk)
 
-    if not selected_ids:
-        messages.error(request, "Select at least one student to delete.")
-        return redirect("institute_admin:student_list")
+    sessions = (
+        StudentAcademicSession.objects.filter(institute=institute, student=student)
+        .select_related("academic_year")
+        .prefetch_related("enrollments__batch", "enrollments__courses")
+        .order_by("-academic_year__start_date", "-pk")
+    )
+    current_session = sessions.filter(pk=current_session_id).first() if current_session_id.isdigit() else None
 
-    sessions = StudentAcademicSession.objects.select_related("student", "student__user")
-    if institute:
-        sessions = sessions.filter(institute=institute)
-    if academic_year:
-        sessions = sessions.filter(academic_year=academic_year)
-    sessions = sessions.filter(student_id__in=selected_ids).distinct()
+    pending_invoices = (
+        FeeInvoice.objects.filter(
+            institute=institute,
+            student=student,
+            status__in=[FeeInvoice.Status.UNPAID, FeeInvoice.Status.PARTIAL],
+        )
+        .select_related("academic_session", "academic_session__academic_year", "batch", "course", "category")
+        .prefetch_related("payments")
+        .order_by("due_date", "pk")
+    )
 
-    available_student_ids = set(sessions.values_list("student_id", flat=True))
-    unavailable_count = len(selected_ids - available_student_ids)
-    blocked_sessions = sessions.filter(fee_invoices__isnull=False).distinct()
-    blocked_count = blocked_sessions.count()
-    blocked_student_ids = set(blocked_sessions.values_list("student_id", flat=True))
-    deletable_sessions = sessions.exclude(student_id__in=blocked_student_ids)
-    user_ids = list(deletable_sessions.values_list("student__user_id", flat=True).distinct())
-    deleted_count = len(user_ids)
+    session_rows = []
+    for session in sessions:
+        enrollments = list(session.enrollments.all())
+        batch_names = []
+        course_names = []
+        for enrollment in enrollments:
+            if enrollment.batch:
+                batch_names.append(enrollment.batch.name)
+            course_names.extend(course.name for course in enrollment.courses.all())
+        session_rows.append(
+            {
+                "id": session.pk,
+                "academic_year": session.academic_year.name,
+                "admission_number": session.admission_number,
+                "joined_on": session.joined_on.strftime("%Y-%m-%d") if session.joined_on else "-",
+                "status": session.get_status_display(),
+                "batches": ", ".join(dict.fromkeys(batch_names)) or "-",
+                "courses": ", ".join(dict.fromkeys(course_names)) or "-",
+                "is_current": bool(current_session and session.pk == current_session.pk),
+            }
+        )
 
-    if user_ids:
-        with transaction.atomic():
-            User.objects.filter(pk__in=user_ids).delete()
-        messages.success(request, f"{deleted_count} student(s) deleted successfully.")
-    if blocked_count:
-        messages.warning(request, f"{blocked_count} selected student(s) have fee invoices and were not deleted. Mark them inactive instead.")
-    if unavailable_count:
-        messages.warning(request, f"{unavailable_count} selected student(s) were not available in the current admission list.")
-    if not deleted_count and not blocked_count and not unavailable_count:
-        messages.error(request, "No matching students were found to delete.")
+    invoice_rows = []
+    total_pending = Decimal("0.00")
+    for invoice in pending_invoices:
+        paid_amount = sum(payment.amount for payment in invoice.payments.filter(status=Payment.Status.ACTIVE))
+        due_amount = invoice.amount - paid_amount
+        if due_amount <= 0:
+            continue
+        total_pending += due_amount
+        invoice_rows.append(
+            {
+                "id": invoice.pk,
+                "academic_year": invoice.academic_session.academic_year.name if invoice.academic_session_id else "-",
+                "title": invoice.title,
+                "category": invoice.category.name if invoice.category else "-",
+                "course": invoice.course.name if invoice.course else "-",
+                "batch": invoice.batch.name if invoice.batch else "-",
+                "amount": str(invoice.amount),
+                "paid": str(paid_amount),
+                "due": str(due_amount),
+                "due_date": invoice.due_date.strftime("%Y-%m-%d") if invoice.due_date else "-",
+                "status": invoice.get_status_display(),
+            }
+        )
 
-    return redirect("institute_admin:student_list")
+    other_session_count = sum(1 for row in session_rows if not row["is_current"])
+    profile_phone = student.user.profile.phone if hasattr(student.user, "profile") else ""
+    payload = {
+        "student": {
+            "id": student.pk,
+            "name": student.user.get_full_name() or student.user.username,
+            "username": student.user.username,
+            "email": student.user.email or "-",
+            "phone": profile_phone or "-",
+            "admission_number": student.admission_number,
+        },
+        "summary": {
+            "session_count": len(session_rows),
+            "other_session_count": other_session_count,
+            "pending_invoice_count": len(invoice_rows),
+            "pending_amount": str(total_pending),
+            "current_session": current_session.academic_year.name if current_session else "-",
+        },
+        "sessions": session_rows,
+        "pending_invoices": invoice_rows,
+    }
+    return JsonResponse(payload)
 
 
 @institute_admin_required
