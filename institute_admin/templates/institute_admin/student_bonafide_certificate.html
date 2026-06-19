@@ -1,0 +1,469 @@
+ 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bonafide Certificate - {{ bonafide.certificate_number }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+@page { size: A4; margin: 10mm; }
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: #e5e7eb;
+    color: #111827;
+    font-family: "Times New Roman", Georgia, serif;
+    font-size: 12px;
+}
+
+.toolbar {
+    width: 210mm;
+    margin: 12px auto;
+    display: flex;
+    justify-content: space-between;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.btn {
+    border: 1px solid #1e3a8a;
+    background: #1e3a8a;
+    color: #fff;
+    border-radius: 6px;
+    padding: 9px 14px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn.secondary {
+    background: #fff;
+    color: #111827;
+    border-color: #cbd5e1;
+}
+
+.sheet {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto 18px;
+    background: #fff;
+    padding: 10mm;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, .18);
+}
+
+.certificate {
+    min-height: 277mm;
+    position: relative;
+    padding: 10mm 11mm;
+    border: 2px solid #1e293b;
+    background: #fff;
+}
+
+.certificate::before {
+    content: "";
+    position: absolute;
+    inset: 5mm;
+    border: 1px solid #cbd5e1;
+    pointer-events: none;
+}
+
+.watermark {
+    position: absolute;
+    top: 47%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-25deg);
+    font-size: 44px;
+    font-weight: 900;
+    color: rgba(15, 23, 42, .035);
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.header {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 25mm 1fr;
+    gap: 12px;
+    align-items: center;
+    padding-bottom: 7mm;
+    border-bottom: 2px solid #1e293b;
+}
+
+.logo {
+    width: 23mm;
+    height: 23mm;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    font-size: 9px;
+    font-weight: 700;
+    overflow: hidden;
+}
+
+.logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.school-name {
+    margin: 0;
+    text-align: center;
+    text-transform: uppercase;
+    font-size: 23px;
+    line-height: 1.1;
+    font-weight: 900;
+    letter-spacing: .4px;
+    color: #0f172a;
+}
+
+.school-meta {
+    margin-top: 5px;
+    text-align: center;
+    color: #475569;
+    line-height: 1.35;
+    font-size: 11px;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.doc-heading {
+    position: relative;
+    z-index: 1;
+    margin: 12mm 0 6mm;
+    text-align: center;
+}
+
+.title {
+    display: inline-block;
+    padding: 7px 28px;
+    border: 2px solid #1e293b;
+    border-radius: 40px;
+    font-size: 19px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: #f8fafc;
+}
+
+.meta-row {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    margin: 5mm 0 11mm;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
+}
+
+.meta-item {
+    color: #334155;
+}
+
+.meta-item strong {
+    color: #0f172a;
+}
+
+.body-text {
+    position: relative;
+    z-index: 1;
+    font-size: 16px;
+    line-height: 2.05;
+    text-align: justify;
+    margin-top: 5mm;
+}
+
+.blank {
+    display: inline-block;
+    min-width: 42mm;
+    border-bottom: 1.3px dotted #111827;
+    font-weight: 900;
+    line-height: 1.35;
+    padding: 0 5px;
+    text-align: center;
+}
+
+.details-title {
+    position: relative;
+    z-index: 1;
+    margin-top: 11mm;
+    padding: 6px 10px;
+    background: #1e293b;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.details {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid #1e293b;
+    border-top: 0;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.field {
+    display: grid;
+    grid-template-columns: 39mm 1fr;
+    min-height: 30px;
+    border-top: 1px solid #cbd5e1;
+}
+
+.field:nth-child(odd) {
+    border-right: 1px solid #cbd5e1;
+}
+
+.field.full {
+    grid-column: 1 / -1;
+    border-right: 0;
+}
+
+.field-label {
+    padding: 7px 8px;
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 10px;
+    font-weight: 900;
+    border-right: 1px solid #cbd5e1;
+}
+
+.field-value {
+    padding: 7px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #111827;
+    overflow-wrap: anywhere;
+}
+
+.issue-note {
+    position: relative;
+    z-index: 1;
+    margin-top: 8mm;
+    padding: 8px 10px;
+    background: #f8fafc;
+    border-left: 4px solid #0f766e;
+    font-size: 12px;
+    line-height: 1.55;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #334155;
+}
+
+.signatures {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32mm;
+    margin-top: 34mm;
+}
+
+.signature {
+    border-top: 1.5px solid #111827;
+    padding-top: 7px;
+    text-align: center;
+    font-weight: 900;
+    font-size: 13px;
+}
+
+.footer {
+    position: absolute;
+    left: 11mm;
+    right: 11mm;
+    bottom: 8mm;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    color: #64748b;
+    font-size: 9px;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+@media print {
+    body { background: #fff; }
+
+    .toolbar {
+        display: none;
+    }
+
+    .sheet {
+        width: auto;
+        min-height: auto;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+    }
+
+    .certificate {
+        min-height: 277mm;
+        page-break-inside: avoid;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="toolbar">
+    <a class="btn secondary" href="{% url 'institute_admin:student_dashboard' student.pk %}">
+        Back to Dashboard
+    </a>
+    <button class="btn" type="button" onclick="window.print()">Print / Download</button>
+</div>
+
+<div class="sheet">
+    <div class="certificate">
+
+        <div class="watermark">Bonafide Certificate</div>
+
+        <div class="header">
+            <div class="logo">
+                {% if student.institute.logo %}
+                    <img src="{{ student.institute.logo.url }}" alt="{{ snapshot.institute_name|default:student.institute.name }}">
+                {% else %}
+                    LOGO
+                {% endif %}
+            </div>
+
+            <div>
+                <h1 class="school-name">
+                    {{ snapshot.institute_name|default:student.institute.name|default:"-" }}
+                </h1>
+
+                <div class="school-meta">
+                    {{ snapshot.institute_address|default:student.institute.address|default:"-" }}<br>
+                    Phone: {{ snapshot.institute_phone|default:student.institute.phone|default:"-" }}
+                    &nbsp; | &nbsp;
+                    Email: {{ snapshot.institute_email|default:student.institute.email|default:"-" }}
+                </div>
+            </div>
+        </div>
+
+        <div class="doc-heading">
+            <div class="title">Bonafide Certificate</div>
+        </div>
+
+        <div class="meta-row">
+            <div class="meta-item">
+                Certificate No.: <strong>{{ bonafide.certificate_number|default:"-" }}</strong>
+            </div>
+
+            <div class="meta-item">
+                Issue Date: <strong>{{ bonafide.issue_date|default:"-" }}</strong>
+            </div>
+        </div>
+
+        <div class="body-text">
+            This is to certify that
+            <span class="blank">{{ snapshot.student_name|default:student.user.get_full_name|default:"" }}</span>
+            is / was a bonafide student of this institution for the academic year
+            <span class="blank">{{ snapshot.academic_year|default:student_session.academic_year.name|default:"" }}</span>.
+            The student is / was studying in
+            <span class="blank">{{ snapshot.current_class|default:student.current_class|default:student.admission_class|default:"" }}</span>
+            {% if snapshot.division|default:student.division %}
+                division <span class="blank">{{ snapshot.division|default:student.division }}</span>
+            {% endif %}
+            as per the official record of the institution.
+            This certificate is issued for
+            <span class="blank">{{ bonafide.purpose|default:"" }}</span>.
+        </div>
+
+        <div class="details-title">Student Record Details</div>
+
+        <div class="details">
+
+            <div class="field">
+                <div class="field-label">Admission No.</div>
+                <div class="field-value">
+                    {{ snapshot.admission_number|default:student_session.admission_number|default:"-" }}
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">Class</div>
+                <div class="field-value">
+                    {{ snapshot.current_class|default:student.current_class|default:student.admission_class|default:"-" }}
+                    {% if snapshot.division|default:student.division %}
+                        - {{ snapshot.division|default:student.division }}
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">GR / UDISE No.</div>
+                <div class="field-value">
+                    {{ snapshot.gr_number_udise|default:student.gr_number_udise|default:"-" }}
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">Date of Birth</div>
+                <div class="field-value">
+                    {{ snapshot.date_of_birth|default:student.date_of_birth|default:"-" }}
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">Father Name</div>
+                <div class="field-value">
+                    {{ snapshot.father_name|default:student.father_name|default:"-" }}
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">Mother Name</div>
+                <div class="field-value">
+                    {{ snapshot.mother_name|default:student.mother_name|default:"-" }}
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">Medium</div>
+                <div class="field-value">
+                    {{ snapshot.medium|default:student.medium|default:"-" }}
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">Admission Date</div>
+                <div class="field-value">
+                    {{ snapshot.admission_date|default:student_session.joined_on|default:"-" }}
+                </div>
+            </div>
+
+            <div class="field full">
+                <div class="field-label">Remarks</div>
+                <div class="field-value">
+                    {{ bonafide.remarks|default:"-" }}
+                </div>
+            </div>
+
+        </div>
+
+        <div class="issue-note">
+            This certificate is issued on request of the student / parent for official use only.
+        </div>
+
+        <div class="signatures">
+            <div class="signature">Office Clerk</div>
+            <div class="signature">Principal / Head Master</div>
+        </div>
+ 
+
+    </div>
+</div>
+
+</body>
+</html>
+

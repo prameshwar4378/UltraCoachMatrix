@@ -359,7 +359,7 @@
 
         <div class="row g-3">
           {% for field in form %}
-            <div class="col-md-6">
+            <div class="{% if field.name == 'address' %}col-12{% else %}col-md-6{% endif %}">
               <label class="form-label" for="{{ field.id_for_label }}">
                 {{ field.label }}
               </label>

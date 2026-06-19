@@ -33,10 +33,12 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from accountant.models import Expense, ExpenseDocument, FeeCategory, FeeInvoice, Payment, PaymentActivity
 from student_parent.models import (
     GuardianProfile,
+    StudentBonafideCertificate,
     StudentAcademicSession,
     StudentDocument,
     StudentEnrollment,
     StudentProfile,
+    StudentTransferCertificate,
 )
 from student_parent.notifications import (
     enqueue_fee_paid_notification,
@@ -87,11 +89,14 @@ from .forms import (
     SecurityPasswordChangeForm,
     SupportTicketForm,
     StudentBasicForm,
+    StudentBonafideCertificateForm,
     StudentDocumentUploadForm,
     StudentEducationForm,
     StudentEnrollmentForm,
     StudentForm,
     StudentGuardianForm,
+    StudentIdCardForm,
+    StudentTransferCertificateForm,
     SubjectForm,
     TeacherForm,
     VisitorForm,
@@ -3912,6 +3917,16 @@ def student_dashboard(request, pk):
         .select_related("invoice", "received_by")
         .order_by("-created_at", "-pk")
     )
+    transfer_certificates = (
+        student.transfer_certificates.select_related("generated_by", "cancelled_by", "academic_session")
+        .filter(academic_session=student_session)
+        .order_by("-generated_at", "-pk")
+    )
+    bonafide_certificates = (
+        student.bonafide_certificates.select_related("generated_by", "cancelled_by", "academic_session")
+        .filter(academic_session=student_session)
+        .order_by("-generated_at", "-pk")
+    )
     payment_activities = (
         PaymentActivity.objects.filter(payment__invoice__student=student, payment__invoice__academic_session=student_session)
         .select_related(
@@ -4083,6 +4098,8 @@ def student_dashboard(request, pk):
     absent_count = attendance_queryset.filter(status=Attendance.Status.ABSENT).count()
     late_count = attendance_queryset.filter(status=Attendance.Status.LATE).count()
     attendance_percentage = round((present_count / attendance_total) * 100, 2) if attendance_total else 0
+    documents = list(student.documents.all())
+    document_rows = build_student_document_rows(documents)
 
     context = {
         "student": student,
@@ -4091,10 +4108,13 @@ def student_dashboard(request, pk):
         "enrollments": enrollments,
         "invoice_rows": invoice_rows,
         "payments": payments,
+        "transfer_certificates": transfer_certificates,
+        "bonafide_certificates": bonafide_certificates,
         "active_payment_count": payments.filter(status=Payment.Status.ACTIVE).count(),
         "all_payment_count": payments.count(),
         "payment_activities": payment_activities,
-        "documents": student.documents.all(),
+        "documents": documents,
+        "document_rows": document_rows,
         "attendance_records": attendance_records,
         "attendance_status_choices": Attendance.Status.choices,
         "attendance_batch_options": attendance_batch_options,
@@ -4119,6 +4139,270 @@ def student_dashboard(request, pk):
         "attendance_percentage": attendance_percentage,
     }
     return render(request, "institute_admin/student_dashboard.html", context)
+
+
+def build_student_document_rows(documents):
+    covered_document_ids = set()
+    document_rows = []
+    type_labels = dict(StudentDocument.DocumentType.choices)
+    for field_name, (document_type, document_label) in StudentForm.DOCUMENT_UPLOAD_FIELDS.items():
+        matched_document = next(
+            (
+                document
+                for document in documents
+                if document.pk not in covered_document_ids and document.document_type == document_type
+            ),
+            None,
+        )
+        if matched_document:
+            covered_document_ids.add(matched_document.pk)
+        document_rows.append(
+            {
+                "field_name": field_name,
+                "label": document_label,
+                "document_type": document_type,
+                "document": matched_document,
+                "type_display": (
+                    matched_document.get_document_type_display()
+                    if matched_document
+                    else type_labels.get(document_type, document_label)
+                ),
+                "status": "Uploaded" if matched_document else "Pending",
+            }
+        )
+    for document in documents:
+        if document.pk in covered_document_ids:
+            continue
+        document_rows.append(
+            {
+                "field_name": "additional_document",
+                "label": document.title or document.get_document_type_display(),
+                "document_type": document.document_type,
+                "document": document,
+                "type_display": document.get_document_type_display(),
+                "status": "Uploaded",
+            }
+        )
+    return document_rows
+
+
+@institute_admin_required
+def student_admission_form(request, pk):
+    student_session = get_current_session_or_404(request, pk, prefetch_documents=True)
+    student = student_session.student
+    enrollments = (
+        student_session.enrollments.select_related("batch")
+        .prefetch_related("courses")
+        .order_by("-enrolled_on", "-pk")
+    )
+    documents = list(student.documents.all())
+
+    return render(
+        request,
+        "institute_admin/student_admission_form.html",
+        {
+            "student": student,
+            "student_session": student_session,
+            "primary_guardian": student.guardians.filter(is_primary=True).first()
+            or student.guardians.first(),
+            "enrollments": enrollments,
+            "document_rows": build_student_document_rows(documents),
+            "generated_at": timezone.localtime(),
+        },
+    )
+
+
+@institute_admin_required
+def student_tc_generate(request, pk):
+    student_session = get_current_session_or_404(request, pk)
+    student = student_session.student
+
+    if request.method == "POST":
+        form = StudentTransferCertificateForm(
+            request.POST,
+            student=student,
+            academic_session=student_session,
+            generated_by=request.user,
+        )
+        if form.is_valid():
+            tc_record = form.save()
+            messages.success(request, "Transfer Certificate generated successfully.")
+            receipt_url = reverse("institute_admin:student_tc_print", args=[tc_record.pk])
+            return close_popup_response(receipt_url)
+    else:
+        form = StudentTransferCertificateForm(
+            student=student,
+            academic_session=student_session,
+            generated_by=request.user,
+        )
+
+    return render(
+        request,
+        "institute_admin/student_section_form.html",
+        {
+            "form": form,
+            "student": student,
+            "title": "Generate Transfer Certificate",
+            "subtitle": "Only TC-specific details are required; student details are pulled from the profile.",
+            "button_text": "Generate TC",
+            "icon": "bi-file-earmark-text",
+        },
+    )
+
+
+@institute_admin_required
+def student_tc_print(request, pk):
+    institute = get_current_institute(request)
+    queryset = StudentTransferCertificate.objects.select_related(
+        "student",
+        "student__institute",
+        "student__user",
+        "academic_session",
+        "academic_session__academic_year",
+        "generated_by",
+    )
+    if institute:
+        queryset = queryset.filter(institute=institute)
+    tc_record = get_object_or_404(queryset, pk=pk)
+    return render(
+        request,
+        "institute_admin/student_transfer_certificate.html",
+        {
+            "tc": tc_record,
+            "student": tc_record.student,
+            "student_session": tc_record.academic_session,
+            "snapshot": tc_record.student_snapshot or {},
+        },
+    )
+
+
+@require_POST
+@institute_admin_required
+def student_tc_cancel(request, pk):
+    institute = get_current_institute(request)
+    queryset = StudentTransferCertificate.objects.select_related("student", "institute")
+    if institute:
+        queryset = queryset.filter(institute=institute)
+    tc_record = get_object_or_404(queryset, pk=pk)
+    if tc_record.status == StudentTransferCertificate.Status.CANCELLED:
+        messages.info(request, "This TC record is already cancelled.")
+    else:
+        tc_record.status = StudentTransferCertificate.Status.CANCELLED
+        tc_record.cancelled_by = request.user
+        tc_record.cancelled_at = timezone.now()
+        tc_record.cancel_reason = request.POST.get("cancel_reason", "").strip()
+        tc_record.save(update_fields=["status", "cancelled_by", "cancelled_at", "cancel_reason", "updated_at"])
+        messages.success(request, "Transfer Certificate cancelled successfully.")
+    return redirect("institute_admin:student_dashboard", pk=tc_record.student_id)
+
+
+@institute_admin_required
+def student_bonafide_update(request, pk):
+    student_session = get_current_session_or_404(request, pk)
+    student = student_session.student
+    if request.method == "POST":
+        form = StudentBonafideCertificateForm(
+            request.POST,
+            student=student,
+            academic_session=student_session,
+            generated_by=request.user,
+        )
+        if form.is_valid():
+            bonafide_record = form.save()
+            messages.success(request, "Bonafide Certificate generated successfully.")
+            receipt_url = reverse("institute_admin:student_bonafide_print", args=[bonafide_record.pk])
+            return close_popup_response(receipt_url)
+    else:
+        form = StudentBonafideCertificateForm(
+            student=student,
+            academic_session=student_session,
+            generated_by=request.user,
+        )
+
+    return render(
+        request,
+        "institute_admin/student_section_form.html",
+        {
+            "form": form,
+            "student": student,
+            "title": "Generate Bonafide Certificate",
+            "subtitle": "Only Bonafide-specific values are required; student details are pulled from the profile.",
+            "button_text": "Generate Bonafide",
+            "icon": "bi-file-earmark-person",
+        },
+    )
+
+
+@institute_admin_required
+def student_bonafide_print(request, pk):
+    institute = get_current_institute(request)
+    queryset = StudentBonafideCertificate.objects.select_related(
+        "student",
+        "student__institute",
+        "student__user",
+        "academic_session",
+        "academic_session__academic_year",
+        "generated_by",
+    )
+    if institute:
+        queryset = queryset.filter(institute=institute)
+    bonafide_record = get_object_or_404(queryset, pk=pk)
+    return render(
+        request,
+        "institute_admin/student_bonafide_certificate.html",
+        {
+            "bonafide": bonafide_record,
+            "student": bonafide_record.student,
+            "student_session": bonafide_record.academic_session,
+            "snapshot": bonafide_record.student_snapshot or {},
+        },
+    )
+
+
+@require_POST
+@institute_admin_required
+def student_bonafide_cancel(request, pk):
+    institute = get_current_institute(request)
+    queryset = StudentBonafideCertificate.objects.select_related("student", "institute")
+    if institute:
+        queryset = queryset.filter(institute=institute)
+    bonafide_record = get_object_or_404(queryset, pk=pk)
+    if bonafide_record.status == StudentBonafideCertificate.Status.CANCELLED:
+        messages.info(request, "This Bonafide Certificate record is already cancelled.")
+    else:
+        bonafide_record.status = StudentBonafideCertificate.Status.CANCELLED
+        bonafide_record.cancelled_by = request.user
+        bonafide_record.cancelled_at = timezone.now()
+        bonafide_record.cancel_reason = request.POST.get("cancel_reason", "").strip()
+        bonafide_record.save(update_fields=["status", "cancelled_by", "cancelled_at", "cancel_reason", "updated_at"])
+        messages.success(request, "Bonafide Certificate cancelled successfully.")
+    return redirect("institute_admin:student_dashboard", pk=bonafide_record.student_id)
+
+
+@institute_admin_required
+def student_id_card_update(request, pk):
+    student = get_current_session_student_or_404(request, pk)
+    if request.method == "POST":
+        form = StudentIdCardForm(request.POST, instance=student)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "ID card details updated successfully.")
+            return close_popup_response()
+    else:
+        form = StudentIdCardForm(instance=student)
+
+    return render(
+        request,
+        "institute_admin/student_section_form.html",
+        {
+            "form": form,
+            "student": student,
+            "title": "Update ID Card Details",
+            "subtitle": "Manage only ID card and emergency contact values for this student.",
+            "button_text": "Update ID Card",
+            "icon": "bi-person-badge",
+        },
+    )
 
 
 def get_current_session_student_or_404(request, pk, *, prefetch_documents=False):
@@ -4466,6 +4750,7 @@ def payment_void(request, pk):
 def student_create(request):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
+    active_section = "basic"
     if not institute:
         messages.error(request, "Select an institute before creating a student.")
         return redirect("institute_admin:student_list")
@@ -4489,6 +4774,8 @@ def student_create(request):
             "title": "Create Student",
             "subtitle": "Add student login, admission and parent details.",
             "button_text": "Save Student",
+            "course_batch_data": get_course_batch_data(institute, academic_year),
+            "active_section": active_section,
         },
     )
 
@@ -4758,9 +5045,16 @@ def student_update(request, pk):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
     student = get_current_session_student_or_404(request, pk)
+    valid_sections = {"basic", "login", "parent", "address", "academic", "documents"}
+    active_section = request.GET.get("section", "basic")
+    if active_section not in valid_sections:
+        active_section = "basic"
 
     if request.method == "POST":
         form = StudentForm(request.POST, request.FILES, institute=student.institute, student=student, academic_year=academic_year)
+        active_section = request.POST.get("active_section") or active_section
+        if active_section not in valid_sections:
+            active_section = "basic"
         if form.is_valid():
             form.save()
             messages.success(request, "Student updated successfully.")
@@ -4776,6 +5070,8 @@ def student_update(request, pk):
             "title": "Edit Student",
             "subtitle": "Update login, admission and parent details.",
             "button_text": "Update Student",
+            "course_batch_data": get_course_batch_data(student.institute, academic_year),
+            "active_section": active_section,
         },
     )
 
@@ -4870,6 +5166,13 @@ def student_guardian_update(request, pk):
 @institute_admin_required
 def student_document_upload(request, pk):
     student = get_current_session_student_or_404(request, pk)
+    initial = {}
+    requested_document_type = request.GET.get("document_type", "").strip()
+    if requested_document_type in StudentDocument.DocumentType.values:
+        initial["document_type"] = requested_document_type
+    requested_document_title = request.GET.get("document_title", "").strip()
+    if requested_document_title:
+        initial["document_title"] = requested_document_title
 
     if request.method == "POST":
         form = StudentDocumentUploadForm(request.POST, request.FILES, student=student)
@@ -4878,7 +5181,7 @@ def student_document_upload(request, pk):
             messages.success(request, f"{len(documents)} document(s) uploaded successfully.")
             return close_popup_response()
     else:
-        form = StudentDocumentUploadForm(student=student)
+        form = StudentDocumentUploadForm(student=student, initial=initial)
 
     return render(
         request,

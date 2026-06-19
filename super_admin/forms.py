@@ -19,6 +19,11 @@ class InstituteSignupForm(UserCreationForm):
     owner_name = forms.CharField(max_length=120, label="Owner name")
     phone = forms.CharField(max_length=20, label="Contact number")
     email = forms.EmailField(label="Email")
+    address = forms.CharField(
+        label="Institute address",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
 
     class Meta:
         model = User
@@ -29,6 +34,7 @@ class InstituteSignupForm(UserCreationForm):
             "owner_name",
             "phone",
             "email",
+            "address",
             "username",
             "password1",
             "password2",
@@ -38,9 +44,9 @@ class InstituteSignupForm(UserCreationForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs.setdefault("class", "form-control")
-            self.fields['password1'].help_text = None
-            self.fields['password2'].help_text = None
-            self.fields['username'].help_text = None
+        self.fields["password1"].help_text = None
+        self.fields["password2"].help_text = None
+        self.fields["username"].help_text = None
 
 
 
@@ -65,6 +71,7 @@ class InstituteSignupForm(UserCreationForm):
                 owner_name=self.cleaned_data["owner_name"],
                 phone=self.cleaned_data["phone"],
                 email=self.cleaned_data["email"],
+                address=self.cleaned_data["address"].strip(),
             )
             UserProfile.objects.create(
                 user=user,

@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<title>Transfer Certificate - {{ tc.tc_number }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+@page { size: A4; margin: 8mm; }
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: #e5e7eb;
+    color: #111827;
+    font-family: 'Poppins', sans-serif;
+    font-size: 12px;
+}
+
+.toolbar {
+    width: 210mm;
+    margin: 12px auto;
+    display: flex;
+    justify-content: space-between;
+    font-family: Arial, sans-serif;
+}
+
+.btn {
+    border: 1px solid #1e3a8a;
+    background: #1e3a8a;
+    color: #fff;
+    border-radius: 7px;
+    padding: 9px 14px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn.secondary {
+    background: #fff;
+    color: #111827;
+    border-color: #cbd5e1;
+}
+
+.sheet {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto 18px;
+    background: #fff;
+    padding: 8mm;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, .18);
+}
+
+.certificate {
+    min-height: 281mm;
+    border: 2px solid #111827;
+    padding: 8mm 9mm;
+    position: relative;
+}
+
+.certificate::before {
+    content: "";
+    position: absolute;
+    inset: 4mm;
+    border: 1px solid #64748b;
+    pointer-events: none;
+}
+
+.inner {
+    position: relative;
+    z-index: 1;
+}
+
+.header {
+    display: grid;
+    grid-template-columns: 24mm 1fr;
+    gap: 10px;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 2px double #111827;
+}
+
+.logo {
+    width: 23mm;
+    height: 23mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    font-size: 9px;
+    font-weight: 700;
+    overflow: hidden;
+    border: 1px solid #cbd5e1;
+    border-radius: 50%;
+}
+
+.logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.school-name {
+    margin: 0;
+    text-align: center;
+    text-transform: uppercase;
+    font-size: 23px;
+    line-height: 1.08;
+    font-weight: 900;
+    letter-spacing: .3px;
+}
+
+.school-meta {
+    margin-top: 4px;
+    text-align: center;
+    color: #334155;
+    line-height: 1.35;
+    font-size: 11px;
+    font-family:'Poppins',sans-serif;
+}
+
+.title-wrap {
+    text-align: center;
+    margin: 10px 0 8px;
+}
+
+.title {
+    display: inline-block;
+    padding: 5px 28px;
+    border-top: 2px solid #111827;
+    border-bottom: 2px solid #111827;
+    text-transform: uppercase;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 1px;
+}
+
+.meta-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 9px;
+    margin: 10px 0;
+    font-family:'Poppins',sans-serif; 
+}
+
+.meta-item {
+    border-bottom: 1.5px solid #111827;
+    padding: 3px 0 5px;
+}
+
+.meta-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    color: #475569;
+    font-weight: 800;
+    letter-spacing: .04em;
+}
+
+.meta-value {
+    margin-top: 2px;
+    font-size: 12px;
+    font-weight: 800;
+    color: #111827;
+}
+
+.student-block {
+    display: grid;
+    grid-template-columns: 1fr 28mm;
+    gap: 12px;
+    align-items: start;
+    margin-top: 8px;
+}
+
+.photo {
+    width: 27mm;
+    height: 32mm;
+    border: 1.5px solid #111827;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    font-size: 9px;
+    font-weight: 700;
+    overflow: hidden;
+    font-family:'Poppins',sans-serif; 
+}
+
+.photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.section-title {
+    margin: 11px 0 6px;
+    padding-bottom: 3px;
+    border-bottom: 1.5px solid #111827;
+    font-family:'Poppins',sans-serif; 
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    font-weight: 900;
+    color: #1e3a8a;
+}
+
+.info-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.info-table td {
+    padding: 5px 4px;
+    vertical-align: top;
+    border-bottom: 1px dotted #94a3b8;
+}
+
+.info-table .label {
+    width: 36%;
+    font-family:'Poppins',sans-serif; 
+    font-weight: 800;
+    color: #334155;
+}
+
+.info-table .value {
+    width: 64%;
+    font-weight: 700;
+    color: #111827;
+}
+
+.two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.note {
+    margin-top: 10px;
+    line-height: 1.6;
+    text-align: justify;
+    font-size: 12.5px;
+}
+
+.declaration {
+    margin-top: 10px;
+    padding: 9px 10px;
+    background: #f8fafc;
+    border-left: 4px solid #1e3a8a;
+    font-family:'Poppins',sans-serif; 
+    line-height: 1.45;
+    color: #334155;
+}
+
+.signatures {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 22mm;
+}
+
+.signature {
+    border-top: 1.5px solid #111827;
+    padding-top: 6px;
+    text-align: center;
+    font-weight: 900;
+    font-family:'Poppins',sans-serif; 
+}
+
+.footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 11px;
+    color: #475569;
+    font-size: 9px;
+    font-family:'Poppins',sans-serif; 
+}
+
+@media print {
+    body { background: #fff; }
+
+    .toolbar { display: none; }
+
+    .sheet {
+        width: auto;
+        min-height: auto;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+    }
+
+    .certificate {
+        min-height: 281mm;
+        page-break-inside: avoid;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="toolbar">
+    <a class="btn secondary" href="{% url 'institute_admin:student_dashboard' student.pk %}">Back to Dashboard</a>
+    <button class="btn" type="button" onclick="window.print()">Print / Download TC</button>
+</div>
+
+<div class="sheet">
+<div class="certificate">
+<div class="inner">
+
+    <div class="header">
+        <div class="logo">
+            {% if student.institute.logo %}
+                <img src="{{ student.institute.logo.url }}" alt="{{ snapshot.institute_name|default:student.institute.name }}">
+            {% else %}
+                LOGO
+            {% endif %}
+        </div>
+
+        <div>
+            <h1 class="school-name">{{ snapshot.institute_name|default:student.institute.name|default:"-" }}</h1>
+            <div class="school-meta">
+                {{ snapshot.institute_address|default:student.institute.address|default:"-" }}<br>
+                Phone: {{ snapshot.institute_phone|default:student.institute.phone|default:"-" }} |
+                Email: {{ snapshot.institute_email|default:student.institute.email|default:"-" }}
+            </div>
+        </div>
+    </div>
+
+    <div class="title-wrap">
+        <div class="title">Transfer Certificate</div>
+    </div>
+
+    <div class="meta-row">
+        <div class="meta-item">
+            <div class="meta-label">TC Number</div>
+            <div class="meta-value">{{ tc.tc_number|default:"-" }}</div>
+        </div>
+        <div class="meta-item">
+            <div class="meta-label">Issue Date</div>
+            <div class="meta-value">{{ tc.issue_date|default:"-" }}</div>
+        </div>
+        <div class="meta-item">
+            <div class="meta-label">Academic Year</div>
+            <div class="meta-value">{{ snapshot.academic_year|default:student_session.academic_year.name|default:"-" }}</div>
+        </div>
+    </div>
+
+    <div class="student-block">
+        <div>
+            <div class="section-title">Student Details</div>
+            <table class="info-table">
+                <tr>
+                    <td class="label">Student Name</td>
+                    <td class="value">{{ snapshot.student_name|default:student.user.get_full_name|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Admission Number</td>
+                    <td class="value">{{ snapshot.admission_number|default:student_session.admission_number|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">GR / UDISE No.</td>
+                    <td class="value">{{ snapshot.gr_number_udise|default:student.gr_number_udise|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Father Name</td>
+                    <td class="value">{{ snapshot.father_name|default:student.father_name|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Mother Name</td>
+                    <td class="value">{{ snapshot.mother_name|default:student.mother_name|default:"-" }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="photo">
+            {% if student.profile_image %}
+                <img src="{{ student.profile_image.url }}" alt="{{ snapshot.student_name|default:student.user.get_full_name }}">
+            {% else %}
+                Photo
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="two-col">
+        <div>
+            <div class="section-title">Personal Information</div>
+            <table class="info-table">
+                <tr>
+                    <td class="label">Date of Birth</td>
+                    <td class="value">{{ snapshot.date_of_birth|default:student.date_of_birth|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Place of Birth</td>
+                    <td class="value">{{ snapshot.place_of_birth|default:student.place_of_birth|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Nationality</td>
+                    <td class="value">{{ snapshot.nationality|default:student.nationality|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Religion / Caste</td>
+                    <td class="value">{{ snapshot.religion|default:student.religion|default:"-" }} / {{ snapshot.caste_category|default:student.caste_category|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Aadhaar Number</td>
+                    <td class="value">{{ snapshot.aadhaar_number|default:student.aadhaar_number|default:"-" }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div>
+            <div class="section-title">Admission Information</div>
+            <table class="info-table">
+                <tr>
+                    <td class="label">Admission Date</td>
+                    <td class="value">{{ snapshot.admission_date|default:student_session.joined_on|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Admission Class</td>
+                    <td class="value">{{ snapshot.admission_class|default:student.admission_class|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Current Class</td>
+                    <td class="value">{{ snapshot.current_class|default:student.current_class|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Batch / Division</td>
+                    <td class="value">{{ snapshot.batches|default:student.division|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Medium</td>
+                    <td class="value">{{ snapshot.medium|default:student.medium|default:"-" }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="two-col">
+        <div>
+            <div class="section-title">Previous School Details</div>
+            <table class="info-table">
+                <tr>
+                    <td class="label">Previous School</td>
+                    <td class="value">{{ snapshot.previous_school_name|default:student.previous_school_name|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Previous Class</td>
+                    <td class="value">{{ snapshot.previous_class|default:student.previous_class|default:"-" }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div>
+            <div class="section-title">Academic Status</div>
+            <table class="info-table">
+                <tr>
+                    <td class="label">Last Class Attended</td>
+                    <td class="value">{{ tc.last_class_attended|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Result</td>
+                    <td class="value">{{ tc.result|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Qualified for Promotion</td>
+                    <td class="value">{% if tc.qualified_for_promotion %}Yes{% else %}No{% endif %}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="section-title">Leaving Details</div>
+    <table class="info-table">
+        <tr>
+            <td class="label">Leaving Date</td>
+            <td class="value">{{ tc.leaving_date|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Fees Cleared</td>
+            <td class="value">{% if tc.fees_cleared %}Yes{% else %}No{% endif %}</td>
+        </tr>
+        <tr>
+            <td class="label">Conduct</td>
+            <td class="value">{{ tc.conduct|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Reason for Leaving</td>
+            <td class="value">{{ tc.reason_for_leaving|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Remarks</td>
+            <td class="value">{{ tc.remarks|default:"-" }}</td>
+        </tr>
+    </table>
+
+    <p class="note">
+        This is to certify that the above named student was enrolled in this institution as per the official school record.
+        The Transfer Certificate has been issued on the basis of student profile and academic session details maintained by the school.
+    </p>
+
+    <div class="declaration">
+        Certified that the information given above is true and correct as per the records of the institution.
+    </div>
+
+    <div class="signatures">
+        <div class="signature">Class Teacher</div>
+        <div class="signature">Office Clerk</div>
+        <div class="signature">Principal / Head Master</div>
+    </div>
+
+    <div class="footer">
+        <div>Generated by: {{ tc.generated_by.get_full_name|default:tc.generated_by.username|default:"-" }}</div>
+        <div style="text-align:right;">Generated at: {{ tc.generated_at|default:"-" }}</div>
+    </div>
+
+</div>
+</div>
+</div>
+
+</body>
+</html>

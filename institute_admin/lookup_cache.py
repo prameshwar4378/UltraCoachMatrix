@@ -53,7 +53,7 @@ def get_cached_batch_course_data(institute_id, academic_year_id=None):
 
 
 def get_cached_course_batch_data(institute_id, academic_year_id=None):
-    key = lookup_data_cache_key(institute_id, academic_year_id, "course-batches")
+    key = lookup_data_cache_key(institute_id, academic_year_id, "course-batches-v2")
     data = cache.get(key)
     if data is None:
         batches = Batch.objects.filter(
@@ -66,7 +66,11 @@ def get_cached_course_batch_data(institute_id, academic_year_id=None):
         for batch in batches:
             for course in batch.courses.all():
                 data.setdefault(str(course.pk), []).append(
-                    {"id": str(batch.pk), "name": batch.name}
+                    {
+                        "id": str(batch.pk),
+                        "name": batch.name,
+                        "fee": str(course.fee_amount),
+                    }
                 )
         cache.set(key, data, timeout=_timeout())
     return data
@@ -81,7 +85,7 @@ def invalidate_lookup_data_cache(institute_id, academic_year_id=None):
     if not institute_id:
         return
     keys = []
-    for lookup_name in ("batch-courses", "course-batches"):
+    for lookup_name in ("batch-courses", "course-batches", "course-batches-v2"):
         keys.append(lookup_data_cache_key(institute_id, academic_year_id, lookup_name))
         if academic_year_id:
             keys.append(lookup_data_cache_key(institute_id, None, lookup_name))

@@ -194,18 +194,15 @@
 
     .student-hero .hero-actions {
         grid-column: 1 / -1;
-        margin-top: 4px;
-    }
-
-    @media (min-width: 1500px) {
-        .student-hero {
-            grid-template-columns: auto minmax(0, 1fr) minmax(360px, auto);
-        }
-        .student-hero .hero-actions {
-            grid-column: auto;
-            justify-content: flex-end;
-            margin-top: 0;
-        }
+        margin-top: 12px;
+        padding-top: 14px;
+        border-top: 1px solid rgba(255, 255, 255, .26);
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(178px, max-content));
+        align-items: center;
+        justify-content: start;
+        gap: 10px;
+        max-width: 100%;
     }
 
     .btn-main,
@@ -214,6 +211,44 @@
         min-width: 0;
         white-space: normal;
         line-height: 1.15;
+    }
+
+    .student-hero .hero-actions .btn,
+    .student-hero .hero-actions .btn-main,
+    .student-hero .hero-actions .btn-soft {
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 10px;
+        width: 100%;
+        min-height: 48px;
+        text-align: left;
+        border-radius: 14px;
+        padding: 7px 13px 7px 8px;
+        box-shadow: 0 10px 22px rgba(15, 23, 42, .14);
+    }
+
+    .student-hero .hero-actions .btn i {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 32px;
+        font-size: 1rem;
+        background: rgba(15, 118, 110, .12);
+        color: #0f766e;
+    }
+
+    .student-hero .hero-actions .btn-main i {
+        background: rgba(255, 255, 255, .18);
+        color: #fff;
+    }
+
+    .student-hero .hero-actions .btn-add-fee i {
+        background: rgba(255, 255, 255, .2);
+        color: #fff;
     }
 
     .btn-main {
@@ -242,9 +277,22 @@
     }
 
     .btn-soft {
-        border-radius: 999px;
+        border-radius: 14px;
         font-weight: 900;
         padding: 10px 14px;
+        background: rgba(255, 255, 255, .96);
+        color: #111827;
+    }
+
+    .btn-soft:hover {
+        background: #fff;
+        color: #0f172a;
+        transform: translateY(-1px);
+    }
+
+    .student-hero .hero-actions .btn-main:hover,
+    .student-hero .hero-actions .btn-soft:hover {
+        box-shadow: 0 14px 28px rgba(15, 23, 42, .18);
     }
 
     .pill {
@@ -806,8 +854,14 @@
                 </div>
             </div>
             <div class="hero-actions">
-                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_basic_update' student.pk %}" class="btn btn-light border btn-soft" onclick="openStudentDashboardWindow(this, 780, 700)">
-                    <i class="bi bi-pencil-square"></i> Edit Basic
+                <a href="{% url 'institute_admin:student_admission_form' student.pk %}" target="_blank" class="btn btn-light border btn-soft">
+                    <i class="bi bi-journal-text"></i> Admission Form
+                </a>
+                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_tc_generate' student.pk %}" class="btn btn-light border btn-soft" onclick="openStudentDashboardWindow(this, 820, 720)">
+                    <i class="bi bi-file-earmark-medical"></i> Generate TC
+                </a>
+                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_bonafide_generate' student.pk %}" class="btn btn-light border btn-soft" onclick="openStudentDashboardWindow(this, 780, 620)">
+                    <i class="bi bi-award"></i> Generate Bonafide
                 </a>
                 <a href="javascript:void(0);" data-url="{% url 'institute_admin:enrollment_create' %}?student={{ student.pk }}" class="btn btn-main" onclick="openStudentDashboardWindow(this)">
                     <i class="bi bi-diagram-3"></i> Add Enrollment
@@ -816,7 +870,7 @@
                     <i class="bi bi-plus-circle"></i> Add Additional Fee
                 </a>
                 <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_receive_fee' student.pk %}" class="btn btn-main" onclick="openStudentDashboardWindow(this)">
-                    <i class="bi bi-wallet2"></i> Receive Fee
+                    <i class="bi bi-cash-stack"></i> Receive Fee
                 </a>
             </div>
         </div>
@@ -869,74 +923,323 @@
         <div class="panel-grid">
             <div class="content-panel" style="--panel-color: var(--teal); --panel-soft: #f0fdfa;">
                 <div class="panel-header">
-                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-person-vcard"></i></div><div><h5 class="panel-title">Student Summary</h5><div class="panel-subtitle">Login and admission</div></div></div>
-                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_basic_update' student.pk %}" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 780, 700)"><i class="bi bi-pencil-square"></i></a>
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-person-vcard"></i></div><div><h5 class="panel-title">Student Basic Information</h5><div class="panel-subtitle">Admission, identity and certificate data</div></div></div>
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_update' student.pk %}?section=basic" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 980, 760)"><i class="bi bi-pencil-square"></i> Update</a>
                 </div>
                 <div class="content-panel-body">
+                    <div class="info-row"><span class="info-label">Full Name</span><span class="info-value">{{ student.user.get_full_name|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">First Name</span><span class="info-value">{{ student.user.first_name|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Middle Name</span><span class="info-value">{{ student.middle_name|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Surname</span><span class="info-value">{{ student.user.last_name|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Admission No.</span><span class="info-value">{{ student_session.admission_number }}</span></div>
-                    <div class="info-row"><span class="info-label">Phone</span><span class="info-value">{{ student.user.profile.phone|default:"Not set" }}</span></div>
-                    <div class="info-row"><span class="info-label">Email</span><span class="info-value">{{ student.user.email|default:"Not set" }}</span></div>
-                    <div class="info-row"><span class="info-label">DOB</span><span class="info-value">{{ student.date_of_birth|default:"Not set" }}</span></div>
-                    <div class="info-row"><span class="info-label">Joined</span><span class="info-value">{{ student_session.joined_on|default:"Not set" }}</span></div>
-                    <div class="info-row"><span class="info-label">Address</span><span class="info-value">{{ student.address|default:"Not set" }}</span></div>
+                    <div class="info-row"><span class="info-label">GR / UDISE No.</span><span class="info-value">{{ student.gr_number_udise|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Roll No.</span><span class="info-value">{{ student.roll_number|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Gender</span><span class="info-value">{{ student.get_gender_display|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Date of Birth</span><span class="info-value">{{ student.date_of_birth|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Blood Group</span><span class="info-value">{{ student.blood_group|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Religion</span><span class="info-value">{{ student.religion|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Caste Category</span><span class="info-value">{{ student.caste_category|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Nationality</span><span class="info-value">{{ student.nationality|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Aadhaar No.</span><span class="info-value">{{ student.aadhaar_number|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Birth Certificate No.</span><span class="info-value">{{ student.birth_certificate_number|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Place of Birth</span><span class="info-value">{{ student.place_of_birth|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Mother Tongue</span><span class="info-value">{{ student.mother_tongue|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Student Status</span><span class="info-value">{{ student.get_student_status_display|default:"-" }}</span></div>
                 </div>
             </div>
 
             <div class="content-panel" style="--panel-color: var(--blue); --panel-soft: #eff6ff;">
                 <div class="panel-header">
-                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-person-hearts"></i></div><div><h5 class="panel-title">Parent / Guardian</h5><div class="panel-subtitle">Primary contact</div></div></div>
-                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_guardian_update' student.pk %}" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 720, 620)"><i class="bi bi-pencil-square"></i></a>
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-shield-lock"></i></div><div><h5 class="panel-title">Student Login</h5><div class="panel-subtitle">App credentials and contact details</div></div></div>
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_update' student.pk %}?section=login" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 980, 760)"><i class="bi bi-pencil-square"></i> Update</a>
                 </div>
                 <div class="content-panel-body">
-                    <div class="info-row"><span class="info-label">Name</span><span class="info-value">{{ primary_guardian.name|default:"Not set" }}</span></div>
-                    <div class="info-row"><span class="info-label">Relation</span><span class="info-value">{{ primary_guardian.relation|default:"Not set" }}</span></div>
-                    <div class="info-row"><span class="info-label">Phone</span><span class="info-value">{{ primary_guardian.phone|default:"Not set" }}</span></div>
-                    <div class="info-row"><span class="info-label">Email</span><span class="info-value">{{ primary_guardian.email|default:"Not set" }}</span></div>
-                    <div class="info-row"><span class="info-label">Login</span><span class="info-value">{% if student.user.is_active %}Active{% else %}Inactive{% endif %}</span></div>
+                    <div class="info-row"><span class="info-label">Username</span><span class="info-value">@{{ student.user.username }}</span></div>
+                    <div class="info-row"><span class="info-label">Phone</span><span class="info-value">{{ student.user.profile.phone|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Email</span><span class="info-value">{{ student.user.email|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Login Status</span><span class="info-value">{% if student.user.is_active %}<span class="badge-soft badge-success-soft">Active</span>{% else %}<span class="badge-soft badge-danger-soft">Inactive</span>{% endif %}</span></div>
+                    <div class="info-row"><span class="info-label">Joined On</span><span class="info-value">{{ student_session.joined_on|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Profile Photo</span><span class="info-value">{% if student.profile_image %}<a href="{{ student.profile_image.url }}" target="_blank">View photo</a>{% else %}Not uploaded{% endif %}</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-grid">
+            <div class="content-panel" style="--panel-color: #0891b2; --panel-soft: #ecfeff;">
+                <div class="panel-header">
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-people"></i></div><div><h5 class="panel-title">Parent / Guardian Details</h5><div class="panel-subtitle">Father, mother and primary guardian</div></div></div>
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_update' student.pk %}?section=parent" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 980, 760)"><i class="bi bi-pencil-square"></i> Update</a>
+                </div>
+                <div class="content-panel-body">
+                    <div class="info-row"><span class="info-label">Father Name</span><span class="info-value">{{ student.father_name|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Father Occupation</span><span class="info-value">{{ student.father_occupation|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Father Qualification</span><span class="info-value">{{ student.father_qualification|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Father Mobile</span><span class="info-value">{{ student.father_mobile_number|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Father Email</span><span class="info-value">{{ student.father_email|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Father Aadhaar</span><span class="info-value">{{ student.father_aadhaar_number|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Father Income</span><span class="info-value">{{ student.father_annual_income|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Mother Name</span><span class="info-value">{{ student.mother_name|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Mother Occupation</span><span class="info-value">{{ student.mother_occupation|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Mother Qualification</span><span class="info-value">{{ student.mother_qualification|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Mother Mobile</span><span class="info-value">{{ student.mother_mobile_number|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Mother Aadhaar</span><span class="info-value">{{ student.mother_aadhaar_number|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Mother Income</span><span class="info-value">{{ student.mother_annual_income|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Guardian</span><span class="info-value">{{ primary_guardian.name|default:"-" }}{% if primary_guardian.relation %} ({{ primary_guardian.relation }}){% endif %}</span></div>
+                    <div class="info-row"><span class="info-label">Guardian Phone</span><span class="info-value">{{ primary_guardian.phone|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Guardian Email</span><span class="info-value">{{ primary_guardian.email|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Guardian Address</span><span class="info-value">{{ student.guardian_address|default:"-" }}</span></div>
                 </div>
             </div>
 
-            <div class="content-panel" style="--panel-color: #0891b2; --panel-soft: #ecfeff;">
+            <div class="content-panel" style="--panel-color: var(--violet); --panel-soft: #f5f3ff;">
                 <div class="panel-header">
-                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-building"></i></div><div><h5 class="panel-title">Education Details</h5><div class="panel-subtitle">School or college</div></div></div>
-                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_education_update' student.pk %}" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 720, 620)"><i class="bi bi-pencil-square"></i></a>
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-house-door"></i></div><div><h5 class="panel-title">Address Information</h5><div class="panel-subtitle">Current and permanent address</div></div></div>
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_update' student.pk %}?section=address" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 980, 760)"><i class="bi bi-pencil-square"></i> Update</a>
                 </div>
                 <div class="content-panel-body">
-                    <div class="info-row"><span class="info-label">Current</span><span class="info-value">{{ student_session.current_school_name|default:"Not set" }}</span></div>
-                    <div class="info-row"><span class="info-label">Address</span><span class="info-value">{{ student_session.current_school_address|default:"Not set" }}</span></div>
-                    <div class="info-row"><span class="info-label">Previous</span><span class="info-value">{{ student_session.previous_school_name|default:"Not set" }}</span></div>
-                    <div class="info-row"><span class="info-label">Class</span><span class="info-value">{{ student_session.previous_class|default:"Not set" }}</span></div>
+                    <div class="info-row"><span class="info-label">Current House No.</span><span class="info-value">{{ student.current_house_number|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Current Street / Area</span><span class="info-value">{{ student.current_street_area|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Current Village / City</span><span class="info-value">{{ student.current_village_city|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Current Taluka</span><span class="info-value">{{ student.current_taluka|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Current District</span><span class="info-value">{{ student.current_district|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Current State</span><span class="info-value">{{ student.current_state|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Current PIN</span><span class="info-value">{{ student.current_pin_code|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Full Address / Notes</span><span class="info-value">{{ student.address|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Permanent House No.</span><span class="info-value">{{ student.permanent_house_number|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Permanent Street / Area</span><span class="info-value">{{ student.permanent_street_area|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Permanent Village / City</span><span class="info-value">{{ student.permanent_village_city|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Permanent Taluka</span><span class="info-value">{{ student.permanent_taluka|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Permanent District</span><span class="info-value">{{ student.permanent_district|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Permanent State</span><span class="info-value">{{ student.permanent_state|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Permanent PIN</span><span class="info-value">{{ student.permanent_pin_code|default:"-" }}</span></div>
                 </div>
+            </div>
+        </div>
+
+        <div class="panel-grid">
+            <div class="content-panel" style="--panel-color: var(--orange); --panel-soft: #fff7ed;">
+                <div class="panel-header">
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-mortarboard"></i></div><div><h5 class="panel-title">Academic Information</h5><div class="panel-subtitle">Class, batch/division and previous school</div></div></div>
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_update' student.pk %}?section=academic" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 980, 760)"><i class="bi bi-pencil-square"></i> Update</a>
+                </div>
+                <div class="content-panel-body">
+                    <div class="info-row"><span class="info-label">Admission Date</span><span class="info-value">{{ student_session.joined_on|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Admission Class</span><span class="info-value">{{ student.admission_class|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Current Class</span><span class="info-value">{{ student.current_class|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Batch / Division</span><span class="info-value">{{ student.division|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Medium</span><span class="info-value">{{ student.medium|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">School</span><span class="info-value">{{ student_session.current_school_name|default:student.institute.name }}</span></div>
+                    <div class="info-row"><span class="info-label">School Address</span><span class="info-value">{{ student_session.current_school_address|default:student.institute.address|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Previous School</span><span class="info-value">{{ student_session.previous_school_name|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Previous UDISE Code</span><span class="info-value">{{ student.previous_school_udise_code|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Previous Address</span><span class="info-value">{{ student.previous_school_address|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Previous Class</span><span class="info-value">{{ student_session.previous_class|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Previous Class Passed</span><span class="info-value">{{ student.previous_class_passed|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Last Exam / Grade</span><span class="info-value">{{ student.last_exam_result|default:"-" }}</span></div>
+                </div>
+            </div>
+
+            <div class="content-panel" style="--panel-color: var(--green); --panel-soft: #f0fdf4;">
+                <div class="panel-header">
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-person"></i></div><div><h5 class="panel-title">Bonafide Certificate Details</h5><div class="panel-subtitle">Generate and track Bonafide certificates separately</div></div></div>
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_bonafide_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 780, 620)"><i class="bi bi-plus-circle"></i> Generate Bonafide</a>
+                </div>
+                <div class="content-panel-body">
+                    {% with latest_bonafide=bonafide_certificates.0 %}
+                        {% if latest_bonafide %}
+                            <div class="info-row"><span class="info-label">Latest Certificate No.</span><span class="info-value">{{ latest_bonafide.certificate_number|default:"-" }}</span></div>
+                            <div class="info-row"><span class="info-label">Latest Purpose</span><span class="info-value">{{ latest_bonafide.purpose|default:"-" }}</span></div>
+                            <div class="info-row"><span class="info-label">Latest Issue Date</span><span class="info-value">{{ latest_bonafide.issue_date|default:"-" }}</span></div>
+                            <div class="info-row"><span class="info-label">Generated By</span><span class="info-value">{{ latest_bonafide.generated_by.get_full_name|default:latest_bonafide.generated_by.username|default:"-" }}</span></div>
+                        {% else %}
+                            <div class="info-row"><span class="info-label">Latest Certificate No.</span><span class="info-value">-</span></div>
+                            <div class="info-row"><span class="info-label">Latest Purpose</span><span class="info-value">{{ student.bonafide_purpose|default:"-" }}</span></div>
+                            <div class="info-row"><span class="info-label">Latest Issue Date</span><span class="info-value">-</span></div>
+                            <div class="info-row"><span class="info-label">Generated By</span><span class="info-value">-</span></div>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-grid">
+            <div class="content-panel" style="--panel-color: var(--blue); --panel-soft: #eff6ff;">
+                <div class="panel-header">
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-person-badge"></i></div><div><h5 class="panel-title">ID Card Details</h5><div class="panel-subtitle">ID card and emergency contact values are managed separately</div></div></div>
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_id_card_update' student.pk %}" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 720, 520)"><i class="bi bi-pencil-square"></i> Update ID Card</a>
+                </div>
+                <div class="content-panel-body">
+                    <div class="info-row"><span class="info-label">Emergency Contact</span><span class="info-value">{{ student.emergency_contact_number|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Student Photo</span><span class="info-value">{% if student.profile_image %}<a href="{{ student.profile_image.url }}" target="_blank">View photo</a>{% else %}-{% endif %}</span></div>
+                </div>
+            </div>
+
+            <div class="content-panel" style="--panel-color: var(--green); --panel-soft: #f0fdf4;">
+                <div class="panel-header">
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-check"></i></div><div><h5 class="panel-title">Latest TC Summary</h5><div class="panel-subtitle">Read-only values from the latest generated Transfer Certificate</div></div></div>
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_tc_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 820, 720)"><i class="bi bi-plus-circle"></i> Generate TC</a>
+                </div>
+                <div class="content-panel-body">
+                    {% with latest_tc=transfer_certificates.0 %}
+                        {% if latest_tc %}
+                            <div class="info-row"><span class="info-label">TC Number</span><span class="info-value">{{ latest_tc.tc_number|default:"-" }}</span></div>
+                            <div class="info-row"><span class="info-label">Result</span><span class="info-value">{{ latest_tc.result|default:"-" }}</span></div>
+                            <div class="info-row"><span class="info-label">Conduct</span><span class="info-value">{{ latest_tc.conduct|default:"-" }}</span></div>
+                            <div class="info-row"><span class="info-label">Reason for Leaving</span><span class="info-value">{{ latest_tc.reason_for_leaving|default:"-" }}</span></div>
+                            <div class="info-row"><span class="info-label">Leaving Date</span><span class="info-value">{{ latest_tc.leaving_date|default:"-" }}</span></div>
+                            <div class="info-row"><span class="info-label">TC Issue Date</span><span class="info-value">{{ latest_tc.issue_date|default:"-" }}</span></div>
+                        {% else %}
+                            <div class="info-row"><span class="info-label">TC Number</span><span class="info-value">-</span></div>
+                            <div class="info-row"><span class="info-label">Result</span><span class="info-value">-</span></div>
+                            <div class="info-row"><span class="info-label">Conduct</span><span class="info-value">-</span></div>
+                            <div class="info-row"><span class="info-label">Reason for Leaving</span><span class="info-value">-</span></div>
+                            <div class="info-row"><span class="info-label">Leaving Date</span><span class="info-value">-</span></div>
+                            <div class="info-row"><span class="info-label">TC Issue Date</span><span class="info-value">-</span></div>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+
+        <div class="content-panel" style="--panel-color: var(--green); --panel-soft: #f0fdf4;">
+            <div class="panel-header">
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-person"></i></div><div><h5 class="panel-title">Bonafide Certificate Records</h5><div class="panel-subtitle">See when each Bonafide certificate was generated and open the A4 certificate pattern</div></div></div>
+                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_bonafide_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 780, 620)"><i class="bi bi-plus-circle"></i> Generate Bonafide</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-modern align-middle">
+                    <thead><tr><th>Certificate No.</th><th>Purpose</th><th>Issue Date</th><th>Status</th><th>Generated By</th><th>Generated At</th><th>Cancelled Detail</th><th class="text-end">Actions</th></tr></thead>
+                    <tbody>
+                        {% for bonafide in bonafide_certificates %}
+                        <tr>
+                            <td data-label="Certificate No."><strong>{{ bonafide.certificate_number }}</strong></td>
+                            <td data-label="Purpose">{{ bonafide.purpose|default:"-" }}</td>
+                            <td data-label="Issue Date">{{ bonafide.issue_date|default:"-" }}</td>
+                            <td data-label="Status">
+                                {% if bonafide.status == "GENERATED" %}
+                                    <span class="badge-soft badge-success-soft">Generated</span>
+                                {% else %}
+                                    <span class="badge-soft badge-danger-soft">Cancelled</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Generated By">{{ bonafide.generated_by.get_full_name|default:bonafide.generated_by.username|default:"-" }}</td>
+                            <td data-label="Generated At">{{ bonafide.generated_at|default:"-" }}</td>
+                            <td data-label="Cancelled Detail">
+                                {% if bonafide.status == "CANCELLED" %}
+                                    {{ bonafide.cancelled_at|default:"-" }}<br><small class="text-muted">By {{ bonafide.cancelled_by.get_full_name|default:bonafide.cancelled_by.username|default:"-" }}</small>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td data-label="Actions" class="text-end">
+                                <div class="d-inline-flex gap-2 flex-wrap justify-content-end">
+                                    <a href="{% url 'institute_admin:student_bonafide_print' bonafide.pk %}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i> Download Bonafide</a>
+                                    {% if bonafide.status == "GENERATED" %}
+                                        <form method="post" action="{% url 'institute_admin:student_bonafide_cancel' bonafide.pk %}" class="m-0" onsubmit="return confirm('Cancel this Bonafide Certificate record?');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle"></i> Cancel</button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8"><div class="empty-state">No Bonafide Certificate has been generated yet.</div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
 
         <div class="content-panel" style="--panel-color: #0891b2; --panel-soft: #ecfeff;">
             <div class="panel-header">
-                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-text"></i></div><div><h5 class="panel-title">Student Documents</h5><div class="panel-subtitle">Aadhaar, profile, marksheet and other files</div></div></div>
-                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_document_upload' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 720, 620)"><i class="bi bi-plus-circle"></i> Upload</a>
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-check"></i></div><div><h5 class="panel-title">Transfer Certificate Records</h5><div class="panel-subtitle">See when each TC was generated, who generated it, and open the A4 TC pattern</div></div></div>
+                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_tc_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 820, 720)"><i class="bi bi-plus-circle"></i> Generate TC</a>
             </div>
             <div class="table-responsive">
                 <table class="table table-modern align-middle">
-                    <thead><tr><th>Document</th><th>Type</th><th>Uploaded</th><th>Note</th><th class="text-end">Actions</th></tr></thead>
+                    <thead><tr><th>TC No.</th><th>Issue Date</th><th>Leaving Date</th><th>Status</th><th>Generated By</th><th>Generated At</th><th>Cancelled Detail</th><th class="text-end">Actions</th></tr></thead>
                     <tbody>
-                        {% for document in documents %}
+                        {% for tc in transfer_certificates %}
                         <tr>
-                            <td data-label="Document"><strong>{{ document.title }}</strong></td>
-                            <td data-label="Type">{{ document.get_document_type_display }}</td>
-                            <td data-label="Uploaded">{{ document.uploaded_at }}</td>
-                            <td data-label="Note">{{ document.note|default:"-" }}</td>
+                            <td data-label="TC No."><strong>{{ tc.tc_number }}</strong></td>
+                            <td data-label="Issue Date">{{ tc.issue_date|default:"-" }}</td>
+                            <td data-label="Leaving Date">{{ tc.leaving_date|default:"-" }}</td>
+                            <td data-label="Status">
+                                {% if tc.status == "GENERATED" %}
+                                    <span class="badge-soft badge-success-soft">Generated</span>
+                                {% else %}
+                                    <span class="badge-soft badge-danger-soft">Cancelled</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Generated By">{{ tc.generated_by.get_full_name|default:tc.generated_by.username|default:"-" }}</td>
+                            <td data-label="Generated At">{{ tc.generated_at|default:"-" }}</td>
+                            <td data-label="Cancelled Detail">
+                                {% if tc.status == "CANCELLED" %}
+                                    {{ tc.cancelled_at|default:"-" }}<br><small class="text-muted">By {{ tc.cancelled_by.get_full_name|default:tc.cancelled_by.username|default:"-" }}</small>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
                             <td data-label="Actions" class="text-end">
-                                <div class="d-inline-flex gap-2">
-                                    <a href="{{ document.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-up-right"></i> View</a>
-                                    <form method="post" action="{% url 'institute_admin:student_document_delete' document.pk %}" class="m-0" onsubmit="return confirm('Delete this document record?');">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Delete</button>
-                                    </form>
+                                <div class="d-inline-flex gap-2 flex-wrap justify-content-end">
+                                    <a href="{% url 'institute_admin:student_tc_print' tc.pk %}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i> Download TC</a>
+                                    {% if tc.status == "GENERATED" %}
+                                        <form method="post" action="{% url 'institute_admin:student_tc_cancel' tc.pk %}" class="m-0" onsubmit="return confirm('Cancel this Transfer Certificate record?');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle"></i> Cancel</button>
+                                        </form>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="5"><div class="empty-state">No student documents uploaded yet.</div></td></tr>
+                        <tr><td colspan="8"><div class="empty-state">No Transfer Certificate has been generated yet.</div></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="content-panel" style="--panel-color: #0891b2; --panel-soft: #ecfeff;">
+            <div class="panel-header">
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-arrow-up"></i></div><div><h5 class="panel-title">Documents to Collect and Store</h5><div class="panel-subtitle">Document checklist with registration-form names</div></div></div>
+                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_document_upload' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 720, 620)"><i class="bi bi-plus-circle"></i> Upload</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-modern align-middle">
+                    <thead><tr><th>Required Document</th><th>Saved Title</th><th>Type</th><th>Status</th><th>Uploaded</th><th>Note</th><th class="text-end">Actions</th></tr></thead>
+                    <tbody>
+                        {% for row in document_rows %}
+                        <tr>
+                            <td data-label="Required Document"><strong>{{ row.label }}</strong><br><small class="text-muted">{{ row.field_name }}</small></td>
+                            <td data-label="Saved Title">{% if row.document %}{{ row.document.title }}{% else %}<span class="text-muted">Not uploaded</span>{% endif %}</td>
+                            <td data-label="Type">{{ row.type_display }}</td>
+                            <td data-label="Status">
+                                {% if row.document %}
+                                    <span class="badge-soft badge-success-soft">Uploaded</span>
+                                {% else %}
+                                    <span class="badge-soft badge-warning-soft">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Uploaded">{% if row.document %}{{ row.document.uploaded_at }}{% else %}-{% endif %}</td>
+                            <td data-label="Note">{% if row.document %}{{ row.document.note|default:"-" }}{% else %}-{% endif %}</td>
+                            <td data-label="Actions" class="text-end">
+                                {% if row.document %}
+                                    <div class="d-inline-flex gap-2">
+                                        <a href="{{ row.document.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-up-right"></i> View</a>
+                                        <form method="post" action="{% url 'institute_admin:student_document_delete' row.document.pk %}" class="m-0" onsubmit="return confirm('Delete this document record?');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Delete</button>
+                                        </form>
+                                    </div>
+                                {% else %}
+                                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_document_upload' student.pk %}?document_type={{ row.document_type|urlencode }}&amp;document_title={{ row.label|urlencode }}" class="btn btn-sm btn-outline-primary" onclick="openStudentDashboardWindow(this, 720, 620)"><i class="bi bi-upload"></i> Upload</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="7"><div class="empty-state">No document checklist available.</div></td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -1178,7 +1481,7 @@
                                     <span class="badge-soft badge-danger-soft">Absent</span>
                                 {% endif %}
                             </td>
-                            <td data-label="Marked By">{{ attendance.marked_by.get_full_name|default:attendance.marked_by.username|default:"Not set" }}</td>
+                            <td data-label="Marked By">{{ attendance.marked_by.get_full_name|default:attendance.marked_by.username|default:"-" }}</td>
                             <td data-label="Note">{{ attendance.note|default:"-" }}</td>
                         </tr>
                         {% empty %}
@@ -1244,3 +1547,4 @@
     activateStudentTab(localStorage.getItem(tabStorageKey) || "profile", false);
 </script>
 {% endblock content %}
+

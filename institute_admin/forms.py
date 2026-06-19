@@ -14,10 +14,12 @@ from accountant.models import Expense, FeeCategory, FeeInvoice, Payment, Payment
 from super_admin.models import Institute, UserProfile
 from student_parent.models import (
     GuardianProfile,
+    StudentBonafideCertificate,
     StudentAcademicSession,
     StudentDocument,
     StudentEnrollment,
     StudentProfile,
+    StudentTransferCertificate,
 )
 from teacher.models import Homework, HomeworkAttachment, TeacherProfile
 
@@ -1027,7 +1029,46 @@ class InstituteUserForm(forms.Form):
 
 
 class StudentForm(forms.Form):
+    CASTE_CATEGORY_CHOICES = [
+        ("", "Select category"),
+        ("GENERAL", "General"),
+        ("OBC", "OBC"),
+        ("SC", "SC"),
+        ("ST", "ST"),
+    ]
+    MEDIUM_CHOICES = [
+        ("", "Select medium"),
+        ("English", "English"),
+        ("Marathi", "Marathi"),
+        ("Hindi", "Hindi"),
+    ]
+    RESULT_CHOICES = [
+        ("", "Select result"),
+        ("Pass", "Pass"),
+        ("Fail", "Fail"),
+    ]
+    DOCUMENT_UPLOAD_FIELDS = {
+        "birth_certificate_file": (StudentDocument.DocumentType.BIRTH_CERTIFICATE, "Birth Certificate"),
+        "student_aadhaar_file": (StudentDocument.DocumentType.AADHAAR, "Aadhaar Card (Student)"),
+        "parent_aadhaar_file": (StudentDocument.DocumentType.PARENT_AADHAAR, "Aadhaar Card (Parents)"),
+        "caste_certificate_file": (StudentDocument.DocumentType.CASTE_CERTIFICATE, "Caste Certificate"),
+        "income_certificate_file": (StudentDocument.DocumentType.INCOME_CERTIFICATE, "Income Certificate"),
+        "transfer_certificate_file": (StudentDocument.DocumentType.TRANSFER_CERTIFICATE, "Transfer Certificate (TC)"),
+        "leaving_certificate_file": (StudentDocument.DocumentType.LEAVING_CERTIFICATE, "Leaving Certificate (LC)"),
+        "bonafide_certificate_file": (StudentDocument.DocumentType.BONAFIDE_CERTIFICATE, "Bonafide Certificate Copy"),
+        "address_proof_file": (StudentDocument.DocumentType.ADDRESS_PROOF, "Address Proof"),
+        "previous_marksheet_file": (StudentDocument.DocumentType.MARKSHEET, "Marksheet of Previous Class"),
+        "passport_photos_file": (StudentDocument.DocumentType.PASSPORT_PHOTOS, "Passport Size Photos"),
+        "disability_certificate_file": (StudentDocument.DocumentType.DISABILITY_CERTIFICATE, "Disability Certificate"),
+        "migration_certificate_file": (StudentDocument.DocumentType.MIGRATION_CERTIFICATE, "Migration Certificate"),
+        "rte_documents_file": (StudentDocument.DocumentType.RTE_DOCUMENTS, "RTE Documents"),
+        "bank_passbook_file": (StudentDocument.DocumentType.BANK_PASSBOOK, "Bank Passbook Copy"),
+        "vaccination_record_file": (StudentDocument.DocumentType.VACCINATION_RECORD, "Vaccination Record"),
+    }
+
+    student_full_name = forms.CharField(max_length=320, required=False)
     first_name = forms.CharField(max_length=150)
+    middle_name = forms.CharField(max_length=150, required=False)
     last_name = forms.CharField(max_length=150, required=False)
     username = forms.CharField(max_length=150, required=False, disabled=True)
     password = forms.CharField(
@@ -1043,13 +1084,74 @@ class StudentForm(forms.Form):
     email = forms.EmailField(required=False)
     phone = forms.CharField(max_length=20, required=False)
     profile_image = forms.ImageField(required=False)
+    gr_number_udise = forms.CharField(max_length=80, required=False)
+    roll_number = forms.CharField(max_length=40, required=False)
+    gender = forms.ChoiceField(choices=[("", "Select gender")] + list(StudentProfile.Gender.choices), required=False)
     date_of_birth = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
+    blood_group = forms.CharField(max_length=10, required=False)
+    religion = forms.CharField(max_length=80, required=False)
+    caste_category = forms.ChoiceField(choices=CASTE_CATEGORY_CHOICES, required=False)
+    nationality = forms.CharField(max_length=80, required=False)
+    aadhaar_number = forms.CharField(max_length=20, required=False)
+    birth_certificate_number = forms.CharField(max_length=80, required=False)
+    place_of_birth = forms.CharField(max_length=120, required=False)
+    mother_tongue = forms.CharField(max_length=80, required=False)
+    father_name = forms.CharField(max_length=160, required=False)
+    father_occupation = forms.CharField(max_length=120, required=False)
+    father_qualification = forms.CharField(max_length=120, required=False)
+    father_mobile_number = forms.CharField(max_length=20, required=False)
+    father_email = forms.EmailField(required=False)
+    father_aadhaar_number = forms.CharField(max_length=20, required=False)
+    father_annual_income = forms.CharField(max_length=40, required=False)
+    mother_name = forms.CharField(max_length=160, required=False)
+    mother_occupation = forms.CharField(max_length=120, required=False)
+    mother_qualification = forms.CharField(max_length=120, required=False)
+    mother_mobile_number = forms.CharField(max_length=20, required=False)
+    mother_aadhaar_number = forms.CharField(max_length=20, required=False)
+    mother_annual_income = forms.CharField(max_length=40, required=False)
+    guardian_address = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
+    current_house_number = forms.CharField(max_length=80, required=False)
+    current_street_area = forms.CharField(max_length=160, required=False)
+    current_village_city = forms.CharField(max_length=120, required=False)
+    current_taluka = forms.CharField(max_length=120, required=False)
+    current_district = forms.CharField(max_length=120, required=False)
+    current_state = forms.CharField(max_length=120, required=False)
+    current_pin_code = forms.CharField(max_length=12, required=False)
+    same_as_current_address = forms.BooleanField(required=False)
+    permanent_house_number = forms.CharField(max_length=80, required=False)
+    permanent_street_area = forms.CharField(max_length=160, required=False)
+    permanent_village_city = forms.CharField(max_length=120, required=False)
+    permanent_taluka = forms.CharField(max_length=120, required=False)
+    permanent_district = forms.CharField(max_length=120, required=False)
+    permanent_state = forms.CharField(max_length=120, required=False)
+    permanent_pin_code = forms.CharField(max_length=12, required=False)
     joined_on = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
     address = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
+    class_course = forms.ModelChoiceField(queryset=Course.objects.none(), required=False)
+    batch = forms.ModelChoiceField(queryset=Batch.objects.none(), required=False)
+    class_fee_amount = forms.DecimalField(max_digits=10, decimal_places=2, required=False)
+    fee_discount = forms.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal("0.00"), required=False)
+    final_fee_amount = forms.DecimalField(max_digits=10, decimal_places=2, required=False)
+    admission_class = forms.CharField(max_length=80, required=False)
+    current_class = forms.CharField(max_length=80, required=False)
+    division = forms.CharField(max_length=40, required=False)
+    medium = forms.ChoiceField(choices=MEDIUM_CHOICES, required=False)
     current_school_name = forms.CharField(max_length=160, required=False)
     current_school_address = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
     previous_school_name = forms.CharField(max_length=160, required=False)
+    previous_school_address = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
+    previous_school_udise_code = forms.CharField(max_length=80, required=False)
     previous_class = forms.CharField(max_length=80, required=False)
+    previous_class_passed = forms.CharField(max_length=80, required=False)
+    last_exam_result = forms.CharField(max_length=80, required=False)
+    student_status = forms.ChoiceField(choices=StudentProfile.StudentStatus.choices, required=False)
+    result = forms.ChoiceField(choices=RESULT_CHOICES, required=False)
+    conduct = forms.CharField(max_length=120, required=False)
+    reason_for_leaving = forms.CharField(max_length=255, required=False)
+    date_of_leaving_school = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
+    tc_issue_date = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
+    bonafide_purpose = forms.CharField(max_length=255, required=False)
+    emergency_contact_number = forms.CharField(max_length=20, required=False)
     guardian_name = forms.CharField(max_length=120, required=False)
     guardian_relation = forms.CharField(max_length=60, required=False)
     guardian_phone = forms.CharField(max_length=20, required=False)
@@ -1058,6 +1160,22 @@ class StudentForm(forms.Form):
     document_title = forms.CharField(max_length=120, required=False)
     document_file = forms.FileField(required=False)
     document_note = forms.CharField(max_length=255, required=False)
+    birth_certificate_file = forms.FileField(required=False)
+    student_aadhaar_file = forms.FileField(required=False)
+    parent_aadhaar_file = forms.FileField(required=False)
+    caste_certificate_file = forms.FileField(required=False)
+    income_certificate_file = forms.FileField(required=False)
+    transfer_certificate_file = forms.FileField(required=False)
+    leaving_certificate_file = forms.FileField(required=False)
+    bonafide_certificate_file = forms.FileField(required=False)
+    address_proof_file = forms.FileField(required=False)
+    previous_marksheet_file = forms.FileField(required=False)
+    passport_photos_file = forms.FileField(required=False)
+    disability_certificate_file = forms.FileField(required=False)
+    migration_certificate_file = forms.FileField(required=False)
+    rte_documents_file = forms.FileField(required=False)
+    bank_passbook_file = forms.FileField(required=False)
+    vaccination_record_file = forms.FileField(required=False)
     is_active = forms.BooleanField(required=False, initial=True)
 
     def __init__(self, *args, institute=None, student=None, **kwargs):
@@ -1072,18 +1190,76 @@ class StudentForm(forms.Form):
             guardian = student.guardians.filter(is_primary=True).first() or student.guardians.first()
             academic_year = self.academic_year or student.academic_year
             student_session = None
+            current_enrollment = None
             if academic_year:
                 student_session = student.academic_sessions.filter(academic_year=academic_year).first()
+                if student_session:
+                    current_enrollment = (
+                        student_session.enrollments.exclude(status=StudentEnrollment.Status.CANCELLED)
+                        .select_related("batch")
+                        .prefetch_related("courses")
+                        .order_by("pk")
+                        .first()
+                    )
             initial.update(
                 {
+                    "student_full_name": " ".join(
+                        part
+                        for part in [user.first_name, student.middle_name, user.last_name]
+                        if part
+                    ),
                     "first_name": user.first_name,
+                    "middle_name": student.middle_name,
                     "last_name": user.last_name,
                     "username": user.username,
                     "email": user.email,
                     "phone": profile.phone if profile else "",
+                    "gr_number_udise": student.gr_number_udise,
+                    "roll_number": student.roll_number,
+                    "gender": student.gender,
                     "date_of_birth": student.date_of_birth,
+                    "blood_group": student.blood_group,
+                    "religion": student.religion,
+                    "caste_category": student.caste_category,
+                    "nationality": student.nationality,
+                    "aadhaar_number": student.aadhaar_number,
+                    "birth_certificate_number": student.birth_certificate_number,
+                    "place_of_birth": student.place_of_birth,
+                    "mother_tongue": student.mother_tongue,
+                    "father_name": student.father_name,
+                    "father_occupation": student.father_occupation,
+                    "father_qualification": student.father_qualification,
+                    "father_mobile_number": student.father_mobile_number,
+                    "father_email": student.father_email,
+                    "father_aadhaar_number": student.father_aadhaar_number,
+                    "father_annual_income": student.father_annual_income,
+                    "mother_name": student.mother_name,
+                    "mother_occupation": student.mother_occupation,
+                    "mother_qualification": student.mother_qualification,
+                    "mother_mobile_number": student.mother_mobile_number,
+                    "mother_aadhaar_number": student.mother_aadhaar_number,
+                    "mother_annual_income": student.mother_annual_income,
+                    "guardian_address": student.guardian_address,
+                    "current_house_number": student.current_house_number,
+                    "current_street_area": student.current_street_area,
+                    "current_village_city": student.current_village_city,
+                    "current_taluka": student.current_taluka,
+                    "current_district": student.current_district,
+                    "current_state": student.current_state,
+                    "current_pin_code": student.current_pin_code,
+                    "permanent_house_number": student.permanent_house_number,
+                    "permanent_street_area": student.permanent_street_area,
+                    "permanent_village_city": student.permanent_village_city,
+                    "permanent_taluka": student.permanent_taluka,
+                    "permanent_district": student.permanent_district,
+                    "permanent_state": student.permanent_state,
+                    "permanent_pin_code": student.permanent_pin_code,
                     "joined_on": student_session.joined_on if student_session else student.joined_on,
                     "address": student.address,
+                    "admission_class": student.admission_class,
+                    "current_class": student.current_class,
+                    "division": student.division,
+                    "medium": student.medium,
                     "current_school_name": (
                         student_session.current_school_name if student_session else student.current_school_name
                     ),
@@ -1093,7 +1269,19 @@ class StudentForm(forms.Form):
                     "previous_school_name": (
                         student_session.previous_school_name if student_session else student.previous_school_name
                     ),
+                    "previous_school_address": student.previous_school_address,
+                    "previous_school_udise_code": student.previous_school_udise_code,
                     "previous_class": student_session.previous_class if student_session else student.previous_class,
+                    "previous_class_passed": student.previous_class_passed,
+                    "last_exam_result": student.last_exam_result,
+                    "student_status": student.student_status,
+                    "result": student.result,
+                    "conduct": student.conduct,
+                    "reason_for_leaving": student.reason_for_leaving,
+                    "date_of_leaving_school": student.date_of_leaving_school,
+                    "tc_issue_date": student.tc_issue_date,
+                    "bonafide_purpose": student.bonafide_purpose,
+                    "emergency_contact_number": student.emergency_contact_number,
                     "guardian_name": guardian.name if guardian else "",
                     "guardian_relation": guardian.relation if guardian else "",
                     "guardian_phone": guardian.phone if guardian else "",
@@ -1101,9 +1289,68 @@ class StudentForm(forms.Form):
                     "is_active": student.is_active,
                 }
             )
+            if current_enrollment:
+                initial["batch"] = current_enrollment.batch_id
+                selected_course = current_enrollment.courses.first()
+                if selected_course:
+                    initial["class_course"] = selected_course.pk
+                    initial["class_fee_amount"] = selected_course.fee_amount
+                    final_fee = (
+                        current_enrollment.custom_fee_amount
+                        if current_enrollment.custom_fee_amount is not None
+                        else selected_course.fee_amount
+                    )
+                    initial["final_fee_amount"] = final_fee
+                    initial["fee_discount"] = max(selected_course.fee_amount - final_fee, Decimal("0.00"))
+            elif student.current_class or student.admission_class:
+                class_name = student.current_class or student.admission_class
+                matching_course = Course.objects.filter(
+                    institute=student.institute,
+                    academic_year=academic_year,
+                    name=class_name,
+                ).first()
+                if matching_course:
+                    initial["class_course"] = matching_course.pk
+                    if student.division:
+                        matching_batch = Batch.objects.filter(
+                            institute=student.institute,
+                            academic_year=academic_year,
+                            name=student.division,
+                            courses=matching_course,
+                        ).first()
+                        if matching_batch:
+                            initial["batch"] = matching_batch.pk
 
         kwargs["initial"] = initial
         super().__init__(*args, **kwargs)
+        courses = Course.objects.none()
+        batches = Batch.objects.none()
+        if self.institute:
+            courses = Course.objects.filter(institute=self.institute, is_active=True)
+            batches = Batch.objects.filter(institute=self.institute, is_active=True).prefetch_related("courses")
+            if self.academic_year:
+                courses = courses.filter(academic_year=self.academic_year)
+                batches = batches.filter(academic_year=self.academic_year)
+        self.fields["class_course"].queryset = courses
+        self.fields["batch"].queryset = batches
+        self.fields["class_course"].empty_label = "Select class"
+        self.fields["batch"].empty_label = "Select batch / division"
+        self.fields["class_course"].label_from_instance = lambda course: course.name
+        self.fields["batch"].label_from_instance = lambda batch: batch.name
+        self.fields["class_course"].widget.attrs["data-searchable"] = "false"
+        self.fields["batch"].widget.attrs["data-searchable"] = "false"
+        self.fields["student_full_name"].widget.attrs["placeholder"] = "Student full name"
+        self.fields["student_full_name"].widget.attrs["readonly"] = "readonly"
+        self.fields["student_full_name"].widget.attrs["style"] = "background-color:#e9ecef; opacity:1;"
+        self.fields["student_full_name"].help_text = "Generated automatically from first name, middle name and surname."
+        self.fields["class_fee_amount"].widget.attrs["readonly"] = "readonly"
+        self.fields["class_fee_amount"].widget.attrs["placeholder"] = "0.00"
+        self.fields["fee_discount"].widget.attrs["min"] = "0"
+        self.fields["fee_discount"].widget.attrs["step"] = "0.01"
+        self.fields["fee_discount"].widget.attrs["placeholder"] = "0.00"
+        self.fields["final_fee_amount"].widget.attrs["readonly"] = "readonly"
+        self.fields["final_fee_amount"].widget.attrs["placeholder"] = "0.00"
+        self.fields["student_status"].initial = StudentProfile.StudentStatus.ACTIVE
         if not student:
             self.fields["username"].widget.attrs["placeholder"] = "Generated automatically"
             self.fields["username"].help_text = "Generated automatically and identical to the registration number."
@@ -1120,8 +1367,30 @@ class StudentForm(forms.Form):
 
     def clean(self):
         cleaned_data = super().clean()
+        first_name = cleaned_data.get("first_name", "").strip()
+        last_name = cleaned_data.get("last_name", "").strip()
+        middle_name = cleaned_data.get("middle_name", "").strip()
         password = cleaned_data.get("password")
         confirm_password = cleaned_data.get("confirm_password")
+
+        if not first_name:
+            self.add_error("first_name", "Enter first name.")
+
+        cleaned_data["student_full_name"] = " ".join(
+            part for part in [first_name, middle_name, last_name] if part
+        )
+
+        if cleaned_data.get("same_as_current_address"):
+            for field_suffix in [
+                "house_number",
+                "street_area",
+                "village_city",
+                "taluka",
+                "district",
+                "state",
+                "pin_code",
+            ]:
+                cleaned_data[f"permanent_{field_suffix}"] = cleaned_data.get(f"current_{field_suffix}", "")
 
         if password or confirm_password:
             if password != confirm_password:
@@ -1131,6 +1400,22 @@ class StudentForm(forms.Form):
         document_title = cleaned_data.get("document_title", "").strip()
         if document_file and not document_title:
             raise ValidationError("Enter document title when uploading a document.")
+
+        class_course = cleaned_data.get("class_course")
+        batch = cleaned_data.get("batch")
+        if batch and not class_course:
+            self.add_error("class_course", "Select class before selecting a batch.")
+        if class_course and batch and not batch.courses.filter(pk=class_course.pk).exists():
+            self.add_error("batch", "Selected batch must belong to the selected class.")
+
+        class_fee_amount = class_course.fee_amount if class_course else Decimal("0.00")
+        fee_discount = cleaned_data.get("fee_discount") or Decimal("0.00")
+        if fee_discount < Decimal("0.00"):
+            self.add_error("fee_discount", "Discount cannot be negative.")
+        if fee_discount > class_fee_amount:
+            self.add_error("fee_discount", "Discount cannot be greater than the class fee.")
+        cleaned_data["class_fee_amount"] = class_fee_amount
+        cleaned_data["final_fee_amount"] = max(class_fee_amount - fee_discount, Decimal("0.00"))
 
         return cleaned_data
 
@@ -1178,19 +1463,87 @@ class StudentForm(forms.Form):
             },
         )
 
+        class_course = self.cleaned_data.get("class_course")
+        batch = self.cleaned_data.get("batch")
+        admission_class = (
+            class_course.name
+            if class_course
+            else self.cleaned_data["admission_class"] or (self.student.admission_class if self.student else "")
+        )
+        current_class = (
+            class_course.name
+            if class_course
+            else self.cleaned_data["current_class"] or (self.student.current_class if self.student else "")
+        )
+        division = (
+            batch.name
+            if batch
+            else self.cleaned_data["division"] or (self.student.division if self.student else "")
+        )
+        school_name = self.institute.name if self.institute else ""
+        school_address = self.institute.address if self.institute else ""
+
         student, _created = StudentProfile.objects.update_or_create(
             user=user,
             defaults={
                 "institute": self.institute,
                 "academic_year": academic_year,
                 "admission_number": admission_number,
+                "gr_number_udise": self.cleaned_data["gr_number_udise"],
+                "roll_number": self.cleaned_data["roll_number"],
+                "middle_name": self.cleaned_data["middle_name"],
+                "gender": self.cleaned_data["gender"],
                 "date_of_birth": self.cleaned_data["date_of_birth"],
+                "blood_group": self.cleaned_data["blood_group"],
+                "religion": self.cleaned_data["religion"],
+                "caste_category": self.cleaned_data["caste_category"],
+                "nationality": self.cleaned_data["nationality"],
+                "aadhaar_number": self.cleaned_data["aadhaar_number"],
+                "birth_certificate_number": self.cleaned_data["birth_certificate_number"],
+                "place_of_birth": self.cleaned_data["place_of_birth"],
+                "mother_tongue": self.cleaned_data["mother_tongue"],
+                "father_name": self.cleaned_data["father_name"],
+                "father_occupation": self.cleaned_data["father_occupation"],
+                "father_qualification": self.cleaned_data["father_qualification"],
+                "father_mobile_number": self.cleaned_data["father_mobile_number"],
+                "father_email": self.cleaned_data["father_email"],
+                "father_aadhaar_number": self.cleaned_data["father_aadhaar_number"],
+                "father_annual_income": self.cleaned_data["father_annual_income"],
+                "mother_name": self.cleaned_data["mother_name"],
+                "mother_occupation": self.cleaned_data["mother_occupation"],
+                "mother_qualification": self.cleaned_data["mother_qualification"],
+                "mother_mobile_number": self.cleaned_data["mother_mobile_number"],
+                "mother_aadhaar_number": self.cleaned_data["mother_aadhaar_number"],
+                "mother_annual_income": self.cleaned_data["mother_annual_income"],
+                "guardian_address": self.cleaned_data["guardian_address"],
+                "current_house_number": self.cleaned_data["current_house_number"],
+                "current_street_area": self.cleaned_data["current_street_area"],
+                "current_village_city": self.cleaned_data["current_village_city"],
+                "current_taluka": self.cleaned_data["current_taluka"],
+                "current_district": self.cleaned_data["current_district"],
+                "current_state": self.cleaned_data["current_state"],
+                "current_pin_code": self.cleaned_data["current_pin_code"],
+                "permanent_house_number": self.cleaned_data["permanent_house_number"],
+                "permanent_street_area": self.cleaned_data["permanent_street_area"],
+                "permanent_village_city": self.cleaned_data["permanent_village_city"],
+                "permanent_taluka": self.cleaned_data["permanent_taluka"],
+                "permanent_district": self.cleaned_data["permanent_district"],
+                "permanent_state": self.cleaned_data["permanent_state"],
+                "permanent_pin_code": self.cleaned_data["permanent_pin_code"],
                 "joined_on": self.cleaned_data["joined_on"],
                 "address": self.cleaned_data["address"],
-                "current_school_name": self.cleaned_data["current_school_name"],
-                "current_school_address": self.cleaned_data["current_school_address"],
+                "admission_class": admission_class,
+                "current_class": current_class,
+                "division": division,
+                "medium": self.cleaned_data["medium"],
+                "current_school_name": school_name,
+                "current_school_address": school_address,
                 "previous_school_name": self.cleaned_data["previous_school_name"],
+                "previous_school_address": self.cleaned_data["previous_school_address"],
+                "previous_school_udise_code": self.cleaned_data["previous_school_udise_code"],
                 "previous_class": self.cleaned_data["previous_class"],
+                "previous_class_passed": self.cleaned_data["previous_class_passed"],
+                "last_exam_result": self.cleaned_data["last_exam_result"],
                 "is_active": self.cleaned_data["is_active"],
             },
         )
@@ -1199,7 +1552,7 @@ class StudentForm(forms.Form):
             student.profile_image = self.cleaned_data["profile_image"]
             student.save(update_fields=["profile_image"])
 
-        StudentAcademicSession.objects.update_or_create(
+        academic_session, _session_created = StudentAcademicSession.objects.update_or_create(
             student=student,
             academic_year=academic_year,
             defaults={
@@ -1211,12 +1564,25 @@ class StudentForm(forms.Form):
                     if self.cleaned_data["is_active"]
                     else StudentAcademicSession.Status.LEFT
                 ),
-                "current_school_name": self.cleaned_data["current_school_name"],
-                "current_school_address": self.cleaned_data["current_school_address"],
+                "current_school_name": school_name,
+                "current_school_address": school_address,
                 "previous_school_name": self.cleaned_data["previous_school_name"],
                 "previous_class": self.cleaned_data["previous_class"],
             },
         )
+
+        if class_course and batch:
+            enrollment, _enrollment_created = StudentEnrollment.objects.update_or_create(
+                academic_session=academic_session,
+                batch=batch,
+                defaults={
+                    "student": student,
+                    "enrolled_on": self.cleaned_data["joined_on"],
+                    "status": StudentEnrollment.Status.ACTIVE,
+                    "custom_fee_amount": self.cleaned_data["final_fee_amount"],
+                },
+            )
+            enrollment.courses.set([class_course])
 
         if self.cleaned_data.get("guardian_name") or self.cleaned_data.get("guardian_phone"):
             guardian = student.guardians.filter(is_primary=True).first()
@@ -1228,6 +1594,16 @@ class StudentForm(forms.Form):
             guardian.email = self.cleaned_data["guardian_email"]
             guardian.is_primary = True
             guardian.save()
+
+        for field_name, (document_type, title) in self.DOCUMENT_UPLOAD_FIELDS.items():
+            uploaded_file = self.cleaned_data.get(field_name)
+            if uploaded_file:
+                StudentDocument.objects.create(
+                    student=student,
+                    document_type=document_type,
+                    title=title,
+                    file=uploaded_file,
+                )
 
         if self.cleaned_data.get("document_file"):
             StudentDocument.objects.create(
@@ -1466,6 +1842,271 @@ class StudentDocumentUploadForm(forms.Form):
                 )
             )
         return documents
+
+
+class StudentTransferCertificateForm(forms.Form):
+    RESULT_CHOICES = StudentForm.RESULT_CHOICES
+
+    tc_number = forms.CharField(max_length=60)
+    issue_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    leaving_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    reason_for_leaving = forms.CharField(max_length=255)
+    conduct = forms.CharField(max_length=120)
+    result = forms.ChoiceField(choices=RESULT_CHOICES, required=False)
+    last_class_attended = forms.CharField(max_length=80)
+    qualified_for_promotion = forms.BooleanField(required=False)
+    fees_cleared = forms.BooleanField(required=False)
+    remarks = forms.CharField(max_length=255, required=False)
+    deactivate_login = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Deactivate student login after TC generation",
+    )
+
+    def __init__(self, *args, student=None, academic_session=None, generated_by=None, **kwargs):
+        self.student = student
+        self.academic_session = academic_session
+        self.generated_by = generated_by
+        initial = kwargs.pop("initial", {})
+        if student and academic_session:
+            today = timezone.localdate()
+            sequence = StudentTransferCertificate.objects.filter(
+                institute=student.institute,
+                generated_at__year=today.year,
+            ).count() + 1
+            default_tc_number = f"TC-{today:%Y}-{sequence:04d}"
+            initial.update(
+                {
+                    "tc_number": default_tc_number,
+                    "issue_date": student.tc_issue_date or today,
+                    "leaving_date": student.date_of_leaving_school or today,
+                    "reason_for_leaving": student.reason_for_leaving,
+                    "conduct": student.conduct or "Good",
+                    "result": student.result,
+                    "last_class_attended": student.current_class or student.admission_class,
+                }
+            )
+        kwargs["initial"] = initial
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            if isinstance(field.widget, forms.CheckboxInput):
+                css_class = "form-check-input"
+            elif isinstance(field.widget, forms.Select):
+                css_class = "form-select"
+            else:
+                css_class = "form-control"
+            field.widget.attrs.setdefault("class", css_class)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        tc_number = cleaned_data.get("tc_number", "").strip()
+        issue_date = cleaned_data.get("issue_date")
+        leaving_date = cleaned_data.get("leaving_date")
+        joined_on = self.academic_session.joined_on if self.academic_session else None
+
+        if tc_number and self.student:
+            if StudentTransferCertificate.objects.filter(
+                institute=self.student.institute,
+                tc_number__iexact=tc_number,
+            ).exists():
+                self.add_error("tc_number", "This TC number already exists for this institute.")
+
+        if self.student and StudentTransferCertificate.objects.filter(
+            student=self.student,
+            status=StudentTransferCertificate.Status.GENERATED,
+        ).exists():
+            raise ValidationError("This student already has a generated TC. Cancel the existing TC before generating another.")
+
+        if joined_on and leaving_date and leaving_date < joined_on:
+            self.add_error("leaving_date", "Leaving date cannot be before admission date.")
+        if leaving_date and issue_date and issue_date < leaving_date:
+            self.add_error("issue_date", "TC issue date cannot be before leaving date.")
+        return cleaned_data
+
+    def build_snapshot(self):
+        student = self.student
+        session = self.academic_session
+        primary_guardian = student.guardians.filter(is_primary=True).first() or student.guardians.first()
+        enrollments = session.enrollments.select_related("batch").prefetch_related("courses")
+        batch_names = []
+        course_names = []
+        for enrollment in enrollments:
+            if enrollment.batch and enrollment.batch.name not in batch_names:
+                batch_names.append(enrollment.batch.name)
+            for course in enrollment.courses.all():
+                if course.name not in course_names:
+                    course_names.append(course.name)
+        return {
+            "institute_name": student.institute.name,
+            "institute_address": student.institute.address,
+            "institute_phone": student.institute.phone,
+            "institute_email": student.institute.email,
+            "academic_year": session.academic_year.name,
+            "admission_number": session.admission_number,
+            "student_name": student.user.get_full_name(),
+            "father_name": student.father_name,
+            "mother_name": student.mother_name,
+            "guardian_name": primary_guardian.name if primary_guardian else "",
+            "date_of_birth": student.date_of_birth.isoformat() if student.date_of_birth else "",
+            "place_of_birth": student.place_of_birth,
+            "nationality": student.nationality,
+            "religion": student.religion,
+            "caste_category": student.caste_category,
+            "gr_number_udise": student.gr_number_udise,
+            "aadhaar_number": student.aadhaar_number,
+            "admission_date": session.joined_on.isoformat() if session.joined_on else "",
+            "current_class": student.current_class,
+            "admission_class": student.admission_class,
+            "division": student.division,
+            "medium": student.medium,
+            "batches": ", ".join(batch_names),
+            "courses": ", ".join(course_names),
+            "previous_school_name": session.previous_school_name,
+            "previous_class": session.previous_class,
+        }
+
+    @transaction.atomic
+    def save(self):
+        student = self.student
+        session = self.academic_session
+        tc = StudentTransferCertificate.objects.create(
+            institute=student.institute,
+            student=student,
+            academic_session=session,
+            tc_number=self.cleaned_data["tc_number"].strip(),
+            issue_date=self.cleaned_data["issue_date"],
+            leaving_date=self.cleaned_data["leaving_date"],
+            reason_for_leaving=self.cleaned_data["reason_for_leaving"],
+            conduct=self.cleaned_data["conduct"],
+            result=self.cleaned_data.get("result", ""),
+            last_class_attended=self.cleaned_data["last_class_attended"],
+            qualified_for_promotion=self.cleaned_data["qualified_for_promotion"],
+            fees_cleared=self.cleaned_data["fees_cleared"],
+            remarks=self.cleaned_data["remarks"],
+            student_snapshot=self.build_snapshot(),
+            generated_by=self.generated_by,
+        )
+        student.reason_for_leaving = tc.reason_for_leaving
+        student.conduct = tc.conduct
+        student.result = tc.result
+        student.date_of_leaving_school = tc.leaving_date
+        student.tc_issue_date = tc.issue_date
+        student.student_status = StudentProfile.StudentStatus.TC_ISSUED
+        student.is_active = False if self.cleaned_data["deactivate_login"] else student.is_active
+        student.save(
+            update_fields=[
+                "reason_for_leaving",
+                "conduct",
+                "result",
+                "date_of_leaving_school",
+                "tc_issue_date",
+                "student_status",
+                "is_active",
+            ]
+        )
+        if self.cleaned_data["deactivate_login"]:
+            student.user.is_active = False
+            student.user.save(update_fields=["is_active"])
+        session.status = StudentAcademicSession.Status.LEFT
+        session.save(update_fields=["status"])
+        return tc
+
+
+class StudentBonafideCertificateForm(forms.Form):
+    certificate_number = forms.CharField(max_length=60)
+    issue_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    purpose = forms.CharField(max_length=255, widget=forms.Textarea(attrs={"rows": 3}))
+    remarks = forms.CharField(max_length=255, required=False, widget=forms.Textarea(attrs={"rows": 2}))
+
+    def __init__(self, *args, student=None, academic_session=None, generated_by=None, **kwargs):
+        self.student = student
+        self.academic_session = academic_session
+        self.generated_by = generated_by
+        initial = kwargs.pop("initial", {})
+        if student and academic_session:
+            today = timezone.localdate()
+            sequence = StudentBonafideCertificate.objects.filter(
+                institute=student.institute,
+                generated_at__year=today.year,
+            ).count() + 1
+            initial.update(
+                {
+                    "certificate_number": f"BON-{today:%Y}-{sequence:04d}",
+                    "issue_date": today,
+                    "purpose": student.bonafide_purpose,
+                }
+            )
+        kwargs["initial"] = initial
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault("class", "form-control")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        certificate_number = cleaned_data.get("certificate_number", "").strip()
+        if certificate_number and self.student:
+            if StudentBonafideCertificate.objects.filter(
+                institute=self.student.institute,
+                certificate_number__iexact=certificate_number,
+            ).exists():
+                self.add_error("certificate_number", "This Bonafide certificate number already exists.")
+        return cleaned_data
+
+    def build_snapshot(self):
+        student = self.student
+        session = self.academic_session
+        primary_guardian = student.guardians.filter(is_primary=True).first() or student.guardians.first()
+        return {
+            "institute_name": student.institute.name,
+            "institute_address": student.institute.address,
+            "institute_phone": student.institute.phone,
+            "institute_email": student.institute.email,
+            "academic_year": session.academic_year.name,
+            "admission_number": session.admission_number,
+            "student_name": student.user.get_full_name(),
+            "father_name": student.father_name,
+            "mother_name": student.mother_name,
+            "guardian_name": primary_guardian.name if primary_guardian else "",
+            "date_of_birth": student.date_of_birth.isoformat() if student.date_of_birth else "",
+            "gr_number_udise": student.gr_number_udise,
+            "roll_number": student.roll_number,
+            "current_class": student.current_class,
+            "admission_class": student.admission_class,
+            "division": student.division,
+            "medium": student.medium,
+            "admission_date": session.joined_on.isoformat() if session.joined_on else "",
+        }
+
+    @transaction.atomic
+    def save(self):
+        student = self.student
+        session = self.academic_session
+        bonafide = StudentBonafideCertificate.objects.create(
+            institute=student.institute,
+            student=student,
+            academic_session=session,
+            certificate_number=self.cleaned_data["certificate_number"].strip(),
+            issue_date=self.cleaned_data["issue_date"],
+            purpose=self.cleaned_data["purpose"],
+            remarks=self.cleaned_data["remarks"],
+            student_snapshot=self.build_snapshot(),
+            generated_by=self.generated_by,
+        )
+        student.bonafide_purpose = bonafide.purpose
+        student.save(update_fields=["bonafide_purpose"])
+        return bonafide
+
+
+class StudentIdCardForm(forms.ModelForm):
+    class Meta:
+        model = StudentProfile
+        fields = ("emergency_contact_number",)
+        labels = {"emergency_contact_number": "Emergency Contact Number"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["emergency_contact_number"].required = False
+        self.fields["emergency_contact_number"].widget.attrs.setdefault("class", "form-control")
 
 
 class HomeworkForm(forms.ModelForm):

@@ -13,7 +13,14 @@ from unittest.mock import patch
 
 from accountant.models import FeeInvoice
 from institute_admin.models import AcademicYear, Batch, Course
-from student_parent.models import GuardianProfile, StudentAcademicSession, StudentEnrollment, StudentProfile
+from student_parent.models import (
+    GuardianProfile,
+    StudentAcademicSession,
+    StudentBonafideCertificate,
+    StudentEnrollment,
+    StudentProfile,
+    StudentTransferCertificate,
+)
 
 from .models import (
     Institute,
@@ -528,6 +535,40 @@ class AuthEndpointTests(TestCase):
             admission_number="ADM-001",
             date_of_birth=date(2010, 1, 2),
             address="Main Road",
+            gr_number_udise="GR-001",
+            roll_number="12",
+            middle_name="Middle",
+            gender=StudentProfile.Gender.FEMALE,
+            blood_group="B+",
+            religion="Hindu",
+            caste_category="OBC",
+            nationality="Indian",
+            aadhaar_number="123412341234",
+            birth_certificate_number="BC-123",
+            place_of_birth="Pune",
+            mother_tongue="Marathi",
+            father_name="Father Demo",
+            father_mobile_number="9333333333",
+            mother_name="Mother Demo",
+            current_house_number="10",
+            current_street_area="Market Road",
+            current_village_city="Pune",
+            current_taluka="Haveli",
+            current_district="Pune",
+            current_state="Maharashtra",
+            current_pin_code="411001",
+            admission_class="Class 10",
+            current_class="Class 10",
+            division="Morning",
+            medium="English",
+            previous_school_name="Old School",
+            previous_school_address="Old Road",
+            previous_school_udise_code="OLD-UDISE",
+            previous_class="Class 9",
+            previous_class_passed="Class 9",
+            last_exam_result="A",
+            bonafide_purpose="Scholarship",
+            emergency_contact_number="9444444444",
         )
         GuardianProfile.objects.create(
             student=student,
@@ -563,6 +604,10 @@ class AuthEndpointTests(TestCase):
             student=student,
             academic_year=academic_year,
             admission_number="ADM-001",
+            current_school_name=self.institute.name,
+            current_school_address=self.institute.address,
+            previous_school_name="Old School",
+            previous_class="Class 9",
         )
         enrollment = StudentEnrollment.objects.create(
             student=student,
@@ -570,6 +615,27 @@ class AuthEndpointTests(TestCase):
             batch=batch,
         )
         enrollment.courses.add(course)
+        StudentTransferCertificate.objects.create(
+            institute=self.institute,
+            student=student,
+            academic_session=session,
+            tc_number="TC-2026-0001",
+            issue_date=date(2026, 6, 1),
+            leaving_date=date(2026, 5, 31),
+            reason_for_leaving="Relocation",
+            conduct="Good",
+            last_class_attended="Class 10",
+            generated_by=self.user,
+        )
+        StudentBonafideCertificate.objects.create(
+            institute=self.institute,
+            student=student,
+            academic_session=session,
+            certificate_number="BON-2026-0001",
+            issue_date=date(2026, 6, 2),
+            purpose="Scholarship",
+            generated_by=self.user,
+        )
         login_response = self.post_json(
             "mobile_login",
             {"username": "student", "password": "pass12345"},
@@ -585,8 +651,21 @@ class AuthEndpointTests(TestCase):
         data = response.json()
         self.assertEqual(data["student"]["admission_number"], "ADM-001")
         self.assertEqual(data["student"]["phone"], "9111111111")
+        self.assertEqual(data["student"]["institute"]["address"], self.institute.address)
+        self.assertEqual(data["identity"]["middle_name"], "Middle")
+        self.assertEqual(data["identity"]["gr_number_udise"], "GR-001")
+        self.assertEqual(data["parent_details"]["father_name"], "Father Demo")
+        self.assertEqual(data["address_information"]["current_village_city"], "Pune")
+        self.assertEqual(data["academic_information"]["division"], "Morning")
+        self.assertEqual(data["academic_information"]["school_address"], self.institute.address)
+        self.assertEqual(data["certificate_information"]["bonafide_purpose"], "Scholarship")
+        self.assertEqual(data["certificate_information"]["emergency_contact_number"], "9444444444")
         self.assertEqual(data["guardians"][0]["name"], "Parent One")
         self.assertEqual(data["enrollments"][0]["batch"]["name"], "Morning")
+        self.assertEqual(data["transfer_certificates"][0]["tc_number"], "TC-2026-0001")
+        self.assertEqual(data["transfer_certificates"][0]["generated_by"], self.user.get_full_name() or self.user.username)
+        self.assertEqual(data["bonafide_certificates"][0]["certificate_number"], "BON-2026-0001")
+        self.assertEqual(data["bonafide_certificates"][0]["purpose"], "Scholarship")
         self.assertEqual(
             data["enrollments"][0]["batch"]["weekly_timetable"]["monday"],
             {"start": "09:00", "end": "11:00"},
@@ -601,6 +680,7 @@ class InstituteSignupOnboardingTests(TestCase):
             "owner_name": "New Owner",
             "phone": "9000012345",
             "email": "owner@example.com",
+            "address": "New Institute Road",
             "username": "new-owner",
             "password1": "StrongPass123!",
             "password2": "StrongPass123!",

@@ -7,27 +7,37 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        :root { --primary-color: #0f766e; --secondary-color: #115e59; --light-bg: #f8fafc; --border-color: #e2e8f0; --text-primary: #1e293b; --text-secondary: #64748b; }
-        body { background: linear-gradient(135deg, #f8fafc, #ccfbf1); min-height: 100vh; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .form-container { max-width: 1000px; margin: 0 auto; background: #fff; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.1); overflow: hidden; }
-        .form-header { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); color: #fff; padding: 30px 40px; }
-        .form-header h1 { font-weight: 700; margin-bottom: 6px; }
+        :root { --primary-color: #0f766e; --secondary-color: #115e59; --light-bg: #f8fafc; --border-color: #dbe4ee; --text-primary: #1e293b; --text-secondary: #64748b; }
+        body { background: #eef7f5; min-height: 100vh; padding: 18px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: var(--text-primary); }
+        .form-container { max-width: 1180px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 18px 48px rgba(15, 118, 110, .13); overflow: hidden; }
+        .form-header { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); color: #fff; padding: 26px 34px; }
+        .form-header h1 { font-size: 1.7rem; font-weight: 700; margin-bottom: 6px; }
         .form-header p { opacity: .9; margin: 0; }
-        .form-body { padding: 40px; }
-        .form-section { background: var(--light-bg); border-radius: 15px; padding: 25px; margin-bottom: 30px; border-left: 5px solid var(--primary-color); }
-        .section-title { display: flex; align-items: center; gap: 12px; margin-bottom: 25px; }
-        .section-title-icon { width: 48px; height: 48px; background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.3rem; }
-        .section-title h3 { margin: 0; font-weight: 700; color: var(--text-primary); }
-        .section-title p { margin: 4px 0 0; color: var(--text-secondary); }
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 22px; }
-        .form-label { font-weight: 600; color: var(--text-primary); margin-bottom: 10px; display: flex; gap: 8px; align-items: center; }
+        .form-body { padding: 28px; }
+        .accordion { display: grid; gap: 14px; }
+        .accordion-item { border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        .accordion-button { gap: 12px; font-weight: 700; color: var(--text-primary); background: #fff; box-shadow: none; }
+        .accordion-button:not(.collapsed) { color: var(--primary-color); background: #ecfdf5; box-shadow: none; }
+        .section-icon { width: 38px; height: 38px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--primary-color); color: #fff; flex: 0 0 auto; }
+        .section-meta { display: flex; flex-direction: column; line-height: 1.25; }
+        .section-meta small { color: var(--text-secondary); font-weight: 500; margin-top: 3px; }
+        .accordion-body { background: var(--light-bg); padding: 22px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 18px; }
+        .form-grid .wide { grid-column: 1 / -1; }
+        .subsection-title { grid-column: 1 / -1; margin: 8px 0 -4px; font-size: .92rem; font-weight: 800; color: var(--secondary-color); text-transform: uppercase; letter-spacing: .04em; }
+        .form-label { font-weight: 650; color: var(--text-primary); margin-bottom: 8px; display: flex; gap: 7px; align-items: center; }
         .form-label i { color: var(--primary-color); }
-        .form-control { border: 2px solid var(--border-color); border-radius: 10px; padding: 13px 15px; }
-        .form-actions { background: #fff; padding-top: 25px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; gap: 20px; }
-        .btn { padding: 12px 26px; border-radius: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
+        .required { color: #dc2626; }
+        .form-control, .form-select { border: 1px solid var(--border-color); border-radius: 8px; padding: 11px 13px; background: #fff; }
+        textarea.form-control { min-height: 86px; }
+        .form-check { display: flex; align-items: center; gap: 8px; padding-left: 0; }
+        .form-check .form-check-input { margin-left: 0; }
+        .text-muted, small { color: var(--text-secondary) !important; }
+        .form-actions { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; gap: 18px; }
+        .btn { padding: 11px 22px; border-radius: 8px; font-weight: 650; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
         .btn-primary { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); border: none; }
-        .btn-secondary { background: var(--light-bg); color: var(--text-secondary); border: 2px solid var(--border-color); }
-        @media(max-width:768px) { body { padding: 10px; } .form-header, .form-body { padding: 24px 18px; } .form-actions { flex-direction: column; align-items: stretch; } .btn { width: 100%; justify-content: center; } }
+        .btn-secondary { background: #fff; color: var(--text-secondary); border: 1px solid var(--border-color); }
+        @media(max-width:768px) { body { padding: 8px; } .form-header, .form-body { padding: 20px 14px; } .accordion-body { padding: 16px; } .form-actions { flex-direction: column; align-items: stretch; } .form-actions .d-flex { width: 100%; flex-direction: column; } .btn { width: 100%; } }
     </style>
 </head>
 <body>
@@ -38,79 +48,203 @@
     </div>
     <form method="POST" enctype="multipart/form-data" class="form-body">
         {% csrf_token %}
+        <input type="hidden" name="active_section" value="{{ active_section|default:'basic' }}">
         {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
 
-        <div class="form-section">
-            <div class="section-title">
-                <div class="section-title-icon"><i class="bi bi-key"></i></div>
-                <div><h3>Student Login</h3><p>Create student/parent app credentials.</p></div>
+        <div class="accordion" id="studentRegistrationAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button{% if active_section != 'basic' %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#studentBasicSection" aria-expanded="{% if active_section == 'basic' %}true{% else %}false{% endif %}" aria-controls="studentBasicSection">
+                        <span class="section-icon"><i class="bi bi-person-vcard"></i></span>
+                        <span class="section-meta">Student Basic Information <small>Core admission and identity data.</small></span>
+                    </button>
+                </h2>
+                <div id="studentBasicSection" class="accordion-collapse collapse{% if active_section == 'basic' %} show{% endif %}" data-bs-parent="#studentRegistrationAccordion">
+                    <div class="accordion-body">
+                        <div class="form-grid">
+                            <div><label class="form-label"><i class="bi bi-person"></i> Student Full Name <span class="required">*</span></label>{{ form.student_full_name }}{{ form.student_full_name.errors }}{% if form.student_full_name.help_text %}<small>{{ form.student_full_name.help_text }}</small>{% endif %}</div>
+                            <div><label class="form-label"><i class="bi bi-person"></i> First Name</label>{{ form.first_name }}{{ form.first_name.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-person"></i> Middle Name</label>{{ form.middle_name }}{{ form.middle_name.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-person"></i> Surname</label>{{ form.last_name }}{{ form.last_name.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-key"></i> Admission Number</label>{{ form.username }}{{ form.username.errors }}{% if form.username.help_text %}<small>{{ form.username.help_text }}</small>{% endif %}</div>
+                            <div><label class="form-label"><i class="bi bi-hash"></i> GR / UDISE Number</label>{{ form.gr_number_udise }}{{ form.gr_number_udise.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-list-ol"></i> Roll Number</label>{{ form.roll_number }}{{ form.roll_number.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-gender-ambiguous"></i> Gender</label>{{ form.gender }}{{ form.gender.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-calendar-heart"></i> Date of Birth</label>{{ form.date_of_birth }}{{ form.date_of_birth.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-droplet"></i> Blood Group</label>{{ form.blood_group }}{{ form.blood_group.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-bank"></i> Religion</label>{{ form.religion }}{{ form.religion.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-tags"></i> Caste Category</label>{{ form.caste_category }}{{ form.caste_category.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-globe-central-south-asia"></i> Nationality</label>{{ form.nationality }}{{ form.nationality.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-credit-card-2-front"></i> Aadhaar Number</label>{{ form.aadhaar_number }}{{ form.aadhaar_number.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-text"></i> Birth Certificate Number</label>{{ form.birth_certificate_number }}{{ form.birth_certificate_number.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-geo-alt"></i> Place of Birth</label>{{ form.place_of_birth }}{{ form.place_of_birth.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-translate"></i> Mother Tongue</label>{{ form.mother_tongue }}{{ form.mother_tongue.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-image"></i> Student Photo</label>{{ form.profile_image }}{{ form.profile_image.errors }}</div>
+                            <div class="d-flex align-items-center pt-4"><div class="form-check">{{ form.is_active }}<label class="form-check-label fw-semibold">Active Login</label></div></div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="form-grid">
-                <div><label class="form-label"><i class="bi bi-person"></i> First Name</label>{{ form.first_name }}{{ form.first_name.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-person"></i> Last Name</label>{{ form.last_name }}{{ form.last_name.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-at"></i> Username</label>{{ form.username }}{{ form.username.errors }}{% if form.username.help_text %}<small class="text-muted">{{ form.username.help_text }}</small>{% endif %}</div>
-                <div><label class="form-label"><i class="bi bi-phone"></i> Phone</label>{{ form.phone }}{{ form.phone.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-key"></i> Password</label>{{ form.password }}{{ form.password.errors }}{% if form.student %}<small class="text-muted">Leave blank to keep current password.</small>{% else %}<small class="text-muted">Leave blank to use Student@123.</small>{% endif %}</div>
-                <div><label class="form-label"><i class="bi bi-shield-lock"></i> Confirm Password</label>{{ form.confirm_password }}{{ form.confirm_password.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-envelope"></i> Email</label>{{ form.email }}{{ form.email.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-image"></i> Profile Image</label>{{ form.profile_image }}{{ form.profile_image.errors }}</div>
-                <div class="d-flex align-items-center pt-4"><div class="form-check">{{ form.is_active }}<label class="form-check-label fw-semibold">Active</label></div></div>
-            </div>
-        </div>
 
-        <div class="form-section">
-            <div class="section-title">
-                <div class="section-title-icon"><i class="bi bi-person-vcard"></i></div>
-                <div><h3>Admission Details</h3><p>Basic student admission information.</p></div>
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button{% if active_section != 'login' %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#loginSection" aria-expanded="{% if active_section == 'login' %}true{% else %}false{% endif %}" aria-controls="loginSection">
+                        <span class="section-icon"><i class="bi bi-shield-lock"></i></span>
+                        <span class="section-meta">Student Login <small>Optional app credentials and contact details.</small></span>
+                    </button>
+                </h2>
+                <div id="loginSection" class="accordion-collapse collapse{% if active_section == 'login' %} show{% endif %}" data-bs-parent="#studentRegistrationAccordion">
+                    <div class="accordion-body">
+                        <div class="form-grid">
+                            <div><label class="form-label"><i class="bi bi-phone"></i> Phone</label>{{ form.phone }}{{ form.phone.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-envelope"></i> Email</label>{{ form.email }}{{ form.email.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-key"></i> Password</label>{{ form.password }}{{ form.password.errors }}{% if form.student %}<small>Leave blank to keep current password.</small>{% else %}<small>Leave blank to use Student@123.</small>{% endif %}</div>
+                            <div><label class="form-label"><i class="bi bi-shield-lock"></i> Confirm Password</label>{{ form.confirm_password }}{{ form.confirm_password.errors }}</div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="form-grid">
-                <div><label class="form-label"><i class="bi bi-calendar-heart"></i> Date of Birth</label>{{ form.date_of_birth }}{{ form.date_of_birth.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-calendar-check"></i> Joined On</label>{{ form.joined_on }}{{ form.joined_on.errors }}</div>
-                <div style="grid-column: 1 / -1;"><label class="form-label"><i class="bi bi-geo-alt"></i> Address</label>{{ form.address }}{{ form.address.errors }}</div>
-            </div>
-        </div>
 
-        <div class="form-section">
-            <div class="section-title">
-                <div class="section-title-icon"><i class="bi bi-building"></i></div>
-                <div><h3>Education Details</h3><p>School/college information for student profile.</p></div>
-            </div>
-            <div class="form-grid">
-                <div><label class="form-label"><i class="bi bi-building"></i> Current School / College</label>{{ form.current_school_name }}{{ form.current_school_name.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-mortarboard"></i> Previous Class</label>{{ form.previous_class }}{{ form.previous_class.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-building"></i> Previous School / College</label>{{ form.previous_school_name }}{{ form.previous_school_name.errors }}</div>
-                <div style="grid-column: 1 / -1;"><label class="form-label"><i class="bi bi-geo-alt"></i> Current School / College Address</label>{{ form.current_school_address }}{{ form.current_school_address.errors }}</div>
-            </div>
-        </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button{% if active_section != 'parent' %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#parentSection" aria-expanded="{% if active_section == 'parent' %}true{% else %}false{% endif %}" aria-controls="parentSection">
+                        <span class="section-icon"><i class="bi bi-people"></i></span>
+                        <span class="section-meta">Parent / Guardian Details <small>Father, mother, and optional guardian information.</small></span>
+                    </button>
+                </h2>
+                <div id="parentSection" class="accordion-collapse collapse{% if active_section == 'parent' %} show{% endif %}" data-bs-parent="#studentRegistrationAccordion">
+                    <div class="accordion-body">
+                        <div class="form-grid">
+                            <div class="subsection-title">Father's Information</div>
+                            <div><label class="form-label"><i class="bi bi-person"></i> Father's Name</label>{{ form.father_name }}{{ form.father_name.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-briefcase"></i> Occupation</label>{{ form.father_occupation }}{{ form.father_occupation.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-mortarboard"></i> Qualification</label>{{ form.father_qualification }}{{ form.father_qualification.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-phone"></i> Mobile Number</label>{{ form.father_mobile_number }}{{ form.father_mobile_number.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-envelope"></i> Email ID</label>{{ form.father_email }}{{ form.father_email.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-credit-card-2-front"></i> Aadhaar Number</label>{{ form.father_aadhaar_number }}{{ form.father_aadhaar_number.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-cash-stack"></i> Annual Income</label>{{ form.father_annual_income }}{{ form.father_annual_income.errors }}</div>
 
-        <div class="form-section">
-            <div class="section-title">
-                <div class="section-title-icon"><i class="bi bi-person-hearts"></i></div>
-                <div><h3>Primary Parent / Guardian</h3><p>Optional contact shown in student records.</p></div>
-            </div>
-            <div class="form-grid">
-                <div><label class="form-label"><i class="bi bi-person"></i> Guardian Name</label>{{ form.guardian_name }}{{ form.guardian_name.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-people"></i> Relation</label>{{ form.guardian_relation }}{{ form.guardian_relation.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-phone"></i> Guardian Phone</label>{{ form.guardian_phone }}{{ form.guardian_phone.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-envelope"></i> Guardian Email</label>{{ form.guardian_email }}{{ form.guardian_email.errors }}</div>
-            </div>
-        </div>
+                            <div class="subsection-title">Mother's Information</div>
+                            <div><label class="form-label"><i class="bi bi-person"></i> Mother's Name</label>{{ form.mother_name }}{{ form.mother_name.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-briefcase"></i> Occupation</label>{{ form.mother_occupation }}{{ form.mother_occupation.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-mortarboard"></i> Qualification</label>{{ form.mother_qualification }}{{ form.mother_qualification.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-phone"></i> Mobile Number</label>{{ form.mother_mobile_number }}{{ form.mother_mobile_number.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-credit-card-2-front"></i> Aadhaar Number</label>{{ form.mother_aadhaar_number }}{{ form.mother_aadhaar_number.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-cash-stack"></i> Annual Income</label>{{ form.mother_annual_income }}{{ form.mother_annual_income.errors }}</div>
 
-        <div class="form-section">
-            <div class="section-title">
-                <div class="section-title-icon"><i class="bi bi-file-earmark-arrow-up"></i></div>
-                <div><h3>Student Document</h3><p>Optional: upload Aadhaar, profile, marksheet or other document.</p></div>
+                            <div class="subsection-title">Guardian Information (Optional)</div>
+                            <div><label class="form-label"><i class="bi bi-person-hearts"></i> Guardian Name</label>{{ form.guardian_name }}{{ form.guardian_name.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-people"></i> Relationship</label>{{ form.guardian_relation }}{{ form.guardian_relation.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-phone"></i> Mobile Number</label>{{ form.guardian_phone }}{{ form.guardian_phone.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-envelope"></i> Guardian Email</label>{{ form.guardian_email }}{{ form.guardian_email.errors }}</div>
+                            <div class="wide"><label class="form-label"><i class="bi bi-geo-alt"></i> Guardian Address</label>{{ form.guardian_address }}{{ form.guardian_address.errors }}</div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="form-grid">
-                <div><label class="form-label"><i class="bi bi-tags"></i> Document Type</label>{{ form.document_type }}{{ form.document_type.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-card-text"></i> Document Title</label>{{ form.document_title }}{{ form.document_title.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-file-earmark"></i> File</label>{{ form.document_file }}{{ form.document_file.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-pencil"></i> Note</label>{{ form.document_note }}{{ form.document_note.errors }}</div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button{% if active_section != 'address' %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#addressSection" aria-expanded="{% if active_section == 'address' %}true{% else %}false{% endif %}" aria-controls="addressSection">
+                        <span class="section-icon"><i class="bi bi-house-door"></i></span>
+                        <span class="section-meta">Address Information <small>Separate current and permanent address fields.</small></span>
+                    </button>
+                </h2>
+                <div id="addressSection" class="accordion-collapse collapse{% if active_section == 'address' %} show{% endif %}" data-bs-parent="#studentRegistrationAccordion">
+                    <div class="accordion-body">
+                        <div class="form-grid">
+                            <div class="subsection-title">Current Address</div>
+                            <div><label class="form-label"><i class="bi bi-house"></i> House Number</label>{{ form.current_house_number }}{{ form.current_house_number.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-signpost"></i> Street / Area</label>{{ form.current_street_area }}{{ form.current_street_area.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-building"></i> Village / City</label>{{ form.current_village_city }}{{ form.current_village_city.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-map"></i> Taluka</label>{{ form.current_taluka }}{{ form.current_taluka.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-map"></i> District</label>{{ form.current_district }}{{ form.current_district.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-map"></i> State</label>{{ form.current_state }}{{ form.current_state.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-mailbox"></i> PIN Code</label>{{ form.current_pin_code }}{{ form.current_pin_code.errors }}</div>
+                            <div class="wide"><label class="form-label"><i class="bi bi-card-text"></i> Full Address / Notes</label>{{ form.address }}{{ form.address.errors }}</div>
+
+                            <div class="subsection-title">Permanent Address</div>
+                            <div class="wide"><div class="form-check">{{ form.same_as_current_address }}<label class="form-check-label fw-semibold">Same as current address</label></div></div>
+                            <div><label class="form-label"><i class="bi bi-house"></i> House Number</label>{{ form.permanent_house_number }}{{ form.permanent_house_number.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-signpost"></i> Street / Area</label>{{ form.permanent_street_area }}{{ form.permanent_street_area.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-building"></i> Village / City</label>{{ form.permanent_village_city }}{{ form.permanent_village_city.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-map"></i> Taluka</label>{{ form.permanent_taluka }}{{ form.permanent_taluka.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-map"></i> District</label>{{ form.permanent_district }}{{ form.permanent_district.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-map"></i> State</label>{{ form.permanent_state }}{{ form.permanent_state.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-mailbox"></i> PIN Code</label>{{ form.permanent_pin_code }}{{ form.permanent_pin_code.errors }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button{% if active_section != 'academic' %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#academicSection" aria-expanded="{% if active_section == 'academic' %}true{% else %}false{% endif %}" aria-controls="academicSection">
+                        <span class="section-icon"><i class="bi bi-mortarboard"></i></span>
+                        <span class="section-meta">Academic Information <small>Admission, class, batch/division, medium, and previous school data.</small></span>
+                    </button>
+                </h2>
+                <div id="academicSection" class="accordion-collapse collapse{% if active_section == 'academic' %} show{% endif %}" data-bs-parent="#studentRegistrationAccordion">
+                    <div class="accordion-body">
+                        <div class="form-grid">
+                            <div><label class="form-label"><i class="bi bi-calendar-check"></i> Admission Date</label>{{ form.joined_on }}{{ form.joined_on.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-door-open"></i> Class</label>{{ form.class_course }}{{ form.class_course.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-diagram-3"></i> Batch / Division</label>{{ form.batch }}{{ form.batch.errors }}<small>Select a class first to load its batches.</small></div>
+                            <div><label class="form-label"><i class="bi bi-translate"></i> Medium</label>{{ form.medium }}{{ form.medium.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-cash-stack"></i> Fees</label>{{ form.class_fee_amount }}{{ form.class_fee_amount.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-percent"></i> Discount</label>{{ form.fee_discount }}{{ form.fee_discount.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-wallet2"></i> Final Amount</label>{{ form.final_fee_amount }}{{ form.final_fee_amount.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-building"></i> Previous School Name</label>{{ form.previous_school_name }}{{ form.previous_school_name.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-hash"></i> Previous School UDISE Code</label>{{ form.previous_school_udise_code }}{{ form.previous_school_udise_code.errors }}</div>
+                            <div class="wide"><label class="form-label"><i class="bi bi-geo-alt"></i> Previous School Address</label>{{ form.previous_school_address }}{{ form.previous_school_address.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-book"></i> Previous Class</label>{{ form.previous_class }}{{ form.previous_class.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-check2-square"></i> Previous Class Passed</label>{{ form.previous_class_passed }}{{ form.previous_class_passed.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-award"></i> Last Exam Percentage / Grade</label>{{ form.last_exam_result }}{{ form.last_exam_result.errors }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button{% if active_section != 'documents' %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#documentsSection" aria-expanded="{% if active_section == 'documents' %}true{% else %}false{% endif %}" aria-controls="documentsSection">
+                        <span class="section-icon"><i class="bi bi-file-earmark-arrow-up"></i></span>
+                        <span class="section-meta">Documents to Collect and Store <small>All uploads are optional and saved to the student record.</small></span>
+                    </button>
+                </h2>
+                <div id="documentsSection" class="accordion-collapse collapse{% if active_section == 'documents' %} show{% endif %}" data-bs-parent="#studentRegistrationAccordion">
+                    <div class="accordion-body">
+                        <div class="form-grid">
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Birth Certificate</label>{{ form.birth_certificate_file }}{{ form.birth_certificate_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Aadhaar Card (Student)</label>{{ form.student_aadhaar_file }}{{ form.student_aadhaar_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Aadhaar Card (Parents)</label>{{ form.parent_aadhaar_file }}{{ form.parent_aadhaar_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Caste Certificate</label>{{ form.caste_certificate_file }}{{ form.caste_certificate_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Income Certificate</label>{{ form.income_certificate_file }}{{ form.income_certificate_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Transfer Certificate (TC)</label>{{ form.transfer_certificate_file }}{{ form.transfer_certificate_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Leaving Certificate (LC)</label>{{ form.leaving_certificate_file }}{{ form.leaving_certificate_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Bonafide Certificate Copy</label>{{ form.bonafide_certificate_file }}{{ form.bonafide_certificate_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Address Proof</label>{{ form.address_proof_file }}{{ form.address_proof_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Marksheet of Previous Class</label>{{ form.previous_marksheet_file }}{{ form.previous_marksheet_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Passport Size Photos</label>{{ form.passport_photos_file }}{{ form.passport_photos_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Disability Certificate</label>{{ form.disability_certificate_file }}{{ form.disability_certificate_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Migration Certificate</label>{{ form.migration_certificate_file }}{{ form.migration_certificate_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> RTE Documents</label>{{ form.rte_documents_file }}{{ form.rte_documents_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Bank Passbook Copy</label>{{ form.bank_passbook_file }}{{ form.bank_passbook_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> Vaccination Record</label>{{ form.vaccination_record_file }}{{ form.vaccination_record_file.errors }}</div>
+
+                            <div class="subsection-title">Additional Document</div>
+                            <div><label class="form-label"><i class="bi bi-tags"></i> Document Type</label>{{ form.document_type }}{{ form.document_type.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-card-text"></i> Document Title</label>{{ form.document_title }}{{ form.document_title.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-file-earmark"></i> File</label>{{ form.document_file }}{{ form.document_file.errors }}</div>
+                            <div><label class="form-label"><i class="bi bi-pencil"></i> Note</label>{{ form.document_note }}{{ form.document_note.errors }}</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div class="form-actions">
-            <div class="text-muted"><i class="bi bi-info-circle me-1"></i> Batch/course assignment is handled in Enrollments.</div>
+            <div class="text-muted"><i class="bi bi-info-circle me-1"></i> Class and batch/division are saved with the student academic session.</div>
             <div class="d-flex gap-3">
                 <button type="button" class="btn btn-secondary" onclick="window.close()"><i class="bi bi-x-circle"></i> Cancel</button>
                 <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle"></i> {{ button_text }}</button>
@@ -118,6 +252,132 @@
         </div>
     </form>
 </div>
+{{ course_batch_data|json_script:"course-batch-data" }}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/static/js/form-submit-lock.js"></script>
+<script>
+    const sameAddress = document.getElementById("id_same_as_current_address");
+    const addressPairs = [
+        ["current_house_number", "permanent_house_number"],
+        ["current_street_area", "permanent_street_area"],
+        ["current_village_city", "permanent_village_city"],
+        ["current_taluka", "permanent_taluka"],
+        ["current_district", "permanent_district"],
+        ["current_state", "permanent_state"],
+        ["current_pin_code", "permanent_pin_code"],
+    ];
+    function copyCurrentAddress() {
+        if (!sameAddress || !sameAddress.checked) return;
+        addressPairs.forEach(([source, target]) => {
+            const sourceField = document.getElementById("id_" + source);
+            const targetField = document.getElementById("id_" + target);
+            if (sourceField && targetField) targetField.value = sourceField.value;
+        });
+    }
+    if (sameAddress) {
+        sameAddress.addEventListener("change", copyCurrentAddress);
+        addressPairs.forEach(([source]) => {
+            const sourceField = document.getElementById("id_" + source);
+            if (sourceField) sourceField.addEventListener("input", copyCurrentAddress);
+        });
+    }
+
+    const fullNameField = document.getElementById("id_student_full_name");
+    const nameFields = [
+        document.getElementById("id_first_name"),
+        document.getElementById("id_middle_name"),
+        document.getElementById("id_last_name"),
+    ];
+    function updateFullName() {
+        if (!fullNameField) return;
+        fullNameField.value = nameFields
+            .map((field) => field ? field.value.trim() : "")
+            .filter(Boolean)
+            .join(" ");
+    }
+    if (fullNameField) {
+        nameFields.forEach((field) => {
+            if (field) field.addEventListener("input", updateFullName);
+        });
+        updateFullName();
+    }
+
+    const classSelect = document.getElementById("id_class_course");
+    const batchSelect = document.getElementById("id_batch");
+    const feeField = document.getElementById("id_class_fee_amount");
+    const discountField = document.getElementById("id_fee_discount");
+    const finalFeeField = document.getElementById("id_final_fee_amount");
+    const dataElement = document.getElementById("course-batch-data");
+    if (classSelect && batchSelect && dataElement) {
+        const courseBatchData = JSON.parse(dataElement.textContent);
+        const initialBatchId = batchSelect.value;
+
+        function parseMoney(value) {
+            const number = parseFloat(String(value || "").replace(/,/g, ""));
+            return Number.isFinite(number) ? number : 0;
+        }
+
+        function setMoney(field, value) {
+            if (!field) return;
+            field.value = Math.max(value, 0).toFixed(2);
+        }
+
+        function selectedBatchFee() {
+            if (!classSelect.value || !batchSelect.value) return 0;
+            const batches = courseBatchData[classSelect.value] || [];
+            const batch = batches.find(function(item) {
+                return item.id === batchSelect.value;
+            });
+            return parseMoney(batch ? batch.fee : 0);
+        }
+
+        function updateFeeFields() {
+            const fee = selectedBatchFee();
+            const discount = parseMoney(discountField ? discountField.value : 0);
+            setMoney(feeField, fee);
+            setMoney(finalFeeField, Math.max(fee - discount, 0));
+            if (discountField) {
+                discountField.max = fee.toFixed(2);
+            }
+        }
+
+        function setBatchOptions(classId, selectedBatchId) {
+            const batches = courseBatchData[classId] || [];
+            batchSelect.innerHTML = "";
+
+            const placeholder = document.createElement("option");
+            placeholder.value = "";
+            placeholder.textContent = classId
+                ? (batches.length ? "Select batch / division" : "No batches available")
+                : "Select class first";
+            batchSelect.appendChild(placeholder);
+
+            batches.forEach(function(batch) {
+                const option = document.createElement("option");
+                option.value = batch.id;
+                option.textContent = batch.name;
+                option.selected = batch.id === selectedBatchId;
+                batchSelect.appendChild(option);
+            });
+
+            batchSelect.disabled = !classId;
+            if (!selectedBatchId || !batches.some(function(batch) {
+                return batch.id === selectedBatchId;
+            })) {
+                batchSelect.value = "";
+            }
+            updateFeeFields();
+        }
+
+        setBatchOptions(classSelect.value, initialBatchId);
+        classSelect.addEventListener("change", function() {
+            setBatchOptions(classSelect.value, "");
+        });
+        batchSelect.addEventListener("change", updateFeeFields);
+        if (discountField) {
+            discountField.addEventListener("input", updateFeeFields);
+        }
+    }
+</script>
 </body>
 </html>

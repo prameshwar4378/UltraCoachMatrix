@@ -24,7 +24,7 @@ from .mobile_auth import (
 from .role_redirects import role_redirect_url
 from .subscription_access import institute_access_status
 from .subscription_warning import SESSION_KEY, subscription_expiry_warning
-from student_parent.models import StudentAcademicSession
+from student_parent.models import StudentAcademicSession, StudentBonafideCertificate, StudentTransferCertificate
 from UltraCoachMatrix.email_notifications import on_commit_email, send_institute_welcome
 
 from django.utils.decorators import method_decorator
@@ -287,6 +287,20 @@ def _absolute_file_url(request, file_field):
         return ""
 
 
+def _date_value(value):
+    return value.isoformat() if value else None
+
+
+def _datetime_value(value):
+    return value.isoformat() if value else None
+
+
+def _user_name(user):
+    if not user:
+        return ""
+    return user.get_full_name() or user.username
+
+
 def _mobile_profile_payload(student, request):
     sessions = (
         StudentAcademicSession.objects.filter(
@@ -305,6 +319,16 @@ def _mobile_profile_payload(student, request):
         active_session = sessions.first()
     guardians = student.guardians.all()
     documents = student.documents.all()
+    transfer_certificates = (
+        StudentTransferCertificate.objects.filter(student=student)
+        .select_related("academic_session", "academic_session__academic_year", "generated_by", "cancelled_by")
+        .order_by("-generated_at", "-pk")
+    )
+    bonafide_certificates = (
+        StudentBonafideCertificate.objects.filter(student=student)
+        .select_related("academic_session", "academic_session__academic_year", "generated_by", "cancelled_by")
+        .order_by("-generated_at", "-pk")
+    )
 
     return {
             "student": {
@@ -317,6 +341,10 @@ def _mobile_profile_payload(student, request):
                 "institute": {
                     "id": student.institute_id,
                     "name": student.institute.name,
+                    "code": student.institute.code,
+                    "address": student.institute.address,
+                    "phone": student.institute.phone,
+                    "email": student.institute.email,
                     "logo_url": _absolute_file_url(request, student.institute.logo),
                 },
                 "profile_image_url": _absolute_file_url(request, student.profile_image),
@@ -328,6 +356,104 @@ def _mobile_profile_payload(student, request):
                 "previous_school_name": student.previous_school_name,
                 "previous_class": student.previous_class,
                 "is_active": student.is_active,
+            },
+            "identity": {
+                "first_name": student.user.first_name,
+                "middle_name": student.middle_name,
+                "surname": student.user.last_name,
+                "full_name": " ".join(
+                    part for part in [student.user.first_name, student.middle_name, student.user.last_name] if part
+                ) or student.user.username,
+                "admission_number": active_session.admission_number if active_session else student.admission_number,
+                "gr_number_udise": student.gr_number_udise,
+                "roll_number": student.roll_number,
+                "gender": student.gender,
+                "gender_display": student.get_gender_display() if student.gender else "",
+                "date_of_birth": _date_value(student.date_of_birth),
+                "blood_group": student.blood_group,
+                "religion": student.religion,
+                "caste_category": student.caste_category,
+                "nationality": student.nationality,
+                "aadhaar_number": student.aadhaar_number,
+                "birth_certificate_number": student.birth_certificate_number,
+                "place_of_birth": student.place_of_birth,
+                "mother_tongue": student.mother_tongue,
+                "student_status": student.student_status,
+                "student_status_display": student.get_student_status_display(),
+                "profile_image_url": _absolute_file_url(request, student.profile_image),
+            },
+            "parent_details": {
+                "father_name": student.father_name,
+                "father_occupation": student.father_occupation,
+                "father_qualification": student.father_qualification,
+                "father_mobile_number": student.father_mobile_number,
+                "father_email": student.father_email,
+                "father_aadhaar_number": student.father_aadhaar_number,
+                "father_annual_income": student.father_annual_income,
+                "mother_name": student.mother_name,
+                "mother_occupation": student.mother_occupation,
+                "mother_qualification": student.mother_qualification,
+                "mother_mobile_number": student.mother_mobile_number,
+                "mother_aadhaar_number": student.mother_aadhaar_number,
+                "mother_annual_income": student.mother_annual_income,
+                "guardian_address": student.guardian_address,
+            },
+            "address_information": {
+                "current_house_number": student.current_house_number,
+                "current_street_area": student.current_street_area,
+                "current_village_city": student.current_village_city,
+                "current_taluka": student.current_taluka,
+                "current_district": student.current_district,
+                "current_state": student.current_state,
+                "current_pin_code": student.current_pin_code,
+                "permanent_house_number": student.permanent_house_number,
+                "permanent_street_area": student.permanent_street_area,
+                "permanent_village_city": student.permanent_village_city,
+                "permanent_taluka": student.permanent_taluka,
+                "permanent_district": student.permanent_district,
+                "permanent_state": student.permanent_state,
+                "permanent_pin_code": student.permanent_pin_code,
+                "full_address": student.address,
+            },
+            "academic_information": {
+                "admission_date": _date_value(active_session.joined_on if active_session else student.joined_on),
+                "admission_class": student.admission_class,
+                "current_class": student.current_class,
+                "division": student.division,
+                "medium": student.medium,
+                "school_name": (
+                    active_session.current_school_name
+                    if active_session and active_session.current_school_name
+                    else student.institute.name
+                ),
+                "school_address": (
+                    active_session.current_school_address
+                    if active_session and active_session.current_school_address
+                    else student.institute.address
+                ),
+                "previous_school_name": (
+                    active_session.previous_school_name
+                    if active_session and active_session.previous_school_name
+                    else student.previous_school_name
+                ),
+                "previous_school_address": student.previous_school_address,
+                "previous_school_udise_code": student.previous_school_udise_code,
+                "previous_class": (
+                    active_session.previous_class
+                    if active_session and active_session.previous_class
+                    else student.previous_class
+                ),
+                "previous_class_passed": student.previous_class_passed,
+                "last_exam_result": student.last_exam_result,
+            },
+            "certificate_information": {
+                "result": student.result,
+                "conduct": student.conduct,
+                "reason_for_leaving": student.reason_for_leaving,
+                "date_of_leaving_school": _date_value(student.date_of_leaving_school),
+                "tc_issue_date": _date_value(student.tc_issue_date),
+                "bonafide_purpose": student.bonafide_purpose,
+                "emergency_contact_number": student.emergency_contact_number,
             },
             "active_session": {
                 "id": active_session.pk,
@@ -397,6 +523,48 @@ def _mobile_profile_payload(student, request):
                     "note": document.note,
                 }
                 for document in documents
+            ],
+            "transfer_certificates": [
+                {
+                    "id": certificate.pk,
+                    "tc_number": certificate.tc_number,
+                    "issue_date": _date_value(certificate.issue_date),
+                    "leaving_date": _date_value(certificate.leaving_date),
+                    "reason_for_leaving": certificate.reason_for_leaving,
+                    "conduct": certificate.conduct,
+                    "result": certificate.result,
+                    "last_class_attended": certificate.last_class_attended,
+                    "qualified_for_promotion": certificate.qualified_for_promotion,
+                    "fees_cleared": certificate.fees_cleared,
+                    "remarks": certificate.remarks,
+                    "status": certificate.status,
+                    "generated_by": _user_name(certificate.generated_by),
+                    "generated_at": _datetime_value(certificate.generated_at),
+                    "cancelled_by": _user_name(certificate.cancelled_by),
+                    "cancelled_at": _datetime_value(certificate.cancelled_at),
+                    "cancel_reason": certificate.cancel_reason,
+                    "academic_session_id": certificate.academic_session_id,
+                    "academic_year": certificate.academic_session.academic_year.name,
+                }
+                for certificate in transfer_certificates
+            ],
+            "bonafide_certificates": [
+                {
+                    "id": certificate.pk,
+                    "certificate_number": certificate.certificate_number,
+                    "issue_date": _date_value(certificate.issue_date),
+                    "purpose": certificate.purpose,
+                    "remarks": certificate.remarks,
+                    "status": certificate.status,
+                    "generated_by": _user_name(certificate.generated_by),
+                    "generated_at": _datetime_value(certificate.generated_at),
+                    "cancelled_by": _user_name(certificate.cancelled_by),
+                    "cancelled_at": _datetime_value(certificate.cancelled_at),
+                    "cancel_reason": certificate.cancel_reason,
+                    "academic_session_id": certificate.academic_session_id,
+                    "academic_year": certificate.academic_session.academic_year.name,
+                }
+                for certificate in bonafide_certificates
             ],
         }
 

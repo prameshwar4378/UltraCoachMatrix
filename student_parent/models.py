@@ -3,6 +3,18 @@ from django.db import models
 
 
 class StudentProfile(models.Model):
+    class Gender(models.TextChoices):
+        MALE = "MALE", "Male"
+        FEMALE = "FEMALE", "Female"
+        OTHER = "OTHER", "Other"
+
+    class StudentStatus(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        INACTIVE = "INACTIVE", "Inactive"
+        TC_ISSUED = "TC_ISSUED", "TC Issued"
+        LEFT_SCHOOL = "LEFT_SCHOOL", "Left School"
+        PASSED_OUT = "PASSED_OUT", "Passed Out"
+
     institute = models.ForeignKey(
         "super_admin.Institute",
         on_delete=models.CASCADE,
@@ -17,14 +29,74 @@ class StudentProfile(models.Model):
     )
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="student_profile")
     admission_number = models.CharField(max_length=40)
+    gr_number_udise = models.CharField("GR Number / UDISE Number", max_length=80, blank=True)
+    roll_number = models.CharField(max_length=40, blank=True)
+    middle_name = models.CharField(max_length=150, blank=True)
+    gender = models.CharField(max_length=20, choices=Gender.choices, blank=True)
     profile_image = models.ImageField(upload_to="students/profile_images/", blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
+    blood_group = models.CharField(max_length=10, blank=True)
+    religion = models.CharField(max_length=80, blank=True)
+    caste_category = models.CharField(max_length=40, blank=True)
+    nationality = models.CharField(max_length=80, blank=True)
+    aadhaar_number = models.CharField(max_length=20, blank=True)
+    birth_certificate_number = models.CharField(max_length=80, blank=True)
+    place_of_birth = models.CharField(max_length=120, blank=True)
+    mother_tongue = models.CharField(max_length=80, blank=True)
+    father_name = models.CharField(max_length=160, blank=True)
+    father_occupation = models.CharField(max_length=120, blank=True)
+    father_qualification = models.CharField(max_length=120, blank=True)
+    father_mobile_number = models.CharField(max_length=20, blank=True)
+    father_email = models.EmailField(blank=True)
+    father_aadhaar_number = models.CharField(max_length=20, blank=True)
+    father_annual_income = models.CharField(max_length=40, blank=True)
+    mother_name = models.CharField(max_length=160, blank=True)
+    mother_occupation = models.CharField(max_length=120, blank=True)
+    mother_qualification = models.CharField(max_length=120, blank=True)
+    mother_mobile_number = models.CharField(max_length=20, blank=True)
+    mother_aadhaar_number = models.CharField(max_length=20, blank=True)
+    mother_annual_income = models.CharField(max_length=40, blank=True)
+    guardian_address = models.TextField(blank=True)
+    current_house_number = models.CharField(max_length=80, blank=True)
+    current_street_area = models.CharField(max_length=160, blank=True)
+    current_village_city = models.CharField(max_length=120, blank=True)
+    current_taluka = models.CharField(max_length=120, blank=True)
+    current_district = models.CharField(max_length=120, blank=True)
+    current_state = models.CharField(max_length=120, blank=True)
+    current_pin_code = models.CharField(max_length=12, blank=True)
+    permanent_house_number = models.CharField(max_length=80, blank=True)
+    permanent_street_area = models.CharField(max_length=160, blank=True)
+    permanent_village_city = models.CharField(max_length=120, blank=True)
+    permanent_taluka = models.CharField(max_length=120, blank=True)
+    permanent_district = models.CharField(max_length=120, blank=True)
+    permanent_state = models.CharField(max_length=120, blank=True)
+    permanent_pin_code = models.CharField(max_length=12, blank=True)
     joined_on = models.DateField(null=True, blank=True)
     address = models.TextField(blank=True)
+    admission_class = models.CharField(max_length=80, blank=True)
+    current_class = models.CharField(max_length=80, blank=True)
+    division = models.CharField(max_length=40, blank=True)
+    medium = models.CharField(max_length=40, blank=True)
     current_school_name = models.CharField(max_length=160, blank=True)
     current_school_address = models.TextField(blank=True)
     previous_school_name = models.CharField(max_length=160, blank=True)
+    previous_school_address = models.TextField(blank=True)
+    previous_school_udise_code = models.CharField(max_length=80, blank=True)
     previous_class = models.CharField(max_length=80, blank=True)
+    previous_class_passed = models.CharField(max_length=80, blank=True)
+    last_exam_result = models.CharField(max_length=80, blank=True)
+    result = models.CharField(max_length=40, blank=True)
+    conduct = models.CharField(max_length=120, blank=True)
+    reason_for_leaving = models.CharField(max_length=255, blank=True)
+    date_of_leaving_school = models.DateField(null=True, blank=True)
+    tc_issue_date = models.DateField(null=True, blank=True)
+    bonafide_purpose = models.CharField(max_length=255, blank=True)
+    emergency_contact_number = models.CharField(max_length=20, blank=True)
+    student_status = models.CharField(
+        max_length=20,
+        choices=StudentStatus.choices,
+        default=StudentStatus.ACTIVE,
+    )
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -143,6 +215,126 @@ class StudentEnrollment(models.Model):
         return sum(course.fee_amount for course in self.courses.all())
 
 
+class StudentTransferCertificate(models.Model):
+    class Status(models.TextChoices):
+        GENERATED = "GENERATED", "Generated"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    institute = models.ForeignKey(
+        "super_admin.Institute",
+        on_delete=models.CASCADE,
+        related_name="student_transfer_certificates",
+    )
+    student = models.ForeignKey(
+        StudentProfile,
+        on_delete=models.CASCADE,
+        related_name="transfer_certificates",
+    )
+    academic_session = models.ForeignKey(
+        StudentAcademicSession,
+        on_delete=models.PROTECT,
+        related_name="transfer_certificates",
+    )
+    tc_number = models.CharField(max_length=60)
+    issue_date = models.DateField()
+    leaving_date = models.DateField()
+    reason_for_leaving = models.CharField(max_length=255)
+    conduct = models.CharField(max_length=120)
+    result = models.CharField(max_length=80, blank=True)
+    last_class_attended = models.CharField(max_length=80)
+    qualified_for_promotion = models.BooleanField(default=False)
+    fees_cleared = models.BooleanField(default=False)
+    remarks = models.CharField(max_length=255, blank=True)
+    student_snapshot = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.GENERATED)
+    generated_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="generated_transfer_certificates",
+    )
+    generated_at = models.DateTimeField(auto_now_add=True)
+    cancelled_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="cancelled_transfer_certificates",
+    )
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancel_reason = models.CharField(max_length=255, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-generated_at", "-pk"]
+        unique_together = ["institute", "tc_number"]
+        indexes = [
+            models.Index(fields=["student", "status", "-generated_at"], name="stc_student_status_idx"),
+            models.Index(fields=["institute", "tc_number"], name="stc_inst_tc_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.tc_number} - {self.student}"
+
+
+class StudentBonafideCertificate(models.Model):
+    class Status(models.TextChoices):
+        GENERATED = "GENERATED", "Generated"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    institute = models.ForeignKey(
+        "super_admin.Institute",
+        on_delete=models.CASCADE,
+        related_name="student_bonafide_certificates",
+    )
+    student = models.ForeignKey(
+        StudentProfile,
+        on_delete=models.CASCADE,
+        related_name="bonafide_certificates",
+    )
+    academic_session = models.ForeignKey(
+        StudentAcademicSession,
+        on_delete=models.PROTECT,
+        related_name="bonafide_certificates",
+    )
+    certificate_number = models.CharField(max_length=60)
+    issue_date = models.DateField()
+    purpose = models.CharField(max_length=255)
+    remarks = models.CharField(max_length=255, blank=True)
+    student_snapshot = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.GENERATED)
+    generated_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="generated_bonafide_certificates",
+    )
+    generated_at = models.DateTimeField(auto_now_add=True)
+    cancelled_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="cancelled_bonafide_certificates",
+    )
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancel_reason = models.CharField(max_length=255, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-generated_at", "-pk"]
+        unique_together = ["institute", "certificate_number"]
+        indexes = [
+            models.Index(fields=["student", "status", "-generated_at"], name="sbc_student_status_idx"),
+            models.Index(fields=["institute", "certificate_number"], name="sbc_inst_cert_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.certificate_number} - {self.student}"
+
+
 class GuardianProfile(models.Model):
     student = models.ForeignKey(
         StudentProfile,
@@ -167,10 +359,24 @@ class GuardianProfile(models.Model):
 
 class StudentDocument(models.Model):
     class DocumentType(models.TextChoices):
+        STUDENT_PHOTO = "STUDENT_PHOTO", "Student Photo"
+        BIRTH_CERTIFICATE = "BIRTH_CERTIFICATE", "Birth Certificate"
         AADHAAR = "AADHAAR", "Aadhaar"
+        PARENT_AADHAAR = "PARENT_AADHAAR", "Parent Aadhaar"
+        CASTE_CERTIFICATE = "CASTE_CERTIFICATE", "Caste Certificate"
+        INCOME_CERTIFICATE = "INCOME_CERTIFICATE", "Income Certificate"
         PROFILE = "PROFILE", "Profile"
         TRANSFER_CERTIFICATE = "TRANSFER_CERTIFICATE", "Transfer Certificate"
+        LEAVING_CERTIFICATE = "LEAVING_CERTIFICATE", "Leaving Certificate"
+        BONAFIDE_CERTIFICATE = "BONAFIDE_CERTIFICATE", "Bonafide Certificate"
+        ADDRESS_PROOF = "ADDRESS_PROOF", "Address Proof"
         MARKSHEET = "MARKSHEET", "Marksheet"
+        PASSPORT_PHOTOS = "PASSPORT_PHOTOS", "Passport Size Photos"
+        DISABILITY_CERTIFICATE = "DISABILITY_CERTIFICATE", "Disability Certificate"
+        MIGRATION_CERTIFICATE = "MIGRATION_CERTIFICATE", "Migration Certificate"
+        RTE_DOCUMENTS = "RTE_DOCUMENTS", "RTE Documents"
+        BANK_PASSBOOK = "BANK_PASSBOOK", "Bank Passbook"
+        VACCINATION_RECORD = "VACCINATION_RECORD", "Vaccination Record"
         OTHER = "OTHER", "Other"
 
     student = models.ForeignKey(
