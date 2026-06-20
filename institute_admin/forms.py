@@ -23,7 +23,7 @@ from student_parent.models import (
 )
 from teacher.models import Homework, HomeworkAttachment, TeacherProfile
 
-from .models import AcademicYear, Batch, Course, Lead, Notice, Subject, SupportTicket, Visitor
+from .models import AcademicYear, Batch, Course, InstitutePrintTemplate, Lead, Notice, PrintDocumentType, Subject, SupportTicket, Visitor
 
 
 STUDENT_AUTOCOMPLETE_URL = "/institute/students/autocomplete/"
@@ -136,6 +136,46 @@ class SecurityPasswordChangeForm(forms.Form):
         return self.user
 
 
+class InstitutePrintTemplateForm(forms.ModelForm):
+    document_type = forms.ChoiceField(
+        label="Template Type",
+        choices=(
+            (PrintDocumentType.TRANSFER_CERTIFICATE, "TC"),
+            (PrintDocumentType.ADMISSION_FORM, "Admission Form"),
+            (PrintDocumentType.BONAFIDE_CERTIFICATE, "Bonafide"),
+        ),
+        widget=forms.Select(attrs={"class": "form-select"}),
+        help_text="Choose which print document this HTML template will replace for this institute.",
+    )
+
+    class Meta:
+        model = InstitutePrintTemplate
+        fields = ("document_type", "title", "html_file", "is_active")
+        widgets = {
+            "title": forms.TextInput(attrs={"class": "form-control", "placeholder": "School TC template"}),
+            "html_file": forms.FileInput(attrs={"class": "form-control", "accept": ".html,.htm,text/html"}),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+        help_texts = {
+            "html_file": (
+                "Upload an .html file. It can use Django-style variables like "
+                "{{ student.user.get_full_name }}, {{ student_session.admission_number }}, and {{ snapshot }}."
+            ),
+            "is_active": "Turn off to use the default built-in print template.",
+        }
+
+    def clean_html_file(self):
+        uploaded_file = self.cleaned_data.get("html_file")
+        if not uploaded_file:
+            return uploaded_file
+        name = uploaded_file.name.lower()
+        if not (name.endswith(".html") or name.endswith(".htm")):
+            raise ValidationError("Upload an HTML file with .html or .htm extension.")
+        if uploaded_file.size > 1024 * 1024:
+            raise ValidationError("Template file must be 1 MB or smaller.")
+        return uploaded_file
+
+
 class SupportTicketForm(forms.ModelForm):
     class Meta:
         model = SupportTicket
@@ -171,7 +211,7 @@ class SupportTicketForm(forms.ModelForm):
 class InstituteProfileForm(forms.ModelForm):
     class Meta:
         model = Institute
-        fields = ("name", "code", "logo", "owner_name", "phone", "email", "address")
+        fields = ("name", "code", "institute_type", "logo", "owner_name", "phone", "email", "address")
         widgets = {
             "address": forms.Textarea(attrs={"rows": 4}),
             "logo": forms.ClearableFileInput(attrs={"accept": "image/*"}),
@@ -182,6 +222,7 @@ class InstituteProfileForm(forms.ModelForm):
         placeholders = {
             "name": "Institute name",
             "code": "Unique institute code",
+            "institute_type": "Select institute type",
             "logo": "Upload institute logo",
             "owner_name": "Owner or director name",
             "phone": "Primary contact number",
@@ -1084,12 +1125,16 @@ class StudentForm(forms.Form):
     email = forms.EmailField(required=False)
     phone = forms.CharField(max_length=20, required=False)
     profile_image = forms.ImageField(required=False)
+    pen_no = forms.CharField(max_length=80, required=False)
+    appar_id = forms.CharField(max_length=80, required=False)
     gr_number_udise = forms.CharField(max_length=80, required=False)
+    udise_number = forms.CharField(max_length=80, required=False)
     roll_number = forms.CharField(max_length=40, required=False)
     gender = forms.ChoiceField(choices=[("", "Select gender")] + list(StudentProfile.Gender.choices), required=False)
     date_of_birth = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
     blood_group = forms.CharField(max_length=10, required=False)
     religion = forms.CharField(max_length=80, required=False)
+    cast = forms.CharField(max_length=80, required=False)
     caste_category = forms.ChoiceField(choices=CASTE_CATEGORY_CHOICES, required=False)
     nationality = forms.CharField(max_length=80, required=False)
     aadhaar_number = forms.CharField(max_length=20, required=False)
@@ -1214,12 +1259,16 @@ class StudentForm(forms.Form):
                     "username": user.username,
                     "email": user.email,
                     "phone": profile.phone if profile else "",
+                    "pen_no": student.pen_no,
+                    "appar_id": student.appar_id,
                     "gr_number_udise": student.gr_number_udise,
+                    "udise_number": student.udise_number,
                     "roll_number": student.roll_number,
                     "gender": student.gender,
                     "date_of_birth": student.date_of_birth,
                     "blood_group": student.blood_group,
                     "religion": student.religion,
+                    "cast": student.cast,
                     "caste_category": student.caste_category,
                     "nationality": student.nationality,
                     "aadhaar_number": student.aadhaar_number,
@@ -1489,13 +1538,17 @@ class StudentForm(forms.Form):
                 "institute": self.institute,
                 "academic_year": academic_year,
                 "admission_number": admission_number,
+                "pen_no": self.cleaned_data["pen_no"],
+                "appar_id": self.cleaned_data["appar_id"],
                 "gr_number_udise": self.cleaned_data["gr_number_udise"],
+                "udise_number": self.cleaned_data["udise_number"],
                 "roll_number": self.cleaned_data["roll_number"],
                 "middle_name": self.cleaned_data["middle_name"],
                 "gender": self.cleaned_data["gender"],
                 "date_of_birth": self.cleaned_data["date_of_birth"],
                 "blood_group": self.cleaned_data["blood_group"],
                 "religion": self.cleaned_data["religion"],
+                "cast": self.cleaned_data["cast"],
                 "caste_category": self.cleaned_data["caste_category"],
                 "nationality": self.cleaned_data["nationality"],
                 "aadhaar_number": self.cleaned_data["aadhaar_number"],
@@ -1650,6 +1703,9 @@ class StudentBasicForm(forms.Form):
     email = forms.EmailField(required=False)
     phone = forms.CharField(max_length=20, required=False)
     profile_image = forms.ImageField(required=False)
+    pen_no = forms.CharField(max_length=80, required=False)
+    appar_id = forms.CharField(max_length=80, required=False)
+    cast = forms.CharField(max_length=80, required=False)
     date_of_birth = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
     joined_on = forms.DateField(required=False, widget=forms.DateInput(attrs={"type": "date"}))
     address = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
@@ -1674,6 +1730,9 @@ class StudentBasicForm(forms.Form):
                     "username": user.username,
                     "email": user.email,
                     "phone": profile.phone if profile else "",
+                    "pen_no": student.pen_no,
+                    "appar_id": student.appar_id,
+                    "cast": student.cast,
                     "date_of_birth": student.date_of_birth,
                     "joined_on": student_session.joined_on if student_session else student.joined_on,
                     "address": student.address,
@@ -1722,6 +1781,9 @@ class StudentBasicForm(forms.Form):
         )
 
         student.date_of_birth = self.cleaned_data["date_of_birth"]
+        student.pen_no = self.cleaned_data["pen_no"]
+        student.appar_id = self.cleaned_data["appar_id"]
+        student.cast = self.cleaned_data["cast"]
         student.joined_on = self.cleaned_data["joined_on"]
         student.address = self.cleaned_data["address"]
         student.is_active = self.cleaned_data["is_active"]
@@ -1953,6 +2015,7 @@ class StudentTransferCertificateForm(forms.Form):
             "religion": student.religion,
             "caste_category": student.caste_category,
             "gr_number_udise": student.gr_number_udise,
+            "udise_number": student.udise_number,
             "aadhaar_number": student.aadhaar_number,
             "admission_date": session.joined_on.isoformat() if session.joined_on else "",
             "current_class": student.current_class,
@@ -2069,6 +2132,7 @@ class StudentBonafideCertificateForm(forms.Form):
             "guardian_name": primary_guardian.name if primary_guardian else "",
             "date_of_birth": student.date_of_birth.isoformat() if student.date_of_birth else "",
             "gr_number_udise": student.gr_number_udise,
+            "udise_number": student.udise_number,
             "roll_number": student.roll_number,
             "current_class": student.current_class,
             "admission_class": student.admission_class,

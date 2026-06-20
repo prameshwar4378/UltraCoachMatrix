@@ -1,0 +1,449 @@
+<!-- Copy-paste this as full admission_form.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admission Form - {{ student_session.admission_number }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+@page { size: A4; margin: 7mm; }
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: #e5e7eb;
+    color: #111827;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9.5px;
+    line-height: 1.2;
+}
+
+.toolbar {
+    width: 210mm;
+    margin: 10px auto;
+    display: flex;
+    justify-content: space-between;
+}
+
+.btn {
+    border: 1px solid #1e3a8a;
+    background: #1e3a8a;
+    color: #fff;
+    border-radius: 6px;
+    padding: 8px 13px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn.secondary {
+    background: #fff;
+    color: #111827;
+    border-color: #cbd5e1;
+}
+
+.sheet {
+    width: 210mm;
+    margin: 0 auto 14px;
+    background: #fff;
+    padding: 7mm;
+    box-shadow: 0 14px 34px rgba(15,23,42,.16);
+}
+
+.sheet.page-1 {
+    page-break-after: always;
+}
+
+.sheet.page-2 {
+    page-break-after: auto;
+}
+
+.letterhead-space {
+    height: 38mm;
+    margin-bottom: 4mm;
+    border: 1px dashed #cbd5e1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.form {
+    border: 1.2px solid #111827;
+    padding: 4mm;
+}
+
+.title-box {
+    margin: 0 0 5px;
+    text-align: center;
+    border-bottom: 1px solid #111827;
+    padding-bottom: 4px;
+}
+
+.form-title {
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+
+.priority-grid,
+.field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    border-left: 1px solid #cbd5e1;
+    border-top: 1px solid #cbd5e1;
+}
+
+.priority-grid {
+    border-color: #111827;
+    margin-bottom: 5px;
+}
+
+.priority-cell,
+.field {
+    padding: 3px 4px;
+    min-height: 19px;
+    border-right: 1px solid #cbd5e1;
+    border-bottom: 1px solid #cbd5e1;
+}
+
+.priority-cell {
+    border-color: #111827;
+}
+
+.priority-cell.large {
+    grid-column: span 2;
+}
+
+.label {
+    font-size: 7px;
+    text-transform: uppercase;
+    color: #475569;
+    font-weight: 900;
+    letter-spacing: .02em;
+}
+
+.value,
+.line-value {
+    margin-top: 1px;
+    font-size: 9px;
+    font-weight: 800;
+    color: #111827;
+    overflow-wrap: anywhere;
+}
+
+.line-value {
+    min-height: 9px;
+    border-bottom: 1px dotted #94a3b8;
+}
+
+.section {
+    margin-top: 5px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+.section-title {
+    background: #111827;
+    color: #fff;
+    padding: 3px 5px;
+    font-size: 8px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    page-break-inside: avoid;
+}
+
+thead { display: table-header-group; }
+
+tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+th, td {
+    border: 1px solid #cbd5e1;
+    padding: 3px 4px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 8px;
+}
+
+th {
+    background: #f1f5f9;
+    color: #334155;
+    text-transform: uppercase;
+    font-weight: 900;
+}
+
+.signature-area {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+.signature {
+    height: 15mm;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    border-bottom: 1.2px solid #111827;
+    font-weight: 800;
+    color: #475569;
+    padding-bottom: 2px;
+    font-size: 8px;
+}
+
+.footer-note {
+    text-align: center;
+    margin-top: 4px;
+    font-size: 7.5px;
+    color: #64748b;
+}
+
+.header,
+.logo,
+.photo {
+    display: none;
+}
+
+@media print {
+    body {
+        background: #fff;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .toolbar {
+        display: none !important;
+    }
+
+    .sheet {
+        width: auto;
+        height: auto;
+        min-height: 0 !important;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+    }
+
+    .sheet.page-1 {
+        page-break-after: always;
+    }
+
+    .sheet.page-2 {
+        page-break-after: auto;
+    }
+
+    .letterhead-space {
+        height: 38mm;
+        border: none;
+        color: transparent;
+        margin-bottom: 4mm;
+    }
+
+    .form {
+        padding: 4mm;
+    }
+
+    .section,
+    .priority-grid,
+    .signature-area,
+    table,
+    tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="toolbar">
+    <a class="btn secondary" href="{% url 'institute_admin:student_dashboard' student.pk %}">Back to Dashboard</a>
+    <button class="btn" onclick="window.print()">Print Admission Form</button>
+</div>
+
+<main class="sheet">
+<div class="letterhead-space">Reserved blank space for physical letterhead</div>
+
+<div class="form">
+
+    <div class="title-box">
+        <div class="form-title">Admission Form</div>
+    </div>
+
+    <div class="priority-grid">
+        <div class="priority-cell large"><div class="label">Student Full Name</div><div class="value">{{ student.user.get_full_name|default:"" }}</div></div>
+        <div class="priority-cell"><div class="label">Admission Number</div><div class="value">{{ student_session.admission_number|default:"" }}</div></div>
+        <div class="priority-cell"><div class="label">Academic Session</div><div class="value">{{ student_session.academic_year.name|default:"" }}</div></div>
+        <div class="priority-cell"><div class="label">Class</div><div class="value">{{ student.current_class|default:"" }}</div></div>
+        <div class="priority-cell"><div class="label">Division / Batch</div><div class="value">{{ student.division|default:"" }}</div></div>
+        <div class="priority-cell"><div class="label">Roll Number</div><div class="value">{{ student.roll_number|default:"" }}</div></div>
+        <div class="priority-cell"><div class="label">Admission Date</div><div class="value">{{ student_session.joined_on|default:"" }}</div></div>
+        <div class="priority-cell"><div class="label">GR Number</div><div class="value">{{ student.gr_number_udise|default:"" }}</div></div>
+        <div class="priority-cell"><div class="label">UDISE Number</div><div class="value">{{ student.udise_number|default:"" }}</div></div>
+        <div class="priority-cell"><div class="label">Generated On</div><div class="value">{{ generated_at|date:"d M Y" }}</div></div>
+    </div>
+
+    <section class="section">
+        <div class="section-title">Student Personal Details</div>
+        <div class="field-grid">
+            <div class="field"><div class="label">First Name</div><div class="line-value">{{ student.user.first_name|default:"" }}</div></div>
+            <div class="field"><div class="label">Middle Name</div><div class="line-value">{{ student.middle_name|default:"" }}</div></div>
+            <div class="field"><div class="label">Surname</div><div class="line-value">{{ student.user.last_name|default:"" }}</div></div>
+            <div class="field"><div class="label">PEN No</div><div class="line-value">{{ student.pen_no|default:"" }}</div></div>
+            <div class="field"><div class="label">Appar ID</div><div class="line-value">{{ student.appar_id|default:"" }}</div></div>
+            <div class="field"><div class="label">Date of Birth</div><div class="line-value">{{ student.date_of_birth|default:"" }}</div></div>
+            <div class="field"><div class="label">Gender</div><div class="line-value">{{ student.get_gender_display|default:"" }}</div></div>
+            <div class="field"><div class="label">Blood Group</div><div class="line-value">{{ student.blood_group|default:"" }}</div></div>
+            <div class="field"><div class="label">Religion</div><div class="line-value">{{ student.religion|default:"" }}</div></div>
+            <div class="field"><div class="label">Cast</div><div class="line-value">{{ student.cast|default:"" }}</div></div>
+            <div class="field"><div class="label">Caste Category</div><div class="line-value">{{ student.caste_category|default:"" }}</div></div>
+            <div class="field"><div class="label">Nationality</div><div class="line-value">{{ student.nationality|default:"" }}</div></div>
+            <div class="field"><div class="label">Aadhaar Number</div><div class="line-value">{{ student.aadhaar_number|default:"" }}</div></div>
+            <div class="field"><div class="label">Birth Certificate Number</div><div class="line-value">{{ student.birth_certificate_number|default:"" }}</div></div>
+            <div class="field"><div class="label">Mother Tongue</div><div class="line-value">{{ student.mother_tongue|default:"" }}</div></div>
+            <div class="field"><div class="label">Place of Birth</div><div class="line-value">{{ student.place_of_birth|default:"" }}</div></div>
+            <div class="field"><div class="label">Student Mobile</div><div class="line-value">{{ student.user.profile.phone|default:"" }}</div></div>
+            <div class="field"><div class="label">Student Email</div><div class="line-value">{{ student.user.email|default:"" }}</div></div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-title">Parent / Guardian Details</div>
+        <div class="field-grid">
+            <div class="field"><div class="label">Father Name</div><div class="line-value">{{ student.father_name|default:"" }}</div></div>
+            <div class="field"><div class="label">Father Mobile</div><div class="line-value">{{ student.father_mobile_number|default:"" }}</div></div>
+            <div class="field"><div class="label">Father Occupation</div><div class="line-value">{{ student.father_occupation|default:"" }}</div></div>
+            <div class="field"><div class="label">Father Qualification</div><div class="line-value">{{ student.father_qualification|default:"" }}</div></div>
+            <div class="field"><div class="label">Father Aadhaar</div><div class="line-value">{{ student.father_aadhaar_number|default:"" }}</div></div>
+            <div class="field"><div class="label">Father Annual Income</div><div class="line-value">{{ student.father_annual_income|default:"" }}</div></div>
+            <div class="field"><div class="label">Mother Name</div><div class="line-value">{{ student.mother_name|default:"" }}</div></div>
+            <div class="field"><div class="label">Mother Mobile</div><div class="line-value">{{ student.mother_mobile_number|default:"" }}</div></div>
+            <div class="field"><div class="label">Mother Occupation</div><div class="line-value">{{ student.mother_occupation|default:"" }}</div></div>
+            <div class="field"><div class="label">Mother Qualification</div><div class="line-value">{{ student.mother_qualification|default:"" }}</div></div>
+            <div class="field"><div class="label">Mother Aadhaar</div><div class="line-value">{{ student.mother_aadhaar_number|default:"" }}</div></div>
+            <div class="field"><div class="label">Mother Annual Income</div><div class="line-value">{{ student.mother_annual_income|default:"" }}</div></div>
+            <div class="field"><div class="label">Guardian Name</div><div class="line-value">{{ primary_guardian.name|default:"" }}</div></div>
+            <div class="field"><div class="label">Guardian Relation</div><div class="line-value">{{ primary_guardian.relation|default:"" }}</div></div>
+            <div class="field"><div class="label">Guardian Phone</div><div class="line-value">{{ primary_guardian.phone|default:"" }}</div></div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-title">Address Details</div>
+        <div class="field-grid">
+            <div class="field"><div class="label">Current House Number</div><div class="line-value">{{ student.current_house_number|default:"" }}</div></div>
+            <div class="field"><div class="label">Current Street / Area</div><div class="line-value">{{ student.current_street_area|default:"" }}</div></div>
+            <div class="field"><div class="label">Current Village / City</div><div class="line-value">{{ student.current_village_city|default:"" }}</div></div>
+            <div class="field"><div class="label">Current Taluka</div><div class="line-value">{{ student.current_taluka|default:"" }}</div></div>
+            <div class="field"><div class="label">Current District</div><div class="line-value">{{ student.current_district|default:"" }}</div></div>
+            <div class="field"><div class="label">Current PIN Code</div><div class="line-value">{{ student.current_pin_code|default:"" }}</div></div>
+            <div class="field"><div class="label">Permanent House Number</div><div class="line-value">{{ student.permanent_house_number|default:"" }}</div></div>
+            <div class="field"><div class="label">Permanent Street / Area</div><div class="line-value">{{ student.permanent_street_area|default:"" }}</div></div>
+            <div class="field"><div class="label">Permanent Village / City</div><div class="line-value">{{ student.permanent_village_city|default:"" }}</div></div>
+            <div class="field"><div class="label">Permanent Taluka</div><div class="line-value">{{ student.permanent_taluka|default:"" }}</div></div>
+            <div class="field"><div class="label">Permanent District</div><div class="line-value">{{ student.permanent_district|default:"" }}</div></div>
+            <div class="field"><div class="label">Permanent PIN Code</div><div class="line-value">{{ student.permanent_pin_code|default:"" }}</div></div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-title">Academic Details</div>
+        <div class="field-grid">
+            <div class="field"><div class="label">Admission Class</div><div class="line-value">{{ student.admission_class|default:"" }}</div></div>
+            <div class="field"><div class="label">Current Class</div><div class="line-value">{{ student.current_class|default:"" }}</div></div>
+            <div class="field"><div class="label">Medium</div><div class="line-value">{{ student.medium|default:"" }}</div></div>
+            <div class="field"><div class="label">Previous School</div><div class="line-value">{{ student_session.previous_school_name|default:"" }}</div></div>
+            <div class="field"><div class="label">Previous Class</div><div class="line-value">{{ student_session.previous_class|default:"" }}</div></div>
+            <div class="field"><div class="label">Last Result / Grade</div><div class="line-value">{{ student.last_exam_result|default:"" }}</div></div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-title">Fee / Enrollment Details</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Batch</th>
+                    <th>Courses</th>
+                    <th>Enrollment Date</th>
+                    <th>Status</th>
+                    <th>Final Fee</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for enrollment in enrollments %}
+                <tr>
+                    <td>{{ enrollment.batch.name|default:"" }}</td>
+                    <td>{% for course in enrollment.courses.all %}{{ course.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+                    <td>{{ enrollment.enrolled_on|default:"" }}</td>
+                    <td>{{ enrollment.get_status_display|default:"" }}</td>
+                    <td>{{ enrollment.total_course_fee|default:"" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section class="section">
+        <div class="section-title">Documents Record</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Document Name</th>
+                    <th>Saved Title</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Uploaded On</th>
+                    <th>Note</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in document_rows %}
+                <tr>
+                    <td>{{ row.label }}</td>
+                    <td>{% if row.document %}{{ row.document.title }}{% endif %}</td>
+                    <td>{{ row.type_display }}</td>
+                    <td>{{ row.status }}</td>
+                    <td>{% if row.document %}{{ row.document.uploaded_at }}{% endif %}</td>
+                    <td>{% if row.document %}{{ row.document.note }}{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <div class="signature-area">
+        <div class="signature">Parent / Guardian Signature</div>
+        <div class="signature">Admission Officer</div>
+        <div class="signature">Principal / Authorized Signatory</div>
+    </div>
+
+    <div class="footer-note">
+        This form is generated from the student admission record.
+    </div>
+
+</div>
+</main>
+
+</body>
+</html>

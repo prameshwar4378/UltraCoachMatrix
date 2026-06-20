@@ -362,8 +362,12 @@ body {
                     <td class="value">{{ snapshot.admission_number|default:student_session.admission_number|default:"-" }}</td>
                 </tr>
                 <tr>
-                    <td class="label">GR / UDISE No.</td>
+                    <td class="label">GR No.</td>
                     <td class="value">{{ snapshot.gr_number_udise|default:student.gr_number_udise|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">UDISE No.</td>
+                    <td class="value">{{ snapshot.udise_number|default:student.udise_number|default:"-" }}</td>
                 </tr>
                 <tr>
                     <td class="label">Father Name</td>

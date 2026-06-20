@@ -857,12 +857,12 @@
                 <a href="{% url 'institute_admin:student_admission_form' student.pk %}" target="_blank" class="btn btn-light border btn-soft">
                     <i class="bi bi-journal-text"></i> Admission Form
                 </a>
-                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_tc_generate' student.pk %}" class="btn btn-light border btn-soft" onclick="openStudentDashboardWindow(this, 820, 720)">
-                    <i class="bi bi-file-earmark-medical"></i> Generate TC
-                </a>
-                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_bonafide_generate' student.pk %}" class="btn btn-light border btn-soft" onclick="openStudentDashboardWindow(this, 780, 620)">
-                    <i class="bi bi-award"></i> Generate Bonafide
-                </a>
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_tc_generate' student.pk %}" class="btn btn-light border btn-soft" onclick="openStudentDashboardWindow(this, 820, 720)">
+                        <i class="bi bi-file-earmark-medical"></i> Generate TC
+                    </a>
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_bonafide_generate' student.pk %}" class="btn btn-light border btn-soft" onclick="openStudentDashboardWindow(this, 780, 620)">
+                        <i class="bi bi-award"></i> Generate Bonafide
+                    </a>
                 <a href="javascript:void(0);" data-url="{% url 'institute_admin:enrollment_create' %}?student={{ student.pk }}" class="btn btn-main" onclick="openStudentDashboardWindow(this)">
                     <i class="bi bi-diagram-3"></i> Add Enrollment
                 </a>
@@ -932,12 +932,16 @@
                     <div class="info-row"><span class="info-label">Middle Name</span><span class="info-value">{{ student.middle_name|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Surname</span><span class="info-value">{{ student.user.last_name|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Admission No.</span><span class="info-value">{{ student_session.admission_number }}</span></div>
-                    <div class="info-row"><span class="info-label">GR / UDISE No.</span><span class="info-value">{{ student.gr_number_udise|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">PEN No</span><span class="info-value">{{ student.pen_no|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Appar ID</span><span class="info-value">{{ student.appar_id|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">GR No.</span><span class="info-value">{{ student.gr_number_udise|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">UDISE No.</span><span class="info-value">{{ student.udise_number|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Roll No.</span><span class="info-value">{{ student.roll_number|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Gender</span><span class="info-value">{{ student.get_gender_display|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Date of Birth</span><span class="info-value">{{ student.date_of_birth|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Blood Group</span><span class="info-value">{{ student.blood_group|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Religion</span><span class="info-value">{{ student.religion|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Cast</span><span class="info-value">{{ student.cast|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Caste Category</span><span class="info-value">{{ student.caste_category|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Nationality</span><span class="info-value">{{ student.nationality|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Aadhaar No.</span><span class="info-value">{{ student.aadhaar_number|default:"-" }}</span></div>
@@ -1042,7 +1046,9 @@
             <div class="content-panel" style="--panel-color: var(--green); --panel-soft: #f0fdf4;">
                 <div class="panel-header">
                     <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-person"></i></div><div><h5 class="panel-title">Bonafide Certificate Details</h5><div class="panel-subtitle">Generate and track Bonafide certificates separately</div></div></div>
-                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_bonafide_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 780, 620)"><i class="bi bi-plus-circle"></i> Generate Bonafide</a>
+                    {% if is_school_institute %}
+                        <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_bonafide_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 780, 620)"><i class="bi bi-plus-circle"></i> Generate Bonafide</a>
+                    {% endif %}
                 </div>
                 <div class="content-panel-body">
                     {% with latest_bonafide=bonafide_certificates.0 %}
@@ -1077,7 +1083,9 @@
             <div class="content-panel" style="--panel-color: var(--green); --panel-soft: #f0fdf4;">
                 <div class="panel-header">
                     <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-check"></i></div><div><h5 class="panel-title">Latest TC Summary</h5><div class="panel-subtitle">Read-only values from the latest generated Transfer Certificate</div></div></div>
-                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_tc_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 820, 720)"><i class="bi bi-plus-circle"></i> Generate TC</a>
+                    {% if is_school_institute %}
+                        <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_tc_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 820, 720)"><i class="bi bi-plus-circle"></i> Generate TC</a>
+                    {% endif %}
                 </div>
                 <div class="content-panel-body">
                     {% with latest_tc=transfer_certificates.0 %}
@@ -1104,7 +1112,9 @@
         <div class="content-panel" style="--panel-color: var(--green); --panel-soft: #f0fdf4;">
             <div class="panel-header">
                 <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-person"></i></div><div><h5 class="panel-title">Bonafide Certificate Records</h5><div class="panel-subtitle">See when each Bonafide certificate was generated and open the A4 certificate pattern</div></div></div>
-                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_bonafide_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 780, 620)"><i class="bi bi-plus-circle"></i> Generate Bonafide</a>
+                {% if is_school_institute %}
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_bonafide_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 780, 620)"><i class="bi bi-plus-circle"></i> Generate Bonafide</a>
+                {% endif %}
             </div>
             <div class="table-responsive">
                 <table class="table table-modern align-middle">
@@ -1154,7 +1164,9 @@
         <div class="content-panel" style="--panel-color: #0891b2; --panel-soft: #ecfeff;">
             <div class="panel-header">
                 <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-check"></i></div><div><h5 class="panel-title">Transfer Certificate Records</h5><div class="panel-subtitle">See when each TC was generated, who generated it, and open the A4 TC pattern</div></div></div>
-                <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_tc_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 820, 720)"><i class="bi bi-plus-circle"></i> Generate TC</a>
+                {% if is_school_institute %}
+                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_tc_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 820, 720)"><i class="bi bi-plus-circle"></i> Generate TC</a>
+                {% endif %}
             </div>
             <div class="table-responsive">
                 <table class="table table-modern align-middle">

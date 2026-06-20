@@ -401,9 +401,15 @@ body {
             </div>
 
             <div class="field">
-                <div class="field-label">GR / UDISE No.</div>
+                <div class="field-label">GR No.</div>
                 <div class="field-value">
                     {{ snapshot.gr_number_udise|default:student.gr_number_udise|default:"-" }}
+                </div>
+            </div>
+            <div class="field">
+                <div class="field-label">UDISE No.</div>
+                <div class="field-value">
+                    {{ snapshot.udise_number|default:student.udise_number|default:"-" }}
                 </div>
             </div>
 
@@ -466,4 +472,3 @@ body {
 
 </body>
 </html>
-

@@ -492,6 +492,15 @@
                     </div>
 
                     <div class="profile-field profile-field-wide">
+                        <label class="form-label">
+                            <i class="bi bi-building-check"></i>
+                            Select institute type
+                        </label>
+                        {{ form.institute_type }}
+                        {{ form.institute_type.errors }}
+                    </div>
+
+                    <div class="profile-field profile-field-wide">
                         <label class="form-label" for="{{ form.logo.id_for_label }}">
                             <i class="bi bi-image"></i>
                             Institute Logo

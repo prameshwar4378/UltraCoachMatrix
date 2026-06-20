@@ -5,6 +5,24 @@ from django.utils import timezone
 from decimal import Decimal
 
 
+def institute_print_template_upload_path(instance, filename):
+    return f"institutes/{instance.institute_id}/print_templates/{instance.document_type}/{filename}"
+
+
+def global_print_template_upload_path(instance, filename):
+    return f"print_template_library/{instance.document_type}/{filename}"
+
+
+def global_print_template_preview_upload_path(instance, filename):
+    return f"print_template_library/{instance.document_type}/previews/{filename}"
+
+
+class PrintDocumentType(models.TextChoices):
+    ADMISSION_FORM = "ADMISSION_FORM", "Admission Form"
+    TRANSFER_CERTIFICATE = "TRANSFER_CERTIFICATE", "TC"
+    BONAFIDE_CERTIFICATE = "BONAFIDE_CERTIFICATE", "Bonafide"
+
+
 class AcademicYear(models.Model):
     institute = models.ForeignKey(
         "super_admin.Institute",
@@ -532,3 +550,74 @@ class SupportTicket(models.Model):
 
     def __str__(self):
         return f"#{self.pk} {self.institute} - {self.subject}"
+
+
+class InstitutePrintTemplate(models.Model):
+    institute = models.ForeignKey(
+        "super_admin.Institute",
+        on_delete=models.CASCADE,
+        related_name="print_templates",
+    )
+    document_type = models.CharField(max_length=40, choices=PrintDocumentType.choices)
+    title = models.CharField(max_length=160)
+    html_file = models.FileField(upload_to=institute_print_template_upload_path, blank=True)
+    library_template = models.ForeignKey(
+        "InstituteGlobalPrintTemplate",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="institute_assignments",
+    )
+    is_active = models.BooleanField(default=True)
+    uploaded_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="uploaded_print_templates",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["document_type", "-updated_at"]
+        unique_together = ["institute", "document_type"]
+        indexes = [
+            models.Index(fields=["institute", "document_type", "is_active"], name="ipt_inst_type_active_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.institute} - {self.get_document_type_display()}"
+
+    @property
+    def effective_html_file(self):
+        if self.library_template_id and self.library_template and self.library_template.html_file:
+            return self.library_template.html_file
+        return self.html_file
+
+
+class InstituteGlobalPrintTemplate(models.Model):
+    document_type = models.CharField(max_length=40, choices=PrintDocumentType.choices)
+    title = models.CharField(max_length=160)
+    description = models.CharField(max_length=255, blank=True)
+    html_file = models.FileField(upload_to=global_print_template_upload_path)
+    preview_image = models.ImageField(upload_to=global_print_template_preview_upload_path, blank=True)
+    is_active = models.BooleanField(default=True)
+    uploaded_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="uploaded_global_print_templates",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["document_type", "title"]
+        indexes = [
+            models.Index(fields=["document_type", "is_active"], name="igpt_type_active_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.get_document_type_display()} - {self.title}"

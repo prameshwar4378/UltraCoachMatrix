@@ -22,6 +22,7 @@ from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.urls import reverse
+from django.template import Context, Template, TemplateSyntaxError
 from django.utils.dateparse import parse_date
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -45,7 +46,7 @@ from student_parent.notifications import (
     enqueue_notice_published_notification,
     notify_exam_results_declared,
 )
-from super_admin.models import SubscriptionPayment, UserProfile
+from super_admin.models import Institute, SubscriptionPayment, UserProfile
 from super_admin.decorators import institute_admin_required
 from super_admin.session_security import user_web_sessions
 from teacher.models import (
@@ -81,6 +82,7 @@ from .forms import (
     get_student_admission_prefix,
     HomeworkForm,
     InstituteProfileForm,
+    InstitutePrintTemplateForm,
     InstituteUserForm,
     NoticeForm,
     PaymentUpdateForm,
@@ -113,7 +115,20 @@ from .lookup_cache import (
     get_cached_course_batch_data,
     invalidate_academic_years_cache,
 )
-from .models import AcademicYear, BackgroundJob, Batch, Course, Lead, Notice, Subject, SupportTicket, Visitor
+from .models import (
+    AcademicYear,
+    BackgroundJob,
+    Batch,
+    Course,
+    InstituteGlobalPrintTemplate,
+    InstitutePrintTemplate,
+    Lead,
+    Notice,
+    PrintDocumentType,
+    Subject,
+    SupportTicket,
+    Visitor,
+)
 from UltraCoachMatrix.email_notifications import (
     on_commit_email,
     send_institute_welcome,
@@ -188,12 +203,224 @@ def close_popup_response(receipt_url=None):
     )
 
 
+def render_print_document(request, document_type, default_template_name, context):
+    institute = get_current_institute(request)
+    custom_template = None
+    if institute:
+        custom_template = (
+            InstitutePrintTemplate.objects.filter(
+                institute=institute,
+                document_type=document_type,
+                is_active=True,
+            )
+            .order_by("-updated_at")
+            .first()
+        )
+    if not custom_template:
+        return render(request, default_template_name, context)
+
+    try:
+        html_file = custom_template.effective_html_file
+        if not html_file:
+            return render(request, default_template_name, context)
+        with html_file.open("rb") as template_file:
+            template_source = template_file.read().decode("utf-8-sig")
+        rendered_html = Template(template_source).render(
+            Context(
+                {
+                    **context,
+                    "request": request,
+                    "institute": institute,
+                    "print_template": custom_template,
+                    "generated_at": context.get("generated_at") or timezone.localtime(),
+                }
+            )
+        )
+    except (OSError, UnicodeDecodeError, TemplateSyntaxError) as exc:
+        messages.warning(
+            request,
+            f"Custom {custom_template.get_document_type_display()} template could not be rendered. Default template was used. {exc}",
+        )
+        return render(request, default_template_name, context)
+
+    return HttpResponse(rendered_html)
+
+
 def paginate_queryset(request, queryset, per_page=20):
     paginator = Paginator(queryset, per_page)
     page_obj = paginator.get_page(request.GET.get("page"))
     query_params = request.GET.copy()
     query_params.pop("page", None)
     return page_obj, paginator, query_params.urlencode()
+
+
+@institute_admin_required
+def print_template_list(request):
+    institute = get_current_institute(request)
+    if not institute:
+        messages.error(request, "Select an institute before managing print templates.")
+        return redirect("institute_admin:dashboard")
+    templates = {
+        template.document_type: template
+        for template in InstitutePrintTemplate.objects.filter(institute=institute)
+    }
+    library_templates = (
+        InstituteGlobalPrintTemplate.objects.filter(is_active=True)
+        .order_by("document_type", "title")
+    )
+    library_by_type = defaultdict(list)
+    for template in library_templates:
+        library_by_type[template.document_type].append(template)
+    groups = [
+        {
+            "document_type": document_type,
+            "label": label,
+            "selected_template": templates.get(document_type),
+            "library_templates": library_by_type.get(document_type, []),
+        }
+        for document_type, label in PrintDocumentType.choices
+    ]
+    return render(
+        request,
+        "institute_admin/print_template_list.html",
+        {"groups": groups, "institute": institute},
+    )
+
+
+@institute_admin_required
+def print_template_create(request):
+    institute = get_current_institute(request)
+    if not institute:
+        messages.error(request, "Select an institute before uploading a print template.")
+        return redirect("institute_admin:dashboard")
+    if request.method == "POST":
+        form = InstitutePrintTemplateForm(request.POST, request.FILES)
+        if form.is_valid():
+            document_type = form.cleaned_data["document_type"]
+            template = InstitutePrintTemplate.objects.filter(
+                institute=institute,
+                document_type=document_type,
+            ).first()
+            if template is None:
+                template = form.save(commit=False)
+                template.institute = institute
+            else:
+                template.title = form.cleaned_data["title"]
+                template.html_file = form.cleaned_data["html_file"]
+                template.is_active = form.cleaned_data["is_active"]
+                template.library_template = None
+            template.uploaded_by = request.user
+            template.save()
+            messages.success(request, "Print template saved successfully.")
+            return close_popup_response()
+    else:
+        form = InstitutePrintTemplateForm(
+            initial={"document_type": request.GET.get("type", "")}
+        )
+    return render(
+        request,
+        "institute_admin/student_section_form.html",
+        {
+            "form": form,
+            "title": "Upload Print Template",
+            "subtitle": "Select TC, Admission Form, or Bonafide, then upload that institute's HTML print template.",
+            "button_text": "Save Template",
+            "icon": "bi-filetype-html",
+        },
+    )
+
+
+@institute_admin_required
+def print_template_update(request, pk):
+    institute = get_current_institute(request)
+    template = get_object_or_404(InstitutePrintTemplate, pk=pk, institute=institute)
+    if request.method == "POST":
+        form = InstitutePrintTemplateForm(request.POST, request.FILES, instance=template)
+        if form.is_valid():
+            updated = form.save(commit=False)
+            updated.institute = institute
+            updated.uploaded_by = request.user
+            updated.save()
+            messages.success(request, "Print template updated successfully.")
+            return close_popup_response()
+    else:
+        form = InstitutePrintTemplateForm(instance=template)
+    return render(
+        request,
+        "institute_admin/student_section_form.html",
+        {
+            "form": form,
+            "title": "Update Print Template",
+            "subtitle": f"Update the {template.get_document_type_display()} HTML template.",
+            "button_text": "Update Template",
+            "icon": "bi-filetype-html",
+        },
+    )
+
+
+@require_POST
+@institute_admin_required
+def print_template_delete(request, pk):
+    institute = get_current_institute(request)
+    template = get_object_or_404(InstitutePrintTemplate, pk=pk, institute=institute)
+    template.delete()
+    messages.success(request, "Custom print template deleted. Default template will be used.")
+    return redirect("institute_admin:print_template_list")
+
+
+def _global_template_for_request(request, pk):
+    return get_object_or_404(InstituteGlobalPrintTemplate, pk=pk, is_active=True)
+
+
+@institute_admin_required
+def print_template_library_view(request, pk):
+    template = _global_template_for_request(request, pk)
+    try:
+        with template.html_file.open("rb") as html_file:
+            html = html_file.read().decode("utf-8-sig")
+    except (OSError, UnicodeDecodeError) as exc:
+        return HttpResponse(f"Template could not be opened: {exc}", status=500)
+    return HttpResponse(html)
+
+
+@institute_admin_required
+def print_template_library_download(request, pk):
+    template = _global_template_for_request(request, pk)
+    try:
+        with template.html_file.open("rb") as html_file:
+            content = html_file.read()
+    except OSError:
+        return HttpResponse("Template file not found.", status=404)
+    filename = template.html_file.name.rsplit("/", 1)[-1] or "template.html"
+    response = HttpResponse(content, content_type="text/html")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@require_POST
+@institute_admin_required
+def print_template_set_library(request, pk):
+    institute = get_current_institute(request)
+    if not institute:
+        messages.error(request, "Select an institute before setting a print template.")
+        return redirect("institute_admin:print_template_list")
+    library_template = _global_template_for_request(request, pk)
+    InstitutePrintTemplate.objects.update_or_create(
+        institute=institute,
+        document_type=library_template.document_type,
+        defaults={
+            "title": library_template.title,
+            "html_file": "",
+            "library_template": library_template,
+            "is_active": True,
+            "uploaded_by": request.user,
+        },
+    )
+    messages.success(
+        request,
+        f"{library_template.get_document_type_display()} template set for this institute.",
+    )
+    return redirect("institute_admin:print_template_list")
 
 
 def get_current_institute(request):
@@ -3063,29 +3290,95 @@ def student_import_columns():
 
 
 STUDENT_EXPORT_FIELD_OPTIONS = [
+    ("student_id", "Student ID"),
     ("admission_number", "Admission Number"),
     ("name", "Name"),
+    ("institute_name", "Institute"),
+    ("academic_year", "Academic Year"),
     ("mobile", "Mobile"),
     ("batch", "Batch"),
     ("total_fees", "Total Fees"),
     ("paid_amount", "Paid Amount"),
     ("due_amount", "Due Amount"),
     ("status", "Status"),
+    ("session_status", "Session Status"),
+    ("student_status", "Student Status"),
     ("first_name", "First Name"),
+    ("middle_name", "Middle Name"),
     ("last_name", "Last Name"),
     ("username", "Username"),
     ("email", "Email"),
+    ("profile_image", "Profile Photo"),
+    ("pen_no", "PEN No"),
+    ("appar_id", "Appar ID"),
+    ("gr_number", "GR Number"),
+    ("udise_number", "UDISE Number"),
+    ("roll_number", "Roll Number"),
+    ("gender", "Gender"),
     ("date_of_birth", "Date of Birth"),
+    ("blood_group", "Blood Group"),
+    ("religion", "Religion"),
+    ("cast", "Cast"),
+    ("caste_category", "Caste Category"),
+    ("nationality", "Nationality"),
+    ("aadhaar_number", "Aadhaar Number"),
+    ("birth_certificate_number", "Birth Certificate Number"),
+    ("place_of_birth", "Place of Birth"),
+    ("mother_tongue", "Mother Tongue"),
     ("joined_on", "Joined On"),
+    ("admission_class", "Admission Class"),
+    ("current_class", "Current Class"),
+    ("division", "Division"),
+    ("medium", "Medium"),
     ("guardian_name", "Guardian Name"),
     ("guardian_relation", "Guardian Relation"),
     ("guardian_phone", "Guardian Phone"),
     ("guardian_email", "Guardian Email"),
+    ("father_name", "Father Name"),
+    ("father_occupation", "Father Occupation"),
+    ("father_qualification", "Father Qualification"),
+    ("father_mobile_number", "Father Mobile Number"),
+    ("father_email", "Father Email"),
+    ("father_aadhaar_number", "Father Aadhaar Number"),
+    ("father_annual_income", "Father Annual Income"),
+    ("mother_name", "Mother Name"),
+    ("mother_occupation", "Mother Occupation"),
+    ("mother_qualification", "Mother Qualification"),
+    ("mother_mobile_number", "Mother Mobile Number"),
+    ("mother_aadhaar_number", "Mother Aadhaar Number"),
+    ("mother_annual_income", "Mother Annual Income"),
+    ("guardian_address", "Guardian Address"),
     ("address", "Address"),
+    ("current_house_number", "Current House Number"),
+    ("current_street_area", "Current Street / Area"),
+    ("current_village_city", "Current Village / City"),
+    ("current_taluka", "Current Taluka"),
+    ("current_district", "Current District"),
+    ("current_state", "Current State"),
+    ("current_pin_code", "Current PIN Code"),
+    ("permanent_house_number", "Permanent House Number"),
+    ("permanent_street_area", "Permanent Street / Area"),
+    ("permanent_village_city", "Permanent Village / City"),
+    ("permanent_taluka", "Permanent Taluka"),
+    ("permanent_district", "Permanent District"),
+    ("permanent_state", "Permanent State"),
+    ("permanent_pin_code", "Permanent PIN Code"),
     ("current_school_name", "Current School / College"),
     ("current_school_address", "Current School Address"),
     ("previous_school_name", "Previous School / College"),
+    ("previous_school_address", "Previous School Address"),
+    ("previous_school_udise_code", "Previous School UDISE Code"),
     ("previous_class", "Previous Class"),
+    ("previous_class_passed", "Previous Class Passed"),
+    ("last_exam_result", "Last Exam Result"),
+    ("result", "Result"),
+    ("conduct", "Conduct"),
+    ("reason_for_leaving", "Reason For Leaving"),
+    ("date_of_leaving_school", "Date Of Leaving School"),
+    ("tc_issue_date", "TC Issue Date"),
+    ("bonafide_purpose", "Bonafide Purpose"),
+    ("emergency_contact_number", "Emergency Contact Number"),
+    ("is_active", "Active Login"),
 ]
 
 STUDENT_EXPORT_DEFAULT_FIELDS = [
@@ -3266,8 +3559,11 @@ def student_export_row(
     )
     full_name = student.user.get_full_name() or student.user.username
     field_values = {
+        "student_id": student.pk,
         "admission_number": session.admission_number,
         "name": full_name,
+        "institute_name": student.institute.name if student.institute_id else "",
+        "academic_year": session.academic_year.name if session.academic_year_id else "",
         "mobile": profile.phone if profile else "",
         "batch": batch_names,
         "total_fees": total_fee_amount,
@@ -3276,21 +3572,86 @@ def student_export_row(
         "status": "Active"
         if session.status == StudentAcademicSession.Status.ACTIVE and student.is_active
         else "Inactive",
+        "session_status": session.get_status_display(),
+        "student_status": student.get_student_status_display(),
         "first_name": student.user.first_name,
+        "middle_name": student.middle_name,
         "last_name": student.user.last_name,
         "username": student.user.username,
         "email": student.user.email,
+        "profile_image": student.profile_image.url if student.profile_image else "",
+        "pen_no": student.pen_no,
+        "appar_id": student.appar_id,
+        "gr_number": student.gr_number_udise,
+        "udise_number": student.udise_number,
+        "roll_number": student.roll_number,
+        "gender": student.get_gender_display() if student.gender else "",
         "date_of_birth": student.date_of_birth.isoformat() if student.date_of_birth else "",
+        "blood_group": student.blood_group,
+        "religion": student.religion,
+        "cast": student.cast,
+        "caste_category": student.caste_category,
+        "nationality": student.nationality,
+        "aadhaar_number": student.aadhaar_number,
+        "birth_certificate_number": student.birth_certificate_number,
+        "place_of_birth": student.place_of_birth,
+        "mother_tongue": student.mother_tongue,
         "joined_on": session.joined_on.isoformat() if session.joined_on else "",
+        "admission_class": student.admission_class,
+        "current_class": student.current_class,
+        "division": student.division,
+        "medium": student.medium,
         "guardian_name": guardian.name if guardian else "",
         "guardian_relation": guardian.relation if guardian else "",
         "guardian_phone": guardian.phone if guardian else "",
         "guardian_email": guardian.email if guardian else "",
+        "father_name": student.father_name,
+        "father_occupation": student.father_occupation,
+        "father_qualification": student.father_qualification,
+        "father_mobile_number": student.father_mobile_number,
+        "father_email": student.father_email,
+        "father_aadhaar_number": student.father_aadhaar_number,
+        "father_annual_income": student.father_annual_income,
+        "mother_name": student.mother_name,
+        "mother_occupation": student.mother_occupation,
+        "mother_qualification": student.mother_qualification,
+        "mother_mobile_number": student.mother_mobile_number,
+        "mother_aadhaar_number": student.mother_aadhaar_number,
+        "mother_annual_income": student.mother_annual_income,
+        "guardian_address": student.guardian_address,
         "address": student.address,
+        "current_house_number": student.current_house_number,
+        "current_street_area": student.current_street_area,
+        "current_village_city": student.current_village_city,
+        "current_taluka": student.current_taluka,
+        "current_district": student.current_district,
+        "current_state": student.current_state,
+        "current_pin_code": student.current_pin_code,
+        "permanent_house_number": student.permanent_house_number,
+        "permanent_street_area": student.permanent_street_area,
+        "permanent_village_city": student.permanent_village_city,
+        "permanent_taluka": student.permanent_taluka,
+        "permanent_district": student.permanent_district,
+        "permanent_state": student.permanent_state,
+        "permanent_pin_code": student.permanent_pin_code,
         "current_school_name": session.current_school_name,
         "current_school_address": session.current_school_address,
         "previous_school_name": session.previous_school_name,
+        "previous_school_address": student.previous_school_address,
+        "previous_school_udise_code": student.previous_school_udise_code,
         "previous_class": session.previous_class,
+        "previous_class_passed": student.previous_class_passed,
+        "last_exam_result": student.last_exam_result,
+        "result": student.result,
+        "conduct": student.conduct,
+        "reason_for_leaving": student.reason_for_leaving,
+        "date_of_leaving_school": student.date_of_leaving_school.isoformat()
+        if student.date_of_leaving_school
+        else "",
+        "tc_issue_date": student.tc_issue_date.isoformat() if student.tc_issue_date else "",
+        "bonafide_purpose": student.bonafide_purpose,
+        "emergency_contact_number": student.emergency_contact_number,
+        "is_active": "Yes" if student.is_active else "No",
     }
     return [field_values[field] for field in selected_fields]
 
@@ -3530,6 +3891,7 @@ def student_export(request):
     academic_year = get_current_academic_year(request, institute)
     sessions = StudentAcademicSession.objects.select_related(
         "student",
+        "student__institute",
         "student__user",
         "student__user__profile",
         "academic_year",
@@ -4104,6 +4466,7 @@ def student_dashboard(request, pk):
     context = {
         "student": student,
         "student_session": student_session,
+        "is_school_institute": institute.institute_type == Institute.InstituteType.SCHOOL,
         "primary_guardian": student.guardians.filter(is_primary=True).first() or student.guardians.first(),
         "enrollments": enrollments,
         "invoice_rows": invoice_rows,
@@ -4197,18 +4560,20 @@ def student_admission_form(request, pk):
     )
     documents = list(student.documents.all())
 
-    return render(
+    context = {
+        "student": student,
+        "student_session": student_session,
+        "primary_guardian": student.guardians.filter(is_primary=True).first()
+        or student.guardians.first(),
+        "enrollments": enrollments,
+        "document_rows": build_student_document_rows(documents),
+        "generated_at": timezone.localtime(),
+    }
+    return render_print_document(
         request,
+        PrintDocumentType.ADMISSION_FORM,
         "institute_admin/student_admission_form.html",
-        {
-            "student": student,
-            "student_session": student_session,
-            "primary_guardian": student.guardians.filter(is_primary=True).first()
-            or student.guardians.first(),
-            "enrollments": enrollments,
-            "document_rows": build_student_document_rows(documents),
-            "generated_at": timezone.localtime(),
-        },
+        context,
     )
 
 
@@ -4264,15 +4629,18 @@ def student_tc_print(request, pk):
     if institute:
         queryset = queryset.filter(institute=institute)
     tc_record = get_object_or_404(queryset, pk=pk)
-    return render(
+    context = {
+        "tc": tc_record,
+        "student": tc_record.student,
+        "student_session": tc_record.academic_session,
+        "snapshot": tc_record.student_snapshot or {},
+        "generated_at": timezone.localtime(),
+    }
+    return render_print_document(
         request,
+        PrintDocumentType.TRANSFER_CERTIFICATE,
         "institute_admin/student_transfer_certificate.html",
-        {
-            "tc": tc_record,
-            "student": tc_record.student,
-            "student_session": tc_record.academic_session,
-            "snapshot": tc_record.student_snapshot or {},
-        },
+        context,
     )
 
 
@@ -4347,15 +4715,18 @@ def student_bonafide_print(request, pk):
     if institute:
         queryset = queryset.filter(institute=institute)
     bonafide_record = get_object_or_404(queryset, pk=pk)
-    return render(
+    context = {
+        "bonafide": bonafide_record,
+        "student": bonafide_record.student,
+        "student_session": bonafide_record.academic_session,
+        "snapshot": bonafide_record.student_snapshot or {},
+        "generated_at": timezone.localtime(),
+    }
+    return render_print_document(
         request,
+        PrintDocumentType.BONAFIDE_CERTIFICATE,
         "institute_admin/student_bonafide_certificate.html",
-        {
-            "bonafide": bonafide_record,
-            "student": bonafide_record.student,
-            "student_session": bonafide_record.academic_session,
-            "snapshot": bonafide_record.student_snapshot or {},
-        },
+        context,
     )
 
 

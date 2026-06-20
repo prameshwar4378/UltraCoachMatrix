@@ -346,12 +346,12 @@
         </li>
 
         <li class="nav-item menu-slate">
-            <a class="nav-link {% if current_url == 'institute_profile' or current_url == 'academic_session_settings' or current_url == 'subscription_billing' or current_url == 'security_settings' or current_url == 'help_support' or current_url == 'software_tour' %}{% else %}collapsed{% endif %}" data-bs-target="#account-nav" data-bs-toggle="collapse" href="#">
+            <a class="nav-link {% if current_url == 'institute_profile' or current_url == 'academic_session_settings' or current_url == 'print_template_list' or current_url == 'print_template_create' or current_url == 'print_template_update' or current_url == 'subscription_billing' or current_url == 'security_settings' or current_url == 'help_support' or current_url == 'software_tour' %}{% else %}collapsed{% endif %}" data-bs-target="#account-nav" data-bs-toggle="collapse" href="#">
                 <i class="bi bi-gear"></i>
-                <span>Account & Support</span>
+                <span>Setting</span>
                 <i class="bi bi-chevron-down ms-auto"></i>
             </a>
-            <ul id="account-nav" class="nav-content collapse {% if current_url == 'institute_profile' or current_url == 'academic_session_settings' or current_url == 'subscription_billing' or current_url == 'security_settings' or current_url == 'help_support' or current_url == 'software_tour' %}show{% endif %}" data-bs-parent="#sidebar-nav">
+            <ul id="account-nav" class="nav-content collapse {% if current_url == 'institute_profile' or current_url == 'academic_session_settings' or current_url == 'print_template_list' or current_url == 'print_template_create' or current_url == 'print_template_update' or current_url == 'subscription_billing' or current_url == 'security_settings' or current_url == 'help_support' or current_url == 'software_tour' %}show{% endif %}" data-bs-parent="#sidebar-nav">
                 <li>
                     <a href="{% url 'institute_profile' %}" class="menu-blue {% if current_url == 'institute_profile' %}active{% endif %}" style="text-decoration:none;">
                         <i class="bi bi-building-gear" style="font-size:15px;"></i><span>Institute Profile</span>
@@ -360,6 +360,11 @@
                 <li>
                     <a href="{% url 'institute_admin:academic_session_settings' %}" class="menu-cyan {% if current_url == 'academic_session_settings' %}active{% endif %}" style="text-decoration:none;">
                         <i class="bi bi-calendar3" style="font-size:15px;"></i><span>Academic Sessions</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'institute_admin:print_template_list' %}" class="menu-orange {% if current_url == 'print_template_list' or current_url == 'print_template_create' or current_url == 'print_template_update' %}active{% endif %}" style="text-decoration:none;">
+                        <i class="bi bi-filetype-html" style="font-size:15px;"></i><span>Template List</span>
                     </a>
                 </li>
                 <li>

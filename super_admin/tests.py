@@ -677,6 +677,7 @@ class InstituteSignupOnboardingTests(TestCase):
         return {
             "institute_name": "New Learning Center",
             "institute_code": "new-learning-center",
+            "institute_type": Institute.InstituteType.COACHING_CLASSES,
             "owner_name": "New Owner",
             "phone": "9000012345",
             "email": "owner@example.com",
@@ -696,10 +697,20 @@ class InstituteSignupOnboardingTests(TestCase):
         subscription = profile.institute.subscription
         self.assertRedirects(response, reverse("institute_admin:software_tour"))
         self.assertIsNone(profile.onboarding_completed_at)
+        self.assertEqual(profile.institute.institute_type, Institute.InstituteType.COACHING_CLASSES)
         self.assertEqual(profile.institute.status, Institute.Status.TRIAL)
         self.assertEqual(subscription.plan, InstituteSubscription.Plan.FREE_TRIAL)
         self.assertEqual(subscription.starts_on, today)
         self.assertEqual(subscription.ends_on, today + timedelta(days=14))
+
+    def test_signup_saves_school_institute_type(self):
+        data = self.signup_data()
+        data["institute_type"] = Institute.InstituteType.SCHOOL
+
+        self.client.post(reverse("signup"), data)
+
+        institute = User.objects.get(username="new-owner").profile.institute
+        self.assertEqual(institute.institute_type, Institute.InstituteType.SCHOOL)
 
     def test_tour_can_be_finished_only_once(self):
         self.client.post(reverse("signup"), self.signup_data())

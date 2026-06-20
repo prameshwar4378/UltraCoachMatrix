@@ -355,8 +355,12 @@ th {
             <div class="value">{{ student_session.joined_on|default:"" }}</div>
         </div>
         <div class="priority-cell">
-            <div class="label">GR / UDISE Number</div>
+            <div class="label">GR Number</div>
             <div class="value">{{ student.gr_number_udise|default:"" }}</div>
+        </div>
+        <div class="priority-cell">
+            <div class="label">UDISE Number</div>
+            <div class="value">{{ student.udise_number|default:"" }}</div>
         </div>
         <div class="priority-cell">
             <div class="label">Generated On</div>
@@ -370,10 +374,13 @@ th {
             <div class="field"><div class="label">First Name</div><div class="line-value">{{ student.user.first_name|default:"" }}</div></div>
             <div class="field"><div class="label">Middle Name</div><div class="line-value">{{ student.middle_name|default:"" }}</div></div>
             <div class="field"><div class="label">Surname</div><div class="line-value">{{ student.user.last_name|default:"" }}</div></div>
+            <div class="field"><div class="label">PEN No</div><div class="line-value">{{ student.pen_no|default:"" }}</div></div>
+            <div class="field"><div class="label">Appar ID</div><div class="line-value">{{ student.appar_id|default:"" }}</div></div>
             <div class="field"><div class="label">Date of Birth</div><div class="line-value">{{ student.date_of_birth|default:"" }}</div></div>
             <div class="field"><div class="label">Gender</div><div class="line-value">{{ student.get_gender_display|default:"" }}</div></div>
             <div class="field"><div class="label">Blood Group</div><div class="line-value">{{ student.blood_group|default:"" }}</div></div>
             <div class="field"><div class="label">Religion</div><div class="line-value">{{ student.religion|default:"" }}</div></div>
+            <div class="field"><div class="label">Cast</div><div class="line-value">{{ student.cast|default:"" }}</div></div>
             <div class="field"><div class="label">Caste Category</div><div class="line-value">{{ student.caste_category|default:"" }}</div></div>
             <div class="field"><div class="label">Nationality</div><div class="line-value">{{ student.nationality|default:"" }}</div></div>
             <div class="field"><div class="label">Aadhaar Number</div><div class="line-value">{{ student.aadhaar_number|default:"" }}</div></div>

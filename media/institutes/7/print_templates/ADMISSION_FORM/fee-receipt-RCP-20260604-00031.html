@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Fee Receipt - RCP-20260604-00031</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        @page { size: A4; margin: 10mm; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #e5e7eb;
+            color: #111827;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 12px;
+        }
+        .toolbar {
+            width: 210mm;
+            margin: 12px auto;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .btn {
+            border: 1px solid #0f766e;
+            background: #0f766e;
+            color: #fff;
+            border-radius: 6px;
+            padding: 9px 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .sheet {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto 18px;
+            background: #fff;
+            padding: 10mm;
+            box-shadow: 0 16px 40px rgba(15, 23, 42, .18);
+        }
+        .copy {
+            height: 128mm;
+            border: 1.5px solid #111827;
+            padding: 6mm;
+            position: relative;
+        }
+        .copy + .copy { margin-top: 9mm; }
+        .cut-line {
+            margin: 4mm 0;
+            border-top: 1px dashed #9ca3af;
+            text-align: center;
+            color: #6b7280;
+            font-size: 10px;
+            line-height: 0;
+        }
+        .cut-line span {
+            background: #fff;
+            padding: 0 8px;
+        }
+        .receipt-top {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 14px;
+            border-bottom: 2px solid #111827;
+            padding-bottom: 9px;
+            margin-bottom: 10px;
+        }
+        .institute-name {
+            font-size: 22px;
+            line-height: 1.1;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+        }
+        .institute-meta {
+            margin-top: 5px;
+            color: #374151;
+            line-height: 1.45;
+            max-width: 125mm;
+        }
+        .copy-badge {
+            border: 1px solid #111827;
+            padding: 6px 10px;
+            min-width: 35mm;
+            text-align: center;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+        .receipt-title {
+            font-size: 15px;
+            margin-top: 8px;
+            color: #0f766e;
+        }
+        .meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px 18px;
+            margin: 10px 0;
+        }
+        .field {
+            display: grid;
+            grid-template-columns: 34mm 1fr;
+            gap: 5px;
+            min-height: 18px;
+            align-items: start;
+        }
+        .label {
+            color: #4b5563;
+            font-weight: 700;
+        }
+        .value {
+            border-bottom: 1px solid #d1d5db;
+            padding-bottom: 2px;
+            font-weight: 700;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+        th, td {
+            border: 1px solid #111827;
+            padding: 7px 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+        th {
+            background: #f3f4f6;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .amount {
+            text-align: right;
+            white-space: nowrap;
+            font-weight: 800;
+        }
+        .summary {
+            display: grid;
+            grid-template-columns: 1fr 65mm;
+            gap: 12px;
+            margin-top: 10px;
+        }
+        .note-box {
+            border: 1px solid #d1d5db;
+            min-height: 24mm;
+            padding: 8px;
+            color: #374151;
+        }
+        .totals {
+            border: 1px solid #111827;
+        }
+        .total-row {
+            display: grid;
+            grid-template-columns: 1fr 28mm;
+            border-bottom: 1px solid #111827;
+        }
+        .total-row:last-child { border-bottom: 0; }
+        .total-row span {
+            padding: 6px 8px;
+        }
+        .total-row span:last-child {
+            border-left: 1px solid #111827;
+            text-align: right;
+            font-weight: 800;
+        }
+        .footer {
+            position: absolute;
+            left: 7mm;
+            right: 7mm;
+            bottom: 6mm;
+            display: grid;
+            grid-template-columns: 1fr 42mm;
+            gap: 18px;
+            align-items: end;
+            color: #374151;
+        }
+        .signature {
+            border-top: 1px solid #111827;
+            padding-top: 5px;
+            text-align: center;
+            font-weight: 700;
+            color: #111827;
+        }
+        @media print {
+            body { background: #fff; }
+            .toolbar { display: none; }
+            .sheet {
+                width: auto;
+                min-height: auto;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="toolbar">
+    <button class="btn" onclick="window.print()">Print Receipt</button>
+</div>
+<div class="sheet">
+    <section class="copy">
+    <div class="receipt-top">
+        <div>
+            <div class="institute-name">Saint Monica</div>
+            <div class="institute-meta">
+                
+                Phone: 07776824564
+                 | Email: prameshwar4378@gmail.com
+                <br>Institute Code: 110245
+            </div>
+        </div>
+        <div class="copy-badge">
+            Office Copy
+            <div class="receipt-title">Fee Receipt</div>
+        </div>
+    </div>
+
+    <div class="meta-grid">
+        <div class="field"><div class="label">Receipt No.</div><div class="value">RCP-20260604-00031</div></div>
+        <div class="field"><div class="label">Payment Date</div><div class="value">June 4, 2026</div></div>
+        <div class="field"><div class="label">Student Name</div><div class="value">Karan Johar</div></div>
+        <div class="field"><div class="label">Admission No.</div><div class="value">SM-2025-26-0003</div></div>
+        <div class="field"><div class="label">Guardian</div><div class="value">-</div></div>
+        <div class="field"><div class="label">Contact</div><div class="value">89756454654</div></div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Fee Particular</th>
+                <th>Category</th>
+                <th>Batch</th>
+                <th>Method</th>
+                <th class="amount">Paid Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <strong>12th All Cources Fee</strong><br>
+                    <span>Invoice Due Date: June 4, 2026</span>
+                </td>
+                <td>General</td>
+                <td>12th All Cources</td>
+                <td>Cash</td>
+                <td class="amount">6000.00</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="summary">
+        <div class="note-box">
+            <strong>Remarks:</strong> Payment received with thanks.<br>
+            <strong>Received By:</strong> Rameshwar
+        </div>
+        <div class="totals">
+            <div class="total-row"><span>Invoice Amount</span><span>36000.00</span></div>
+            <div class="total-row"><span>Total Paid</span><span>6000</span></div>
+            <div class="total-row"><span>Balance Due</span><span>30000.00</span></div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div>This is a computer generated receipt. Please keep it for your records.</div>
+        <div class="signature">Authorized Signature</div>
+    </div>
+</section>
+
+    <div class="cut-line"><span>Cut Here</span></div>
+    <section class="copy">
+    <div class="receipt-top">
+        <div>
+            <div class="institute-name">Saint Monica</div>
+            <div class="institute-meta">
+                
+                Phone: 07776824564
+                 | Email: prameshwar4378@gmail.com
+                <br>Institute Code: 110245
+            </div>
+        </div>
+        <div class="copy-badge">
+            Student Copy
+            <div class="receipt-title">Fee Receipt</div>
+        </div>
+    </div>
+
+    <div class="meta-grid">
+        <div class="field"><div class="label">Receipt No.</div><div class="value">RCP-20260604-00031</div></div>
+        <div class="field"><div class="label">Payment Date</div><div class="value">June 4, 2026</div></div>
+        <div class="field"><div class="label">Student Name</div><div class="value">Karan Johar</div></div>
+        <div class="field"><div class="label">Admission No.</div><div class="value">SM-2025-26-0003</div></div>
+        <div class="field"><div class="label">Guardian</div><div class="value">-</div></div>
+        <div class="field"><div class="label">Contact</div><div class="value">89756454654</div></div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Fee Particular</th>
+                <th>Category</th>
+                <th>Batch</th>
+                <th>Method</th>
+                <th class="amount">Paid Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <strong>12th All Cources Fee</strong><br>
+                    <span>Invoice Due Date: June 4, 2026</span>
+                </td>
+                <td>General</td>
+                <td>12th All Cources</td>
+                <td>Cash</td>
+                <td class="amount">6000.00</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="summary">
+        <div class="note-box">
+            <strong>Remarks:</strong> Payment received with thanks.<br>
+            <strong>Received By:</strong> Rameshwar
+        </div>
+        <div class="totals">
+            <div class="total-row"><span>Invoice Amount</span><span>36000.00</span></div>
+            <div class="total-row"><span>Total Paid</span><span>6000</span></div>
+            <div class="total-row"><span>Balance Due</span><span>30000.00</span></div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div>This is a computer generated receipt. Please keep it for your records.</div>
+        <div class="signature">Authorized Signature</div>
+    </div>
+</section>
+
+</div>
+</body>
+</html>

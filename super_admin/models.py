@@ -8,6 +8,10 @@ from django.utils import timezone
 
 
 class Institute(models.Model):
+    class InstituteType(models.TextChoices):
+        COACHING_CLASSES = "COACHING_CLASSES", "Coaching Classes"
+        SCHOOL = "SCHOOL", "School"
+
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending approval"
         TRIAL = "TRIAL", "Trial"
@@ -18,6 +22,11 @@ class Institute(models.Model):
 
     name = models.CharField(max_length=160)
     code = models.SlugField(max_length=40, unique=True)
+    institute_type = models.CharField(
+        max_length=20,
+        choices=InstituteType.choices,
+        default=InstituteType.COACHING_CLASSES,
+    )
     owner_name = models.CharField(max_length=120, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)

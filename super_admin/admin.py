@@ -56,6 +56,7 @@ class InstituteAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "logo_preview",
+        "institute_type",
         "owner_name",
         "phone",
         "subscription_plan",
@@ -67,6 +68,7 @@ class InstituteAdmin(admin.ModelAdmin):
     )
     list_filter = (
         "subscription__plan",
+        "institute_type",
         "status",
         "subscription__starts_on",
         "subscription__ends_on",
@@ -83,7 +85,19 @@ class InstituteAdmin(admin.ModelAdmin):
     fieldsets = (
         (
             "School details",
-            {"fields": ("name", "code", "logo", "logo_preview", "owner_name", "phone", "email", "address")},
+            {
+                "fields": (
+                    "name",
+                    "code",
+                    "institute_type",
+                    "logo",
+                    "logo_preview",
+                    "owner_name",
+                    "phone",
+                    "email",
+                    "address",
+                )
+            },
         ),
         (
             "Account control",

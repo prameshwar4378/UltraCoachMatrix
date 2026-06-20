@@ -15,6 +15,11 @@ FREE_TRIAL_DAYS = 14
 class InstituteSignupForm(UserCreationForm):
     institute_name = forms.CharField(max_length=160, label="Institute name")
     institute_code = forms.SlugField(max_length=40, label="Institute code")
+    institute_type = forms.ChoiceField(
+        label="Select institute type",
+        choices=Institute.InstituteType.choices,
+        initial=Institute.InstituteType.COACHING_CLASSES,
+    )
     institute_logo = forms.ImageField(label="Institute logo", required=False)
     owner_name = forms.CharField(max_length=120, label="Owner name")
     phone = forms.CharField(max_length=20, label="Contact number")
@@ -30,6 +35,7 @@ class InstituteSignupForm(UserCreationForm):
         fields = (
             "institute_name",
             "institute_code",
+            "institute_type",
             "institute_logo",
             "owner_name",
             "phone",
@@ -67,6 +73,7 @@ class InstituteSignupForm(UserCreationForm):
             institute = Institute.objects.create(
                 name=self.cleaned_data["institute_name"],
                 code=self.cleaned_data["institute_code"],
+                institute_type=self.cleaned_data["institute_type"],
                 logo=self.cleaned_data.get("institute_logo"),
                 owner_name=self.cleaned_data["owner_name"],
                 phone=self.cleaned_data["phone"],

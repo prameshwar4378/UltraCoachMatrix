@@ -12,6 +12,13 @@ urlpatterns = [
         views.academic_session_settings,
         name="academic_session_settings",
     ),
+    path("settings/print-templates/", views.print_template_list, name="print_template_list"),
+    path("settings/print-templates/upload/", views.print_template_create, name="print_template_create"),
+    path("settings/print-templates/<int:pk>/edit/", views.print_template_update, name="print_template_update"),
+    path("settings/print-templates/<int:pk>/delete/", views.print_template_delete, name="print_template_delete"),
+    path("settings/template-library/<int:pk>/view/", views.print_template_library_view, name="print_template_library_view"),
+    path("settings/template-library/<int:pk>/download/", views.print_template_library_download, name="print_template_library_download"),
+    path("settings/template-library/<int:pk>/set/", views.print_template_set_library, name="print_template_set_library"),
     path(
         "billing/payments/<int:pk>/bill/",
         views.subscription_payment_bill,

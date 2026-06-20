@@ -270,6 +270,7 @@ class InstituteProfileTests(TestCase):
         data = {
             "name": "Updated Institute",
             "code": "updated-institute",
+            "institute_type": Institute.InstituteType.SCHOOL,
             "owner_name": "Updated Owner",
             "phone": "9111111111",
             "email": "updated@example.com",
@@ -302,6 +303,7 @@ class InstituteProfileTests(TestCase):
         other_institute.refresh_from_db()
         self.assertEqual(self.institute.name, "Updated Institute")
         self.assertEqual(self.institute.code, "updated-institute")
+        self.assertEqual(self.institute.institute_type, Institute.InstituteType.SCHOOL)
         self.assertEqual(self.institute.address, "Updated address")
         self.assertEqual(other_institute.name, "Other Institute")
 
@@ -2411,6 +2413,27 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertEqual(list(response.context["attendance_records"]), [self.attendance_2027])
         self.assertEqual(response.context["total_fee_amount"], Decimal("2000.00"))
         self.assertEqual(response.context["total_paid_amount"], Decimal("500.00"))
+
+    def test_student_dashboard_hides_certificate_generate_buttons_for_coaching_classes(self):
+        self.select_year(self.year_2026)
+        response = self.client.get(reverse("institute_admin:student_dashboard", args=[self.student.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["is_school_institute"])
+        self.assertNotContains(response, "Generate TC")
+        self.assertNotContains(response, "Generate Bonafide")
+
+    def test_student_dashboard_shows_certificate_generate_buttons_for_schools(self):
+        self.institute.institute_type = Institute.InstituteType.SCHOOL
+        self.institute.save(update_fields=["institute_type"])
+        self.select_year(self.year_2026)
+
+        response = self.client.get(reverse("institute_admin:student_dashboard", args=[self.student.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["is_school_institute"])
+        self.assertContains(response, "Generate TC")
+        self.assertContains(response, "Generate Bonafide")
 
     def test_courses_and_batches_are_limited_to_selected_academic_year(self):
         old_only_course = Course.objects.create(

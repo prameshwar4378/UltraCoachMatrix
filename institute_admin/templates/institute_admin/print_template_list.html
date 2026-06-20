@@ -1,0 +1,162 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Template List{% endblock title %}
+
+{% block content %}
+<style>
+    .template-page { --primary:#0f766e; --dark:#115e59; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --surface:#ffffff; }
+    .template-shell, .template-group { background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:0 14px 34px rgba(15,23,42,.06); }
+    .template-shell { padding:22px; margin-bottom:18px; position:relative; overflow:hidden; }
+    .template-shell:before { content:""; position:absolute; inset:0 auto 0 0; width:7px; background:linear-gradient(180deg,#14b8a6,#0f766e); }
+    .template-title { margin:0; color:var(--ink); font-weight:950; font-size:1.8rem; }
+    .template-subtitle { margin:6px 0 0; color:var(--muted); font-weight:700; }
+    .btn-template { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:0; border-radius:8px; padding:10px 16px; font-weight:850; display:inline-flex; align-items:center; gap:8px; text-decoration:none; white-space:nowrap; }
+    .btn-template:hover { color:#fff; transform:translateY(-1px); }
+    .template-group { margin-bottom:18px; overflow:hidden; }
+    .group-head { padding:17px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:12px; background:#f8fafc; }
+    .group-title { margin:0; color:var(--ink); font-weight:950; display:flex; align-items:center; gap:9px; }
+    .selected-chip { border-radius:999px; background:#dcfce7; color:#166534; padding:7px 10px; font-size:.78rem; font-weight:900; }
+    .template-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:16px; padding:18px; }
+    .template-card { border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#fff; display:flex; flex-direction:column; min-height:310px; }
+    .preview-box { height:150px; background:#f8fafc; border-bottom:1px solid var(--line); position:relative; overflow:hidden; }
+    .preview-box img { width:100%; height:100%; object-fit:cover; display:block; }
+    .preview-box iframe { width:200%; height:200%; border:0; transform:scale(.5); transform-origin:top left; pointer-events:none; background:#fff; }
+    .preview-empty { height:100%; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-weight:900; flex-direction:column; gap:8px; }
+    .template-body { padding:14px; flex:1; display:flex; flex-direction:column; gap:10px; }
+    .template-name { font-weight:950; color:var(--ink); margin:0; }
+    .template-desc { color:var(--muted); margin:0; font-size:.88rem; font-weight:700; line-height:1.45; }
+    .template-meta { color:#64748b; font-size:.78rem; font-weight:800; }
+    .template-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:auto; }
+    .template-actions .btn, .template-actions button { width:100%; justify-content:center; font-weight:800; border-radius:8px; }
+    .set-form { grid-column:1 / -1; margin:0; }
+    .empty-state { padding:34px 20px; text-align:center; color:var(--muted); font-weight:800; }
+    @media(max-width:760px) { .template-shell, .group-head { flex-direction:column; align-items:flex-start!important; } .btn-template { width:100%; justify-content:center; } .template-grid { grid-template-columns:1fr; } }
+</style>
+
+<main id="main" class="main template-page">
+    <div class="pagetitle">
+        <h1>Template List</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item">Setting</li>
+                <li class="breadcrumb-item active">Template List</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="template-shell d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="template-title"><i class="bi bi-filetype-html me-2"></i> Print Template Center</h2>
+            <p class="template-subtitle">Preview library templates and set one global print design for all students in {{ institute.name }}.</p>
+        </div>
+        <a href="javascript:void(0);" data-url="{% url 'institute_admin:print_template_create' %}" class="btn-template" onclick="openTemplateWindow(this)">
+            <i class="bi bi-cloud-arrow-up"></i> Upload Custom Template
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% for group in groups %}
+        <section class="template-group">
+            <div class="group-head">
+                <h5 class="group-title">
+                    {% if group.document_type == "TRANSFER_CERTIFICATE" %}
+                        <i class="bi bi-file-earmark-text"></i>
+                    {% elif group.document_type == "ADMISSION_FORM" %}
+                        <i class="bi bi-person-vcard"></i>
+                    {% else %}
+                        <i class="bi bi-award"></i>
+                    {% endif %}
+                    {{ group.label }}
+                </h5>
+                {% if group.selected_template %}
+                    <span class="selected-chip">
+                        Active: {% if group.selected_template.library_template %}{{ group.selected_template.library_template.title }}{% else %}{{ group.selected_template.title }}{% endif %}
+                    </span>
+                {% else %}
+                    <span class="text-muted fw-bold">Using default template</span>
+                {% endif %}
+            </div>
+
+            {% if group.library_templates %}
+                <div class="template-grid">
+                    {% for template in group.library_templates %}
+                        <article class="template-card">
+                            <div class="preview-box">
+                                {% if template.preview_image %}
+                                    <img src="{{ template.preview_image.url }}" alt="{{ template.title }} preview">
+                                {% elif template.html_file %}
+                                    <iframe src="{% url 'institute_admin:print_template_library_view' template.pk %}" title="{{ template.title }} preview"></iframe>
+                                {% else %}
+                                    <div class="preview-empty"><i class="bi bi-filetype-html fs-3"></i>No preview</div>
+                                {% endif %}
+                            </div>
+                            <div class="template-body">
+                                <h6 class="template-name">{{ template.title }}</h6>
+                                {% if template.description %}
+                                    <p class="template-desc">{{ template.description }}</p>
+                                {% endif %}
+                                <div class="template-meta">Type: {{ template.get_document_type_display }}</div>
+                                <div class="template-actions">
+                                    <a href="{% url 'institute_admin:print_template_library_view' template.pk %}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i> View
+                                    </a>
+                                    <a href="{% url 'institute_admin:print_template_library_download' template.pk %}" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-download"></i> Download
+                                    </a>
+                                    <form method="post" action="{% url 'institute_admin:print_template_set_library' template.pk %}" class="set-form">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-success">
+                                            <i class="bi bi-check2-circle"></i> Set as Template
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-folder-x d-block fs-2 mb-2"></i>
+                    No {{ group.label }} library templates uploaded by superuser yet.
+                </div>
+            {% endif %}
+        </section>
+    {% endfor %}
+</main>
+
+<script>
+    function openTemplateWindow(element, customWidth = 860, customHeight = 680) {
+        const url = element.dataset.url;
+        if (!url) return;
+        const availableWidth = window.screen.availWidth || window.innerWidth;
+        const availableHeight = window.screen.availHeight || window.innerHeight;
+        const popupWidth = Math.min(customWidth, Math.max(340, availableWidth - 32));
+        const popupHeight = Math.min(customHeight, Math.max(420, availableHeight - 48));
+        const left = Math.max(0, (availableWidth - popupWidth) / 2);
+        const top = Math.max(0, (availableHeight - popupHeight) / 2);
+        const features = [
+            `width=${popupWidth}`,
+            `height=${popupHeight}`,
+            `left=${left}`,
+            `top=${top}`,
+            "scrollbars=yes",
+            "resizable=yes",
+            "location=no",
+            "menubar=no",
+            "toolbar=no",
+            "status=no",
+        ].join(",");
+        const templateWindow = window.open(url, "printTemplateWindow", features);
+        if (templateWindow) templateWindow.focus();
+    }
+</script>
+{% endblock content %}
