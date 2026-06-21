@@ -2422,6 +2422,9 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertFalse(response.context["is_school_institute"])
         self.assertNotContains(response, "Generate TC")
         self.assertNotContains(response, "Generate Bonafide")
+        self.assertNotContains(response, "ID Card Details")
+        self.assertNotContains(response, "Bonafide Certificate Records")
+        self.assertNotContains(response, "Transfer Certificate Records")
 
     def test_student_dashboard_shows_certificate_generate_buttons_for_schools(self):
         self.institute.institute_type = Institute.InstituteType.SCHOOL
@@ -2434,6 +2437,48 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertTrue(response.context["is_school_institute"])
         self.assertContains(response, "Generate TC")
         self.assertContains(response, "Generate Bonafide")
+
+    def test_student_school_only_routes_reject_coaching_classes(self):
+        self.select_year(self.year_2026)
+
+        for url_name in [
+            "student_tc_generate",
+            "student_bonafide_generate",
+            "student_id_card_update",
+        ]:
+            response = self.client.get(reverse(f"institute_admin:{url_name}", args=[self.student.pk]))
+            self.assertEqual(response.status_code, 403)
+
+    def test_student_form_uses_limited_fields_for_coaching_classes(self):
+        self.select_year(self.year_2026)
+
+        response = self.client.get(reverse("institute_admin:student_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["is_school_institute"])
+        self.assertContains(response, "Student Full Name")
+        self.assertContains(response, "Class")
+        self.assertContains(response, "Batch / Division")
+        self.assertContains(response, "Upload Document")
+        self.assertContains(response, "Document Type")
+        self.assertContains(response, "Document Title")
+        self.assertNotContains(response, "PEN No")
+        self.assertNotContains(response, "Previous School Name")
+        self.assertNotContains(response, "Documents to Collect and Store")
+        self.assertNotContains(response, "Birth Certificate")
+
+    def test_student_form_keeps_full_fields_for_schools(self):
+        self.institute.institute_type = Institute.InstituteType.SCHOOL
+        self.institute.save(update_fields=["institute_type"])
+        self.select_year(self.year_2026)
+
+        response = self.client.get(reverse("institute_admin:student_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["is_school_institute"])
+        self.assertContains(response, "PEN No")
+        self.assertContains(response, "Previous School Name")
+        self.assertContains(response, "Documents to Collect and Store")
 
     def test_courses_and_batches_are_limited_to_selected_academic_year(self):
         old_only_course = Course.objects.create(

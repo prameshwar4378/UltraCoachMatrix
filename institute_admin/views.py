@@ -67,6 +67,7 @@ from teacher.forms import ExamQuestionForm, ExamQuestionOptionFormSet, TeacherEx
 from .forms import (
     AddStudentFeeForm,
     AcademicYearForm,
+    academic_structure_labels,
     BatchForm,
     build_student_username,
     CourseForm,
@@ -2130,6 +2131,7 @@ def course_list(request):
 def course_create(request):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
+    labels = academic_structure_labels(institute)
     if not institute:
         messages.error(request, "Select an institute before creating a course.")
         return redirect("institute_admin:course_list")
@@ -2141,7 +2143,7 @@ def course_create(request):
             course.institute = institute
             course.academic_year = academic_year
             course.save()
-            messages.success(request, "Course created successfully.")
+            messages.success(request, f"{labels['course']} created successfully.")
             return close_popup_response()
     else:
         form = CourseForm(institute=institute, academic_year=academic_year)
@@ -2151,9 +2153,9 @@ def course_create(request):
         "institute_admin/course_form.html",
         {
             "form": form,
-            "title": "Create Course",
-            "subtitle": "Add a course offered by your institute.",
-            "button_text": "Save Course",
+            "title": f"Create {labels['course']}",
+            "subtitle": f"Add a {labels['course_lower']} offered by your institute.",
+            "button_text": f"Save {labels['course']}",
         },
     )
 
@@ -2162,6 +2164,7 @@ def course_create(request):
 def course_update(request, pk):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
+    labels = academic_structure_labels(institute)
     queryset = Course.objects.all()
     if institute:
         queryset = queryset.filter(institute=institute)
@@ -2173,7 +2176,7 @@ def course_update(request, pk):
         form = CourseForm(request.POST, instance=course, institute=course.institute, academic_year=course.academic_year)
         if form.is_valid():
             form.save()
-            messages.success(request, "Course updated successfully.")
+            messages.success(request, f"{labels['course']} updated successfully.")
             return close_popup_response()
     else:
         form = CourseForm(instance=course, institute=course.institute, academic_year=course.academic_year)
@@ -2183,9 +2186,9 @@ def course_update(request, pk):
         "institute_admin/course_form.html",
         {
             "form": form,
-            "title": "Edit Course",
-            "subtitle": "Update course details and active status.",
-            "button_text": "Update Course",
+            "title": f"Edit {labels['course']}",
+            "subtitle": f"Update {labels['course_lower']} details and active status.",
+            "button_text": f"Update {labels['course']}",
         },
     )
 
@@ -2498,6 +2501,7 @@ def batch_list(request):
 def batch_create(request):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
+    labels = academic_structure_labels(institute)
     if not institute:
         messages.error(request, "Select an institute before creating a batch.")
         return redirect("institute_admin:batch_list")
@@ -2512,7 +2516,7 @@ def batch_create(request):
             batch.courses.set(form.cleaned_data["courses"])
             teacher_profiles = form.cleaned_data["teachers"]
             batch.teachers.set([profile.user for profile in teacher_profiles])
-            messages.success(request, "Batch created successfully.")
+            messages.success(request, f"{labels['batch']} created successfully.")
             return close_popup_response()
     else:
         form = BatchForm(institute=institute, academic_year=academic_year)
@@ -2522,9 +2526,9 @@ def batch_create(request):
         "institute_admin/batch_form.html",
         {
             "form": form,
-            "title": "Create Batch",
-            "subtitle": "Add a batch, select one or more courses, and assign teachers.",
-            "button_text": "Save Batch",
+            "title": f"Create {labels['batch']}",
+            "subtitle": f"Add a {labels['batch_lower']}, select one or more {labels['course_plural_lower']}, and assign teachers.",
+            "button_text": f"Save {labels['batch']}",
             "show_timetable_builder": True,
         },
     )
@@ -2534,6 +2538,7 @@ def batch_create(request):
 def batch_update(request, pk):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
+    labels = academic_structure_labels(institute)
     queryset = Batch.objects.all()
     if institute:
         queryset = queryset.filter(institute=institute)
@@ -2549,7 +2554,7 @@ def batch_update(request, pk):
             batch.courses.set(form.cleaned_data["courses"])
             teacher_profiles = form.cleaned_data["teachers"]
             batch.teachers.set([profile.user for profile in teacher_profiles])
-            messages.success(request, "Batch updated successfully.")
+            messages.success(request, f"{labels['batch']} updated successfully.")
             return close_popup_response()
     else:
         initial_profiles = UserProfile.objects.filter(user__in=batch.teachers.all())
@@ -2560,9 +2565,9 @@ def batch_update(request, pk):
         "institute_admin/batch_form.html",
         {
             "form": form,
-            "title": "Edit Batch",
-            "subtitle": "Update batch details, timing, timetable and assigned teachers.",
-            "button_text": "Update Batch",
+            "title": f"Edit {labels['batch']}",
+            "subtitle": f"Update {labels['batch_lower']} details, timing, timetable and assigned teachers.",
+            "button_text": f"Update {labels['batch']}",
             "show_timetable_builder": True,
         },
     )
@@ -4581,6 +4586,7 @@ def student_admission_form(request, pk):
 def student_tc_generate(request, pk):
     student_session = get_current_session_or_404(request, pk)
     student = student_session.student
+    _require_school_institute(student.institute)
 
     if request.method == "POST":
         form = StudentTransferCertificateForm(
@@ -4629,6 +4635,7 @@ def student_tc_print(request, pk):
     if institute:
         queryset = queryset.filter(institute=institute)
     tc_record = get_object_or_404(queryset, pk=pk)
+    _require_school_institute(tc_record.institute)
     context = {
         "tc": tc_record,
         "student": tc_record.student,
@@ -4652,6 +4659,7 @@ def student_tc_cancel(request, pk):
     if institute:
         queryset = queryset.filter(institute=institute)
     tc_record = get_object_or_404(queryset, pk=pk)
+    _require_school_institute(tc_record.institute)
     if tc_record.status == StudentTransferCertificate.Status.CANCELLED:
         messages.info(request, "This TC record is already cancelled.")
     else:
@@ -4668,6 +4676,7 @@ def student_tc_cancel(request, pk):
 def student_bonafide_update(request, pk):
     student_session = get_current_session_or_404(request, pk)
     student = student_session.student
+    _require_school_institute(student.institute)
     if request.method == "POST":
         form = StudentBonafideCertificateForm(
             request.POST,
@@ -4715,6 +4724,7 @@ def student_bonafide_print(request, pk):
     if institute:
         queryset = queryset.filter(institute=institute)
     bonafide_record = get_object_or_404(queryset, pk=pk)
+    _require_school_institute(bonafide_record.institute)
     context = {
         "bonafide": bonafide_record,
         "student": bonafide_record.student,
@@ -4738,6 +4748,7 @@ def student_bonafide_cancel(request, pk):
     if institute:
         queryset = queryset.filter(institute=institute)
     bonafide_record = get_object_or_404(queryset, pk=pk)
+    _require_school_institute(bonafide_record.institute)
     if bonafide_record.status == StudentBonafideCertificate.Status.CANCELLED:
         messages.info(request, "This Bonafide Certificate record is already cancelled.")
     else:
@@ -4753,6 +4764,7 @@ def student_bonafide_cancel(request, pk):
 @institute_admin_required
 def student_id_card_update(request, pk):
     student = get_current_session_student_or_404(request, pk)
+    _require_school_institute(student.institute)
     if request.method == "POST":
         form = StudentIdCardForm(request.POST, instance=student)
         if form.is_valid():
@@ -4778,6 +4790,11 @@ def student_id_card_update(request, pk):
 
 def get_current_session_student_or_404(request, pk, *, prefetch_documents=False):
     return get_current_session_or_404(request, pk, prefetch_documents=prefetch_documents).student
+
+
+def _require_school_institute(institute):
+    if institute.institute_type != Institute.InstituteType.SCHOOL:
+        raise PermissionDenied("This feature is available only for school institutes.")
 
 
 def get_current_session_or_404(request, pk, *, prefetch_documents=False):
@@ -5147,6 +5164,7 @@ def student_create(request):
             "button_text": "Save Student",
             "course_batch_data": get_course_batch_data(institute, academic_year),
             "active_section": active_section,
+            "is_school_institute": institute.institute_type == Institute.InstituteType.SCHOOL,
         },
     )
 
@@ -5443,6 +5461,7 @@ def student_update(request, pk):
             "button_text": "Update Student",
             "course_batch_data": get_course_batch_data(student.institute, academic_year),
             "active_section": active_section,
+            "is_school_institute": student.institute.institute_type == Institute.InstituteType.SCHOOL,
         },
     )
 
@@ -5784,6 +5803,7 @@ def enrollment_list(request):
 def enrollment_create(request):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
+    labels = academic_structure_labels(institute)
     if not institute:
         messages.error(request, "Select an institute before creating an enrollment.")
         return redirect("institute_admin:enrollment_list")
@@ -5816,7 +5836,7 @@ def enrollment_create(request):
         {
             "form": form,
             "title": "Create Enrollment",
-            "subtitle": "Assign student to a batch and select courses.",
+            "subtitle": f"Assign student to a {labels['batch_lower']} and select {labels['course_plural_lower']}.",
             "button_text": "Save Enrollment",
             "batch_course_data": get_batch_course_data(institute, academic_year),
         },
@@ -5827,6 +5847,7 @@ def enrollment_create(request):
 def enrollment_update(request, pk):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
+    labels = academic_structure_labels(institute)
     queryset = StudentEnrollment.objects.select_related(
         "academic_session",
         "student",
@@ -5872,7 +5893,7 @@ def enrollment_update(request, pk):
         {
             "form": form,
             "title": "Edit Enrollment",
-            "subtitle": "Update batch, courses, status or custom fee.",
+            "subtitle": f"Update {labels['batch_lower']}, {labels['course_plural_lower']}, status or custom fee.",
             "button_text": "Update Enrollment",
             "batch_course_data": get_batch_course_data(institute, academic_year),
         },

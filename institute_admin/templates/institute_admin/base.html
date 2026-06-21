@@ -199,7 +199,7 @@
             <a class="nav-link"
                href="{% url 'institute_admin:course_list' %}">
                 <i class="bi bi-journals"></i>
-                <span>Courses</span>
+                <span>{{ course_label_plural }}</span>
             </a>
         </li>
 
@@ -215,7 +215,7 @@
             <a class="nav-link"
                href="{% url 'institute_admin:batch_list' %}">
                 <i class="bi bi-layers"></i>
-                <span>Batches</span>
+                <span>{{ batch_label_plural }}</span>
             </a>
         </li>
 

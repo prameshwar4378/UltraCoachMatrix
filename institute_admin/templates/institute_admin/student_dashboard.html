@@ -857,12 +857,14 @@
                 <a href="{% url 'institute_admin:student_admission_form' student.pk %}" target="_blank" class="btn btn-light border btn-soft">
                     <i class="bi bi-journal-text"></i> Admission Form
                 </a>
+                {% if is_school_institute %}
                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_tc_generate' student.pk %}" class="btn btn-light border btn-soft" onclick="openStudentDashboardWindow(this, 820, 720)">
                         <i class="bi bi-file-earmark-medical"></i> Generate TC
                     </a>
                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_bonafide_generate' student.pk %}" class="btn btn-light border btn-soft" onclick="openStudentDashboardWindow(this, 780, 620)">
                         <i class="bi bi-award"></i> Generate Bonafide
                     </a>
+                {% endif %}
                 <a href="javascript:void(0);" data-url="{% url 'institute_admin:enrollment_create' %}?student={{ student.pk }}" class="btn btn-main" onclick="openStudentDashboardWindow(this)">
                     <i class="bi bi-diagram-3"></i> Add Enrollment
                 </a>
@@ -932,13 +934,16 @@
                     <div class="info-row"><span class="info-label">Middle Name</span><span class="info-value">{{ student.middle_name|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Surname</span><span class="info-value">{{ student.user.last_name|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Admission No.</span><span class="info-value">{{ student_session.admission_number }}</span></div>
+                    {% if is_school_institute %}
                     <div class="info-row"><span class="info-label">PEN No</span><span class="info-value">{{ student.pen_no|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Appar ID</span><span class="info-value">{{ student.appar_id|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">GR No.</span><span class="info-value">{{ student.gr_number_udise|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">UDISE No.</span><span class="info-value">{{ student.udise_number|default:"-" }}</span></div>
+                    {% endif %}
                     <div class="info-row"><span class="info-label">Roll No.</span><span class="info-value">{{ student.roll_number|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Gender</span><span class="info-value">{{ student.get_gender_display|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Date of Birth</span><span class="info-value">{{ student.date_of_birth|default:"-" }}</span></div>
+                    {% if is_school_institute %}
                     <div class="info-row"><span class="info-label">Blood Group</span><span class="info-value">{{ student.blood_group|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Religion</span><span class="info-value">{{ student.religion|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Cast</span><span class="info-value">{{ student.cast|default:"-" }}</span></div>
@@ -949,6 +954,7 @@
                     <div class="info-row"><span class="info-label">Place of Birth</span><span class="info-value">{{ student.place_of_birth|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Mother Tongue</span><span class="info-value">{{ student.mother_tongue|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Student Status</span><span class="info-value">{{ student.get_student_status_display|default:"-" }}</span></div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -976,18 +982,26 @@
                 </div>
                 <div class="content-panel-body">
                     <div class="info-row"><span class="info-label">Father Name</span><span class="info-value">{{ student.father_name|default:"-" }}</span></div>
+                    {% if is_school_institute %}
                     <div class="info-row"><span class="info-label">Father Occupation</span><span class="info-value">{{ student.father_occupation|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Father Qualification</span><span class="info-value">{{ student.father_qualification|default:"-" }}</span></div>
+                    {% endif %}
                     <div class="info-row"><span class="info-label">Father Mobile</span><span class="info-value">{{ student.father_mobile_number|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Father Email</span><span class="info-value">{{ student.father_email|default:"-" }}</span></div>
+                    {% if is_school_institute %}
                     <div class="info-row"><span class="info-label">Father Aadhaar</span><span class="info-value">{{ student.father_aadhaar_number|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Father Income</span><span class="info-value">{{ student.father_annual_income|default:"-" }}</span></div>
+                    {% endif %}
                     <div class="info-row"><span class="info-label">Mother Name</span><span class="info-value">{{ student.mother_name|default:"-" }}</span></div>
+                    {% if is_school_institute %}
                     <div class="info-row"><span class="info-label">Mother Occupation</span><span class="info-value">{{ student.mother_occupation|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Mother Qualification</span><span class="info-value">{{ student.mother_qualification|default:"-" }}</span></div>
+                    {% endif %}
                     <div class="info-row"><span class="info-label">Mother Mobile</span><span class="info-value">{{ student.mother_mobile_number|default:"-" }}</span></div>
+                    {% if is_school_institute %}
                     <div class="info-row"><span class="info-label">Mother Aadhaar</span><span class="info-value">{{ student.mother_aadhaar_number|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Mother Income</span><span class="info-value">{{ student.mother_annual_income|default:"-" }}</span></div>
+                    {% endif %}
                     <div class="info-row"><span class="info-label">Guardian</span><span class="info-value">{{ primary_guardian.name|default:"-" }}{% if primary_guardian.relation %} ({{ primary_guardian.relation }}){% endif %}</span></div>
                     <div class="info-row"><span class="info-label">Guardian Phone</span><span class="info-value">{{ primary_guardian.phone|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Guardian Email</span><span class="info-value">{{ primary_guardian.email|default:"-" }}</span></div>
@@ -1001,6 +1015,7 @@
                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_update' student.pk %}?section=address" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 980, 760)"><i class="bi bi-pencil-square"></i> Update</a>
                 </div>
                 <div class="content-panel-body">
+                    {% if is_school_institute %}
                     <div class="info-row"><span class="info-label">Current House No.</span><span class="info-value">{{ student.current_house_number|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Current Street / Area</span><span class="info-value">{{ student.current_street_area|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Current Village / City</span><span class="info-value">{{ student.current_village_city|default:"-" }}</span></div>
@@ -1016,6 +1031,9 @@
                     <div class="info-row"><span class="info-label">Permanent District</span><span class="info-value">{{ student.permanent_district|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Permanent State</span><span class="info-value">{{ student.permanent_state|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Permanent PIN</span><span class="info-value">{{ student.permanent_pin_code|default:"-" }}</span></div>
+                    {% else %}
+                    <div class="info-row"><span class="info-label">Address</span><span class="info-value">{{ student.address|default:"-" }}</span></div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -1031,6 +1049,7 @@
                     <div class="info-row"><span class="info-label">Admission Class</span><span class="info-value">{{ student.admission_class|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Current Class</span><span class="info-value">{{ student.current_class|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Batch / Division</span><span class="info-value">{{ student.division|default:"-" }}</span></div>
+                    {% if is_school_institute %}
                     <div class="info-row"><span class="info-label">Medium</span><span class="info-value">{{ student.medium|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">School</span><span class="info-value">{{ student_session.current_school_name|default:student.institute.name }}</span></div>
                     <div class="info-row"><span class="info-label">School Address</span><span class="info-value">{{ student_session.current_school_address|default:student.institute.address|default:"-" }}</span></div>
@@ -1040,9 +1059,11 @@
                     <div class="info-row"><span class="info-label">Previous Class</span><span class="info-value">{{ student_session.previous_class|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Previous Class Passed</span><span class="info-value">{{ student.previous_class_passed|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Last Exam / Grade</span><span class="info-value">{{ student.last_exam_result|default:"-" }}</span></div>
+                    {% endif %}
                 </div>
             </div>
 
+            {% if is_school_institute %}
             <div class="content-panel" style="--panel-color: var(--green); --panel-soft: #f0fdf4;">
                 <div class="panel-header">
                     <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-person"></i></div><div><h5 class="panel-title">Bonafide Certificate Details</h5><div class="panel-subtitle">Generate and track Bonafide certificates separately</div></div></div>
@@ -1066,8 +1087,10 @@
                     {% endwith %}
                 </div>
             </div>
+            {% endif %}
         </div>
 
+        {% if is_school_institute %}
         <div class="panel-grid">
             <div class="content-panel" style="--panel-color: var(--blue); --panel-soft: #eff6ff;">
                 <div class="panel-header">
@@ -1212,6 +1235,7 @@
                 </table>
             </div>
         </div>
+        {% endif %}
 
         <div class="content-panel" style="--panel-color: #0891b2; --panel-soft: #ecfeff;">
             <div class="panel-header">

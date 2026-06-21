@@ -1,6 +1,6 @@
 from .forms import get_academic_year_label, get_or_create_academic_year
 from .lookup_cache import get_cached_academic_years, invalidate_academic_years_cache
-from super_admin.models import UserProfile
+from super_admin.models import Institute, UserProfile
 
 
 def academic_year_context(request):
@@ -16,6 +16,11 @@ def academic_year_context(request):
         return {}
 
     institute = profile.institute
+    is_school_institute = institute.institute_type == Institute.InstituteType.SCHOOL
+    course_label = "Class" if is_school_institute else "Course"
+    course_label_plural = "Classes" if is_school_institute else "Courses"
+    batch_label = "Division" if is_school_institute else "Batch"
+    batch_label_plural = "Divisions" if is_school_institute else "Batches"
     academic_years = get_cached_academic_years(institute.pk)
 
     selected_id = request.session.get("academic_year_id")
@@ -46,6 +51,15 @@ def academic_year_context(request):
     context = {
         "academic_years": academic_years,
         "selected_academic_year": selected_year,
+        "is_school_institute": is_school_institute,
+        "course_label": course_label,
+        "course_label_plural": course_label_plural,
+        "course_label_lower": course_label.lower(),
+        "course_label_plural_lower": course_label_plural.lower(),
+        "batch_label": batch_label,
+        "batch_label_plural": batch_label_plural,
+        "batch_label_lower": batch_label.lower(),
+        "batch_label_plural_lower": batch_label_plural.lower(),
     }
     request._academic_year_context = context
     return context
