@@ -21,7 +21,7 @@ def _env_list(name, default=None):
 
 
 ENVIRONMENT = "production"
-DEBUG = _env_bool("DJANGO_DEBUG", False)
+DEBUG = _env_bool("DJANGO_DEBUG", True)
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "").strip()
 if not SECRET_KEY:
@@ -56,8 +56,8 @@ if not DATABASES["default"]["PASSWORD"]:
 CORS_ALLOW_ALL_ORIGINS = _env_bool("CORS_ALLOW_ALL_ORIGINS", False)
 CORS_ALLOWED_ORIGINS = _env_list("CORS_ALLOWED_ORIGINS")
 
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", True)
+CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", True)
 SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", True)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
