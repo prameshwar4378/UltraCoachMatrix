@@ -1,0 +1,152 @@
+
+#nano /var/www/UltraCoachMatrix/.env
+
+DJANGO_ENV=production
+DJANGO_SECRET_KEY=5+%-f+_t#x579i%i6%wy!(p)ft%#w08q85zter1hme##@km02o
+DJANGO_DEBUG=True
+
+DJANGO_ALLOWED_HOSTS=173.249.33.152
+DJANGO_CSRF_TRUSTED_ORIGINS=http://173.249.33.152
+
+DB_NAME=ultracoachmatrix
+DB_USER=dbultracoachmatrix
+DB_PASSWORD=Ultoxy@9917
+DB_HOST=localhost
+DB_PORT=5432
+
+EMAIL_BASE_URL=http://173.249.33.152
+
+CELERY_BROKER_URL=redis://127.0.0.1:6379/0
+CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/1
+
+SECURE_SSL_REDIRECT=false
+SESSION_COOKIE_SECURE=false
+CSRF_COOKIE_SECURE=false
+DJANGO_ALLOWED_HOSTS=173.249.33.152
+EMAIL_BASE_URL=http://173.249.33.152
+
+
+
+
+
+#nano /etc/systemd/system/ultracoachmatrix.service
+
+[Unit]
+Description=UltraCoachMatrix Django Gunicorn Service
+After=network.target postgresql.service redis-server.service
+
+[Service]
+User=root
+Group=www-data
+WorkingDirectory=/var/www/UltraCoachMatrix
+EnvironmentFile=/var/www/UltraCoachMatrix/.env
+ExecStart=/var/www/UltraCoachMatrix/venv/bin/gunicorn --workers 3 --bind unix:/run/ultracoachmatrix.sock UltraCoachMatrix.wsgi:application
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
+
+
+
+
+
+#nano /etc/nginx/sites-available/ultracoachmatrix
+
+server {
+    listen 80;
+    server_name 173.249.33.152;
+
+    client_max_body_size 50M;
+
+    location /static/ {
+        alias /var/www/UltraCoachMatrix/staticfiles/;
+    }
+
+    location /media/ {
+        alias /var/www/ultracoachmatrix_media/;
+    }
+
+    location / {
+        proxy_pass http://unix:/run/ultracoachmatrix.sock;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+
+
+
+
+
+
+
+
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+error_log /var/log/nginx/error.log;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+        worker_connections 768;
+        # multi_accept on;
+}
+
+http {
+
+        ##
+        # Basic Settings
+        ##
+
+        sendfile on;
+        tcp_nopush on;
+        types_hash_max_size 2048;
+        # server_tokens off;
+
+        # server_names_hash_bucket_size 64;
+        # server_name_in_redirect off;
+
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        ##
+        # SSL Settings
+        ##
+
+        ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3; # Dropping SSLv3, ref: POODLE
+        ssl_prefer_server_ciphers on;
+
+        ##
+        # Logging Settings
+        ##
+
+        access_log /var/log/nginx/access.log;
+
+        ##
+        # Gzip Settings
+        ##
+
+        gzip on;
+
+        # gzip_vary on;
+        # gzip_proxied any;
+        # gzip_comp_level 6;
+        # gzip_buffers 16 8k;
+        # gzip_http_version 1.1;
+        # gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+        ##
+        # Virtual Host Configs
+        ##
+
+
+
+
+
+
+
+

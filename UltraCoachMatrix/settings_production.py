@@ -21,7 +21,7 @@ def _env_list(name, default=None):
 
 
 ENVIRONMENT = "production"
-DEBUG = _env_bool("DJANGO_DEBUG", True)
+DEBUG = _env_bool("DJANGO_DEBUG", False)
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "").strip()
 if not SECRET_KEY:
@@ -36,7 +36,12 @@ ALLOWED_HOSTS = _env_list(
     ],
 )
 
-CSRF_TRUSTED_ORIGINS = _env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+CSRF_TRUSTED_ORIGINS = _env_list(
+    "DJANGO_CSRF_TRUSTED_ORIGINS",
+    default=[
+        "http://173.249.33.152",
+    ],
+)
 
 DATABASES = {
     "default": {
@@ -56,21 +61,26 @@ if not DATABASES["default"]["PASSWORD"]:
 CORS_ALLOW_ALL_ORIGINS = _env_bool("CORS_ALLOW_ALL_ORIGINS", False)
 CORS_ALLOWED_ORIGINS = _env_list("CORS_ALLOWED_ORIGINS")
 
-SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", True)
-CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", True)
-SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", True)
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", False)
+CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", False)
+SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", False)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000"))
+SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "0"))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", True)
 SECURE_HSTS_PRELOAD = _env_bool("SECURE_HSTS_PRELOAD", False)
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
-EMAIL_BASE_URL = os.environ.get("EMAIL_BASE_URL", "https://173.249.33.152")
+EMAIL_BASE_URL = os.environ.get("EMAIL_BASE_URL", "http://173.249.33.152")
 
 MEDIA_URL = os.environ.get("DJANGO_MEDIA_URL", "/media/")
-MEDIA_ROOT = Path(os.environ.get("DJANGO_MEDIA_ROOT", "/var/www/ultracoachmatrix_media"))
+MEDIA_ROOT = Path(
+    os.environ.get(
+        "DJANGO_MEDIA_ROOT",
+        "/home/ultracoachmatrix/ultracoachmatrix/media",
+    )
+)
 
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://127.0.0.1:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://127.0.0.1:6379/1")

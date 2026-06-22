@@ -3,7 +3,8 @@ Automatic settings selector for UltraCoachMatrix.
 
 Local machines use development settings by default. The VPS uses production
 settings automatically when DJANGO_ENV=production, when the project is placed
-under /var/www, or when the server hostname follows the vmi* VPS pattern.
+under a known server path, or when the server hostname follows the vmi* VPS
+pattern.
 """
 
 import os
@@ -17,9 +18,8 @@ def _running_on_vps():
     hostname = socket.gethostname().lower()
     project_parts = {part.lower() for part in project_root.parts}
 
-    return (
-        hostname.startswith("vmi")
-        or "var" in project_parts and "www" in project_parts
+    return hostname.startswith("vmi") or (
+        "var" in project_parts and "www" in project_parts
     )
 
 
