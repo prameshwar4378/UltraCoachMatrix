@@ -29,22 +29,6 @@ from .models import AcademicYear, Batch, Course, InstitutePrintTemplate, Lead, N
 STUDENT_AUTOCOMPLETE_URL = "/institute/students/autocomplete/"
 
 
-def academic_structure_labels(institute=None):
-    is_school = bool(institute and institute.institute_type == Institute.InstituteType.SCHOOL)
-    course_label = "Class" if is_school else "Course"
-    batch_label = "Division" if is_school else "Batch"
-    return {
-        "course": course_label,
-        "course_plural": "Classes" if is_school else "Courses",
-        "course_lower": course_label.lower(),
-        "course_plural_lower": ("Classes" if is_school else "Courses").lower(),
-        "batch": batch_label,
-        "batch_plural": "Divisions" if is_school else "Batches",
-        "batch_lower": batch_label.lower(),
-        "batch_plural_lower": ("Divisions" if is_school else "Batches").lower(),
-    }
-
-
 def ajax_student_widget(*, multiple=False):
     widget_class = forms.SelectMultiple if multiple else forms.Select
     return widget_class(
@@ -458,12 +442,9 @@ class CourseForm(forms.ModelForm):
     def __init__(self, *args, institute=None, academic_year=None, **kwargs):
         self.institute = institute
         self.academic_year = academic_year
-        labels = academic_structure_labels(institute)
         super().__init__(*args, **kwargs)
         self.fields["fee_amount"].widget.attrs.setdefault("min", "0")
         self.fields["fee_amount"].widget.attrs.setdefault("step", "0.01")
-        self.fields["name"].label = f"{labels['course']} Name"
-        self.fields["fee_amount"].label = f"{labels['course']} Fee"
         for field in self.fields.values():
             css_class = "form-check-input" if isinstance(field.widget, forms.CheckboxInput) else "form-control"
             field.widget.attrs.setdefault("class", css_class)
@@ -474,15 +455,13 @@ class CourseForm(forms.ModelForm):
         if self.instance and self.instance.pk:
             queryset = queryset.exclude(pk=self.instance.pk)
         if self.institute and self.academic_year and queryset.exists():
-            labels = academic_structure_labels(self.institute)
-            raise ValidationError(f"This {labels['course_lower']} already exists in the selected academic year.")
+            raise ValidationError("This course already exists in the selected academic year.")
         return name
 
     def clean_fee_amount(self):
         fee_amount = self.cleaned_data["fee_amount"]
         if fee_amount < 0:
-            labels = academic_structure_labels(self.institute)
-            raise ValidationError(f"{labels['course']} fee cannot be negative.")
+            raise ValidationError("Course fee cannot be negative.")
         return fee_amount
 
 
@@ -497,7 +476,6 @@ class SubjectForm(forms.ModelForm):
     def __init__(self, *args, institute=None, academic_year=None, **kwargs):
         self.institute = institute
         self.academic_year = academic_year
-        labels = academic_structure_labels(institute)
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             css_class = "form-check-input" if isinstance(field.widget, forms.CheckboxInput) else "form-control"
@@ -606,8 +584,6 @@ class BatchForm(forms.ModelForm):
 
         self.fields["teachers"].required = False
         self.fields["courses"].required = True
-        self.fields["courses"].label = labels["course_plural"]
-        self.fields["name"].label = f"{labels['batch']} Name"
 
         for field in self.fields.values():
             if isinstance(field.widget, forms.CheckboxInput):
@@ -1471,9 +1447,8 @@ class StudentForm(forms.Form):
                 batches = batches.filter(academic_year=self.academic_year)
         self.fields["class_course"].queryset = courses
         self.fields["batch"].queryset = batches
-        labels = academic_structure_labels(self.institute)
-        self.fields["class_course"].empty_label = f"Select {labels['course_lower']}"
-        self.fields["batch"].empty_label = f"Select {labels['batch_lower']}"
+        self.fields["class_course"].empty_label = "Select class"
+        self.fields["batch"].empty_label = "Select batch / division"
         self.fields["class_course"].label_from_instance = lambda course: course.name
         self.fields["batch"].label_from_instance = lambda batch: batch.name
         self.fields["class_course"].widget.attrs["data-searchable"] = "false"
@@ -1549,11 +1524,9 @@ class StudentForm(forms.Form):
         class_course = cleaned_data.get("class_course")
         batch = cleaned_data.get("batch")
         if batch and not class_course:
-            labels = academic_structure_labels(self.institute)
-            self.add_error("class_course", f"Select {labels['course_lower']} before selecting a {labels['batch_lower']}.")
+            self.add_error("class_course", "Select class before selecting a batch.")
         if class_course and batch and not batch.courses.filter(pk=class_course.pk).exists():
-            labels = academic_structure_labels(self.institute)
-            self.add_error("batch", f"Selected {labels['batch_lower']} must belong to the selected {labels['course_lower']}.")
+            self.add_error("batch", "Selected batch must belong to the selected class.")
 
         class_fee_amount = class_course.fee_amount if class_course else Decimal("0.00")
         fee_discount = cleaned_data.get("fee_discount") or Decimal("0.00")
@@ -2286,7 +2259,6 @@ class HomeworkForm(forms.ModelForm):
     def __init__(self, *args, institute=None, academic_year=None, **kwargs):
         self.institute = institute
         self.academic_year = academic_year
-        labels = academic_structure_labels(institute)
         super().__init__(*args, **kwargs)
         if institute:
             batches = Batch.objects.filter(institute=institute, is_active=True).prefetch_related(
@@ -2312,8 +2284,7 @@ class HomeworkForm(forms.ModelForm):
         self.fields["subject"].required = False
         self.fields["course"].required = False
         self.fields["subject"].empty_label = "General homework"
-        self.fields["course"].empty_label = f"No {labels['course_lower']}"
-        self.fields["batch"].empty_label = f"Select {labels['batch_lower']}"
+        self.fields["course"].empty_label = "No course"
         self.fields["files"].widget.attrs.update({"multiple": True, "accept": ".pdf,.jpg,.jpeg,.png,.doc,.docx"})
         self.fields["batch"].label_from_instance = lambda batch: batch.name
         self.fields["subject"].label_from_instance = lambda subject: subject.name
@@ -2334,7 +2305,7 @@ class HomeworkForm(forms.ModelForm):
         if batch and subject and subject.academic_year_id != batch.academic_year_id:
             raise ValidationError("Selected subject must belong to the selected batch academic year.")
         if batch and course and not batch.courses.filter(pk=course.pk).exists():
-            raise ValidationError(f"Selected {labels['course_lower']} must belong to the selected {labels['batch_lower']}.")
+            raise ValidationError("Selected course must belong to the selected batch.")
         return cleaned_data
 
     def clean_files(self):
@@ -2380,7 +2351,6 @@ class NoticeForm(forms.ModelForm):
     def __init__(self, *args, institute=None, academic_year=None, **kwargs):
         self.institute = institute
         self.academic_year = academic_year
-        labels = academic_structure_labels(institute)
         super().__init__(*args, **kwargs)
         if institute:
             batches = Batch.objects.filter(institute=institute, is_active=True)
@@ -2466,8 +2436,6 @@ class StudentEnrollmentForm(forms.ModelForm):
             self.fields["courses"].queryset = Course.objects.none()
 
         self.fields["courses"].required = True
-        self.fields["batch"].empty_label = f"Select {labels['batch_lower']}"
-        self.fields["courses"].label = labels["course_plural"]
         self.fields["student"].label_from_instance = lambda student: str(student)
         self.fields["batch"].label_from_instance = lambda batch: f"{batch.name} ({batch.total_course_fee})"
         self.fields["custom_fee_amount"].widget.attrs.setdefault("min", "0")
@@ -2502,16 +2470,13 @@ class StudentEnrollmentForm(forms.ModelForm):
 
         if batch and courses:
             if self.academic_year and batch.academic_year_id != self.academic_year.id:
-                labels = academic_structure_labels(self.institute)
-                raise ValidationError(f"Selected {labels['batch_lower']} must belong to the selected academic year.")
+                raise ValidationError("Selected batch must belong to the selected academic year.")
             allowed_course_ids = set(batch.courses.values_list("id", flat=True))
             selected_course_ids = {course.id for course in courses}
             if not selected_course_ids.issubset(allowed_course_ids):
-                labels = academic_structure_labels(self.institute)
-                raise ValidationError(f"Selected {labels['course_plural_lower']} must belong to the selected {labels['batch_lower']}.")
+                raise ValidationError("Selected courses must belong to the selected batch.")
             if self.academic_year and courses.exclude(academic_year=self.academic_year).exists():
-                labels = academic_structure_labels(self.institute)
-                raise ValidationError(f"Selected {labels['course_plural_lower']} must belong to the selected academic year.")
+                raise ValidationError("Selected courses must belong to the selected academic year.")
 
         if custom_fee_amount is not None and custom_fee_amount < 0:
             raise ValidationError("Custom fee cannot be negative.")
