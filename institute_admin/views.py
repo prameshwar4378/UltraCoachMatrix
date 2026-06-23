@@ -425,9 +425,11 @@ def print_template_set_library(request, pk):
 
 def get_current_institute(request):
     profile = getattr(request.user, "profile", None)
-    if request.user.is_superuser:
-        return None
-    if not profile or profile.role != UserProfile.Role.INSTITUTE_ADMIN:
+    if (
+        not profile
+        or profile.role != UserProfile.Role.INSTITUTE_ADMIN
+        or not profile.institute_id
+    ):
         raise PermissionDenied("Only institute admins can access this page.")
     return profile.institute
 
@@ -2102,8 +2104,8 @@ def course_list(request):
     elif status_filter == "inactive":
         courses = courses.filter(is_active=False)
 
-    base_queryset = Course.objects.filter(institute=institute) if institute else Course.objects.all()
-    batch_queryset = Batch.objects.filter(institute=institute) if institute else Batch.objects.all()
+    base_queryset = Course.objects.filter(institute=institute)
+    batch_queryset = Batch.objects.filter(institute=institute)
     if academic_year:
         batch_queryset = batch_queryset.filter(academic_year=academic_year)
     if academic_year:
@@ -2162,9 +2164,7 @@ def course_create(request):
 def course_update(request, pk):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
-    queryset = Course.objects.all()
-    if institute:
-        queryset = queryset.filter(institute=institute)
+    queryset = Course.objects.filter(institute=institute)
     if academic_year:
         queryset = queryset.filter(academic_year=academic_year)
     course = get_object_or_404(queryset, pk=pk)
@@ -2194,9 +2194,7 @@ def course_update(request, pk):
 def course_delete(request, pk):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
-    queryset = Course.objects.all()
-    if institute:
-        queryset = queryset.filter(institute=institute)
+    queryset = Course.objects.filter(institute=institute)
     if academic_year:
         queryset = queryset.filter(academic_year=academic_year)
     course = get_object_or_404(queryset, pk=pk)
@@ -2232,7 +2230,7 @@ def subject_list(request):
     elif status_filter == "inactive":
         subjects = subjects.filter(is_active=False)
 
-    base_queryset = Subject.objects.filter(institute=institute) if institute else Subject.objects.all()
+    base_queryset = Subject.objects.filter(institute=institute)
     if academic_year:
         base_queryset = base_queryset.filter(academic_year=academic_year)
 
@@ -2283,9 +2281,7 @@ def subject_create(request):
 def subject_update(request, pk):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
-    queryset = Subject.objects.all()
-    if institute:
-        queryset = queryset.filter(institute=institute)
+    queryset = Subject.objects.filter(institute=institute)
     if academic_year:
         queryset = queryset.filter(academic_year=academic_year)
     subject = get_object_or_404(queryset, pk=pk)
@@ -2315,9 +2311,7 @@ def subject_update(request, pk):
 def subject_delete(request, pk):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
-    queryset = Subject.objects.all()
-    if institute:
-        queryset = queryset.filter(institute=institute)
+    queryset = Subject.objects.filter(institute=institute)
     if academic_year:
         queryset = queryset.filter(academic_year=academic_year)
     subject = get_object_or_404(queryset, pk=pk)
@@ -2350,7 +2344,7 @@ def fee_category_list(request):
     elif status_filter == "inactive":
         categories = categories.filter(is_active=False)
 
-    base_queryset = FeeCategory.objects.filter(institute=institute) if institute else FeeCategory.objects.all()
+    base_queryset = FeeCategory.objects.filter(institute=institute)
     context = {
         "categories": categories,
         "search_query": search_query,
@@ -2396,9 +2390,7 @@ def fee_category_create(request):
 @institute_admin_required
 def fee_category_update(request, pk):
     institute = get_current_institute(request)
-    queryset = FeeCategory.objects.all()
-    if institute:
-        queryset = queryset.filter(institute=institute)
+    queryset = FeeCategory.objects.filter(institute=institute)
     category = get_object_or_404(queryset, pk=pk)
 
     if request.method == "POST":
@@ -2425,9 +2417,7 @@ def fee_category_update(request, pk):
 @institute_admin_required
 def fee_category_delete(request, pk):
     institute = get_current_institute(request)
-    queryset = FeeCategory.objects.all()
-    if institute:
-        queryset = queryset.filter(institute=institute)
+    queryset = FeeCategory.objects.filter(institute=institute)
     category = get_object_or_404(queryset, pk=pk)
 
     if request.method == "POST":
@@ -2469,8 +2459,8 @@ def batch_list(request):
     elif status_filter == "inactive":
         batches = batches.filter(is_active=False)
 
-    base_queryset = Batch.objects.filter(institute=institute) if institute else Batch.objects.all()
-    course_queryset = Course.objects.filter(institute=institute) if institute else Course.objects.all()
+    base_queryset = Batch.objects.filter(institute=institute)
+    course_queryset = Course.objects.filter(institute=institute)
     if academic_year:
         base_queryset = base_queryset.filter(academic_year=academic_year)
         course_queryset = course_queryset.filter(academic_year=academic_year)
@@ -2534,9 +2524,7 @@ def batch_create(request):
 def batch_update(request, pk):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
-    queryset = Batch.objects.all()
-    if institute:
-        queryset = queryset.filter(institute=institute)
+    queryset = Batch.objects.filter(institute=institute)
     if academic_year:
         queryset = queryset.filter(academic_year=academic_year)
     batch = get_object_or_404(queryset, pk=pk)
@@ -2572,9 +2560,7 @@ def batch_update(request, pk):
 def batch_delete(request, pk):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
-    queryset = Batch.objects.all()
-    if institute:
-        queryset = queryset.filter(institute=institute)
+    queryset = Batch.objects.filter(institute=institute)
     if academic_year:
         queryset = queryset.filter(academic_year=academic_year)
     batch = get_object_or_404(queryset, pk=pk)
@@ -5769,8 +5755,8 @@ def enrollment_list(request):
     if status_filter:
         enrollments = enrollments.filter(status=status_filter)
 
-    batch_queryset = Batch.objects.filter(institute=institute) if institute else Batch.objects.all()
-    base_queryset = StudentEnrollment.objects.filter(student__institute=institute) if institute else StudentEnrollment.objects.all()
+    batch_queryset = Batch.objects.filter(institute=institute)
+    base_queryset = StudentEnrollment.objects.filter(student__institute=institute)
     if academic_year:
         base_queryset = base_queryset.filter(academic_session__academic_year=academic_year)
 
@@ -5944,7 +5930,7 @@ def homework_list(request):
     if course_filter:
         homework = homework.filter(course_id=course_filter)
 
-    base_queryset = Homework.objects.filter(batch__institute=institute) if institute else Homework.objects.all()
+    base_queryset = Homework.objects.filter(batch__institute=institute)
     batch_queryset = Batch.objects.filter(institute=institute, is_active=True) if institute else Batch.objects.none()
     subject_queryset = Subject.objects.filter(institute=institute, is_active=True) if institute else Subject.objects.none()
     course_queryset = Course.objects.filter(institute=institute, is_active=True) if institute else Course.objects.none()
@@ -6104,7 +6090,7 @@ def notice_list(request):
     elif status_filter == "draft":
         notices = notices.filter(is_published=False)
 
-    base_queryset = Notice.objects.filter(institute=institute) if institute else Notice.objects.all()
+    base_queryset = Notice.objects.filter(institute=institute)
     paginator = Paginator(notices, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
 
@@ -6219,9 +6205,7 @@ def notice_update(request, pk):
 @institute_admin_required
 def notice_delete(request, pk):
     institute = get_current_institute(request)
-    queryset = Notice.objects.all()
-    if institute:
-        queryset = queryset.filter(institute=institute)
+    queryset = Notice.objects.filter(institute=institute)
     notice = get_object_or_404(queryset, pk=pk)
 
     if request.method == "POST":
@@ -6681,7 +6665,7 @@ def teacher_list(request):
     elif status_filter == "inactive":
         teachers = teachers.filter(is_active=False)
 
-    base_queryset = TeacherProfile.objects.filter(institute=institute) if institute else TeacherProfile.objects.all()
+    base_queryset = TeacherProfile.objects.filter(institute=institute)
     page_obj, paginator, pagination_query = paginate_queryset(request, teachers)
     context = {
         "teachers": page_obj.object_list,

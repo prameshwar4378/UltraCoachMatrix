@@ -1,6 +1,11 @@
 from django.contrib.auth.models import User
 from django.db import models
 
+from super_admin.media_utils import (
+    student_document_upload_path,
+    student_profile_image_upload_path,
+)
+
 
 class StudentProfile(models.Model):
     class Gender(models.TextChoices):
@@ -36,7 +41,7 @@ class StudentProfile(models.Model):
     roll_number = models.CharField(max_length=40, blank=True)
     middle_name = models.CharField(max_length=150, blank=True)
     gender = models.CharField(max_length=20, choices=Gender.choices, blank=True)
-    profile_image = models.ImageField(upload_to="students/profile_images/", blank=True)
+    profile_image = models.ImageField(upload_to=student_profile_image_upload_path, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     blood_group = models.CharField(max_length=10, blank=True)
     religion = models.CharField(max_length=80, blank=True)
@@ -390,7 +395,7 @@ class StudentDocument(models.Model):
     )
     document_type = models.CharField(max_length=40, choices=DocumentType.choices, default=DocumentType.OTHER)
     title = models.CharField(max_length=120)
-    file = models.FileField(upload_to="students/documents/")
+    file = models.FileField(upload_to=student_document_upload_path)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     note = models.CharField(max_length=255, blank=True)
 

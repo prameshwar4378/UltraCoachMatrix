@@ -61,12 +61,14 @@ def _student_for_request(request):
             return None, JsonResponse({"detail": "You can view only your own fee details."}, status=403)
         return student, None
 
-    if role in [UserProfile.Role.INSTITUTE_ADMIN, UserProfile.Role.ACCOUNTANT] or user.is_superuser:
+    if role in [UserProfile.Role.INSTITUTE_ADMIN, UserProfile.Role.ACCOUNTANT]:
+        if not profile or not profile.institute_id:
+            return None, JsonResponse({"detail": "No institute is linked to this user."}, status=403)
         if not requested_student_id:
             return None, JsonResponse({"detail": "student_id query parameter is required."}, status=400)
-        queryset = StudentProfile.objects.select_related("user", "institute")
-        if profile and profile.institute_id:
-            queryset = queryset.filter(institute=profile.institute)
+        queryset = StudentProfile.objects.select_related("user", "institute").filter(
+            institute=profile.institute
+        )
         return get_object_or_404(queryset, pk=requested_student_id), None
 
     return None, JsonResponse({"detail": "You are not allowed to view fee details."}, status=403)

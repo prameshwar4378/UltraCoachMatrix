@@ -2,6 +2,8 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
 
+from super_admin.media_utils import expense_document_upload_path
+
 
 class FeeCategory(models.Model):
     institute = models.ForeignKey(
@@ -228,7 +230,7 @@ class ExpenseDocument(models.Model):
         on_delete=models.CASCADE,
         related_name="documents",
     )
-    file = models.FileField(upload_to="expenses/documents/")
+    file = models.FileField(upload_to=expense_document_upload_path)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

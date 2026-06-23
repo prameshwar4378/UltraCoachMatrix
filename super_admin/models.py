@@ -6,6 +6,8 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
+from .media_utils import institute_logo_upload_path
+
 
 class Institute(models.Model):
     class InstituteType(models.TextChoices):
@@ -30,7 +32,7 @@ class Institute(models.Model):
     owner_name = models.CharField(max_length=120, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
-    logo = models.ImageField(upload_to="institutes/logos/", blank=True)
+    logo = models.ImageField(upload_to=institute_logo_upload_path, blank=True)
     address = models.TextField(blank=True)
     status = models.CharField(
         max_length=20,

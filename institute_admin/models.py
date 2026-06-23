@@ -4,9 +4,11 @@ from django.db import models
 from django.utils import timezone
 from decimal import Decimal
 
-
-def institute_print_template_upload_path(instance, filename):
-    return f"institutes/{instance.institute_id}/print_templates/{instance.document_type}/{filename}"
+from super_admin.media_utils import (
+    background_job_input_upload_path,
+    institute_print_template_upload_path,
+    visitor_attachment_upload_path,
+)
 
 
 def global_print_template_upload_path(instance, filename):
@@ -81,7 +83,7 @@ class BackgroundJob(models.Model):
     job_type = models.CharField(max_length=40, choices=JobType.choices)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     payload = models.JSONField(default=dict, blank=True)
-    input_file = models.FileField(upload_to="background_jobs/input/", blank=True)
+    input_file = models.FileField(upload_to=background_job_input_upload_path, blank=True)
     result = models.JSONField(default=dict, blank=True)
     error_message = models.TextField(blank=True)
     attempts = models.PositiveIntegerField(default=0)
@@ -298,7 +300,7 @@ class Visitor(models.Model):
     purpose = models.TextField("Purpose of Visit", blank=True)
     attachment = models.FileField(
         "Attachment / ID Scan",
-        upload_to="visitors/id_scans/",
+        upload_to=visitor_attachment_upload_path,
         blank=True,
     )
     created_by = models.ForeignKey(

@@ -2,6 +2,12 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
 
+from super_admin.media_utils import (
+    exam_question_image_upload_path,
+    exam_rough_work_upload_path,
+    homework_attachment_upload_path,
+)
+
 
 class TeacherProfile(models.Model):
     class TeacherType(models.TextChoices):
@@ -133,7 +139,7 @@ class Homework(models.Model):
 
 class HomeworkAttachment(models.Model):
     homework = models.ForeignKey(Homework, on_delete=models.CASCADE, related_name="attachments")
-    file = models.FileField(upload_to="homework/attachments/")
+    file = models.FileField(upload_to=homework_attachment_upload_path)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -213,7 +219,7 @@ class Exam(models.Model):
 class ExamQuestion(models.Model):
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name="questions")
     text = models.TextField(blank=True)
-    image = models.ImageField(upload_to="exams/questions/", blank=True)
+    image = models.ImageField(upload_to=exam_question_image_upload_path, blank=True)
     marks = models.PositiveIntegerField(default=1)
     order = models.PositiveIntegerField(default=1)
 
@@ -315,7 +321,7 @@ class ExamAttemptUpload(models.Model):
         blank=True,
         related_name="rough_work_uploads",
     )
-    image = models.ImageField(upload_to="exams/rough-work/")
+    image = models.ImageField(upload_to=exam_rough_work_upload_path)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
