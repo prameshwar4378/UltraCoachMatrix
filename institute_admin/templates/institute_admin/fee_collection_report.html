@@ -1,0 +1,580 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Fee Collection Report{% endblock title %}
+
+{% block content %}
+<style>
+    .fc-page {
+        --ink: #0f172a;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --panel: #ffffff;
+        --soft: #f8fafc;
+        --green: #16a34a;
+        --blue: #2563eb;
+        --indigo: #4f46e5;
+        padding: 24px;
+        background: linear-gradient(180deg, #f8fafc 0%, #eef6ff 100%);
+        min-height: calc(100vh - 120px);
+    }
+
+    .fc-shell {
+        max-width: 1480px;
+        margin: 0 auto;
+    }
+
+    .fc-header,
+    .fc-filter,
+    .fc-card,
+    .fc-panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.07);
+    }
+
+    .fc-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        align-items: center;
+        padding: 22px;
+        margin-bottom: 16px;
+    }
+
+    .fc-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--blue);
+        font-weight: 900;
+        text-decoration: none;
+        margin-bottom: 8px;
+    }
+
+    .fc-title {
+        margin: 0;
+        color: var(--ink);
+        font-size: clamp(1.55rem, 2.4vw, 2.25rem);
+        font-weight: 900;
+        letter-spacing: 0;
+    }
+
+    .fc-subtitle {
+        margin: 7px 0 0;
+        color: var(--muted);
+        font-weight: 600;
+        line-height: 1.55;
+    }
+
+    .fc-export {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 7px;
+        padding: 11px 14px;
+        background: var(--blue);
+        color: #fff;
+        text-decoration: none;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .fc-filter {
+        padding: 18px;
+        margin-bottom: 16px;
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        align-items: end;
+    }
+
+    .filter-field label {
+        display: block;
+        margin-bottom: 6px;
+        color: #334155;
+        font-size: .78rem;
+        font-weight: 900;
+    }
+
+    .filter-field input,
+    .filter-field select {
+        width: 100%;
+        height: 42px;
+        border: 1px solid #cbd5e1;
+        border-radius: 7px;
+        padding: 0 10px;
+        color: var(--ink);
+        background: #fff;
+        font-weight: 700;
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .filter-button,
+    .filter-reset {
+        height: 42px;
+        border-radius: 7px;
+        padding: 0 13px;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .filter-button {
+        border: 0;
+        background: var(--ink);
+        color: #fff;
+    }
+
+    .filter-reset {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--line);
+        color: #334155;
+        background: #fff;
+        text-decoration: none;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 16px;
+    }
+
+    .fc-card {
+        padding: 18px;
+        display: grid;
+        grid-template-columns: 48px minmax(0, 1fr);
+        gap: 13px;
+        align-items: center;
+    }
+
+    .card-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 1.25rem;
+        background: var(--indigo);
+    }
+
+    .total .card-icon { background: var(--green); }
+    .students .card-icon { background: var(--blue); }
+    .classes .card-icon { background: #0891b2; }
+    .batches .card-icon { background: var(--indigo); }
+
+    .card-value {
+        color: var(--ink);
+        font-size: clamp(1.25rem, 2vw, 1.8rem);
+        font-weight: 900;
+        line-height: 1.1;
+    }
+
+    .card-label {
+        color: var(--muted);
+        font-size: .82rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        margin-top: 5px;
+    }
+
+    .fc-breakdown-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .fc-panel {
+        overflow: hidden;
+    }
+
+    .panel-head {
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        background: var(--soft);
+    }
+
+    .panel-head h2 {
+        margin: 0;
+        color: var(--ink);
+        font-size: 1rem;
+        font-weight: 900;
+    }
+
+    .panel-head span {
+        color: var(--muted);
+        font-size: .82rem;
+        font-weight: 800;
+    }
+
+    .breakdown-list {
+        display: grid;
+        gap: 9px;
+        padding: 15px;
+        max-height: 360px;
+        overflow: auto;
+    }
+
+    .breakdown-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 11px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+    }
+
+    .breakdown-row strong {
+        display: block;
+        color: var(--ink);
+        font-weight: 900;
+        overflow-wrap: anywhere;
+    }
+
+    .breakdown-row span {
+        color: var(--muted);
+        font-size: .8rem;
+        font-weight: 700;
+    }
+
+    .breakdown-row b {
+        color: var(--green);
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+    }
+
+    .fc-table {
+        width: 100%;
+        margin: 0;
+        border-collapse: collapse;
+    }
+
+    .fc-table th {
+        padding: 12px 14px;
+        color: #334155;
+        background: var(--soft);
+        border-bottom: 1px solid var(--line);
+        font-size: .75rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .fc-table td {
+        padding: 13px 14px;
+        color: #1e293b;
+        border-bottom: 1px solid #f1f5f9;
+        font-weight: 650;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    .amount-positive {
+        color: var(--green);
+        font-weight: 900;
+    }
+
+    .empty-line {
+        padding: 24px;
+        color: var(--muted);
+        font-weight: 700;
+        text-align: center;
+    }
+
+    @media (max-width: 1199px) {
+        .filter-grid,
+        .summary-grid,
+        .fc-breakdown-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .fc-page { padding: 14px; }
+        .fc-header,
+        .filter-grid,
+        .summary-grid,
+        .fc-breakdown-grid {
+            grid-template-columns: 1fr;
+            display: grid;
+        }
+        .fc-header {
+            align-items: start;
+        }
+    }
+</style>
+
+<main id="main" class="main fc-page">
+    <div class="fc-shell">
+        <section class="fc-header">
+            <div>
+                <a class="fc-back" href="{% url 'institute_admin:reports_dashboard' %}">
+                    <i class="bi bi-arrow-left"></i> Reports
+                </a>
+                <h1 class="fc-title">Fee Collection Report</h1>
+                <p class="fc-subtitle">
+                    Daily, monthly and yearly fee collections with student, class, batch and payment mode breakdowns.
+                </p>
+            </div>
+            <a class="fc-export" href="?{{ export_query }}">
+                <i class="bi bi-download"></i> Export CSV
+            </a>
+        </section>
+
+        <form class="fc-filter" method="get">
+            <div class="filter-grid">
+                <div class="filter-field">
+                    <label for="id_start_date">Start Date</label>
+                    <input id="id_start_date" type="date" name="start_date" value="{{ filters.start_date_value }}">
+                </div>
+                <div class="filter-field">
+                    <label for="id_end_date">End Date</label>
+                    <input id="id_end_date" type="date" name="end_date" value="{{ filters.end_date_value }}">
+                </div>
+                <div class="filter-field">
+                    <label for="id_month">Month</label>
+                    <select id="id_month" name="month">
+                        <option value="">Any month</option>
+                        {% for value, label in month_options %}
+                        <option value="{{ value }}" {% if filters.month == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_year">Year</label>
+                    <select id="id_year" name="year">
+                        <option value="">Any year</option>
+                        {% for year in year_options %}
+                        <option value="{{ year }}" {% if filters.year == year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_student">Student</label>
+                    <input id="id_student" type="search" name="student" value="{{ filters.student }}" placeholder="Name, admission no, username">
+                </div>
+                <div class="filter-field">
+                    <label for="id_receipt_number">Receipt Number</label>
+                    <input id="id_receipt_number" type="search" name="receipt_number" value="{{ filters.receipt_number }}" placeholder="Receipt no">
+                </div>
+                <div class="filter-field">
+                    <label for="id_course">Class</label>
+                    <select id="id_course" name="course">
+                        <option value="">All classes</option>
+                        {% for course in courses %}
+                        <option value="{{ course.pk }}" {% if filters.course_id == course.pk|stringformat:"s" %}selected{% endif %}>{{ course.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_batch">Batch</label>
+                    <select id="id_batch" name="batch">
+                        <option value="">All batches</option>
+                        {% for batch in batches %}
+                        <option value="{{ batch.pk }}" {% if filters.batch_id == batch.pk|stringformat:"s" %}selected{% endif %}>{{ batch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_method">Payment Mode</label>
+                    <select id="id_method" name="method">
+                        <option value="">All modes</option>
+                        {% for value, label in payment_methods %}
+                        <option value="{{ value }}" {% if filters.method == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="filter-actions mt-3">
+                <button class="filter-button" type="submit"><i class="bi bi-funnel"></i> Apply Filter</button>
+                <a class="filter-reset" href="{% url 'institute_admin:fee_collection_report' %}">Reset</a>
+            </div>
+        </form>
+
+        <section class="summary-grid">
+            <div class="fc-card total">
+                <div class="card-icon"><i class="bi bi-cash-stack"></i></div>
+                <div>
+                    <div class="card-value">₹{{ total_collection|floatformat:2 }}</div>
+                    <div class="card-label">Total Collection</div>
+                </div>
+            </div>
+            <div class="fc-card students">
+                <div class="card-icon"><i class="bi bi-person-vcard"></i></div>
+                <div>
+                    <div class="card-value">{{ student_groups|length }}</div>
+                    <div class="card-label">Students</div>
+                </div>
+            </div>
+            <div class="fc-card classes">
+                <div class="card-icon"><i class="bi bi-journals"></i></div>
+                <div>
+                    <div class="card-value">{{ class_groups|length }}</div>
+                    <div class="card-label">Classes</div>
+                </div>
+            </div>
+            <div class="fc-card batches">
+                <div class="card-icon"><i class="bi bi-layers"></i></div>
+                <div>
+                    <div class="card-value">{{ payment_count }}</div>
+                    <div class="card-label">Payments</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="fc-breakdown-grid">
+            <div class="fc-panel">
+                <div class="panel-head">
+                    <h2>Payment Mode Wise</h2>
+                    <span>Cash / UPI / Bank / Card</span>
+                </div>
+                <div class="breakdown-list">
+                    {% for row in method_groups %}
+                    <div class="breakdown-row">
+                        <div><strong>{{ row.label }}</strong><span>{{ row.count }} payment{{ row.count|pluralize }}</span></div>
+                        <b>₹{{ row.amount|floatformat:2 }}</b>
+                    </div>
+                    {% empty %}
+                    <div class="empty-line">No payment modes found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="fc-panel">
+                <div class="panel-head">
+                    <h2>Date Wise Collection</h2>
+                    <span>Daily breakdown</span>
+                </div>
+                <div class="breakdown-list">
+                    {% for row in date_groups %}
+                    <div class="breakdown-row">
+                        <div><strong>{{ row.label }}</strong><span>{{ row.count }} payment{{ row.count|pluralize }}</span></div>
+                        <b>₹{{ row.amount|floatformat:2 }}</b>
+                    </div>
+                    {% empty %}
+                    <div class="empty-line">No date-wise collection found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="fc-panel">
+                <div class="panel-head">
+                    <h2>Class Wise Collection</h2>
+                    <span>{{ class_groups|length }} class{{ class_groups|length|pluralize:"es" }}</span>
+                </div>
+                <div class="breakdown-list">
+                    {% for row in class_groups %}
+                    <div class="breakdown-row">
+                        <div><strong>{{ row.label }}</strong><span>{{ row.count }} payment{{ row.count|pluralize }}</span></div>
+                        <b>₹{{ row.amount|floatformat:2 }}</b>
+                    </div>
+                    {% empty %}
+                    <div class="empty-line">No class-wise collection found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="fc-panel">
+                <div class="panel-head">
+                    <h2>Batch Wise Collection</h2>
+                    <span>{{ batch_groups|length }} batch{{ batch_groups|length|pluralize:"es" }}</span>
+                </div>
+                <div class="breakdown-list">
+                    {% for row in batch_groups %}
+                    <div class="breakdown-row">
+                        <div><strong>{{ row.label }}</strong><span>{{ row.count }} payment{{ row.count|pluralize }}</span></div>
+                        <b>₹{{ row.amount|floatformat:2 }}</b>
+                    </div>
+                    {% empty %}
+                    <div class="empty-line">No batch-wise collection found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <section class="fc-panel">
+            <div class="panel-head">
+                <h2>Student Wise Collection</h2>
+                <span>{{ student_groups|length }} student{{ student_groups|length|pluralize }}</span>
+            </div>
+            <div class="breakdown-list">
+                {% for row in student_groups %}
+                <div class="breakdown-row">
+                    <div><strong>{{ row.label }}</strong><span>{{ row.count }} payment{{ row.count|pluralize }}</span></div>
+                    <b>₹{{ row.amount|floatformat:2 }}</b>
+                </div>
+                {% empty %}
+                <div class="empty-line">No student-wise collection found.</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="fc-panel mt-3">
+            <div class="panel-head">
+                <h2>Collection Details</h2>
+                <span>Latest 100 payments</span>
+            </div>
+            <div class="table-wrap">
+                <table class="fc-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Receipt</th>
+                            <th>Student</th>
+                            <th>Class</th>
+                            <th>Batch</th>
+                            <th>Invoice</th>
+                            <th>Mode</th>
+                            <th class="text-end">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payment_rows %}
+                        <tr>
+                            <td>{{ payment.paid_on|date:"d M Y" }}</td>
+                            <td>
+                                {% if payment.receipt_number %}
+                                <a href="{% url 'institute_admin:payment_receipt' payment.pk %}" class="fw-bold text-decoration-none">
+                                    {{ payment.receipt_number }}
+                                </a>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>{{ payment.invoice.student }}</td>
+                            <td>{{ payment.report_course_label }}</td>
+                            <td>{{ payment.report_batch_label }}</td>
+                            <td>{{ payment.invoice.title }}</td>
+                            <td>{{ payment.get_method_display }}</td>
+                            <td class="text-end amount-positive">₹{{ payment.amount|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="empty-line">No collection rows found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</main>
+{% endblock content %}

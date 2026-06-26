@@ -173,6 +173,9 @@ class UserProfile(models.Model):
 
     class Meta:
         ordering = ["user__username"]
+        indexes = [
+            models.Index(fields=["institute", "role"], name="profile_inst_role_idx"),
+        ]
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"

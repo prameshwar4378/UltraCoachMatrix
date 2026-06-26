@@ -7,6 +7,7 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.sessions.models import Session
+from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError, connection, transaction
@@ -17,7 +18,7 @@ from django.urls import reverse
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
-from accountant.models import FeeCategory, FeeInvoice, Payment
+from accountant.models import Expense, FeeCategory, FeeInvoice, Payment
 from student_parent.models import GuardianProfile, StudentAcademicSession, StudentEnrollment, StudentProfile
 from super_admin.models import (
     Institute,
@@ -43,6 +44,66 @@ from .lookup_cache import (
     get_cached_batch_course_data,
 )
 from .models import AcademicYear, BackgroundJob, Batch, Course, Lead, Notice, SupportTicket, Visitor
+
+
+class TenantValidationTests(TestCase):
+    def setUp(self):
+        self.institute = Institute.objects.create(name="Tenant A", code="tenant-a")
+        self.other_institute = Institute.objects.create(name="Tenant B", code="tenant-b")
+        self.year = AcademicYear.objects.create(
+            institute=self.institute,
+            name="2026-27",
+            start_date=date(2026, 4, 1),
+            end_date=date(2027, 3, 31),
+        )
+        self.other_year = AcademicYear.objects.create(
+            institute=self.other_institute,
+            name="2026-27",
+            start_date=date(2026, 4, 1),
+            end_date=date(2027, 3, 31),
+        )
+        self.course = Course.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            name="Math",
+            fee_amount=Decimal("1000.00"),
+        )
+        self.other_course = Course.objects.create(
+            institute=self.other_institute,
+            academic_year=self.other_year,
+            name="Science",
+            fee_amount=Decimal("1000.00"),
+        )
+        self.batch = Batch.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            name="Morning",
+        )
+
+    def test_course_cannot_use_another_institute_academic_year(self):
+        course = Course(
+            institute=self.institute,
+            academic_year=self.other_year,
+            name="Invalid",
+            fee_amount=Decimal("10.00"),
+        )
+
+        with self.assertRaises(ValidationError):
+            course.save()
+
+    def test_batch_courses_reject_cross_institute_course(self):
+        with self.assertRaises(ValidationError):
+            self.batch.courses.add(self.other_course)
+
+    def test_notice_targets_reject_cross_institute_course(self):
+        notice = Notice.objects.create(
+            institute=self.institute,
+            title="Notice",
+            message="Tenant scoped",
+        )
+
+        with self.assertRaises(ValidationError):
+            notice.target_courses.add(self.other_course)
 
 
 class AcademicSessionSettingsTests(TestCase):
@@ -2073,6 +2134,166 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertEqual(student.admission_number, "SMIS26270002")
         self.assertEqual(student.user.username, "SMIS26270002")
         self.assertTrue(student.user.check_password("Student@123"))
+
+    def test_deactivating_student_preserves_existing_custom_and_extra_fees(self):
+        self.enrollment_2026.custom_fee_amount = Decimal("750.00")
+        self.enrollment_2026.save(update_fields=["custom_fee_amount"])
+        extra_invoice = FeeInvoice.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_session=self.session_2026,
+            title="Exam Fee",
+            amount=Decimal("125.00"),
+            due_date=date(2026, 6, 1),
+        )
+
+        form = StudentForm(
+            data={
+                "first_name": self.student.user.first_name,
+                "middle_name": self.student.middle_name,
+                "last_name": self.student.user.last_name,
+                "email": self.student.user.email,
+                "phone": self.student.user.profile.phone,
+                "joined_on": "2026-04-05",
+                "class_course": str(self.course.pk),
+                "batch": str(self.batch_2026.pk),
+                "fee_discount": "0.00",
+            },
+            institute=self.institute,
+            student=self.student,
+            academic_year=self.year_2026,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+
+        self.enrollment_2026.refresh_from_db()
+        extra_invoice.refresh_from_db()
+        self.session_2026.refresh_from_db()
+        self.student.refresh_from_db()
+        self.assertFalse(self.student.is_active)
+        self.assertEqual(self.session_2026.status, StudentAcademicSession.Status.LEFT)
+        self.assertEqual(self.enrollment_2026.custom_fee_amount, Decimal("750.00"))
+        self.assertEqual(extra_invoice.amount, Decimal("125.00"))
+
+    def test_profit_loss_report_calculates_collection_expense_and_export(self):
+        self.select_year(self.year_2026)
+        Expense.objects.create(
+            institute=self.institute,
+            title="Rent",
+            amount=Decimal("75.00"),
+            spent_on=date(2026, 5, 4),
+            recorded_by=self.admin_user,
+        )
+        Expense.objects.create(
+            institute=self.institute,
+            title="Outside Period",
+            amount=Decimal("900.00"),
+            spent_on=date(2026, 7, 1),
+            recorded_by=self.admin_user,
+        )
+
+        response = self.client.get(
+            reverse("institute_admin:profit_loss_report"),
+            {
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-31",
+                "course": str(self.course.pk),
+                "batch": str(self.batch_2026.pk),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["collection_total"], Decimal("250.00"))
+        self.assertEqual(response.context["expense_total"], Decimal("75.00"))
+        self.assertEqual(response.context["net_profit"], Decimal("175.00"))
+        self.assertContains(response, "Profit & Loss Report")
+        self.assertContains(response, "Rent")
+
+        export_response = self.client.get(
+            reverse("institute_admin:profit_loss_report"),
+            {
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-31",
+                "course": str(self.course.pk),
+                "batch": str(self.batch_2026.pk),
+                "export": "csv",
+            },
+        )
+
+        self.assertEqual(export_response.status_code, 200)
+        self.assertEqual(export_response["Content-Type"], "text/csv")
+        export_text = export_response.content.decode()
+        self.assertIn("Total Collection,250.00", export_text)
+        self.assertIn("Total Expenses,75.00", export_text)
+        self.assertIn("Net Profit/Loss,175.00", export_text)
+        self.assertIn("Rent", export_text)
+
+    def test_fee_collection_report_filters_groups_and_exports_payments(self):
+        self.select_year(self.year_2026)
+        matching_payment = Payment.objects.create(
+            invoice=self.invoice_2026,
+            amount=Decimal("150.00"),
+            paid_on=date(2026, 5, 7),
+            method=Payment.Method.UPI,
+            receipt_number="RCP-UPI-001",
+            received_by=self.admin_user,
+        )
+        Payment.objects.create(
+            invoice=self.invoice_2026,
+            amount=Decimal("999.00"),
+            paid_on=date(2026, 6, 7),
+            method=Payment.Method.UPI,
+            receipt_number="RCP-OUTSIDE",
+            received_by=self.admin_user,
+        )
+
+        response = self.client.get(
+            reverse("institute_admin:fee_collection_report"),
+            {
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-31",
+                "course": str(self.course.pk),
+                "batch": str(self.batch_2026.pk),
+                "method": Payment.Method.UPI,
+                "student": "Student",
+                "receipt_number": "RCP-UPI",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["total_collection"], Decimal("150.00"))
+        self.assertEqual(response.context["payment_count"], 1)
+        self.assertEqual(response.context["method_groups"][0]["label"], "UPI")
+        self.assertEqual(response.context["student_groups"][0]["amount"], Decimal("150.00"))
+        self.assertContains(response, "Fee Collection Report")
+        self.assertContains(response, "RCP-UPI-001")
+        self.assertContains(response, reverse("institute_admin:payment_receipt", args=[matching_payment.pk]))
+        self.assertNotContains(response, "RCP-OUTSIDE")
+
+        export_response = self.client.get(
+            reverse("institute_admin:fee_collection_report"),
+            {
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-31",
+                "course": str(self.course.pk),
+                "batch": str(self.batch_2026.pk),
+                "method": Payment.Method.UPI,
+                "student": "Student",
+                "receipt_number": "RCP-UPI",
+                "export": "csv",
+            },
+        )
+
+        self.assertEqual(export_response.status_code, 200)
+        self.assertEqual(export_response["Content-Type"], "text/csv")
+        export_text = export_response.content.decode()
+        self.assertIn("Total Collection,150.00", export_text)
+        self.assertIn("Receipt Number,RCP-UPI", export_text)
+        self.assertIn("RCP-UPI-001", export_text)
+        self.assertIn("Science", export_text)
+        self.assertIn("11th Batch", export_text)
+        self.assertNotIn("RCP-OUTSIDE", export_text)
 
     def test_registration_prefix_uses_normalized_institute_code(self):
         other_institute = Institute.objects.create(

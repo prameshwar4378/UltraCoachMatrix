@@ -338,8 +338,8 @@
         </li>
 
         <li class="nav-item menu-cyan">
-            <a class="nav-link"
-               href="#">
+            <a class="nav-link {% if current_url != 'reports_dashboard' %}collapsed{% endif %}"
+               href="{% url 'institute_admin:reports_dashboard' %}">
                 <i class="bi bi-bar-chart"></i>
                 <span>Reports</span>
             </a>

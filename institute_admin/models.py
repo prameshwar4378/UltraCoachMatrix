@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
@@ -19,10 +20,21 @@ def global_print_template_preview_upload_path(instance, filename):
     return f"print_template_library/{instance.document_type}/previews/{filename}"
 
 
+def validate_same_institute(instance, related_obj, field_name):
+    if related_obj and instance.institute_id and related_obj.institute_id != instance.institute_id:
+        raise ValidationError({field_name: "Selected record belongs to another institute."})
+
+
+def validate_same_academic_year(instance, related_obj, field_name):
+    if related_obj and instance.academic_year_id and related_obj.academic_year_id != instance.academic_year_id:
+        raise ValidationError({field_name: "Selected record belongs to another academic year."})
+
+
 class PrintDocumentType(models.TextChoices):
     ADMISSION_FORM = "ADMISSION_FORM", "Admission Form"
     TRANSFER_CERTIFICATE = "TRANSFER_CERTIFICATE", "TC"
     BONAFIDE_CERTIFICATE = "BONAFIDE_CERTIFICATE", "Bonafide"
+    PAYMENT_RECEIPT = "PAYMENT_RECEIPT", "Payment Receipt"
 
 
 class AcademicYear(models.Model):
@@ -45,6 +57,15 @@ class AcademicYear(models.Model):
 
     def __str__(self):
         return f"{self.institute} - {self.name}"
+
+    def clean(self):
+        super().clean()
+        if self.end_date < self.start_date:
+            raise ValidationError({"end_date": "End date cannot be before start date."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class BackgroundJob(models.Model):
@@ -129,6 +150,15 @@ class Course(models.Model):
     def __str__(self):
         return self.name
 
+    def clean(self):
+        super().clean()
+        if self.academic_year_id:
+            validate_same_institute(self, self.academic_year, "academic_year")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
 
 class Subject(models.Model):
     institute = models.ForeignKey(
@@ -154,6 +184,15 @@ class Subject(models.Model):
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        super().clean()
+        if self.academic_year_id:
+            validate_same_institute(self, self.academic_year, "academic_year")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class Batch(models.Model):
@@ -189,6 +228,15 @@ class Batch(models.Model):
     @property
     def total_course_fee(self):
         return sum((course.fee_amount for course in self.courses.all()), Decimal("0.00"))
+
+    def clean(self):
+        super().clean()
+        if self.academic_year_id:
+            validate_same_institute(self, self.academic_year, "academic_year")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class Lead(models.Model):
@@ -274,6 +322,16 @@ class Lead(models.Model):
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip()
+
+    def clean(self):
+        super().clean()
+        validate_same_institute(self, self.interested_class, "interested_class")
+        validate_same_institute(self, self.interested_batch, "interested_batch")
+        validate_same_institute(self, self.converted_student, "converted_student")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 def default_visitor_entry_time():
@@ -393,6 +451,15 @@ class Notice(models.Model):
 
     def __str__(self):
         return self.title
+
+    def clean(self):
+        super().clean()
+        if self.expires_at and self.publish_at and self.expires_at < self.publish_at:
+            raise ValidationError({"expires_at": "Expiry time cannot be before publish time."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     @property
     def is_active_for_app(self):
@@ -604,6 +671,16 @@ class InstituteGlobalPrintTemplate(models.Model):
     description = models.CharField(max_length=255, blank=True)
     html_file = models.FileField(upload_to=global_print_template_upload_path)
     preview_image = models.ImageField(upload_to=global_print_template_preview_upload_path, blank=True)
+    is_global = models.BooleanField(
+        default=True,
+        help_text="Show this template to every institute. Turn off to choose specific institutes.",
+    )
+    visible_to_institutes = models.ManyToManyField(
+        "super_admin.Institute",
+        blank=True,
+        related_name="visible_global_print_templates",
+        help_text="Institutes that can see this template when it is not global.",
+    )
     is_active = models.BooleanField(default=True)
     uploaded_by = models.ForeignKey(
         User,

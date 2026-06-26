@@ -48,7 +48,7 @@
     <div class="template-shell d-flex justify-content-between align-items-center">
         <div>
             <h2 class="template-title"><i class="bi bi-filetype-html me-2"></i> Print Template Center</h2>
-            <p class="template-subtitle">Preview library templates and set one global print design for all students in {{ institute.name }}.</p>
+            <p class="template-subtitle">Preview templates available to {{ institute.name }} and choose the institute default print design.</p>
         </div>
         <a href="javascript:void(0);" data-url="{% url 'institute_admin:print_template_create' %}" class="btn-template" onclick="openTemplateWindow(this)">
             <i class="bi bi-cloud-arrow-up"></i> Upload Custom Template
@@ -72,15 +72,26 @@
                         <i class="bi bi-file-earmark-text"></i>
                     {% elif group.document_type == "ADMISSION_FORM" %}
                         <i class="bi bi-person-vcard"></i>
-                    {% else %}
+                    {% elif group.document_type == "BONAFIDE_CERTIFICATE" %}
                         <i class="bi bi-award"></i>
+                    {% else %}
+                        <i class="bi bi-receipt"></i>
                     {% endif %}
                     {{ group.label }}
                 </h5>
                 {% if group.selected_template %}
-                    <span class="selected-chip">
-                        Active: {% if group.selected_template.library_template %}{{ group.selected_template.library_template.title }}{% else %}{{ group.selected_template.title }}{% endif %}
-                    </span>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="selected-chip">
+                            {% if group.selected_template.is_active %}Active{% else %}Inactive{% endif %}:
+                            {% if group.selected_template.library_template %}{{ group.selected_template.library_template.title }}{% else %}{{ group.selected_template.title }}{% endif %}
+                        </span>
+                        <form method="post" action="{% url 'institute_admin:print_template_delete' group.selected_template.pk %}" class="m-0" onsubmit="return confirm('Use the built-in default template for {{ group.label }}?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-arrow-counterclockwise"></i> Use Default
+                            </button>
+                        </form>
+                    </div>
                 {% else %}
                     <span class="text-muted fw-bold">Using default template</span>
                 {% endif %}
@@ -104,7 +115,10 @@
                                 {% if template.description %}
                                     <p class="template-desc">{{ template.description }}</p>
                                 {% endif %}
-                                <div class="template-meta">Type: {{ template.get_document_type_display }}</div>
+                                <div class="template-meta">
+                                    Type: {{ template.get_document_type_display }} |
+                                    {% if template.is_global %}Visible to all institutes{% else %}Visible to selected institutes{% endif %}
+                                </div>
                                 <div class="template-actions">
                                     <a href="{% url 'institute_admin:print_template_library_view' template.pk %}" target="_blank" class="btn btn-sm btn-outline-primary">
                                         <i class="bi bi-eye"></i> View

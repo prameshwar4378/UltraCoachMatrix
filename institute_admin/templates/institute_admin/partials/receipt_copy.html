@@ -1,5 +1,12 @@
-<section class="copy">
+<section class="copy {{ copy_type }}-copy">
     <div class="receipt-top">
+        <div class="school-logo">
+            {% if institute.logo %}
+                <img src="{{ institute.logo.url }}" alt="{{ institute.name }} logo">
+            {% else %}
+                Logo
+            {% endif %}
+        </div>
         <div>
             <div class="institute-name">{{ institute.name }}</div>
             <div class="institute-meta">
@@ -40,13 +47,32 @@
                     <strong>{{ invoice.title }}</strong><br>
                     <span>Invoice Due Date: {{ invoice.due_date }}</span>
                 </td>
-                <td>{{ invoice.category.name|default:"General" }}</td>
-                <td>{{ invoice.batch.name|default:"-" }}</td>
+                <td>{{ receipt_category_label }}</td>
+                <td>{{ receipt_batch_label }}</td>
                 <td>{{ payment.get_method_display }}</td>
                 <td class="amount">{{ payment.amount }}</td>
             </tr>
         </tbody>
     </table>
+
+    {% if show_due_breakup and due_category_rows %}
+    <table class="due-breakup">
+        <thead>
+            <tr>
+                <th>Pending Category</th>
+                <th class="amount">Due Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in due_category_rows %}
+            <tr>
+                <td>{{ row.name }}{% if row.invoice_count > 1 %} ({{ row.invoice_count }} items){% endif %}</td>
+                <td class="amount">{{ row.due_amount }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
 
     <div class="summary">
         <div class="note-box">
@@ -56,7 +82,11 @@
         <div class="totals">
             <div class="total-row"><span>Invoice Amount</span><span>{{ invoice.amount }}</span></div>
             <div class="total-row"><span>Total Paid</span><span>{{ invoice_paid_amount }}</span></div>
-            <div class="total-row"><span>Balance Due</span><span>{{ invoice_due_amount }}</span></div>
+            {% if show_due_breakup %}
+            <div class="total-row"><span>Due Balance</span><span>{{ overall_due_amount }}</span></div>
+            {% else %}
+            <div class="total-row"><span>Received Amount</span><span>{{ payment.amount }}</span></div>
+            {% endif %}
         </div>
     </div>
 

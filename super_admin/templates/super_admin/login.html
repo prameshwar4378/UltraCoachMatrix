@@ -1,3 +1,6 @@
+Use this full copy-paste ready responsive code:
+
+```html
 {% load static %}
 
 <!DOCTYPE html>
@@ -16,150 +19,163 @@
       box-sizing: border-box;
     }
 
-    body {
-      min-height: 100vh;
+    html, body {
+      min-height: 100%;
       margin: 0;
+    }
+
+    body {
       font-family: "Segoe UI", system-ui, sans-serif;
       background:
-        radial-gradient(circle at top left, rgba(37, 99, 235, .25), transparent 35%),
-        radial-gradient(circle at bottom right, rgba(14, 165, 233, .22), transparent 35%),
+        radial-gradient(circle at top left, rgba(37, 99, 235, .18), transparent 32%),
+        radial-gradient(circle at bottom right, rgba(14, 165, 233, .18), transparent 35%),
         linear-gradient(135deg, #f5f9ff, #eef6ff);
+      overflow-x: hidden;
+      overflow-y: auto;
+      padding: 18px;
+    }
+
+    .page-center {
+      min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      overflow: hidden;
-      padding: 24px;
     }
 
     .bg-shape {
-      position: absolute;
+      position: fixed;
       border-radius: 50%;
-      filter: blur(2px);
-      opacity: .55;
+      filter: blur(3px);
+      opacity: .35;
       animation: float 7s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
     }
 
     .shape-1 {
-      width: 190px;
-      height: 190px;
+      width: 170px;
+      height: 170px;
       background: linear-gradient(135deg, #2563eb, #38bdf8);
-      top: 8%;
-      left: 8%;
+      top: 5%;
+      left: 5%;
     }
 
     .shape-2 {
-      width: 260px;
-      height: 260px;
+      width: 220px;
+      height: 220px;
       background: linear-gradient(135deg, #0f172a, #2563eb);
-      right: 7%;
-      bottom: 8%;
+      right: 4%;
+      bottom: 5%;
       animation-delay: 1.5s;
     }
 
     .shape-3 {
-      width: 90px;
-      height: 90px;
+      width: 80px;
+      height: 80px;
       background: #60a5fa;
-      right: 22%;
-      top: 15%;
+      right: 18%;
+      top: 12%;
       animation-delay: .7s;
     }
 
     @keyframes float {
       0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-18px); }
+      50% { transform: translateY(-14px); }
     }
 
     .login-wrapper {
-      width: min(1050px, 100%);
-      min-height: 620px;
+      width: min(980px, 100%);
       display: grid;
-      grid-template-columns: 1.1fr .9fr;
-      background: rgba(255, 255, 255, .72);
-      backdrop-filter: blur(22px);
-      border: 1px solid rgba(255, 255, 255, .85);
-      border-radius: 32px;
-      box-shadow: 0 35px 100px rgba(15, 23, 42, .18);
+      grid-template-columns: 1fr .88fr;
+      background: rgba(255, 255, 255, .76);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, .9);
+      border-radius: 28px;
+      box-shadow: 0 28px 80px rgba(15, 23, 42, .16);
       overflow: hidden;
       position: relative;
       z-index: 2;
     }
 
     .brand-panel {
-      padding: 48px;
+      padding: 34px;
       background:
-        linear-gradient(135deg, rgba(15, 23, 42, .92), rgba(37, 99, 235, .9)),
+        linear-gradient(135deg, rgba(15, 23, 42, .94), rgba(37, 99, 235, .90)),
         url("{% static 'img/logo.png' %}");
       background-size: cover;
+      background-position: center;
       color: #fff;
       position: relative;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      min-height: 520px;
     }
 
     .brand-panel::after {
       content: "";
       position: absolute;
-      inset: auto -80px -80px auto;
-      width: 300px;
-      height: 300px;
+      right: -90px;
+      bottom: -90px;
+      width: 260px;
+      height: 260px;
       background: rgba(255,255,255,.12);
       border-radius: 50%;
     }
 
     .brand-badge {
       width: fit-content;
-      padding: 9px 16px;
+      padding: 8px 14px;
       border-radius: 999px;
       background: rgba(255,255,255,.14);
       border: 1px solid rgba(255,255,255,.22);
-      font-size: 14px;
-      letter-spacing: .3px;
+      font-size: 13px;
+      letter-spacing: .2px;
     }
 
     .brand-title {
-      font-size: clamp(34px, 5vw, 54px);
-      font-weight: 800;
-      line-height: 1.05;
-      margin-top: 90px;
-      margin-bottom: 18px;
+      font-size: clamp(30px, 4vw, 46px);
+      font-weight: 850;
+      line-height: 1.08;
+      margin: 58px 0 14px;
     }
 
     .brand-text {
-      max-width: 430px;
-      color: rgba(255,255,255,.82);
-      font-size: 16px;
-      line-height: 1.7;
+      max-width: 410px;
+      color: rgba(255,255,255,.84);
+      font-size: 15px;
+      line-height: 1.6;
+      margin-bottom: 0;
     }
 
     .feature-list {
       display: grid;
-      gap: 14px;
-      margin-top: 30px;
+      gap: 10px;
+      margin-top: 24px;
     }
 
     .feature-item {
       display: flex;
       align-items: center;
-      gap: 12px;
-      color: rgba(255,255,255,.9);
-      font-size: 15px;
+      gap: 10px;
+      color: rgba(255,255,255,.92);
+      font-size: 14px;
     }
 
     .feature-item i {
-      width: 34px;
-      height: 34px;
+      width: 30px;
+      height: 30px;
       display: grid;
       place-items: center;
-      border-radius: 12px;
-      background: rgba(255,255,255,.14);
+      border-radius: 10px;
+      background: rgba(255,255,255,.15);
+      flex-shrink: 0;
     }
 
     .auth-card {
-      padding: 48px;
-      background: rgba(255,255,255,.88);
+      padding: 34px;
+      background: rgba(255,255,255,.92);
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -167,39 +183,40 @@
 
     .logo-box {
       text-align: center;
-      margin-bottom: 28px;
+      margin-bottom: 18px;
     }
 
     .logo-box img {
-      width: 150px;
+      width: 118px;
       height: auto;
-      padding: 14px;
-      border-radius: 24px;
+      padding: 10px;
+      border-radius: 20px;
       background: #fff;
-      box-shadow: 0 18px 40px rgba(37,99,235,.14);
+      box-shadow: 0 14px 34px rgba(37,99,235,.13);
     }
 
     .auth-title {
-      font-size: 28px;
-      font-weight: 800;
+      font-size: 25px;
+      font-weight: 850;
       color: #0f172a;
       text-align: center;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .auth-subtitle {
       text-align: center;
       color: #64748b;
-      margin-bottom: 30px;
+      margin-bottom: 18px;
+      font-size: 14px;
     }
 
     .back-home {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 7px;
       width: 100%;
-      margin: -12px 0 24px;
+      margin: 0 0 18px;
       color: #2563eb;
       font-size: 14px;
       font-weight: 800;
@@ -214,8 +231,8 @@
     .form-label {
       font-weight: 700;
       color: #334155;
-      font-size: 14px;
-      margin-bottom: 8px;
+      font-size: 13px;
+      margin-bottom: 7px;
     }
 
     .input-group-custom {
@@ -225,17 +242,17 @@
     .input-group-custom i {
       position: absolute;
       top: 50%;
-      left: 16px;
+      left: 15px;
       transform: translateY(-50%);
       color: #64748b;
-      font-size: 18px;
+      font-size: 17px;
     }
 
     .form-control {
-      height: 54px;
-      border-radius: 16px;
+      height: 50px;
+      border-radius: 14px;
       border: 1px solid #dbeafe;
-      padding-left: 48px;
+      padding-left: 46px;
       background: #f8fbff;
       font-weight: 500;
       transition: .25s;
@@ -244,32 +261,32 @@
     .form-control:focus {
       background: #fff;
       border-color: #2563eb;
-      box-shadow: 0 0 0 5px rgba(37,99,235,.12);
+      box-shadow: 0 0 0 4px rgba(37,99,235,.12);
     }
 
     .btn-login {
-      height: 55px;
+      height: 52px;
       border: 0;
-      border-radius: 16px;
+      border-radius: 14px;
       background: linear-gradient(135deg, #2563eb, #0284c7);
       color: #fff;
       font-weight: 800;
-      letter-spacing: .3px;
-      box-shadow: 0 18px 35px rgba(37,99,235,.32);
+      letter-spacing: .2px;
+      box-shadow: 0 15px 30px rgba(37,99,235,.30);
       transition: .25s;
     }
 
     .btn-login:hover {
       transform: translateY(-2px);
-      box-shadow: 0 24px 45px rgba(37,99,235,.42);
+      box-shadow: 0 20px 40px rgba(37,99,235,.38);
       color: #fff;
     }
 
     .signup-link {
       text-align: center;
-      margin-top: 24px;
+      margin-top: 18px;
       color: #64748b;
-      font-size: 15px;
+      font-size: 14px;
     }
 
     .signup-link a {
@@ -283,18 +300,140 @@
     }
 
     .alert {
-      border-radius: 16px;
+      border-radius: 14px;
       border: none;
       font-weight: 600;
+      font-size: 14px;
+      padding: 12px 14px;
+    }
+
+    @media (max-width: 1100px) {
+      body {
+        padding: 14px;
+      }
+
+      .login-wrapper {
+        width: min(900px, 100%);
+        grid-template-columns: .95fr .9fr;
+      }
+
+      .brand-panel {
+        padding: 28px;
+        min-height: 500px;
+      }
+
+      .brand-title {
+        margin-top: 42px;
+        font-size: 36px;
+      }
+
+      .brand-text {
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      .auth-card {
+        padding: 28px;
+      }
+    }
+
+    @media (max-height: 720px) and (min-width: 901px) {
+      .page-center {
+        align-items: flex-start;
+        padding: 12px 0;
+      }
+
+      .brand-panel {
+        min-height: auto;
+        padding: 24px;
+      }
+
+      .brand-title {
+        margin-top: 28px;
+        font-size: 32px;
+        margin-bottom: 10px;
+      }
+
+      .brand-text {
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .feature-list {
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      .feature-item {
+        font-size: 13px;
+      }
+
+      .feature-item i {
+        width: 28px;
+        height: 28px;
+      }
+
+      .auth-card {
+        padding: 24px;
+      }
+
+      .logo-box {
+        margin-bottom: 12px;
+      }
+
+      .logo-box img {
+        width: 95px;
+        padding: 8px;
+      }
+
+      .auth-title {
+        font-size: 22px;
+      }
+
+      .auth-subtitle {
+        margin-bottom: 12px;
+      }
+
+      .back-home {
+        margin-bottom: 12px;
+      }
+
+      .form-control {
+        height: 46px;
+      }
+
+      .btn-login {
+        height: 48px;
+      }
+
+      .signup-link {
+        margin-top: 12px;
+      }
+
+      .mb-3 {
+        margin-bottom: 12px !important;
+      }
+
+      .mb-4 {
+        margin-bottom: 16px !important;
+      }
     }
 
     @media (max-width: 900px) {
       body {
-        overflow: auto;
+        padding: 14px;
+      }
+
+      .page-center {
+        min-height: auto;
+        padding: 18px 0;
+        align-items: flex-start;
       }
 
       .login-wrapper {
         grid-template-columns: 1fr;
+        max-width: 480px;
+        border-radius: 24px;
       }
 
       .brand-panel {
@@ -302,7 +441,39 @@
       }
 
       .auth-card {
-        padding: 34px 24px;
+        padding: 30px 22px;
+      }
+
+      .logo-box img {
+        width: 110px;
+      }
+    }
+
+    @media (max-width: 420px) {
+      body {
+        padding: 10px;
+      }
+
+      .auth-card {
+        padding: 24px 16px;
+      }
+
+      .auth-title {
+        font-size: 22px;
+      }
+
+      .form-control {
+        height: 48px;
+        border-radius: 13px;
+      }
+
+      .btn-login {
+        height: 50px;
+        border-radius: 13px;
+      }
+
+      .signup-link {
+        font-size: 13px;
       }
     }
   </style>
@@ -314,112 +485,116 @@
   <div class="bg-shape shape-2"></div>
   <div class="bg-shape shape-3"></div>
 
-  <main class="login-wrapper">
+  <div class="page-center">
+    <main class="login-wrapper">
 
-    <section class="brand-panel">
-      <div>
-        <div class="brand-badge">
-          <i class="bi bi-stars me-1"></i>
-          Smart Coaching Management
-        </div>
-
-        <h1 class="brand-title">
-          Manage your institute smarter.
-        </h1>
-
-        <p class="brand-text">
-          UltraCoachMatrix helps coaching classes handle students, fees,
-          attendance, batches, reports and daily operations from one powerful dashboard.
-        </p>
-
-        <div class="feature-list">
-          <div class="feature-item">
-            <i class="bi bi-people"></i>
-            Student & parent management
+      <section class="brand-panel">
+        <div>
+          <div class="brand-badge">
+            <i class="bi bi-stars me-1"></i>
+            Smart Coaching Management
           </div>
-          <div class="feature-item">
-            <i class="bi bi-cash-stack"></i>
-            Fees and payment tracking
-          </div>
-          <div class="feature-item">
-            <i class="bi bi-bar-chart"></i>
-            Reports and institute insights
-          </div>
-        </div>
-      </div>
 
-      <div class="small text-white-50">
-        © UltraCoachMatrix Software
-      </div>
-    </section>
+          <h1 class="brand-title">
+            Manage your institute smarter.
+          </h1>
 
-    <section class="auth-card">
+          <p class="brand-text">
+            UltraCoachMatrix helps coaching classes manage students, fees,
+            attendance, batches and reports from one powerful dashboard.
+          </p>
 
-      <div class="logo-box">
-        <img src="{% static 'img/logo.png' %}" alt="UltraCoachMatrix Logo">
-      </div>
-
-      <h2 class="auth-title">Welcome Back</h2>
-      <p class="auth-subtitle">Login to your coaching dashboard</p>
-      <a href="{% url 'index' %}" class="back-home">
-        <i class="bi bi-arrow-left"></i> Back to Home
-      </a>
-
-      {% if form.errors %}
-        <div class="alert alert-danger">
-          <i class="bi bi-exclamation-circle me-2"></i>
-          Invalid username or password.
-        </div>
-      {% endif %}
-
-      <form method="post">
-        {% csrf_token %}
-
-        <div class="mb-3">
-          <label class="form-label" for="{{ form.username.id_for_label }}">Username</label>
-          <div class="input-group-custom">
-            <i class="bi bi-person"></i>
-            <input
-              class="form-control"
-              type="text"
-              name="{{ form.username.html_name }}"
-              id="{{ form.username.id_for_label }}"
-              placeholder="Enter your username"
-              required
-              autofocus
-            >
+          <div class="feature-list">
+            <div class="feature-item">
+              <i class="bi bi-people"></i>
+              Student & parent management
+            </div>
+            <div class="feature-item">
+              <i class="bi bi-cash-stack"></i>
+              Fees and payment tracking
+            </div>
+            <div class="feature-item">
+              <i class="bi bi-bar-chart"></i>
+              Reports and institute insights
+            </div>
           </div>
         </div>
 
-        <div class="mb-4">
-          <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
-          <div class="input-group-custom">
-            <i class="bi bi-lock"></i>
-            <input
-              class="form-control"
-              type="password"
-              name="{{ form.password.html_name }}"
-              id="{{ form.password.id_for_label }}"
-              placeholder="Enter your password"
-              required
-            >
-          </div>
+        <div class="small text-white-50">
+          © UltraCoachMatrix Software
+        </div>
+      </section>
+
+      <section class="auth-card">
+
+        <div class="logo-box">
+          <img src="{% static 'img/logo.png' %}" alt="UltraCoachMatrix Logo">
         </div>
 
-        <button class="btn btn-login w-100" type="submit">
-          Login <i class="bi bi-arrow-right ms-1"></i>
-        </button>
-      </form>
+        <h2 class="auth-title">Welcome Back</h2>
+        <p class="auth-subtitle">Login to your coaching dashboard</p>
 
-      <div class="signup-link">
-        New institute?
-        <a href="{% url 'signup' %}">Create institute account</a>
-      </div>
+        <a href="{% url 'index' %}" class="back-home">
+          <i class="bi bi-arrow-left"></i> Back to Home
+        </a>
 
-    </section>
+        {% if form.errors %}
+          <div class="alert alert-danger">
+            <i class="bi bi-exclamation-circle me-2"></i>
+            Invalid username or password.
+          </div>
+        {% endif %}
 
-  </main>
+        <form method="post">
+          {% csrf_token %}
+
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.username.id_for_label }}">Username</label>
+            <div class="input-group-custom">
+              <i class="bi bi-person"></i>
+              <input
+                class="form-control"
+                type="text"
+                name="{{ form.username.html_name }}"
+                id="{{ form.username.id_for_label }}"
+                placeholder="Enter your username"
+                required
+                autofocus
+              >
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
+            <div class="input-group-custom">
+              <i class="bi bi-lock"></i>
+              <input
+                class="form-control"
+                type="password"
+                name="{{ form.password.html_name }}"
+                id="{{ form.password.id_for_label }}"
+                placeholder="Enter your password"
+                required
+              >
+            </div>
+          </div>
+
+          <button class="btn btn-login w-100" type="submit">
+            Login <i class="bi bi-arrow-right ms-1"></i>
+          </button>
+        </form>
+
+        <div class="signup-link">
+          New institute?
+          <a href="{% url 'signup' %}">Create institute account</a>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
 
 <script src="/static/js/form-submit-lock.js"></script>
 </body>
 </html>
+```

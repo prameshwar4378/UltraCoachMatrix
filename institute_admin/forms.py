@@ -139,11 +139,7 @@ class SecurityPasswordChangeForm(forms.Form):
 class InstitutePrintTemplateForm(forms.ModelForm):
     document_type = forms.ChoiceField(
         label="Template Type",
-        choices=(
-            (PrintDocumentType.TRANSFER_CERTIFICATE, "TC"),
-            (PrintDocumentType.ADMISSION_FORM, "Admission Form"),
-            (PrintDocumentType.BONAFIDE_CERTIFICATE, "Bonafide"),
-        ),
+        choices=PrintDocumentType.choices,
         widget=forms.Select(attrs={"class": "form-select"}),
         help_text="Choose which print document this HTML template will replace for this institute.",
     )
@@ -443,6 +439,10 @@ class CourseForm(forms.ModelForm):
         self.institute = institute
         self.academic_year = academic_year
         super().__init__(*args, **kwargs)
+        if institute:
+            self.instance.institute = institute
+        if academic_year:
+            self.instance.academic_year = academic_year
         self.fields["fee_amount"].widget.attrs.setdefault("min", "0")
         self.fields["fee_amount"].widget.attrs.setdefault("step", "0.01")
         for field in self.fields.values():
@@ -477,6 +477,10 @@ class SubjectForm(forms.ModelForm):
         self.institute = institute
         self.academic_year = academic_year
         super().__init__(*args, **kwargs)
+        if institute:
+            self.instance.institute = institute
+        if academic_year:
+            self.instance.academic_year = academic_year
         for field in self.fields.values():
             css_class = "form-check-input" if isinstance(field.widget, forms.CheckboxInput) else "form-control"
             field.widget.attrs.setdefault("class", css_class)
@@ -560,6 +564,10 @@ class BatchForm(forms.ModelForm):
         self.institute = institute
         self.academic_year = academic_year
         super().__init__(*args, **kwargs)
+        if institute:
+            self.instance.institute = institute
+        if academic_year:
+            self.instance.academic_year = academic_year
         if institute:
             courses = Course.objects.filter(institute=institute, is_active=True)
             if academic_year:
@@ -1696,16 +1704,18 @@ class StudentForm(forms.Form):
         )
 
         if class_course and batch:
-            enrollment, _enrollment_created = StudentEnrollment.objects.update_or_create(
+            enrollment, enrollment_created = StudentEnrollment.objects.update_or_create(
                 academic_session=academic_session,
                 batch=batch,
                 defaults={
                     "student": student,
                     "enrolled_on": self.cleaned_data["joined_on"],
                     "status": StudentEnrollment.Status.ACTIVE,
-                    "custom_fee_amount": self.cleaned_data["final_fee_amount"],
                 },
             )
+            if enrollment_created:
+                enrollment.custom_fee_amount = self.cleaned_data["final_fee_amount"]
+                enrollment.save(update_fields=["custom_fee_amount"])
             enrollment.courses.set([class_course])
 
         if self.cleaned_data.get("guardian_name") or self.cleaned_data.get("guardian_phone"):
@@ -1986,6 +1996,7 @@ class StudentTransferCertificateForm(forms.Form):
     reason_for_leaving = forms.CharField(max_length=255)
     conduct = forms.CharField(max_length=120)
     result = forms.ChoiceField(choices=RESULT_CHOICES, required=False)
+    progress = forms.CharField(max_length=120, required=False)
     last_class_attended = forms.CharField(max_length=80)
     qualified_for_promotion = forms.BooleanField(required=False)
     fees_cleared = forms.BooleanField(required=False)
@@ -2113,6 +2124,7 @@ class StudentTransferCertificateForm(forms.Form):
             reason_for_leaving=self.cleaned_data["reason_for_leaving"],
             conduct=self.cleaned_data["conduct"],
             result=self.cleaned_data.get("result", ""),
+            progress=self.cleaned_data.get("progress", ""),
             last_class_attended=self.cleaned_data["last_class_attended"],
             qualified_for_promotion=self.cleaned_data["qualified_for_promotion"],
             fees_cleared=self.cleaned_data["fees_cleared"],

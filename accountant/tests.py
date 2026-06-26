@@ -2,9 +2,10 @@ from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
-from institute_admin.models import AcademicYear, Batch, Course
+from institute_admin.models import AcademicYear, Batch, Course, InstitutePrintTemplate, PrintDocumentType
 from student_parent.models import StudentAcademicSession, StudentEnrollment, StudentProfile
 from super_admin.mobile_auth import create_access_token
 from super_admin.models import Institute, UserProfile
@@ -242,6 +243,28 @@ class MobileFeesApiTests(TestCase):
         self.assertEqual(response.json()["detail"], "Invalid or expired access token.")
 
     def test_mobile_receipt_download_returns_html(self):
+        transport = FeeCategory.objects.create(
+            institute=self.institute,
+            name="Transport",
+            default_amount=Decimal("2500.00"),
+        )
+        transport_invoice = FeeInvoice.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_session=self.session,
+            category=transport,
+            title="Transport Fee",
+            amount=Decimal("2500.00"),
+            due_date=date(2026, 7, 15),
+            status=FeeInvoice.Status.PARTIAL,
+        )
+        Payment.objects.create(
+            invoice=transport_invoice,
+            amount=Decimal("1000.00"),
+            paid_on=date(2026, 6, 10),
+            receipt_number="RCP-TRANSPORT",
+        )
+
         response = self.client.get(
             f"/api/mobile/fees/payments/{self.payment.pk}/receipt/download/",
             **self.auth_headers(),
@@ -250,4 +273,40 @@ class MobileFeesApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/html")
         self.assertIn("fee-receipt-RCP-001.html", response["Content-Disposition"])
-        self.assertIn("Fee Receipt", response.content.decode())
+        html = response.content.decode()
+        office_copy_html, student_copy_html = html.split("Cut Here", 1)
+        self.assertIn("Fee Receipt", html)
+        self.assertIn("Logo", html)
+        self.assertIn("Morning", html)
+        self.assertNotIn("Pending Category", office_copy_html)
+        self.assertNotIn("Due Balance", office_copy_html)
+        self.assertIn("Received Amount", office_copy_html)
+        self.assertIn("Pending Category", student_copy_html)
+        self.assertIn("Due Balance", html)
+        self.assertIn("Fees", html)
+        self.assertIn("Transport", html)
+        self.assertIn("11500.00", html)
+
+    def test_mobile_receipt_download_uses_selected_payment_receipt_template(self):
+        InstitutePrintTemplate.objects.create(
+            institute=self.institute,
+            document_type=PrintDocumentType.PAYMENT_RECEIPT,
+            title="Custom Receipt",
+            html_file=SimpleUploadedFile(
+                "payment-receipt.html",
+                b"<html><body>Custom payment receipt {{ payment.receipt_number }} {{ receipt_batch_label }}</body></html>",
+                content_type="text/html",
+            ),
+            is_active=True,
+        )
+
+        response = self.client.get(
+            f"/api/mobile/fees/payments/{self.payment.pk}/receipt/download/",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn("Custom payment receipt", html)
+        self.assertIn("RCP-001", html)
+        self.assertIn("Morning", html)

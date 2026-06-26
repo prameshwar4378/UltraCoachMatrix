@@ -1,0 +1,637 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Reports{% endblock title %}
+
+{% block content %}
+<style>
+    .reports-page {
+        --ink: #111827;
+        --muted: #6b7280;
+        --line: rgba(148, 163, 184, .28);
+        --panel: rgba(255,255,255,.88);
+        --soft: #f8fafc;
+        --royal: #312e81;
+        --royal-2: #4f46e5;
+        --blue: #2563eb;
+        --cyan: #0891b2;
+        --green: #16a34a;
+        --gold: #b7791f;
+
+        min-height: calc(100vh - 120px);
+        padding: 26px;
+        background:
+            radial-gradient(circle at 8% 8%, rgba(79,70,229,.15), transparent 30%),
+            radial-gradient(circle at 92% 18%, rgba(14,165,233,.14), transparent 28%),
+            linear-gradient(135deg, #f8fafc 0%, #eef2ff 48%, #f8fafc 100%);
+        color: var(--ink);
+    }
+
+    .reports-shell {
+        max-width: 1500px;
+        margin: 0 auto;
+    }
+
+    .reports-hero {
+        position: relative;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 24px;
+        align-items: center;
+        padding: 28px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(255,255,255,.75);
+        border-radius: 26px;
+        background:
+            linear-gradient(135deg, rgba(255,255,255,.94), rgba(255,255,255,.72)),
+            linear-gradient(135deg, rgba(79,70,229,.12), rgba(14,165,233,.08));
+        box-shadow: 0 28px 70px rgba(30, 41, 59, .12);
+        backdrop-filter: blur(18px);
+    }
+
+    .reports-hero::before {
+        content: "";
+        position: absolute;
+        width: 300px;
+        height: 300px;
+        right: -120px;
+        top: -130px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(79,70,229,.22), transparent 68%);
+    }
+
+    .reports-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 13px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #eef2ff, #e0f2fe);
+        color: var(--royal);
+        font-size: .75rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: .07em;
+        border: 1px solid rgba(79,70,229,.16);
+    }
+
+    .reports-title {
+        margin: 14px 0 8px;
+        font-size: clamp(1.8rem, 3vw, 2.65rem);
+        font-weight: 950;
+        letter-spacing: -.04em;
+        color: #0f172a;
+    }
+
+    .reports-subtitle {
+        margin: 0;
+        max-width: 780px;
+        color: var(--muted);
+        line-height: 1.7;
+        font-size: .96rem;
+        font-weight: 600;
+    }
+
+    .hero-stats {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: repeat(3, 130px);
+        gap: 12px;
+    }
+
+    .hero-stat {
+        padding: 17px 15px;
+        border-radius: 20px;
+        background: rgba(255,255,255,.8);
+        border: 1px solid rgba(226,232,240,.9);
+        box-shadow: 0 14px 35px rgba(15,23,42,.08);
+    }
+
+    .hero-stat strong {
+        display: block;
+        font-size: 1.55rem;
+        font-weight: 950;
+        color: var(--royal);
+        line-height: 1;
+    }
+
+    .hero-stat span {
+        display: block;
+        margin-top: 7px;
+        color: var(--muted);
+        font-size: .72rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+
+    .reports-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 370px;
+        gap: 20px;
+        align-items: start;
+    }
+
+    .report-section,
+    .filter-panel,
+    .saved-panel {
+        border-radius: 24px;
+        background: var(--panel);
+        border: 1px solid rgba(255,255,255,.8);
+        box-shadow: 0 22px 55px rgba(15,23,42,.09);
+        backdrop-filter: blur(18px);
+    }
+
+    .report-section {
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .section-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 16px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid rgba(226,232,240,.9);
+    }
+
+    .section-title {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 950;
+        color: #0f172a;
+    }
+
+    .section-count {
+        padding: 7px 11px;
+        border-radius: 999px;
+        background: #f1f5f9;
+        color: #475569;
+        font-size: .76rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .report-card-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .report-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-height: 310px;
+        overflow: hidden;
+        padding: 18px;
+        border-radius: 22px;
+        background: #ffffff;
+        border: 1px solid rgba(226,232,240,.9);
+        box-shadow: 0 15px 35px rgba(15,23,42,.06);
+        transition: .25s ease;
+    }
+
+    .report-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 24px 55px rgba(15,23,42,.12);
+        border-color: rgba(79,70,229,.25);
+    }
+
+    .report-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 5px;
+        background: linear-gradient(90deg, var(--royal-2), #38bdf8);
+    }
+
+    .accent-green .report-card::before { background: linear-gradient(90deg, #16a34a, #86efac); }
+    .accent-indigo .report-card::before { background: linear-gradient(90deg, #4f46e5, #818cf8); }
+    .accent-cyan .report-card::before { background: linear-gradient(90deg, #0891b2, #67e8f9); }
+
+    .report-card-top {
+        display: grid;
+        grid-template-columns: 48px minmax(0, 1fr) auto;
+        gap: 13px;
+        align-items: start;
+    }
+
+    .report-icon {
+        width: 48px;
+        height: 48px;
+        display: grid;
+        place-items: center;
+        border-radius: 16px;
+        color: #fff;
+        font-size: 1.25rem;
+        box-shadow: 0 12px 24px rgba(79,70,229,.22);
+    }
+
+    .accent-green .report-icon { background: linear-gradient(135deg, #16a34a, #22c55e); }
+    .accent-indigo .report-icon { background: linear-gradient(135deg, #312e81, #6366f1); }
+    .accent-cyan .report-icon { background: linear-gradient(135deg, #0e7490, #06b6d4); }
+
+    .report-title {
+        margin: 0;
+        color: #111827;
+        font-size: 1.02rem;
+        font-weight: 950;
+        line-height: 1.35;
+    }
+
+    .report-description {
+        margin: 7px 0 0;
+        color: var(--muted);
+        font-size: .86rem;
+        line-height: 1.55;
+        font-weight: 600;
+    }
+
+    .priority-badge {
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: .69rem;
+        font-weight: 950;
+        white-space: nowrap;
+        background: #fff7ed;
+        color: #9a3412;
+        border: 1px solid #fed7aa;
+    }
+
+    .report-block {
+        margin-top: 15px;
+    }
+
+    .block-label {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        color: #1e293b;
+        font-size: .74rem;
+        font-weight: 950;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-top: 9px;
+    }
+
+    .filter-chip,
+    .output-chip {
+        border-radius: 999px;
+        padding: 7px 10px;
+        font-size: .76rem;
+        font-weight: 850;
+        line-height: 1.2;
+    }
+
+    .filter-chip {
+        color: #334155;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+
+    .output-chip {
+        color: #075985;
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+    }
+
+    .report-actions {
+        display: flex;
+        gap: 9px;
+        margin-top: auto;
+        padding-top: 18px;
+    }
+
+    .report-action {
+        flex: 1;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        background: #fff;
+        color: #334155;
+        padding: 11px 12px;
+        font-size: .82rem;
+        font-weight: 950;
+        text-align: center;
+        text-decoration: none;
+        transition: .2s ease;
+    }
+
+    .report-action:hover {
+        background: #f8fafc;
+        transform: translateY(-1px);
+    }
+
+    .report-action.primary {
+        border: 0;
+        background: linear-gradient(135deg, #312e81, #2563eb);
+        color: #fff;
+        box-shadow: 0 12px 25px rgba(37,99,235,.25);
+    }
+
+    .report-action:disabled {
+        opacity: .68;
+        cursor: not-allowed;
+    }
+
+    .side-stack {
+        position: sticky;
+        top: 92px;
+        display: grid;
+        gap: 20px;
+    }
+
+    .filter-panel,
+    .saved-panel {
+        padding: 20px;
+    }
+
+    .panel-title {
+        margin: 0;
+        color: #0f172a;
+        font-size: 1.05rem;
+        font-weight: 950;
+    }
+
+    .panel-copy {
+        margin: 8px 0 17px;
+        color: var(--muted);
+        font-size: .86rem;
+        line-height: 1.6;
+        font-weight: 600;
+    }
+
+    .mock-form {
+        display: grid;
+        gap: 12px;
+    }
+
+    .mock-field {
+        display: grid;
+        gap: 6px;
+    }
+
+    .mock-field label {
+        color: #334155;
+        font-size: .75rem;
+        font-weight: 950;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .mock-control {
+        height: 44px;
+        border-radius: 15px;
+        border: 1px solid #dbe3ef;
+        background: linear-gradient(135deg, #ffffff, #f8fafc);
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        padding: 0 13px;
+        font-size: .84rem;
+        font-weight: 750;
+    }
+
+    .format-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 9px;
+        margin-top: 3px;
+    }
+
+    .format-pill {
+        height: 42px;
+        display: grid;
+        place-items: center;
+        border-radius: 14px;
+        border: 1px solid #dbe3ef;
+        background: #fff;
+        color: #334155;
+        font-size: .8rem;
+        font-weight: 950;
+    }
+
+    .saved-list {
+        display: grid;
+        gap: 11px;
+    }
+
+    .saved-item {
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr);
+        gap: 11px;
+        align-items: start;
+        padding: 12px;
+        border-radius: 17px;
+        background: linear-gradient(135deg, #f8fafc, #ffffff);
+        border: 1px solid #e2e8f0;
+    }
+
+    .saved-item i {
+        width: 36px;
+        height: 36px;
+        display: grid;
+        place-items: center;
+        border-radius: 13px;
+        background: linear-gradient(135deg, #e0e7ff, #e0f2fe);
+        color: #3730a3;
+    }
+
+    .saved-item span {
+        color: #475569;
+        font-size: .82rem;
+        line-height: 1.45;
+        font-weight: 750;
+    }
+
+    @media (max-width: 1199px) {
+        .reports-grid,
+        .reports-hero {
+            grid-template-columns: 1fr;
+        }
+
+        .side-stack {
+            position: static;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .reports-page {
+            padding: 14px;
+        }
+
+        .reports-hero {
+            padding: 20px;
+            border-radius: 22px;
+        }
+
+        .hero-stats,
+        .report-card-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .report-card-top {
+            grid-template-columns: 44px minmax(0, 1fr);
+        }
+
+        .priority-badge {
+            grid-column: 2;
+            justify-self: start;
+        }
+
+        .section-heading {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+    }
+</style>
+
+<main id="main" class="main reports-page">
+    <div class="reports-shell">
+        <section class="reports-hero">
+            <div>
+                <span class="reports-kicker"><i class="bi bi-bar-chart"></i> Report Center</span>
+                <h1 class="reports-title">Premium Report Management Dashboard</h1>
+                <p class="reports-subtitle">
+                    Manage finance, fee, student and academic reports from one clean workspace. Generate reports, configure filters, export files and track saved reports with a modern professional layout.
+                </p>
+            </div>
+
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <strong>{{ report_count }}</strong>
+                    <span>Total Reports</span>
+                </div>
+                <div class="hero-stat">
+                    <strong>3</strong>
+                    <span>Report Groups</span>
+                </div>
+                <div class="hero-stat">
+                    <strong>PDF</strong>
+                    <span>Export Ready</span>
+                </div>
+            </div>
+        </section>
+
+        <div class="reports-grid">
+            <div>
+                {% for section in report_sections %}
+                <section class="report-section accent-{{ section.accent }}">
+                    <div class="section-heading">
+                        <h2 class="section-title">{{ section.group }} Reports</h2>
+                        <span class="section-count">{{ section.reports|length }} planned reports</span>
+                    </div>
+
+                    <div class="report-card-grid">
+                        {% for report in section.reports %}
+                        <article class="report-card">
+                            <div class="report-card-top">
+                                <div class="report-icon"><i class="bi {{ report.icon }}"></i></div>
+
+                                <div>
+                                    <h3 class="report-title">{{ report.title }}</h3>
+                                    <p class="report-description">{{ report.description }}</p>
+                                </div>
+
+                                <span class="priority-badge">{{ report.priority }}</span>
+                            </div>
+
+                            <div class="report-block">
+                                <div class="block-label"><i class="bi bi-funnel"></i> Filters</div>
+                                <div class="chip-list">
+                                    {% for filter in report.filters %}
+                                    <span class="filter-chip">{{ filter }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <div class="report-block">
+                                <div class="block-label"><i class="bi bi-table"></i> Output</div>
+                                <div class="chip-list">
+                                    {% for output in report.outputs %}
+                                    <span class="output-chip">{{ output }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <div class="report-actions">
+                                {% if report.url %}
+                                <a href="{{ report.url }}" class="report-action primary">
+                                    <i class="bi bi-play-fill"></i> Generate
+                                </a>
+                                {% else %}
+                                <button type="button" class="report-action primary" disabled>
+                                    <i class="bi bi-hourglass"></i> Coming Soon
+                                </button>
+                                {% endif %}
+                                <button type="button" class="report-action">
+                                    <i class="bi bi-sliders"></i> Configure
+                                </button>
+                            </div>
+                        </article>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endfor %}
+            </div>
+
+            <aside class="side-stack">
+                <section class="filter-panel">
+                    <h2 class="panel-title">Smart Filter Builder</h2>
+                    <p class="panel-copy">
+                        Common filter layout for report type, date range, class, batch, student and export format.
+                    </p>
+
+                    <div class="mock-form">
+                        <div class="mock-field">
+                            <label>Report</label>
+                            <div class="mock-control">Select report type</div>
+                        </div>
+
+                        <div class="mock-field">
+                            <label>Date Range</label>
+                            <div class="mock-control">Start date - End date</div>
+                        </div>
+
+                        <div class="mock-field">
+                            <label>Class / Batch / Student</label>
+                            <div class="mock-control">All records</div>
+                        </div>
+
+                        <div class="format-row">
+                            <div class="format-pill">PDF</div>
+                            <div class="format-pill">Excel</div>
+                            <div class="format-pill">CSV</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="saved-panel">
+                    <h2 class="panel-title">Generated Reports</h2>
+                    <p class="panel-copy">
+                        Saved report history will appear here after report generation is implemented.
+                    </p>
+
+                    <div class="saved-list">
+                        {% for item in saved_report_placeholders %}
+                        <div class="saved-item">
+                            <i class="bi bi-archive"></i>
+                            <span>{{ item }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+</main>
+{% endblock content %}

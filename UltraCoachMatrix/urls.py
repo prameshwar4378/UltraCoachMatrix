@@ -21,10 +21,16 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 from institute_admin import views as institute_admin_views
 from student_parent import views as student_parent_views
+from super_admin.private_media import private_media
 from super_admin import views as super_admin_views
 from super_admin import urls as super_admin_urls
 from Website import urls as website_urls
 urlpatterns = [
+    path(
+        f"{settings.MEDIA_URL.strip('/')}/<path:path>",
+        private_media,
+        name="private_media",
+    ),
     path('api/mobile/bootstrap/', student_parent_views.mobile_bootstrap, name='mobile_bootstrap'),
     path('api/mobile/attendance/', student_parent_views.mobile_attendance, name='mobile_attendance'),
     path('api/mobile/homework/', student_parent_views.mobile_homework_planner, name='mobile_homework_planner'),

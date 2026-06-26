@@ -470,6 +470,10 @@ body {
                     <td class="value">{{ tc.result|default:"-" }}</td>
                 </tr>
                 <tr>
+                    <td class="label">Progress</td>
+                    <td class="value">{{ tc.progress|default:"-" }}</td>
+                </tr>
+                <tr>
                     <td class="label">Qualified for Promotion</td>
                     <td class="value">{% if tc.qualified_for_promotion %}Yes{% else %}No{% endif %}</td>
                 </tr>

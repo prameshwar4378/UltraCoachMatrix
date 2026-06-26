@@ -4,7 +4,6 @@ from django.contrib.auth.models import User
 from django.db.models import Sum
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
-from django.template.loader import render_to_string
 from django.views.decorators.http import require_GET
 
 from student_parent.models import StudentAcademicSession, StudentEnrollment, StudentProfile
@@ -12,6 +11,7 @@ from super_admin.mobile_auth import bearer_user
 from super_admin.models import UserProfile
 
 from .models import FeeCategory, FeeInvoice, Payment
+from .fee_receipts import render_payment_receipt_html
 
 
 def _money(value):
@@ -613,33 +613,12 @@ def _payment_for_request(request, payment_id):
     return get_object_or_404(queryset, pk=payment_id), None
 
 
-def _receipt_context(payment):
-    invoice = payment.invoice
-    student = invoice.student
-    if payment.received_by_id is None:
-        payment.received_by = User(username="System")
-    invoice_paid_amount = invoice.payments.filter(status=Payment.Status.ACTIVE).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
-    invoice_due_amount = invoice.amount - invoice_paid_amount
-    if invoice_due_amount < 0:
-        invoice_due_amount = Decimal("0.00")
-    return {
-        "payment": payment,
-        "invoice": invoice,
-        "student": student,
-        "student_session": invoice.academic_session,
-        "guardian": student.guardians.filter(is_primary=True).first() or student.guardians.first(),
-        "institute": student.institute,
-        "invoice_paid_amount": invoice_paid_amount,
-        "invoice_due_amount": invoice_due_amount,
-    }
-
-
 @require_GET
 def mobile_payment_receipt(request, payment_id):
     payment, error = _payment_for_request(request, payment_id)
     if error:
         return error
-    return HttpResponse(render_to_string("institute_admin/payment_receipt.html", _receipt_context(payment), request=request))
+    return HttpResponse(render_payment_receipt_html(payment, request=request))
 
 
 @require_GET
@@ -647,7 +626,7 @@ def mobile_payment_receipt_download(request, payment_id):
     payment, error = _payment_for_request(request, payment_id)
     if error:
         return error
-    html = render_to_string("institute_admin/payment_receipt.html", _receipt_context(payment), request=request)
+    html = render_payment_receipt_html(payment, request=request)
     filename = f"fee-receipt-{payment.receipt_number or payment.pk}.html"
     response = HttpResponse(html, content_type="text/html")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'

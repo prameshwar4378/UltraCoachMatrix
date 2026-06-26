@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -90,7 +91,21 @@ class Attendance(models.Model):
     def save(self, *args, **kwargs):
         if self.academic_session_id:
             self.student = self.academic_session.student
+        self.full_clean()
         super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.academic_session_id:
+            if self.student_id and self.student_id != self.academic_session.student_id:
+                errors["student"] = "Attendance student must match the academic session student."
+            if self.batch_id and self.batch.institute_id != self.academic_session.institute_id:
+                errors["batch"] = "Selected batch belongs to another institute."
+            if self.batch_id and self.batch.academic_year_id != self.academic_session.academic_year_id:
+                errors["batch"] = "Selected batch belongs to another academic year."
+        if errors:
+            raise ValidationError(errors)
 
 
 class Homework(models.Model):
@@ -135,6 +150,25 @@ class Homework(models.Model):
 
     def __str__(self):
         return self.title
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.batch_id:
+            if self.course_id and self.course.institute_id != self.batch.institute_id:
+                errors["course"] = "Selected course belongs to another institute."
+            if self.subject_id and self.subject.institute_id != self.batch.institute_id:
+                errors["subject"] = "Selected subject belongs to another institute."
+            if self.course_id and self.course.academic_year_id != self.batch.academic_year_id:
+                errors["course"] = "Selected course belongs to another academic year."
+            if self.subject_id and self.subject.academic_year_id != self.batch.academic_year_id:
+                errors["subject"] = "Selected subject belongs to another academic year."
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class HomeworkAttachment(models.Model):
@@ -206,9 +240,27 @@ class Exam(models.Model):
     def __str__(self):
         return f"{self.title} - {self.batch}"
 
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.batch_id:
+            if self.academic_year_id and self.academic_year_id != self.batch.academic_year_id:
+                errors["academic_year"] = "Selected academic year must match the batch academic year."
+            if self.course_id and self.course.institute_id != self.batch.institute_id:
+                errors["course"] = "Selected course belongs to another institute."
+            if self.subject_id and self.subject.institute_id != self.batch.institute_id:
+                errors["subject"] = "Selected subject belongs to another institute."
+            if self.course_id and self.course.academic_year_id != self.batch.academic_year_id:
+                errors["course"] = "Selected course belongs to another academic year."
+            if self.subject_id and self.subject.academic_year_id != self.batch.academic_year_id:
+                errors["subject"] = "Selected subject belongs to another academic year."
+        if errors:
+            raise ValidationError(errors)
+
     def save(self, *args, **kwargs):
         if self.batch_id and not self.academic_year_id:
             self.academic_year = self.batch.academic_year
+        self.full_clean()
         super().save(*args, **kwargs)
 
     @property
@@ -287,6 +339,25 @@ class ExamAttempt(models.Model):
     @property
     def is_submitted(self):
         return self.submitted_at is not None
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.academic_session_id:
+            if self.student_id and self.student_id != self.academic_session.student_id:
+                errors["student"] = "Attempt student must match the academic session student."
+            if self.exam_id and self.exam.batch.institute_id != self.academic_session.institute_id:
+                errors["exam"] = "Selected exam belongs to another institute."
+            if self.exam_id and self.exam.academic_year_id != self.academic_session.academic_year_id:
+                errors["exam"] = "Selected exam belongs to another academic year."
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if self.academic_session_id:
+            self.student = self.academic_session.student
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class ExamQuestionAttempt(models.Model):

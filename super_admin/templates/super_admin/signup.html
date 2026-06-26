@@ -12,48 +12,64 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
   <style>
-    body {
-      min-height: 100vh;
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      min-height: 100%;
       margin: 0;
+    }
+
+    body {
       font-family: "Segoe UI", system-ui, sans-serif;
       background:
-        radial-gradient(circle at 10% 10%, rgba(37, 99, 235, .18), transparent 30%),
-        radial-gradient(circle at 90% 90%, rgba(14, 165, 233, .22), transparent 32%),
+        radial-gradient(circle at 8% 10%, rgba(37, 99, 235, .16), transparent 28%),
+        radial-gradient(circle at 92% 92%, rgba(14, 165, 233, .18), transparent 32%),
         linear-gradient(135deg, #f8fbff, #eef6ff);
+      overflow-x: hidden;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .page-center {
+      min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 30px;
     }
 
     .auth-container {
-      width: min(1120px, 100%);
+      width: min(1060px, 100%);
       display: grid;
-      grid-template-columns: 420px 1fr;
-      background: rgba(255, 255, 255, .82);
-      backdrop-filter: blur(20px);
-      border-radius: 30px;
+      grid-template-columns: 360px 1fr;
+      background: rgba(255, 255, 255, .84);
+      backdrop-filter: blur(18px);
+      border-radius: 26px;
       overflow: hidden;
       border: 1px solid rgba(255,255,255,.9);
-      box-shadow: 0 30px 90px rgba(15, 23, 42, .16);
+      box-shadow: 0 24px 70px rgba(15, 23, 42, .14);
     }
 
     .left-panel {
-      padding: 46px;
+      padding: 30px;
       color: #fff;
       background:
-        linear-gradient(145deg, rgba(15,23,42,.94), rgba(37,99,235,.92)),
+        linear-gradient(145deg, rgba(15,23,42,.95), rgba(37,99,235,.92)),
         url("{% static 'img/logo.png' %}");
       background-size: cover;
       background-position: center;
       position: relative;
+      overflow: hidden;
     }
 
     .left-panel::before {
       content: "";
       position: absolute;
       inset: 0;
-      background: radial-gradient(circle at bottom right, rgba(255,255,255,.16), transparent 35%);
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.14), transparent 32%),
+        radial-gradient(circle at bottom left, rgba(14,165,233,.25), transparent 34%);
     }
 
     .left-content {
@@ -63,6 +79,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      min-height: 520px;
     }
 
     .brand-badge {
@@ -70,76 +87,76 @@
       align-items: center;
       gap: 8px;
       width: fit-content;
-      padding: 9px 15px;
+      padding: 8px 14px;
       border-radius: 999px;
       background: rgba(255,255,255,.14);
       border: 1px solid rgba(255,255,255,.22);
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 13px;
+      font-weight: 700;
     }
 
     .left-title {
-      margin-top: 80px;
-      font-size: 39px;
+      margin-top: 54px;
+      font-size: 32px;
       font-weight: 850;
       line-height: 1.12;
     }
 
     .left-text {
-      margin-top: 18px;
-      color: rgba(255,255,255,.82);
-      line-height: 1.7;
-      font-size: 15.5px;
+      margin-top: 14px;
+      color: rgba(255,255,255,.84);
+      line-height: 1.55;
+      font-size: 14px;
     }
 
     .feature-list {
-      margin-top: 32px;
+      margin-top: 24px;
       display: grid;
-      gap: 14px;
+      gap: 10px;
     }
 
     .feature-item {
       display: flex;
       align-items: center;
-      gap: 12px;
-      font-size: 15px;
+      gap: 10px;
+      font-size: 13.5px;
       color: rgba(255,255,255,.92);
     }
 
     .feature-icon {
-      width: 36px;
-      height: 36px;
+      width: 31px;
+      height: 31px;
       display: grid;
       place-items: center;
-      border-radius: 13px;
+      border-radius: 11px;
       background: rgba(255,255,255,.14);
       flex: 0 0 auto;
     }
 
     .right-panel {
-      padding: 44px;
-      background: rgba(255,255,255,.94);
+      padding: 28px 34px;
+      background: rgba(255,255,255,.96);
     }
 
     .top-logo {
       display: flex;
       align-items: center;
-      gap: 18px;
-      margin-bottom: 28px;
+      gap: 14px;
+      margin-bottom: 16px;
     }
 
     .top-logo img {
-      width: 96px;
-      height: 96px;
+      width: 72px;
+      height: 72px;
       object-fit: contain;
-      border-radius: 20px;
+      border-radius: 18px;
       background: #fff;
-      box-shadow: 0 16px 34px rgba(37,99,235,.14);
-      padding: 8px;
+      box-shadow: 0 12px 28px rgba(37,99,235,.13);
+      padding: 7px;
     }
 
     .brand-name {
-      font-size: 20px;
+      font-size: 19px;
       font-weight: 850;
       color: #0f172a;
       margin: 0;
@@ -147,59 +164,77 @@
 
     .brand-sub {
       color: #64748b;
-      font-size: 14px;
-      margin: 0;
+      font-size: 13px;
+      margin: 2px 0 0;
+    }
+
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 18px;
     }
 
     .page-title {
-      font-size: 29px;
+      font-size: 25px;
       font-weight: 850;
       color: #0f172a;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
 
     .page-subtitle {
       color: #64748b;
-      margin-bottom: 28px;
+      margin: 0;
+      font-size: 13.5px;
     }
 
     .back-home {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      width: 100%;
-      margin: -12px 0 24px;
+      gap: 7px;
+      white-space: nowrap;
       color: #2563eb;
-      font-size: 14px;
+      background: #eff6ff;
+      border: 1px solid #dbeafe;
+      border-radius: 999px;
+      padding: 8px 13px;
+      font-size: 13px;
       font-weight: 800;
       text-decoration: none;
     }
 
     .back-home:hover {
       color: #1e40af;
-      text-decoration: underline;
+      background: #dbeafe;
     }
 
     .form-label {
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 13px;
+      font-weight: 750;
       color: #334155;
-      margin-bottom: 7px;
+      margin-bottom: 5px;
     }
 
     .right-panel input,
     .right-panel select,
     .right-panel textarea {
       width: 100%;
-      min-height: 52px;
-      border-radius: 14px !important;
+      min-height: 45px;
+      border-radius: 12px !important;
       border: 1px solid #dbeafe !important;
       background: #f8fbff !important;
-      padding: 12px 15px !important;
+      padding: 9px 13px !important;
       color: #0f172a;
+      font-size: 14px;
       font-weight: 500;
       transition: all .22s ease;
+    }
+
+    .right-panel textarea {
+      min-height: 78px;
+      resize: vertical;
     }
 
     .right-panel input:focus,
@@ -211,39 +246,46 @@
       box-shadow: 0 0 0 4px rgba(37,99,235,.12) !important;
     }
 
+    .text-muted.small {
+      font-size: 11.5px;
+      line-height: 1.35;
+    }
+
     .text-danger {
       color: #dc2626 !important;
     }
 
     .alert {
       border: 0;
-      border-radius: 14px;
+      border-radius: 13px;
       font-weight: 600;
+      font-size: 13px;
+      padding: 11px 13px;
     }
 
     .btn-create {
-      height: 56px;
+      height: 49px;
       border: 0;
-      border-radius: 15px;
+      border-radius: 13px;
       background: linear-gradient(135deg, #2563eb, #0284c7);
       color: #fff;
       font-weight: 850;
       letter-spacing: .2px;
-      box-shadow: 0 16px 34px rgba(37,99,235,.3);
+      box-shadow: 0 14px 30px rgba(37,99,235,.28);
       transition: .22s ease;
     }
 
     .btn-create:hover {
       transform: translateY(-2px);
       color: #fff;
-      box-shadow: 0 22px 42px rgba(37,99,235,.38);
+      box-shadow: 0 20px 38px rgba(37,99,235,.36);
     }
 
     .login-link {
-      margin-top: 22px;
+      margin-top: 14px;
       text-align: center;
       color: #64748b;
-      font-size: 15px;
+      font-size: 14px;
     }
 
     .login-link a {
@@ -256,9 +298,93 @@
       text-decoration: underline;
     }
 
+    @media (max-height: 760px) and (min-width: 993px) {
+      .page-center {
+        align-items: flex-start;
+      }
+
+      .left-content {
+        min-height: auto;
+      }
+
+      .left-title {
+        margin-top: 32px;
+        font-size: 29px;
+      }
+
+      .left-text {
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .feature-list {
+        margin-top: 16px;
+        gap: 8px;
+      }
+
+      .feature-item {
+        font-size: 13px;
+      }
+
+      .right-panel {
+        padding: 22px 28px;
+      }
+
+      .top-logo {
+        margin-bottom: 12px;
+      }
+
+      .top-logo img {
+        width: 60px;
+        height: 60px;
+      }
+
+      .page-title {
+        font-size: 22px;
+      }
+
+      .title-row {
+        margin-bottom: 12px;
+      }
+
+      .right-panel input,
+      .right-panel select,
+      .right-panel textarea {
+        min-height: 41px;
+        padding: 8px 12px !important;
+      }
+
+      .right-panel textarea {
+        min-height: 64px;
+      }
+
+      .row.g-3 {
+        --bs-gutter-y: .7rem;
+      }
+
+      .btn-create {
+        height: 45px;
+        margin-top: 14px !important;
+      }
+
+      .login-link {
+        margin-top: 10px;
+      }
+    }
+
     @media (max-width: 992px) {
+      body {
+        padding: 14px;
+      }
+
+      .page-center {
+        min-height: auto;
+        align-items: flex-start;
+      }
+
       .auth-container {
         grid-template-columns: 1fr;
+        max-width: 760px;
       }
 
       .left-panel {
@@ -268,22 +394,37 @@
 
     @media (max-width: 576px) {
       body {
-        padding: 16px;
+        padding: 10px;
       }
 
       .right-panel {
-        padding: 28px 20px;
+        padding: 24px 16px;
       }
 
       .top-logo {
         justify-content: center;
         text-align: center;
         flex-direction: column;
+        gap: 10px;
       }
 
-      .page-title,
-      .page-subtitle {
+      .title-row {
+        flex-direction: column;
+        align-items: center;
         text-align: center;
+        gap: 10px;
+      }
+
+      .back-home {
+        width: 100%;
+      }
+
+      .page-title {
+        font-size: 22px;
+      }
+
+      .page-subtitle {
+        font-size: 13px;
       }
     }
   </style>
@@ -291,118 +432,145 @@
 
 <body>
 
-  <main class="auth-container">
+  <div class="page-center">
+    <main class="auth-container">
 
-    <aside class="left-panel">
-      <div class="left-content">
-        <div>
-          <div class="brand-badge">
-            <i class="bi bi-stars"></i>
-            UltraCoachMatrix
+      <aside class="left-panel">
+        <div class="left-content">
+          <div>
+            <div class="brand-badge">
+              <i class="bi bi-stars"></i>
+              UltraCoachMatrix
+            </div>
+
+            <h1 class="left-title">
+              Create your institute dashboard faster.
+            </h1>
+
+            <p class="left-text">
+              Register your institute and manage students, fees, attendance,
+              batches and reports from one secure platform.
+            </p>
+
+            <div class="feature-list">
+              <div class="feature-item">
+                <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
+                Secure admin account
+              </div>
+
+              <div class="feature-item">
+                <div class="feature-icon"><i class="bi bi-people"></i></div>
+                Student & parent management
+              </div>
+
+              <div class="feature-item">
+                <div class="feature-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                Fees, attendance & reports
+              </div>
+            </div>
           </div>
 
-          <h1 class="left-title">
-            Build your institute dashboard in minutes.
-          </h1>
+          <div class="small text-white-50">
+            © UltraCoachMatrix Software
+          </div>
+        </div>
+      </aside>
 
-          <p class="left-text">
-            Create your institute account and manage students, parents,
-            staff, fees, attendance, batches and reports from one secure platform.
-          </p>
+      <section class="right-panel">
 
-          <div class="feature-list">
-            <div class="feature-item">
-              <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
-              Secure institute admin account
-            </div>
-
-            <div class="feature-item">
-              <div class="feature-icon"><i class="bi bi-people"></i></div>
-              Student, parent and staff management
-            </div>
-
-            <div class="feature-item">
-              <div class="feature-icon"><i class="bi bi-graph-up-arrow"></i></div>
-              Fees, attendance and reports
-            </div>
+        <div class="top-logo">
+          <img src="{% static 'img/logo.png' %}" alt="UltraCoachMatrix Logo">
+          <div>
+            <p class="brand-name">UltraCoachMatrix</p>
+            <p class="brand-sub">Coaching Class Management Software</p>
           </div>
         </div>
 
-        <div class="small text-white-50">
-          © UltraCoachMatrix Software
-        </div>
-      </div>
-    </aside>
-
-    <section class="right-panel">
-
-      <div class="top-logo">
-        <img src="{% static 'img/logo.png' %}" alt="UltraCoachMatrix Logo">
-        <div>
-          <p class="brand-name">UltraCoachMatrix</p>
-          <p class="brand-sub">Coaching Class Management Software</p>
-        </div>
-      </div>
-
-      <div class="mb-4">
-        <h2 class="page-title">Create Institute Account</h2>
-        <p class="page-subtitle">
-          The first registered user will become the Institute Admin.
-        </p>
-        <a href="{% url 'index' %}" class="back-home">
-          <i class="bi bi-arrow-left"></i> Back to Home
-        </a>
-      </div>
-
-      <form method="post" enctype="multipart/form-data" novalidate>
-        {% csrf_token %}
-
-        <div class="row g-3">
-          {% for field in form %}
-            <div class="{% if field.name == 'address' %}col-12{% else %}col-md-6{% endif %}">
-              <label class="form-label" for="{{ field.id_for_label }}">
-                {{ field.label }}
-              </label>
-
-              {{ field }}
-
-              {% if field.help_text %}
-                <div class="text-muted small mt-1">
-                  {{ field.help_text }}
-                </div>
-              {% endif %}
-
-              {% for error in field.errors %}
-                <div class="text-danger small fw-bold mt-1">
-                  <i class="bi bi-exclamation-circle me-1"></i>{{ error }}
-                </div>
-              {% endfor %}
-            </div>
-          {% endfor %}
-        </div>
-
-        {% if form.non_field_errors %}
-          <div class="alert alert-danger mt-3">
-            <i class="bi bi-exclamation-triangle me-2"></i>
-            {{ form.non_field_errors }}
+        <div class="title-row">
+          <div>
+            <h2 class="page-title">Create Institute Account</h2>
+            <p class="page-subtitle">
+              First registered user will become Institute Admin.
+            </p>
           </div>
-        {% endif %}
 
-        <button class="btn btn-create w-100 mt-4" type="submit">
-          Create Institute Account
-          <i class="bi bi-arrow-right ms-1"></i>
-        </button>
-      </form>
+          <a href="{% url 'index' %}" class="back-home">
+            <i class="bi bi-arrow-left"></i> Back Home
+          </a>
+        </div>
 
-      <div class="login-link">
-        Already have an account?
-        <a href="{% url 'login' %}">Login here</a>
-      </div>
+        <form method="post" enctype="multipart/form-data" novalidate>
+          {% csrf_token %}
 
-    </section>
+          <div class="row g-3">
+            {% for field in form %}
+              <div class="{% if field.name == 'address' %}col-12{% else %}col-md-6{% endif %}">
+                <label class="form-label" for="{{ field.id_for_label }}">
+                  {{ field.label }}
+                </label>
 
-  </main>
+                {{ field }}
+
+                {% if field.help_text %}
+                  <div class="text-muted small mt-1">
+                    {{ field.help_text }}
+                  </div>
+                {% endif %}
+
+                {% for error in field.errors %}
+                  <div class="text-danger small fw-bold mt-1">
+                    <i class="bi bi-exclamation-circle me-1"></i>{{ error }}
+                  </div>
+                {% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger mt-3">
+              <i class="bi bi-exclamation-triangle me-2"></i>
+              {{ form.non_field_errors }}
+            </div>
+          {% endif %}
+
+          <button class="btn btn-create w-100 mt-4" type="submit">
+            Create Institute Account
+            <i class="bi bi-arrow-right ms-1"></i>
+          </button>
+        </form>
+
+        <div class="login-link">
+          Already have an account?
+          <a href="{% url 'login' %}">Login here</a>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
 
 <script src="/static/js/form-submit-lock.js"></script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const possibleFields = [
+      "input[name='institute_name']",
+      "input[name='name']",
+      "input[id*='institute']",
+      "input[id*='name']",
+      ".right-panel input[type='text']"
+    ];
+
+    for (const selector of possibleFields) {
+      const field = document.querySelector(selector);
+      if (field && !field.disabled && !field.readOnly) {
+        field.focus();
+        field.select && field.select();
+        break;
+      }
+    }
+  });
+</script>
+
 </body>
 </html>

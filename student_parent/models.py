@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from super_admin.media_utils import (
@@ -120,6 +121,15 @@ class StudentProfile(models.Model):
         name = self.user.get_full_name() or self.user.username
         return f"{self.admission_number} - {name}"
 
+    def clean(self):
+        super().clean()
+        if self.academic_year_id and self.academic_year.institute_id != self.institute_id:
+            raise ValidationError({"academic_year": "Selected academic year belongs to another institute."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
 
 class StudentAcademicSession(models.Model):
     class Status(models.TextChoices):
@@ -169,6 +179,20 @@ class StudentAcademicSession(models.Model):
     def __str__(self):
         return f"{self.admission_number} - {self.student} - {self.academic_year.name}"
 
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.student_id and self.student.institute_id != self.institute_id:
+            errors["student"] = "Selected student belongs to another institute."
+        if self.academic_year_id and self.academic_year.institute_id != self.institute_id:
+            errors["academic_year"] = "Selected academic year belongs to another institute."
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
 
 class StudentEnrollment(models.Model):
     class Status(models.TextChoices):
@@ -212,9 +236,24 @@ class StudentEnrollment(models.Model):
     def __str__(self):
         return f"{self.student} - {self.batch}"
 
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.academic_session_id:
+            session_institute_id = self.academic_session.institute_id
+            if self.student_id and self.student_id != self.academic_session.student_id:
+                errors["student"] = "Enrollment student must match the academic session student."
+            if self.batch_id and self.batch.institute_id != session_institute_id:
+                errors["batch"] = "Selected batch belongs to another institute."
+            if self.batch_id and self.batch.academic_year_id != self.academic_session.academic_year_id:
+                errors["batch"] = "Selected batch belongs to another academic year."
+        if errors:
+            raise ValidationError(errors)
+
     def save(self, *args, **kwargs):
         if self.academic_session_id:
             self.student = self.academic_session.student
+        self.full_clean()
         super().save(*args, **kwargs)
 
     @property
@@ -250,6 +289,7 @@ class StudentTransferCertificate(models.Model):
     reason_for_leaving = models.CharField(max_length=255)
     conduct = models.CharField(max_length=120)
     result = models.CharField(max_length=80, blank=True)
+    progress = models.CharField(max_length=120, blank=True)
     last_class_attended = models.CharField(max_length=80)
     qualified_for_promotion = models.BooleanField(default=False)
     fees_cleared = models.BooleanField(default=False)

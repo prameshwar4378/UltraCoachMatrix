@@ -22,7 +22,7 @@ from teacher.models import (
     Homework,
 )
 
-from .models import PushNotification, StudentAcademicSession, StudentEnrollment, StudentProfile, UserDevice
+from .models import PushNotification, StudentAcademicSession, StudentDocument, StudentEnrollment, StudentProfile, UserDevice
 from .notifications import notify_result_declared
 
 
@@ -162,6 +162,33 @@ class MobileHomeworkPlannerTests(TestCase):
         html = response.content.decode()
         self.assertIn("Homework Planner", html)
         self.assertIn("Algebra practice", html)
+
+    def test_known_student_document_url_is_tenant_protected(self):
+        other_institute = Institute.objects.create(name="Other Institute", code="other-demo")
+        other_user = User.objects.create_user(username="other-student", password="password")
+        UserProfile.objects.create(
+            user=other_user,
+            institute=other_institute,
+            role=UserProfile.Role.STUDENT_PARENT,
+        )
+        StudentProfile.objects.create(
+            institute=other_institute,
+            user=other_user,
+            admission_number="OTH-001",
+        )
+        document = StudentDocument.objects.create(
+            student=self.student,
+            title="Aadhaar",
+            document_type=StudentDocument.DocumentType.AADHAAR,
+            file=SimpleUploadedFile("aadhaar.txt", b"private-id", content_type="text/plain"),
+        )
+
+        blocked = self.client.get(document.file.url, HTTP_AUTHORIZATION=f"Bearer {create_access_token(other_user)}")
+        allowed = self.client.get(document.file.url, **self.auth_headers())
+
+        self.assertEqual(blocked.status_code, 404)
+        self.assertEqual(allowed.status_code, 200)
+        self.assertEqual(b"".join(allowed.streaming_content), b"private-id")
 
     def test_mobile_attendance_returns_summary_and_records(self):
         response = self.client.get(

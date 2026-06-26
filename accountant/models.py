@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -95,6 +96,30 @@ class FeeInvoice(models.Model):
     def __str__(self):
         return f"{self.student} - {self.title}"
 
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.academic_session_id:
+            session_institute_id = self.academic_session.institute_id
+            if self.institute_id and self.institute_id != session_institute_id:
+                errors["institute"] = "Invoice institute must match the academic session institute."
+            if self.student_id and self.student_id != self.academic_session.student_id:
+                errors["student"] = "Invoice student must match the academic session student."
+            if self.enrollment_id and self.enrollment.academic_session_id != self.academic_session_id:
+                errors["enrollment"] = "Selected enrollment belongs to another academic session."
+            if self.course_id and self.course.institute_id != session_institute_id:
+                errors["course"] = "Selected course belongs to another institute."
+            if self.batch_id and self.batch.institute_id != session_institute_id:
+                errors["batch"] = "Selected batch belongs to another institute."
+            if self.category_id and self.category.institute_id != session_institute_id:
+                errors["category"] = "Selected fee category belongs to another institute."
+            if self.course_id and self.course.academic_year_id != self.academic_session.academic_year_id:
+                errors["course"] = "Selected course belongs to another academic year."
+            if self.batch_id and self.batch.academic_year_id != self.academic_session.academic_year_id:
+                errors["batch"] = "Selected batch belongs to another academic year."
+        if errors:
+            raise ValidationError(errors)
+
     def save(self, *args, **kwargs):
         if self.academic_session_id:
             self.student = self.academic_session.student
@@ -103,6 +128,7 @@ class FeeInvoice(models.Model):
             self.academic_session = self.enrollment.academic_session
             self.student = self.academic_session.student
             self.institute = self.academic_session.institute
+        self.full_clean()
         super().save(*args, **kwargs)
 
 

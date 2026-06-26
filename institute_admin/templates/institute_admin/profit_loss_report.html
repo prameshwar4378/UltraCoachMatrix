@@ -1,0 +1,516 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Profit & Loss Report{% endblock title %}
+
+{% block content %}
+<style>
+    .pl-page {
+        --ink: #0f172a;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --panel: #ffffff;
+        --soft: #f8fafc;
+        --green: #16a34a;
+        --red: #dc2626;
+        --blue: #2563eb;
+        padding: 24px;
+        background: linear-gradient(180deg, #f8fafc 0%, #eef6ff 100%);
+        min-height: calc(100vh - 120px);
+    }
+
+    .pl-shell {
+        max-width: 1480px;
+        margin: 0 auto;
+    }
+
+    .pl-header,
+    .pl-filter,
+    .pl-card,
+    .pl-panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.07);
+    }
+
+    .pl-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        align-items: center;
+        padding: 22px;
+        margin-bottom: 16px;
+    }
+
+    .pl-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #2563eb;
+        font-weight: 900;
+        text-decoration: none;
+        margin-bottom: 8px;
+    }
+
+    .pl-title {
+        margin: 0;
+        color: var(--ink);
+        font-size: clamp(1.55rem, 2.4vw, 2.25rem);
+        font-weight: 900;
+        letter-spacing: 0;
+    }
+
+    .pl-subtitle {
+        margin: 7px 0 0;
+        color: var(--muted);
+        font-weight: 600;
+        line-height: 1.55;
+    }
+
+    .pl-export {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 7px;
+        padding: 11px 14px;
+        background: var(--blue);
+        color: #fff;
+        text-decoration: none;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .pl-filter {
+        padding: 18px;
+        margin-bottom: 16px;
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 12px;
+        align-items: end;
+    }
+
+    .filter-field label {
+        display: block;
+        margin-bottom: 6px;
+        color: #334155;
+        font-size: .78rem;
+        font-weight: 900;
+    }
+
+    .filter-field input,
+    .filter-field select {
+        width: 100%;
+        height: 42px;
+        border: 1px solid #cbd5e1;
+        border-radius: 7px;
+        padding: 0 10px;
+        color: var(--ink);
+        background: #fff;
+        font-weight: 700;
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .filter-button {
+        height: 42px;
+        border: 0;
+        border-radius: 7px;
+        padding: 0 13px;
+        background: var(--ink);
+        color: #fff;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .filter-reset {
+        height: 42px;
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 0 13px;
+        color: #334155;
+        background: #fff;
+        text-decoration: none;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .pl-note {
+        margin: 12px 0 0;
+        color: #475569;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 7px;
+        padding: 10px 12px;
+        font-size: .84rem;
+        font-weight: 700;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 16px;
+    }
+
+    .pl-card {
+        padding: 18px;
+        display: grid;
+        grid-template-columns: 48px minmax(0, 1fr);
+        gap: 13px;
+        align-items: center;
+    }
+
+    .card-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 1.25rem;
+    }
+
+    .income .card-icon { background: var(--green); }
+    .expense .card-icon { background: var(--red); }
+    .profit .card-icon { background: var(--blue); }
+    .loss .card-icon { background: var(--red); }
+
+    .card-value {
+        color: var(--ink);
+        font-size: clamp(1.35rem, 2vw, 1.9rem);
+        font-weight: 900;
+        line-height: 1.1;
+    }
+
+    .card-label {
+        color: var(--muted);
+        font-size: .82rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        margin-top: 5px;
+    }
+
+    .pl-layout {
+        display: grid;
+        grid-template-columns: 360px minmax(0, 1fr);
+        gap: 16px;
+    }
+
+    .pl-panel {
+        overflow: hidden;
+    }
+
+    .panel-head {
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        background: #f8fafc;
+    }
+
+    .panel-head h2 {
+        margin: 0;
+        color: var(--ink);
+        font-size: 1rem;
+        font-weight: 900;
+    }
+
+    .panel-head span {
+        color: var(--muted);
+        font-size: .82rem;
+        font-weight: 800;
+    }
+
+    .method-list {
+        display: grid;
+        gap: 10px;
+        padding: 16px;
+    }
+
+    .method-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+    }
+
+    .method-row strong {
+        display: block;
+        color: var(--ink);
+        font-weight: 900;
+    }
+
+    .method-row span {
+        color: var(--muted);
+        font-size: .8rem;
+        font-weight: 700;
+    }
+
+    .method-row b {
+        color: var(--green);
+        font-weight: 900;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+    }
+
+    .pl-table {
+        width: 100%;
+        margin: 0;
+        border-collapse: collapse;
+    }
+
+    .pl-table th {
+        padding: 12px 14px;
+        color: #334155;
+        background: #f8fafc;
+        border-bottom: 1px solid var(--line);
+        font-size: .75rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .pl-table td {
+        padding: 13px 14px;
+        color: #1e293b;
+        border-bottom: 1px solid #f1f5f9;
+        font-weight: 650;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    .amount-positive { color: var(--green); font-weight: 900; }
+    .amount-negative { color: var(--red); font-weight: 900; }
+    .empty-line {
+        padding: 24px;
+        color: var(--muted);
+        font-weight: 700;
+        text-align: center;
+    }
+
+    @media (max-width: 1199px) {
+        .filter-grid,
+        .pl-layout {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .pl-page { padding: 14px; }
+        .pl-header,
+        .summary-grid,
+        .filter-grid,
+        .pl-layout {
+            grid-template-columns: 1fr;
+            display: grid;
+        }
+        .pl-header {
+            align-items: start;
+        }
+    }
+</style>
+
+<main id="main" class="main pl-page">
+    <div class="pl-shell">
+        <section class="pl-header">
+            <div>
+                <a class="pl-back" href="{% url 'institute_admin:reports_dashboard' %}">
+                    <i class="bi bi-arrow-left"></i> Reports
+                </a>
+                <h1 class="pl-title">Profit & Loss Report</h1>
+                <p class="pl-subtitle">
+                    Total active fee collection minus institute expenses for {{ current_institute.name }}.
+                </p>
+            </div>
+            <a class="pl-export" href="?{{ export_query }}">
+                <i class="bi bi-download"></i> Export CSV
+            </a>
+        </section>
+
+        <form class="pl-filter" method="get">
+            <div class="filter-grid">
+                <div class="filter-field">
+                    <label for="id_start_date">Start Date</label>
+                    <input id="id_start_date" type="date" name="start_date" value="{{ filters.start_date_value }}">
+                </div>
+                <div class="filter-field">
+                    <label for="id_end_date">End Date</label>
+                    <input id="id_end_date" type="date" name="end_date" value="{{ filters.end_date_value }}">
+                </div>
+                <div class="filter-field">
+                    <label for="id_month">Month</label>
+                    <select id="id_month" name="month">
+                        <option value="">Any month</option>
+                        {% for value, label in month_options %}
+                        <option value="{{ value }}" {% if filters.month == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_year">Year</label>
+                    <select id="id_year" name="year">
+                        <option value="">Any year</option>
+                        {% for year in year_options %}
+                        <option value="{{ year }}" {% if filters.year == year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_course">Class</label>
+                    <select id="id_course" name="course">
+                        <option value="">All classes</option>
+                        {% for course in courses %}
+                        <option value="{{ course.pk }}" {% if filters.course_id == course.pk|stringformat:"s" %}selected{% endif %}>{{ course.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_batch">Batch</label>
+                    <select id="id_batch" name="batch">
+                        <option value="">All batches</option>
+                        {% for batch in batches %}
+                        <option value="{{ batch.pk }}" {% if filters.batch_id == batch.pk|stringformat:"s" %}selected{% endif %}>{{ batch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="filter-actions mt-3">
+                <button class="filter-button" type="submit"><i class="bi bi-funnel"></i> Apply Filter</button>
+                <a class="filter-reset" href="{% url 'institute_admin:profit_loss_report' %}">Reset</a>
+            </div> 
+        </form>
+
+        <section class="summary-grid">
+            <div class="pl-card income">
+                <div class="card-icon"><i class="bi bi-cash-stack"></i></div>
+                <div>
+                    <div class="card-value">₹{{ collection_total|floatformat:2 }}</div>
+                    <div class="card-label">Total Collection</div>
+                </div>
+            </div>
+            <div class="pl-card expense">
+                <div class="card-icon"><i class="bi bi-wallet2"></i></div>
+                <div>
+                    <div class="card-value">₹{{ expense_total|floatformat:2 }}</div>
+                    <div class="card-label">Total Expenses</div>
+                </div>
+            </div>
+            <div class="pl-card {% if is_profit %}profit{% else %}loss{% endif %}">
+                <div class="card-icon"><i class="bi {% if is_profit %}bi-graph-up-arrow{% else %}bi-graph-down-arrow{% endif %}"></i></div>
+                <div>
+                    <div class="card-value">₹{{ net_profit|floatformat:2 }}</div>
+                    <div class="card-label">Net {% if is_profit %}Profit{% else %}Loss{% endif %}</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="pl-layout">
+            <div class="pl-panel">
+                <div class="panel-head">
+                    <h2>Payment Mode Split</h2>
+                    <span>{{ collection_count }} payment{{ collection_count|pluralize }}</span>
+                </div>
+                {% if payment_method_rows %}
+                <div class="method-list">
+                    {% for row in payment_method_rows %}
+                    <div class="method-row">
+                        <div>
+                            <strong>{{ row.label }}</strong>
+                            <span>{{ row.count }} payment{{ row.count|pluralize }}</span>
+                        </div>
+                        <b>₹{{ row.amount|floatformat:2 }}</b>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-line">No collections found for this filter.</div>
+                {% endif %}
+            </div>
+
+            <div class="pl-panel">
+                <div class="panel-head">
+                    <h2>Recent Collections</h2>
+                    <span>Latest 25</span>
+                </div>
+                <div class="table-wrap">
+                    <table class="pl-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Receipt</th>
+                                <th>Student</th>
+                                <th>Invoice</th>
+                                <th>Mode</th>
+                                <th class="text-end">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in collection_rows %}
+                            <tr>
+                                <td>{{ payment.paid_on|date:"d M Y" }}</td>
+                                <td>{{ payment.receipt_number|default:"-" }}</td>
+                                <td>{{ payment.invoice.student }}</td>
+                                <td>{{ payment.invoice.title }}</td>
+                                <td>{{ payment.get_method_display }}</td>
+                                <td class="text-end amount-positive">₹{{ payment.amount|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="empty-line">No collection rows found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="pl-panel mt-3">
+            <div class="panel-head">
+                <h2>Recent Expenses</h2>
+                <span>{{ expense_count }} expense{{ expense_count|pluralize }}</span>
+            </div>
+            <div class="table-wrap">
+                <table class="pl-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Title</th>
+                            <th>Recorded By</th>
+                            <th>Note</th>
+                            <th class="text-end">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for expense in expense_rows %}
+                        <tr>
+                            <td>{{ expense.spent_on|date:"d M Y" }}</td>
+                            <td>{{ expense.title }}</td>
+                            <td>{% if expense.recorded_by %}{{ expense.recorded_by.get_full_name|default:expense.recorded_by.username }}{% else %}-{% endif %}</td>
+                            <td>{{ expense.note|default:"-" }}</td>
+                            <td class="text-end amount-negative">₹{{ expense.amount|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="empty-line">No expense rows found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</main>
+{% endblock content %}

@@ -242,6 +242,8 @@
     }
     .status-ready { background: #dcfce7; color: #166534; }
     .status-done { background: #ffedd5; color: #9a3412; }
+    .status-tc { background: #fee2e2; color: #991b1b; }
+    .status-left { background: #e2e8f0; color: #334155; }
     .student-row-disabled {
         background: #fff7ed;
     }
@@ -442,14 +444,14 @@
                         </thead>
                         <tbody>
                             {% for session in promotion_students %}
-                                <tr {% if session.student_id in already_promoted_student_ids %}class="student-row-disabled"{% endif %}>
+                                <tr {% if session.student_id in already_promoted_student_ids or session.student_id in tc_generated_student_ids or session.student_id in inactive_session_student_ids %}class="student-row-disabled"{% endif %}>
                                     <td>
                                         <input
                                             type="checkbox"
                                             name="students"
                                             value="{{ session.student_id }}"
                                             class="promote-check"
-                                            {% if session.student_id in already_promoted_student_ids %}disabled{% endif %}
+                                            {% if session.student_id in already_promoted_student_ids or session.student_id in tc_generated_student_ids or session.student_id in inactive_session_student_ids %}disabled{% endif %}
                                         >
                                     </td>
                                     <td>
@@ -470,6 +472,18 @@
                                         {% if session.student_id in already_promoted_student_ids %}
                                             <span class="status-pill status-done">
                                                 <i class="bi bi-check-circle"></i> Already Promoted
+                                            </span>
+                                        {% elif session.student_id in tc_generated_student_ids %}
+                                            <span class="status-pill status-tc">
+                                                <i class="bi bi-file-earmark-x"></i> TC Generated
+                                            </span>
+                                        {% elif session.student_id in inactive_session_student_ids %}
+                                            <span class="status-pill status-left">
+                                                <i class="bi bi-slash-circle"></i> {{ session.get_status_display }}
+                                            </span>
+                                        {% elif not session.student.is_active or not session.student.user.is_active %}
+                                            <span class="status-pill status-ready">
+                                                <i class="bi bi-arrow-up-right-circle"></i> Ready - Login Inactive
                                             </span>
                                         {% else %}
                                             <span class="status-pill status-ready">

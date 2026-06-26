@@ -6,10 +6,11 @@ from .models import InstituteGlobalPrintTemplate
 
 @admin.register(InstituteGlobalPrintTemplate)
 class InstituteGlobalPrintTemplateAdmin(admin.ModelAdmin):
-    list_display = ("title", "document_type", "is_active", "preview_thumb", "updated_at")
-    list_filter = ("document_type", "is_active", "updated_at")
+    list_display = ("title", "document_type", "visibility", "is_active", "preview_thumb", "updated_at")
+    list_filter = ("document_type", "is_global", "is_active", "updated_at")
     search_fields = ("title", "description")
     readonly_fields = ("preview_thumb", "created_at", "updated_at")
+    filter_horizontal = ("visible_to_institutes",)
     fields = (
         "document_type",
         "title",
@@ -17,10 +18,19 @@ class InstituteGlobalPrintTemplateAdmin(admin.ModelAdmin):
         "html_file",
         "preview_image",
         "preview_thumb",
+        "is_global",
+        "visible_to_institutes",
         "is_active",
         "created_at",
         "updated_at",
     )
+
+    @admin.display(description="Visibility")
+    def visibility(self, obj):
+        if obj.is_global:
+            return "All institutes"
+        count = obj.visible_to_institutes.count()
+        return f"{count} selected institute(s)"
 
     @admin.display(description="Preview")
     def preview_thumb(self, obj):
