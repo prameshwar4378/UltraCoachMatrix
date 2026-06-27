@@ -30,6 +30,8 @@ if not SECRET_KEY:
 ALLOWED_HOSTS = _env_list(
     "DJANGO_ALLOWED_HOSTS",
     default=[
+        "ultracoachmatrix.in",
+        "www.ultracoachmatrix.in",
         "173.249.33.152",
         "localhost",
         "127.0.0.1",
@@ -39,7 +41,8 @@ ALLOWED_HOSTS = _env_list(
 CSRF_TRUSTED_ORIGINS = _env_list(
     "DJANGO_CSRF_TRUSTED_ORIGINS",
     default=[
-        "http://173.249.33.152",
+        "https://ultracoachmatrix.in",
+        "https://www.ultracoachmatrix.in",
     ],
 )
 
@@ -72,7 +75,7 @@ SECURE_HSTS_PRELOAD = _env_bool("SECURE_HSTS_PRELOAD", False)
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
-EMAIL_BASE_URL = os.environ.get("EMAIL_BASE_URL", "http://173.249.33.152")
+EMAIL_BASE_URL = os.environ.get("EMAIL_BASE_URL", "https://ultracoachmatrix.in")
 
 MEDIA_URL = os.environ.get("DJANGO_MEDIA_URL", "/media/")
 MEDIA_ROOT = Path(

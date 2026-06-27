@@ -226,19 +226,21 @@ Production config lives here:
 /home/ultracoachmatrix/ultracoachmatrix/UltraCoachMatrix/.env
 ```
 
-Expected HTTP/IP testing version:
+Expected HTTPS/domain version:
 
 ```env
 DJANGO_ENV=production
 DJANGO_SECRET_KEY=CHANGE_THIS_SECRET_KEY
 DJANGO_DEBUG=false
 
-DJANGO_ALLOWED_HOSTS=173.249.33.152
-DJANGO_CSRF_TRUSTED_ORIGINS=http://173.249.33.152
+DJANGO_ALLOWED_HOSTS=ultracoachmatrix.in,www.ultracoachmatrix.in,173.249.33.152
+DJANGO_CSRF_TRUSTED_ORIGINS=https://ultracoachmatrix.in,https://www.ultracoachmatrix.in
+CORS_ALLOWED_ORIGINS=https://ultracoachmatrix.in,https://www.ultracoachmatrix.in
 
-SECURE_SSL_REDIRECT=false
-SESSION_COOKIE_SECURE=false
-CSRF_COOKIE_SECURE=false
+SECURE_SSL_REDIRECT=true
+SESSION_COOKIE_SECURE=true
+CSRF_COOKIE_SECURE=true
+SECURE_HSTS_SECONDS=31536000
 
 DB_NAME=ultracoachmatrix
 DB_USER=dbultracoachmatrix
@@ -249,7 +251,7 @@ DB_PORT=5432
 DJANGO_MEDIA_URL=/media/
 DJANGO_MEDIA_ROOT=/home/ultracoachmatrix/ultracoachmatrix/media
 
-EMAIL_BASE_URL=http://173.249.33.152
+EMAIL_BASE_URL=https://ultracoachmatrix.in
 
 CELERY_BROKER_URL=redis://127.0.0.1:6379/0
 CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/1
@@ -273,15 +275,17 @@ Lock `.env`:
 chmod 600 /home/ultracoachmatrix/ultracoachmatrix/UltraCoachMatrix/.env
 ```
 
-When SSL/domain is ready, update `.env`:
+For temporary HTTP/IP testing before SSL, update `.env`:
 
 ```env
-DJANGO_ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
-DJANGO_CSRF_TRUSTED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
-SECURE_SSL_REDIRECT=true
-SESSION_COOKIE_SECURE=true
-CSRF_COOKIE_SECURE=true
-EMAIL_BASE_URL=https://yourdomain.com
+DJANGO_ALLOWED_HOSTS=173.249.33.152
+DJANGO_CSRF_TRUSTED_ORIGINS=http://173.249.33.152
+CORS_ALLOWED_ORIGINS=http://173.249.33.152
+SECURE_SSL_REDIRECT=false
+SESSION_COOKIE_SECURE=false
+CSRF_COOKIE_SECURE=false
+SECURE_HSTS_SECONDS=0
+EMAIL_BASE_URL=http://173.249.33.152
 ```
 
 ## Python Environment
@@ -405,7 +409,7 @@ Current HTTP/IP config:
 ```nginx
 server {
     listen 80;
-    server_name 173.249.33.152;
+    server_name ultracoachmatrix.in www.ultracoachmatrix.in;
 
     client_max_body_size 50M;
 
@@ -660,7 +664,7 @@ sudo apt install -y certbot python3-certbot-nginx
 Generate certificate:
 
 ```bash
-sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+sudo certbot --nginx -d ultracoachmatrix.in -d www.ultracoachmatrix.in
 ```
 
 Check renewal:
