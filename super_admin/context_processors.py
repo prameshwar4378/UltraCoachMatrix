@@ -6,11 +6,17 @@ from .subscription_warning import subscription_expiry_warning
 
 def subscription_context(request):
     warning = subscription_expiry_warning(request)
-    subscription = (
-        getattr(request.user.profile.institute, "subscription", None)
+    profile = (
+        request.user.profile
         if request.user.is_authenticated
         and hasattr(request.user, "profile")
         and request.user.profile.institute_id
+        else None
+    )
+    institute = profile.institute if profile else None
+    subscription = (
+        getattr(institute, "subscription", None)
+        if institute
         else None
     )
     days_remaining = (
@@ -21,6 +27,8 @@ def subscription_context(request):
     return {
         "subscription_expiry_warning": warning,
         "current_subscription": subscription,
+        "current_school": institute,
+        "current_school_user": profile,
         "is_trial_active": bool(
             subscription
             and subscription.plan == InstituteSubscription.Plan.FREE_TRIAL

@@ -55,6 +55,35 @@
         margin: 0;
     }
 
+    .question-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .feature-info-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 0;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        box-shadow: 0 12px 24px rgba(7, 61, 102, 0.26);
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .feature-info-btn:hover,
+    .feature-info-btn:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 16px 30px rgba(7, 61, 102, 0.32);
+    }
+
     .page-subtitle {
         color: var(--muted);
         margin-top: 8px;
@@ -203,6 +232,112 @@
         margin-top: 6px;
     }
 
+    .feature-info-modal,
+    .feature-info-modal .modal-content,
+    .feature-info-modal .modal-title,
+    .feature-info-modal .nav-link,
+    .feature-info-modal p,
+    .feature-info-modal li {
+        font-family: "Poppins", sans-serif;
+    }
+
+    .feature-info-modal .modal-content {
+        border: 0;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 26px 70px rgba(7, 61, 102, 0.24);
+    }
+
+    .feature-info-modal .modal-header {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        border-bottom: 0;
+        padding: 22px 24px;
+    }
+
+    .feature-info-modal .modal-title {
+        font-weight: 800;
+        letter-spacing: 0;
+    }
+
+    .feature-info-modal .modal-body {
+        background: #f8fbff;
+        padding: 24px;
+    }
+
+    .feature-info-modal .nav-pills {
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link {
+        border-radius: 999px;
+        color: #073D66;
+        background: #eaf3fb;
+        font-weight: 800;
+        padding: 8px 14px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link.active {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+    }
+
+    .feature-info-panel {
+        background: #fff;
+        border: 1px solid rgba(22, 105, 168, 0.16);
+        border-radius: 18px;
+        padding: 20px;
+    }
+
+    .feature-info-panel p {
+        color: #334155;
+        line-height: 1.65;
+        margin-bottom: 14px;
+    }
+
+    .feature-info-panel ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #1e293b;
+    }
+
+    .feature-info-panel li {
+        margin-bottom: 10px;
+        line-height: 1.55;
+    }
+
+    .feature-info-note {
+        margin-top: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(22, 105, 168, 0.18);
+        background: #eef7ff;
+        color: #073D66;
+        padding: 14px 16px;
+        font-weight: 700;
+        line-height: 1.55;
+    }
+
+    .feature-info-modal .modal-footer {
+        border-top: 1px solid rgba(22, 105, 168, 0.12);
+        background: #fff;
+    }
+
+    .feature-info-close {
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        font-weight: 800;
+        padding: 10px 18px;
+    }
+
+    .feature-info-close:hover,
+    .feature-info-close:focus {
+        color: #fff;
+        opacity: .94;
+    }
+
     @media(max-width: 768px) {
         .stat-grid {
             grid-template-columns: 1fr;
@@ -230,7 +365,16 @@
 
     <div class="page-toolbar d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="page-title">{{ exam.title }}</h2>
+            <div class="question-title-row">
+                <h2 class="page-title">{{ exam.title }}</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#examQuestionFeatureInfoModal"
+                        aria-label="About Exam Questions">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="page-subtitle">Manage exam questions, answer options and correct answers.</p>
         </div>
 
@@ -336,6 +480,75 @@
     {% endfor %}
 
 </main>
+
+<div class="modal fade feature-info-modal" id="examQuestionFeatureInfoModal" tabindex="-1" aria-labelledby="examQuestionFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="examQuestionFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Exam Questions Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="examQuestionInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="exam-question-info-english-tab" data-bs-toggle="pill" data-bs-target="#exam-question-info-english" type="button" role="tab" aria-controls="exam-question-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="exam-question-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#exam-question-info-marathi" type="button" role="tab" aria-controls="exam-question-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="exam-question-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#exam-question-info-hindi" type="button" role="tab" aria-controls="exam-question-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="exam-question-info-english" role="tabpanel" aria-labelledby="exam-question-info-english-tab">
+                        <p>Exam Questions is used to build and review the MCQ question paper for the selected exam.</p>
+                        <ul>
+                            <li><strong>Add Question</strong> creates one question with its answer options, correct answer, and marks.</li>
+                            <li><strong>Import Bulk Questions</strong> helps upload many questions together using the Excel template.</li>
+                            <li><strong>Edit</strong> is used to correct question text, image, options, correct answer, order, or marks.</li>
+                            <li><strong>Marks</strong> from questions should match the exam planning, because they affect scoring and results.</li>
+                            <li><strong>Correct Answer</strong> must be checked carefully before students attempt the exam.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: review every question, option, correct answer, image, and marks before publishing or allowing exam attempts.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="exam-question-info-marathi" role="tabpanel" aria-labelledby="exam-question-info-marathi-tab">
+                        <p>Exam Questions या पेजचा उपयोग निवडलेल्या परीक्षेसाठी MCQ question paper तयार आणि तपासण्यासाठी केला जातो.</p>
+                        <ul>
+                            <li><strong>Add Question</strong> मधून एक question, त्याचे options, correct answer आणि marks add करता येतात.</li>
+                            <li><strong>Import Bulk Questions</strong> वापरून Excel template मधून अनेक questions एकाच वेळी upload करता येतात.</li>
+                            <li><strong>Edit</strong> मधून question text, image, options, correct answer, order किंवा marks दुरुस्त करता येतात.</li>
+                            <li><strong>Marks</strong> exam planning प्रमाणे असणे गरजेचे आहे, कारण त्यावर scoring आणि result अवलंबून असतात.</li>
+                            <li><strong>Correct Answer</strong> students exam attempt करण्यापूर्वी काळजीपूर्वक check करणे आवश्यक आहे.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: exam publish करण्यापूर्वी किंवा attempt साठी देण्यापूर्वी प्रत्येक question, option, correct answer, image आणि marks verify करा.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="exam-question-info-hindi" role="tabpanel" aria-labelledby="exam-question-info-hindi-tab">
+                        <p>Exam Questions पेज का उपयोग चुनी हुई परीक्षा के लिए MCQ question paper बनाने और review करने के लिए किया जाता है.</p>
+                        <ul>
+                            <li><strong>Add Question</strong> से एक question, उसके options, correct answer और marks add किए जाते हैं.</li>
+                            <li><strong>Import Bulk Questions</strong> से Excel template का उपयोग करके कई questions एक साथ upload किए जा सकते हैं.</li>
+                            <li><strong>Edit</strong> से question text, image, options, correct answer, order या marks सही किए जा सकते हैं.</li>
+                            <li><strong>Marks</strong> exam planning के अनुसार होने चाहिए, क्योंकि scoring और result इसी पर depend करते हैं.</li>
+                            <li><strong>Correct Answer</strong> students के exam attempt करने से पहले carefully check करना जरूरी है.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: exam publish करने या attempt के लिए देने से पहले हर question, option, correct answer, image और marks verify करें.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="bulkQuestionImportModal" tabindex="-1" role="dialog" aria-labelledby="bulkQuestionImportModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">

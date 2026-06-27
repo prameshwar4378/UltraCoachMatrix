@@ -109,6 +109,35 @@
         letter-spacing: -0.04em;
     }
 
+    .teacher-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .feature-info-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 0;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        box-shadow: 0 12px 24px rgba(7, 61, 102, 0.26);
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .feature-info-btn:hover,
+    .feature-info-btn:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 16px 30px rgba(7, 61, 102, 0.32);
+    }
+
     .page-subtitle {
         color: rgba(255, 255, 255, 0.84);
         margin: 8px 0 0;
@@ -460,6 +489,112 @@
         padding: 16px 24px;
     }
 
+    .feature-info-modal,
+    .feature-info-modal .modal-content,
+    .feature-info-modal .modal-title,
+    .feature-info-modal .nav-link,
+    .feature-info-modal p,
+    .feature-info-modal li {
+        font-family: "Poppins", sans-serif;
+    }
+
+    .feature-info-modal .modal-content {
+        border: 0;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 26px 70px rgba(7, 61, 102, 0.24);
+    }
+
+    .feature-info-modal .modal-header {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        border-bottom: 0;
+        padding: 22px 24px;
+    }
+
+    .feature-info-modal .modal-title {
+        font-weight: 800;
+        letter-spacing: 0;
+    }
+
+    .feature-info-modal .modal-body {
+        background: #f8fbff;
+        padding: 24px;
+    }
+
+    .feature-info-modal .nav-pills {
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link {
+        border-radius: 999px;
+        color: #073D66;
+        background: #eaf3fb;
+        font-weight: 800;
+        padding: 8px 14px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link.active {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+    }
+
+    .feature-info-panel {
+        background: #fff;
+        border: 1px solid rgba(22, 105, 168, 0.16);
+        border-radius: 18px;
+        padding: 20px;
+    }
+
+    .feature-info-panel p {
+        color: #334155;
+        line-height: 1.65;
+        margin-bottom: 14px;
+    }
+
+    .feature-info-panel ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #1e293b;
+    }
+
+    .feature-info-panel li {
+        margin-bottom: 10px;
+        line-height: 1.55;
+    }
+
+    .feature-info-note {
+        margin-top: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(22, 105, 168, 0.18);
+        background: #eef7ff;
+        color: #073D66;
+        padding: 14px 16px;
+        font-weight: 700;
+        line-height: 1.55;
+    }
+
+    .feature-info-modal .modal-footer {
+        border-top: 1px solid rgba(22, 105, 168, 0.12);
+        background: #fff;
+    }
+
+    .feature-info-close {
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        font-weight: 800;
+        padding: 10px 18px;
+    }
+
+    .feature-info-close:hover,
+    .feature-info-close:focus {
+        color: #fff;
+        opacity: .94;
+    }
+
     @media(max-width: 992px) {
         .stat-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -513,7 +648,17 @@
 
     <div class="page-toolbar d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="page-title">Teacher Management</h2>
+            <div class="teacher-title-row">
+                <h2 class="page-title">Teacher Management</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#teacherFeatureInfoModal"
+                        aria-label="Teacher Management information"
+                        title="About Teacher Management">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="page-subtitle">Manage teacher access, contact details, specialization and workload limits.</p>
         </div>
 
@@ -710,6 +855,72 @@
         {% include "includes/pagination.html" %}
     </div>
 </main>
+
+<div class="modal fade feature-info-modal" id="teacherFeatureInfoModal" tabindex="-1" aria-labelledby="teacherFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="teacherFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Teacher Management Help
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="teacherInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="teacher-info-english-tab" data-bs-toggle="pill" data-bs-target="#teacher-info-english" type="button" role="tab" aria-controls="teacher-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="teacher-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#teacher-info-marathi" type="button" role="tab" aria-controls="teacher-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="teacher-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#teacher-info-hindi" type="button" role="tab" aria-controls="teacher-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="teacher-info-english" role="tabpanel" aria-labelledby="teacher-info-english-tab">
+                        <p>Teacher Management is used to create and maintain teacher profiles and login access for academic work inside the institute.</p>
+                        <ul>
+                            <li><strong>Add a teacher</strong> when a new teacher joins or when an existing staff member needs teacher access.</li>
+                            <li><strong>Teacher details</strong> store contact information, employee ID, qualification, specialization, teacher type, and workload limits.</li>
+                            <li><strong>Why it matters:</strong> teachers can be assigned to batches/divisions and can manage academic work such as attendance, homework, exams, and results based on access.</li>
+                            <li><strong>Update records</strong> when contact details, specialization, employment type, or workload changes.</li>
+                            <li><strong>Deactivate/delete carefully</strong> when a teacher leaves or should no longer access institute data.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="teacher-info-marathi" role="tabpanel" aria-labelledby="teacher-info-marathi-tab">
+                        <p>Teacher Management चा वापर institute मधील academic work साठी teacher profiles आणि login access तयार व maintain करण्यासाठी केला जातो.</p>
+                        <ul>
+                            <li><strong>Teacher add करा</strong> जेव्हा नवीन teacher join होतो किंवा existing staff ला teacher access लागतो.</li>
+                            <li><strong>Teacher details</strong> मध्ये contact information, employee ID, qualification, specialization, teacher type आणि workload limits ठेवले जातात.</li>
+                            <li><strong>हे का महत्त्वाचे आहे:</strong> teachers ना batches/divisions assign करता येतात आणि access नुसार attendance, homework, exams आणि results manage करता येतात.</li>
+                            <li><strong>Records update करा</strong> contact details, specialization, employment type किंवा workload बदलल्यावर.</li>
+                            <li><strong>Deactivate/delete काळजीपूर्वक करा</strong> teacher institute सोडल्यावर किंवा institute data access नको असल्यावर.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="teacher-info-hindi" role="tabpanel" aria-labelledby="teacher-info-hindi-tab">
+                        <p>Teacher Management का उपयोग institute के academic work के लिए teacher profiles और login access बनाने और maintain करने के लिए किया जाता है.</p>
+                        <ul>
+                            <li><strong>Teacher add करें</strong> जब नया teacher join हो या existing staff को teacher access चाहिए.</li>
+                            <li><strong>Teacher details</strong> में contact information, employee ID, qualification, specialization, teacher type और workload limits रखे जाते हैं.</li>
+                            <li><strong>यह क्यों जरूरी है:</strong> teachers को batches/divisions assign किए जा सकते हैं और access के अनुसार attendance, homework, exams और results manage किए जा सकते हैं.</li>
+                            <li><strong>Records update करें</strong> जब contact details, specialization, employment type या workload बदलता है.</li>
+                            <li><strong>Deactivate/delete सावधानी से करें</strong> जब teacher institute छोड़ दे या institute data access नहीं चाहिए.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="deleteTeacherModal" tabindex="-1" aria-labelledby="deleteTeacherModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

@@ -3291,6 +3291,7 @@ class AcademicSessionIsolationTests(TestCase):
     def test_receive_fee_rejects_more_than_category_due(self):
         category = FeeCategory.objects.create(
             institute=self.institute,
+            academic_year=self.year_2026,
             name="Books",
             default_amount=Decimal("500.00"),
         )
@@ -3329,6 +3330,66 @@ class AcademicSessionIsolationTests(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("Payment amount cannot be greater", str(form.errors))
+
+    def test_receive_fee_category_list_only_includes_student_extra_fee_categories(self):
+        books = FeeCategory.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            name="Books",
+            default_amount=Decimal("500.00"),
+        )
+        uniform = FeeCategory.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            name="Uniform",
+            default_amount=Decimal("300.00"),
+        )
+        enrollment_category = FeeCategory.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            name="Enrollment Category",
+            default_amount=Decimal("100.00"),
+        )
+        FeeInvoice.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_session=self.session_2026,
+            category=books,
+            title="Books",
+            amount=Decimal("500.00"),
+            due_date=date(2026, 5, 10),
+        )
+        FeeInvoice.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_session=self.session_2026,
+            enrollment=self.enrollment_2026,
+            category=books,
+            title="Enrollment Books",
+            amount=Decimal("100.00"),
+            due_date=date(2026, 5, 10),
+        )
+        FeeInvoice.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_session=self.session_2026,
+            enrollment=self.enrollment_2026,
+            category=enrollment_category,
+            title="Enrollment Category",
+            amount=Decimal("100.00"),
+            due_date=date(2026, 5, 10),
+        )
+
+        form = ReceiveFeeForm(institute=self.institute, student=self.student, academic_session=self.session_2026)
+        category_ids = set(form.fields["category"].queryset.values_list("pk", flat=True))
+        due_data = views.get_student_category_due_data(self.session_2026)
+        due_category_ids = set(due_data["categories"].keys())
+
+        self.assertEqual(category_ids, {books.pk})
+        self.assertEqual(due_category_ids, {str(books.pk)})
+        self.assertEqual(due_data["categories"][str(books.pk)]["total"], "500.00")
+        self.assertNotIn(uniform.pk, category_ids)
+        self.assertNotIn(enrollment_category.pk, category_ids)
 
     def test_receive_fee_reuses_existing_enrollment_invoice(self):
         self.select_year(self.year_2026)

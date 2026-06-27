@@ -9,6 +9,9 @@
     .page-toolbar { padding: 22px; margin-bottom: 20px; }
     .page-title { font-size: 1.7rem; font-weight: 900; color: var(--text); margin: 0; }
     .page-subtitle { color: var(--muted); margin: 6px 0 0; font-weight: 700; }
+    .homework-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .feature-info-btn { width: 38px; height: 38px; border-radius: 50%; border: 0; background: linear-gradient(135deg, #073D66, #1669A8); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 1rem; box-shadow: 0 12px 24px rgba(7, 61, 102, 0.26); transition: transform .18s ease, box-shadow .18s ease; }
+    .feature-info-btn:hover, .feature-info-btn:focus { color: #fff; transform: translateY(-2px); box-shadow: 0 16px 30px rgba(7, 61, 102, 0.32); }
     .btn-gradient { background: linear-gradient(135deg, var(--primary), var(--dark)); color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-weight: 800; }
     .btn-gradient:hover { color: #fff; transform: translateY(-1px); }
     .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
@@ -30,6 +33,22 @@
     .status-overdue { background: #fee2e2; color: #991b1b; }
     .action-btn { width: 34px; height: 34px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; }
     .empty-state { padding: 50px 20px; text-align: center; color: var(--muted); font-weight: 750; }
+    .feature-info-modal, .feature-info-modal .modal-content, .feature-info-modal .modal-title, .feature-info-modal .nav-link, .feature-info-modal p, .feature-info-modal li { font-family: "Poppins", sans-serif; }
+    .feature-info-modal .modal-content { border: 0; border-radius: 24px; overflow: hidden; box-shadow: 0 26px 70px rgba(7, 61, 102, 0.24); }
+    .feature-info-modal .modal-header { background: linear-gradient(135deg, #073D66, #1669A8); color: #fff; border-bottom: 0; padding: 22px 24px; }
+    .feature-info-modal .modal-title { font-weight: 800; letter-spacing: 0; }
+    .feature-info-modal .modal-body { background: #f8fbff; padding: 24px; }
+    .feature-info-modal .nav-pills { gap: 8px; margin-bottom: 18px; }
+    .feature-info-modal .nav-pills .nav-link { border-radius: 999px; color: #073D66; background: #eaf3fb; font-weight: 800; padding: 8px 14px; }
+    .feature-info-modal .nav-pills .nav-link.active { background: linear-gradient(135deg, #073D66, #1669A8); color: #fff; }
+    .feature-info-panel { background: #fff; border: 1px solid rgba(22, 105, 168, 0.16); border-radius: 18px; padding: 20px; }
+    .feature-info-panel p { color: #334155; line-height: 1.65; margin-bottom: 14px; }
+    .feature-info-panel ul { margin: 0; padding-left: 20px; color: #1e293b; }
+    .feature-info-panel li { margin-bottom: 10px; line-height: 1.55; }
+    .feature-info-note { margin-top: 16px; border-radius: 16px; border: 1px solid rgba(22, 105, 168, 0.18); background: #eef7ff; color: #073D66; padding: 14px 16px; font-weight: 700; line-height: 1.55; }
+    .feature-info-modal .modal-footer { border-top: 1px solid rgba(22, 105, 168, 0.12); background: #fff; }
+    .feature-info-close { border: 0; border-radius: 12px; background: linear-gradient(135deg, #073D66, #1669A8); color: #fff; font-weight: 800; padding: 10px 18px; }
+    .feature-info-close:hover, .feature-info-close:focus { color: #fff; opacity: .94; }
     @media(max-width: 992px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media(max-width: 576px) { .stat-grid { grid-template-columns: 1fr; } .page-toolbar, .table-header { flex-direction: column; align-items: flex-start !important; } }
 </style>
@@ -47,7 +66,17 @@
 
     <div class="page-toolbar d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="page-title">Homework Planner</h2>
+            <div class="homework-title-row">
+                <h2 class="page-title">Homework Planner</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#homeworkFeatureInfoModal"
+                        aria-label="Homework Planner information"
+                        title="About Homework Planner">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="page-subtitle">Create work for any batch with separate subject and course details.</p>
         </div>
         <a href="javascript:void(0);" data-url="{% url 'institute_admin:homework_create' %}" class="btn btn-gradient" onclick="openHomeworkWindow(this)">
@@ -170,6 +199,75 @@
         {% include "includes/pagination.html" %}
     </div>
 </main>
+
+<div class="modal fade feature-info-modal" id="homeworkFeatureInfoModal" tabindex="-1" aria-labelledby="homeworkFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="homeworkFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Homework Planner Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="homeworkInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="homework-info-english-tab" data-bs-toggle="pill" data-bs-target="#homework-info-english" type="button" role="tab" aria-controls="homework-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="homework-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#homework-info-marathi" type="button" role="tab" aria-controls="homework-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="homework-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#homework-info-hindi" type="button" role="tab" aria-controls="homework-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="homework-info-english" role="tabpanel" aria-labelledby="homework-info-english-tab">
+                        <p>Homework Planner is used to create, organize, and track homework for a selected batch/division with subject and course/class details.</p>
+                        <ul>
+                            <li><strong>New Homework</strong> is used to assign work with title, instructions, subject, course/class, batch/division, due date, and attachments.</li>
+                            <li><strong>Batch, Subject, and Course filters</strong> help staff quickly find homework for the right class group.</li>
+                            <li><strong>Due Date</strong> shows whether homework is open/upcoming or past due.</li>
+                            <li><strong>Documents</strong> show how many supporting files are attached for students to read or download.</li>
+                            <li><strong>Edit/Delete</strong> should be used carefully because changes affect what students and parents can see.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-phone me-1"></i> Android application use: homework created here can be shown in the student/parent Android app, helping parents and students see assigned work, subject, due date, and attached files without calling the office.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="homework-info-marathi" role="tabpanel" aria-labelledby="homework-info-marathi-tab">
+                        <p>Homework Planner चा वापर selected batch/division साठी subject आणि course/class details सोबत homework create, organize आणि track करण्यासाठी केला जातो.</p>
+                        <ul>
+                            <li><strong>New Homework</strong> मधून title, instructions, subject, course/class, batch/division, due date आणि attachments सह work assign करता येते.</li>
+                            <li><strong>Batch, Subject आणि Course filters</strong> योग्य class group चे homework पटकन शोधण्यासाठी मदत करतात.</li>
+                            <li><strong>Due Date</strong> homework open/upcoming आहे की past due आहे ते दाखवते.</li>
+                            <li><strong>Documents</strong> students साठी किती supporting files attached आहेत ते दाखवतात.</li>
+                            <li><strong>Edit/Delete</strong> काळजीपूर्वक वापरा, कारण बदल students आणि parents ला दिसणाऱ्या homework वर परिणाम करतात.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-phone me-1"></i> Android application use: येथे create केलेले homework student/parent Android app मध्ये दिसू शकते, त्यामुळे students आणि parents assigned work, subject, due date आणि attached files office ला call न करता पाहू शकतात.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="homework-info-hindi" role="tabpanel" aria-labelledby="homework-info-hindi-tab">
+                        <p>Homework Planner selected batch/division के लिए subject और course/class details के साथ homework create, organize और track करने के लिए उपयोग होता है.</p>
+                        <ul>
+                            <li><strong>New Homework</strong> से title, instructions, subject, course/class, batch/division, due date और attachments के साथ work assign किया जा सकता है.</li>
+                            <li><strong>Batch, Subject और Course filters</strong> सही class group का homework जल्दी खोजने में मदद करते हैं.</li>
+                            <li><strong>Due Date</strong> homework open/upcoming है या past due है, यह दिखाता है.</li>
+                            <li><strong>Documents</strong> students के लिए कितनी supporting files attached हैं, यह दिखाते हैं.</li>
+                            <li><strong>Edit/Delete</strong> सावधानी से उपयोग करें, क्योंकि changes students और parents को दिखने वाले homework को affect करते हैं.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-phone me-1"></i> Android application use: यहां बनाया गया homework student/parent Android app में दिख सकता है, जिससे students और parents assigned work, subject, due date और attached files office को call किए बिना देख सकते हैं.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="deleteHomeworkModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

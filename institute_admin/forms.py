@@ -2592,7 +2592,19 @@ class ReceiveFeeForm(forms.Form):
             self.fields["enrollment"].queryset = self.fields["enrollment"].queryset.filter(
                 academic_session=academic_session
             )
-        categories = FeeCategory.objects.filter(institute=institute, is_active=True)
+        extra_fee_category_ids = FeeInvoice.objects.filter(
+            student=student,
+            enrollment__isnull=True,
+            category__isnull=False,
+            status__in=[FeeInvoice.Status.UNPAID, FeeInvoice.Status.PARTIAL],
+        )
+        if academic_session:
+            extra_fee_category_ids = extra_fee_category_ids.filter(academic_session=academic_session)
+        categories = FeeCategory.objects.filter(
+            institute=institute,
+            is_active=True,
+            pk__in=extra_fee_category_ids.values("category_id"),
+        )
         if academic_session:
             categories = categories.filter(academic_year=academic_session.academic_year)
         self.fields["category"].queryset = categories

@@ -93,6 +93,37 @@
         letter-spacing: -0.045em;
     }
 
+    .batch-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .feature-info-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 0;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        box-shadow: 0 12px 24px rgba(7, 61, 102, 0.26);
+        position: relative;
+        z-index: 1;
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .feature-info-btn:hover,
+    .feature-info-btn:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 16px 30px rgba(7, 61, 102, 0.32);
+    }
+
     .page-subtitle {
         color: var(--muted);
         margin: 8px 0 0;
@@ -373,6 +404,101 @@
         background: linear-gradient(135deg, #ef4444, #991b1b) !important;
     }
 
+    .feature-info-modal,
+    .feature-info-modal .modal-content,
+    .feature-info-modal .modal-title,
+    .feature-info-modal .nav-link,
+    .feature-info-modal p,
+    .feature-info-modal li {
+        font-family: "Poppins", sans-serif;
+    }
+
+    .feature-info-modal .modal-content {
+        border: 0;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 26px 70px rgba(7, 61, 102, 0.24);
+    }
+
+    .feature-info-modal .modal-header {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        border-bottom: 0;
+        padding: 22px 24px;
+    }
+
+    .feature-info-modal .modal-title {
+        font-weight: 800;
+        letter-spacing: 0;
+    }
+
+    .feature-info-modal .modal-body {
+        background: #f8fbff;
+        padding: 24px;
+    }
+
+    .feature-info-modal .nav-pills {
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link {
+        border-radius: 999px;
+        color: #073D66;
+        background: #eaf3fb;
+        font-weight: 800;
+        padding: 8px 14px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link.active {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+    }
+
+    .feature-info-panel {
+        background: #fff;
+        border: 1px solid rgba(22, 105, 168, 0.16);
+        border-radius: 18px;
+        padding: 20px;
+    }
+
+    .feature-info-panel p {
+        color: #334155;
+        line-height: 1.65;
+        margin-bottom: 14px;
+    }
+
+    .feature-info-panel ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #1e293b;
+    }
+
+    .feature-info-panel li {
+        margin-bottom: 10px;
+        line-height: 1.55;
+    }
+
+    .feature-info-modal .modal-footer {
+        border-top: 1px solid rgba(22, 105, 168, 0.12);
+        background: #fff;
+    }
+
+    .feature-info-close {
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        font-weight: 800;
+        padding: 10px 18px;
+    }
+
+    .feature-info-close:hover,
+    .feature-info-close:focus {
+        color: #fff;
+        opacity: .94;
+    }
+
     @media(max-width: 992px) {
         .stat-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -421,7 +547,17 @@
 
     <div class="page-toolbar d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="page-title">Batch Management</h2>
+            <div class="batch-title-row">
+                <h2 class="page-title">Batch Management</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#batchFeatureInfoModal"
+                        aria-label="Batch Management information"
+                        title="About Batch Management">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="page-subtitle">Create batches, connect them to courses and assign teachers.</p>
         </div>
 
@@ -624,6 +760,72 @@
         {% include "includes/pagination.html" %}
     </div>
 </main>
+
+<div class="modal fade feature-info-modal" id="batchFeatureInfoModal" tabindex="-1" aria-labelledby="batchFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="batchFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Batch Management Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="batchInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="batch-info-english-tab" data-bs-toggle="pill" data-bs-target="#batch-info-english" type="button" role="tab" aria-controls="batch-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="batch-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#batch-info-marathi" type="button" role="tab" aria-controls="batch-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="batch-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#batch-info-hindi" type="button" role="tab" aria-controls="batch-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="batch-info-english" role="tabpanel" aria-labelledby="batch-info-english-tab">
+                        <p>Batch Management is used to create and maintain divisions or sections for your institute. For example, after creating a course/class like 10th, you can create batches such as 10th-A, 10th-B, or 10th-C.</p>
+                        <ul>
+                            <li><strong>Total Batches, Active Batches, Inactive Batches, and Available Courses</strong> show a quick summary of your division setup.</li>
+                            <li><strong>Filter Batches</strong> helps you search by course/class, status, division name, course name, or timing.</li>
+                            <li><strong>New Batch</strong> opens the form where you can create divisions like 10th-A or 10th-B, connect them to courses/classes, assign teachers, and set dates or timing.</li>
+                            <li><strong>Batch Records</strong> displays linked courses/classes, total fee, timing, date range, teachers, and status for each division.</li>
+                            <li><strong>Edit and Delete</strong> actions help you maintain existing division data.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="batch-info-marathi" role="tabpanel" aria-labelledby="batch-info-marathi-tab">
+                        <p>Batch Management चा वापर आपल्या संस्थेतील divisions किंवा sections तयार आणि व्यवस्थापित करण्यासाठी केला जातो. उदाहरणार्थ, 10th हा course/class तयार केल्यानंतर 10th-A, 10th-B किंवा 10th-C असे batches तयार करता येतात.</p>
+                        <ul>
+                            <li><strong>Total Batches, Active Batches, Inactive Batches आणि Available Courses</strong> मधून division setup चा झटपट आढावा मिळतो.</li>
+                            <li><strong>Filter Batches</strong> वापरून course/class, status, division name, course name किंवा timing नुसार batches शोधता येतात.</li>
+                            <li><strong>New Batch</strong> मधून 10th-A किंवा 10th-B सारखी divisions तयार करता येतात, courses/classes जोडता येतात, teachers assign करता येतात आणि dates किंवा timing set करता येते.</li>
+                            <li><strong>Batch Records</strong> मध्ये प्रत्येक division साठी linked courses/classes, total fee, timing, date range, teachers आणि status दिसतो.</li>
+                            <li><strong>Edit आणि Delete</strong> actions वापरून existing division data update किंवा remove करता येतो.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="batch-info-hindi" role="tabpanel" aria-labelledby="batch-info-hindi-tab">
+                        <p>Batch Management का उपयोग आपके institute में divisions या sections बनाने और manage करने के लिए किया जाता है. उदाहरण के लिए, 10th course/class बनाने के बाद आप 10th-A, 10th-B या 10th-C जैसे batches बना सकते हैं.</p>
+                        <ul>
+                            <li><strong>Total Batches, Active Batches, Inactive Batches और Available Courses</strong> आपके division setup का quick summary दिखाते हैं.</li>
+                            <li><strong>Filter Batches</strong> से आप course/class, status, division name, course name या timing के अनुसार batches खोज सकते हैं.</li>
+                            <li><strong>New Batch</strong> से 10th-A या 10th-B जैसी divisions बनाई जा सकती हैं, courses/classes connect किए जा सकते हैं, teachers assign किए जा सकते हैं और dates या timing set की जा सकती है.</li>
+                            <li><strong>Batch Records</strong> हर division के linked courses/classes, total fee, timing, date range, teachers और status दिखाता है.</li>
+                            <li><strong>Edit और Delete</strong> actions से existing division data को update या remove किया जा सकता है.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="deleteBatchModal" tabindex="-1" aria-labelledby="deleteBatchModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

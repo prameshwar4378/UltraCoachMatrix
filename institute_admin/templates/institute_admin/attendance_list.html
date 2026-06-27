@@ -9,6 +9,9 @@
     .attendance-hero { padding:24px; margin-bottom:18px; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:18px; align-items:center; position:relative; overflow:hidden; }
     .attendance-hero:before { content:""; position:absolute; inset:0 auto 0 0; width:7px; background:linear-gradient(180deg,#60a5fa,var(--primary)); }
     .hero-title { margin:0; color:var(--ink); font-weight:950; font-size:1.85rem; }
+    .attendance-title-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .feature-info-btn { width:38px; height:38px; border-radius:50%; border:0; background:linear-gradient(135deg,#073D66,#1669A8); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:1rem; box-shadow:0 12px 24px rgba(7,61,102,.26); transition:transform .18s ease, box-shadow .18s ease; }
+    .feature-info-btn:hover, .feature-info-btn:focus { color:#fff; transform:translateY(-2px); box-shadow:0 16px 30px rgba(7,61,102,.32); }
     .hero-subtitle { margin:7px 0 0; color:var(--muted); font-weight:700; }
     .hero-ring { width:128px; height:128px; border-radius:50%; background:conic-gradient(var(--green) calc(var(--rate) * 1%), #e2e8f0 0); display:grid; place-items:center; }
     .hero-ring-inner { width:96px; height:96px; border-radius:50%; background:#fff; display:grid; place-items:center; text-align:center; color:var(--ink); font-weight:950; box-shadow:inset 0 0 0 1px var(--line); }
@@ -70,6 +73,22 @@
     .export-cancel-btn:hover { background:#f1f5f9; color:#0f172a; }
     .export-download-btn { background:linear-gradient(135deg,#16a34a,#15803d); color:#fff; border:0; border-radius:8px; padding:10px 16px; font-weight:900; display:inline-flex; align-items:center; gap:8px; }
     .export-download-btn:hover { color:#fff; transform:translateY(-1px); }
+    .feature-info-modal, .feature-info-modal .modal-content, .feature-info-modal .modal-title, .feature-info-modal .nav-link, .feature-info-modal p, .feature-info-modal li { font-family:"Poppins",sans-serif; }
+    .feature-info-modal .modal-content { border:0; border-radius:24px; overflow:hidden; box-shadow:0 26px 70px rgba(7,61,102,.24); }
+    .feature-info-modal .modal-header { background:linear-gradient(135deg,#073D66,#1669A8); color:#fff; border-bottom:0; padding:22px 24px; }
+    .feature-info-modal .modal-title { font-weight:800; letter-spacing:0; }
+    .feature-info-modal .modal-body { background:#f8fbff; padding:24px; }
+    .feature-info-modal .nav-pills { gap:8px; margin-bottom:18px; }
+    .feature-info-modal .nav-pills .nav-link { border-radius:999px; color:#073D66; background:#eaf3fb; font-weight:800; padding:8px 14px; }
+    .feature-info-modal .nav-pills .nav-link.active { background:linear-gradient(135deg,#073D66,#1669A8); color:#fff; }
+    .feature-info-panel { background:#fff; border:1px solid rgba(22,105,168,.16); border-radius:18px; padding:20px; }
+    .feature-info-panel p { color:#334155; line-height:1.65; margin-bottom:14px; }
+    .feature-info-panel ul { margin:0; padding-left:20px; color:#1e293b; }
+    .feature-info-panel li { margin-bottom:10px; line-height:1.55; }
+    .feature-info-note { margin-top:16px; border-radius:16px; border:1px solid rgba(22,105,168,.18); background:#eef7ff; color:#073D66; padding:14px 16px; font-weight:700; line-height:1.55; }
+    .feature-info-modal .modal-footer { border-top:1px solid rgba(22,105,168,.12); background:#fff; }
+    .feature-info-close { border:0; border-radius:12px; background:linear-gradient(135deg,#073D66,#1669A8); color:#fff; font-weight:800; padding:10px 18px; }
+    .feature-info-close:hover, .feature-info-close:focus { color:#fff; opacity:.94; }
     .export-option-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
     .format-choice { position:relative; }
     .format-choice input { position:absolute; opacity:0; pointer-events:none; }
@@ -96,7 +115,17 @@
 
     <div class="attendance-hero">
         <div>
-            <h2 class="hero-title">Attendance Control Desk</h2>
+            <div class="attendance-title-row">
+                <h2 class="hero-title">Attendance Control Desk</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#attendanceFeatureInfoModal"
+                        aria-label="Attendance Control Desk information"
+                        title="About Attendance Control Desk">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="hero-subtitle">Pick a batch, mark students quickly, and save the whole day in one action.</p>
             <div class="mt-3">
                 <button type="button" class="btn-export" data-bs-toggle="modal" data-bs-target="#attendanceExportModal">
@@ -270,6 +299,75 @@
         </div>
     </form>
 </main>
+
+<div class="modal fade feature-info-modal" id="attendanceFeatureInfoModal" tabindex="-1" aria-labelledby="attendanceFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="attendanceFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Attendance Control Desk Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="attendanceInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="attendance-info-english-tab" data-bs-toggle="pill" data-bs-target="#attendance-info-english" type="button" role="tab" aria-controls="attendance-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="attendance-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#attendance-info-marathi" type="button" role="tab" aria-controls="attendance-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="attendance-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#attendance-info-hindi" type="button" role="tab" aria-controls="attendance-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="attendance-info-english" role="tabpanel" aria-labelledby="attendance-info-english-tab">
+                        <p>Attendance Control Desk is used to mark and review daily attendance for students in a selected batch/division and date.</p>
+                        <ul>
+                            <li><strong>Select Batch and Date</strong> first. Attendance is saved only for that selected batch/division and day.</li>
+                            <li><strong>Present, Absent, and Late</strong> should be marked carefully because these values affect student reports and attendance percentage.</li>
+                            <li><strong>Quick Mark</strong> helps mark all visible students at once, but review exceptions before saving.</li>
+                            <li><strong>Notes</strong> should be used only for important reasons, such as late reason, approved leave, or correction detail.</li>
+                            <li><strong>Export Records</strong> creates attendance reports for parent meetings, office review, and monthly reporting.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: always confirm the date, batch/division, and student list before clicking Save Attendance.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="attendance-info-marathi" role="tabpanel" aria-labelledby="attendance-info-marathi-tab">
+                        <p>Attendance Control Desk selected batch/division आणि date साठी students ची daily attendance mark आणि review करण्यासाठी वापरले जाते.</p>
+                        <ul>
+                            <li><strong>Batch आणि Date</strong> आधी select करा. Attendance फक्त selected batch/division आणि त्या day साठी save होते.</li>
+                            <li><strong>Present, Absent आणि Late</strong> काळजीपूर्वक mark करा, कारण याचा student reports आणि attendance percentage वर परिणाम होतो.</li>
+                            <li><strong>Quick Mark</strong> visible students एकाच वेळी mark करण्यासाठी मदत करते, पण save करण्यापूर्वी exceptions तपासा.</li>
+                            <li><strong>Notes</strong> फक्त important reasons साठी वापरा, जसे late reason, approved leave किंवा correction detail.</li>
+                            <li><strong>Export Records</strong> parent meetings, office review आणि monthly reporting साठी attendance reports तयार करते.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: Save Attendance क्लिक करण्यापूर्वी date, batch/division आणि student list नेहमी confirm करा.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="attendance-info-hindi" role="tabpanel" aria-labelledby="attendance-info-hindi-tab">
+                        <p>Attendance Control Desk selected batch/division और date के लिए students की daily attendance mark और review करने के लिए उपयोग होता है.</p>
+                        <ul>
+                            <li><strong>Batch और Date</strong> पहले select करें. Attendance केवल selected batch/division और उसी day के लिए save होती है.</li>
+                            <li><strong>Present, Absent और Late</strong> सावधानी से mark करें, क्योंकि ये student reports और attendance percentage को affect करते हैं.</li>
+                            <li><strong>Quick Mark</strong> visible students को एक साथ mark करने में मदद करता है, लेकिन save करने से पहले exceptions review करें.</li>
+                            <li><strong>Notes</strong> केवल important reasons के लिए उपयोग करें, जैसे late reason, approved leave या correction detail.</li>
+                            <li><strong>Export Records</strong> parent meetings, office review और monthly reporting के लिए attendance reports बनाता है.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: Save Attendance क्लिक करने से पहले date, batch/division और student list हमेशा confirm करें.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade export-modal" id="attendanceExportModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">

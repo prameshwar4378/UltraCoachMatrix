@@ -91,6 +91,35 @@
         letter-spacing: -0.045em;
     }
 
+    .visitor-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .feature-info-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 0;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        box-shadow: 0 12px 24px rgba(7, 61, 102, 0.26);
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .feature-info-btn:hover,
+    .feature-info-btn:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 16px 30px rgba(7, 61, 102, 0.32);
+    }
+
     .page-subtitle {
         color: var(--muted);
         margin: 8px 0 0;
@@ -421,6 +450,112 @@
         background: #f8fafc;
     }
 
+    .feature-info-modal,
+    .feature-info-modal .modal-content,
+    .feature-info-modal .modal-title,
+    .feature-info-modal .nav-link,
+    .feature-info-modal p,
+    .feature-info-modal li {
+        font-family: "Poppins", sans-serif;
+    }
+
+    .feature-info-modal .modal-content {
+        border: 0;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 26px 70px rgba(7, 61, 102, 0.24);
+    }
+
+    .feature-info-modal .modal-header {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        border-bottom: 0;
+        padding: 22px 24px;
+    }
+
+    .feature-info-modal .modal-title {
+        font-weight: 800;
+        letter-spacing: 0;
+    }
+
+    .feature-info-modal .modal-body {
+        background: #f8fbff;
+        padding: 24px;
+    }
+
+    .feature-info-modal .nav-pills {
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link {
+        border-radius: 999px;
+        color: #073D66;
+        background: #eaf3fb;
+        font-weight: 800;
+        padding: 8px 14px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link.active {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+    }
+
+    .feature-info-panel {
+        background: #fff;
+        border: 1px solid rgba(22, 105, 168, 0.16);
+        border-radius: 18px;
+        padding: 20px;
+    }
+
+    .feature-info-panel p {
+        color: #334155;
+        line-height: 1.65;
+        margin-bottom: 14px;
+    }
+
+    .feature-info-panel ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #1e293b;
+    }
+
+    .feature-info-panel li {
+        margin-bottom: 10px;
+        line-height: 1.55;
+    }
+
+    .feature-info-note {
+        margin-top: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(22, 105, 168, 0.18);
+        background: #eef7ff;
+        color: #073D66;
+        padding: 14px 16px;
+        font-weight: 700;
+        line-height: 1.55;
+    }
+
+    .feature-info-modal .modal-footer {
+        border-top: 1px solid rgba(22, 105, 168, 0.12);
+        background: #fff;
+    }
+
+    .feature-info-close {
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        font-weight: 800;
+        padding: 10px 18px;
+    }
+
+    .feature-info-close:hover,
+    .feature-info-close:focus {
+        color: #fff;
+        opacity: .94;
+    }
+
     @media(max-width: 992px) {
         .mini-stat-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -480,7 +615,17 @@
 
     <div class="page-toolbar d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="page-title">Visitor Management</h2>
+            <div class="visitor-title-row">
+                <h2 class="page-title">Visitor Management</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#visitorFeatureInfoModal"
+                        aria-label="Visitor Management information"
+                        title="About Visitor Management">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="page-subtitle">Track campus visitors, meetings, entry time, exit time and attachments.</p>
         </div>
 
@@ -715,6 +860,72 @@
         </div>
     </section>
 </main>
+
+<div class="modal fade feature-info-modal" id="visitorFeatureInfoModal" tabindex="-1" aria-labelledby="visitorFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="visitorFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Visitor Management Help
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="visitorInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="visitor-info-english-tab" data-bs-toggle="pill" data-bs-target="#visitor-info-english" type="button" role="tab" aria-controls="visitor-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="visitor-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#visitor-info-marathi" type="button" role="tab" aria-controls="visitor-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="visitor-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#visitor-info-hindi" type="button" role="tab" aria-controls="visitor-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="visitor-info-english" role="tabpanel" aria-labelledby="visitor-info-english-tab">
+                        <p>Visitor Management is used to maintain a proper campus entry log for parents, vendors, guests, enquiry visitors, service providers, and any other person visiting the institute.</p>
+                        <ul>
+                            <li><strong>Visitor Records</strong> keeps a searchable history of who came to the campus and why.</li>
+                            <li><strong>Meeting With</strong> records the staff member, teacher, principal, admin, or department the visitor came to meet.</li>
+                            <li><strong>Entry and Exit Time</strong> helps the institute track visitor movement and maintain a safer campus process.</li>
+                            <li><strong>Purpose and Attachment</strong> can store visit reasons, ID proof, documents, or related files.</li>
+                            <li><strong>Search, Date Filter, Export, Edit, and Delete</strong> help reception/front-office staff manage records quickly.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="visitor-info-marathi" role="tabpanel" aria-labelledby="visitor-info-marathi-tab">
+                        <p>Visitor Management चा वापर parents, vendors, guests, enquiry visitors, service providers आणि institute मध्ये येणाऱ्या इतर व्यक्तींची campus entry log व्यवस्थित ठेवण्यासाठी केला जातो.</p>
+                        <ul>
+                            <li><strong>Visitor Records</strong> मध्ये campus वर कोण आले आणि का आले याची searchable history ठेवली जाते.</li>
+                            <li><strong>Meeting With</strong> मध्ये visitor कोणत्या staff member, teacher, principal, admin किंवा department ला भेटायला आला आहे ते नोंदवता येते.</li>
+                            <li><strong>Entry आणि Exit Time</strong> visitor movement track करण्यासाठी आणि campus safety process सुधारण्यासाठी मदत करतात.</li>
+                            <li><strong>Purpose आणि Attachment</strong> मध्ये visit reason, ID proof, documents किंवा related files save करता येतात.</li>
+                            <li><strong>Search, Date Filter, Export, Edit आणि Delete</strong> reception/front-office staff ला records पटकन manage करण्यासाठी मदत करतात.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="visitor-info-hindi" role="tabpanel" aria-labelledby="visitor-info-hindi-tab">
+                        <p>Visitor Management का उपयोग parents, vendors, guests, enquiry visitors, service providers और institute में आने वाले अन्य लोगों की campus entry log maintain करने के लिए किया जाता है.</p>
+                        <ul>
+                            <li><strong>Visitor Records</strong> campus में कौन आया और क्यों आया, इसकी searchable history रखता है.</li>
+                            <li><strong>Meeting With</strong> में visitor किस staff member, teacher, principal, admin या department से मिलने आया है, यह record किया जाता है.</li>
+                            <li><strong>Entry और Exit Time</strong> visitor movement track करने और campus safety process maintain करने में मदद करते हैं.</li>
+                            <li><strong>Purpose और Attachment</strong> में visit reason, ID proof, documents या related files save की जा सकती हैं.</li>
+                            <li><strong>Search, Date Filter, Export, Edit और Delete</strong> reception/front-office staff को records जल्दी manage करने में मदद करते हैं.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="visitorExportModal" tabindex="-1" aria-labelledby="visitorExportModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">

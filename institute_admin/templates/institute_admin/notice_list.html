@@ -8,7 +8,10 @@
     .notice-shell, .notice-filter, .notice-table, .notice-stat { background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:0 14px 34px rgba(15,23,42,.06); }
     .notice-shell { padding:22px; margin-bottom:18px; position:relative; overflow:hidden; }
     .notice-shell:before { content:""; position:absolute; inset:0 auto 0 0; width:7px; background:linear-gradient(180deg,#14b8a6,#0f766e); }
+    .notice-title-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     .notice-title { margin:0; color:var(--ink); font-weight:950; font-size:1.8rem; }
+    .feature-info-btn { width:38px; height:38px; border-radius:50%; border:0; background:linear-gradient(135deg,#073D66,#1669A8); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:1rem; box-shadow:0 12px 24px rgba(7,61,102,.26); transition:transform .18s ease, box-shadow .18s ease; }
+    .feature-info-btn:hover, .feature-info-btn:focus { color:#fff; transform:translateY(-2px); box-shadow:0 16px 30px rgba(7,61,102,.32); }
     .notice-subtitle { margin:6px 0 0; color:var(--muted); font-weight:700; }
     .btn-notice { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:0; border-radius:8px; padding:10px 16px; font-weight:850; display:inline-flex; align-items:center; gap:8px; }
     .btn-notice:hover { color:#fff; transform:translateY(-1px); }
@@ -40,6 +43,22 @@
     .empty-state { padding:48px 20px; text-align:center; color:var(--muted); font-weight:800; }
     .pagination .page-link { border-radius:8px; margin:0 3px; color:var(--primary); }
     .pagination .active .page-link { background:var(--primary); border-color:var(--primary); color:#fff; }
+    .feature-info-modal, .feature-info-modal .modal-content, .feature-info-modal .modal-title, .feature-info-modal .nav-link, .feature-info-modal p, .feature-info-modal li { font-family:"Poppins",sans-serif; }
+    .feature-info-modal .modal-content { border:0; border-radius:24px; overflow:hidden; box-shadow:0 26px 70px rgba(7,61,102,.24); }
+    .feature-info-modal .modal-header { background:linear-gradient(135deg,#073D66,#1669A8); color:#fff; border-bottom:0; padding:22px 24px; }
+    .feature-info-modal .modal-title { font-weight:800; letter-spacing:0; }
+    .feature-info-modal .modal-body { background:#f8fbff; padding:24px; }
+    .feature-info-modal .nav-pills { gap:8px; margin-bottom:18px; }
+    .feature-info-modal .nav-pills .nav-link { border-radius:999px; color:#073D66; background:#eaf3fb; font-weight:800; padding:8px 14px; }
+    .feature-info-modal .nav-pills .nav-link.active { background:linear-gradient(135deg,#073D66,#1669A8); color:#fff; }
+    .feature-info-panel { background:#fff; border:1px solid rgba(22,105,168,.16); border-radius:18px; padding:20px; }
+    .feature-info-panel p { color:#334155; line-height:1.65; margin-bottom:14px; }
+    .feature-info-panel ul { margin:0; padding-left:20px; color:#1e293b; }
+    .feature-info-panel li { margin-bottom:10px; line-height:1.55; }
+    .feature-info-note { margin-top:16px; border-radius:16px; border:1px solid rgba(22,105,168,.18); background:#eef7ff; color:#073D66; padding:14px 16px; font-weight:700; line-height:1.55; }
+    .feature-info-modal .modal-footer { border-top:1px solid rgba(22,105,168,.12); background:#fff; }
+    .feature-info-close { border:0; border-radius:12px; background:linear-gradient(135deg,#073D66,#1669A8); color:#fff; font-weight:800; padding:10px 18px; }
+    .feature-info-close:hover, .feature-info-close:focus { color:#fff; opacity:.94; }
     @media(max-width:992px){ .notice-stat-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); } .notice-shell{ flex-direction:column; align-items:flex-start!important; } }
     @media(max-width:576px){ .notice-stat-grid{ grid-template-columns:1fr; } .notice-table-head{ flex-direction:column; align-items:flex-start; } }
 </style>
@@ -57,7 +76,16 @@
 
     <div class="notice-shell d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="notice-title">Notice & App Notification Center</h2>
+            <div class="notice-title-row">
+                <h2 class="notice-title">Notice & App Notification Center</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#noticeFeatureInfoModal"
+                        aria-label="About Notice and App Notification Center">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="notice-subtitle">Create institute announcements once, then keep them ready for the student/parent mobile app.</p>
         </div>
         <a href="javascript:void(0);" data-url="{% url 'institute_admin:notice_create' %}" class="btn-notice" onclick="openNoticeWindow(this)">
@@ -212,6 +240,75 @@
         {% endif %}
     </div>
 </main>
+
+<div class="modal fade feature-info-modal" id="noticeFeatureInfoModal" tabindex="-1" aria-labelledby="noticeFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="noticeFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Notice & App Notification Center Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="noticeInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="notice-info-english-tab" data-bs-toggle="pill" data-bs-target="#notice-info-english" type="button" role="tab" aria-controls="notice-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="notice-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#notice-info-marathi" type="button" role="tab" aria-controls="notice-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="notice-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#notice-info-hindi" type="button" role="tab" aria-controls="notice-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="notice-info-english" role="tabpanel" aria-labelledby="notice-info-english-tab">
+                        <p>Notice & App Notification Center is used to create official institute announcements and prepare them for student/parent mobile app visibility.</p>
+                        <ul>
+                            <li><strong>Use this page</strong> for holidays, exam updates, fee reminders, events, timetable changes, emergency messages, and general institute communication.</li>
+                            <li><strong>Audience</strong> decides who should see the notice, such as all users, selected batches/divisions, courses, students, teachers, or parents.</li>
+                            <li><strong>Schedule</strong> helps publish a notice immediately, keep it as draft, plan it for a future date, or expire it after a fixed time.</li>
+                            <li><strong>Push to App</strong> marks the notice for student/parent Android app notification and mobile notice display where app integration is available.</li>
+                            <li><strong>Read count</strong> helps staff understand whether students or parents have opened the notice.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: verify title, message, audience, publish time, expiry time, and app option before publishing important notices.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="notice-info-marathi" role="tabpanel" aria-labelledby="notice-info-marathi-tab">
+                        <p>Notice & App Notification Center institute च्या official announcements तयार करण्यासाठी आणि student/parent mobile app वर दाखवण्यासाठी वापरले जाते.</p>
+                        <ul>
+                            <li><strong>हे page वापरा</strong> holidays, exam updates, fee reminders, events, timetable changes, emergency messages आणि general institute communication साठी.</li>
+                            <li><strong>Audience</strong> notice कोणाला दिसेल हे ठरवते, जसे all users, selected batches/divisions, courses, students, teachers किंवा parents.</li>
+                            <li><strong>Schedule</strong> notice immediately publish करणे, draft ठेवणे, future date साठी plan करणे किंवा fixed time नंतर expire करणे यासाठी मदत करते.</li>
+                            <li><strong>Push to App</strong> notice student/parent Android app notification आणि mobile notice display साठी mark करते, जिथे app integration available आहे.</li>
+                            <li><strong>Read count</strong> students किंवा parents ने notice open केला आहे का हे staff ला समजण्यास मदत करते.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: important notices publish करण्यापूर्वी title, message, audience, publish time, expiry time आणि app option verify करा.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="notice-info-hindi" role="tabpanel" aria-labelledby="notice-info-hindi-tab">
+                        <p>Notice & App Notification Center institute की official announcements बनाने और उन्हें student/parent mobile app पर दिखाने के लिए उपयोग होता है.</p>
+                        <ul>
+                            <li><strong>यह page उपयोग करें</strong> holidays, exam updates, fee reminders, events, timetable changes, emergency messages और general institute communication के लिए.</li>
+                            <li><strong>Audience</strong> तय करता है कि notice किसे दिखेगा, जैसे all users, selected batches/divisions, courses, students, teachers या parents.</li>
+                            <li><strong>Schedule</strong> notice को तुरंत publish करने, draft रखने, future date के लिए plan करने या fixed time के बाद expire करने में मदद करता है.</li>
+                            <li><strong>Push to App</strong> notice को student/parent Android app notification और mobile notice display के लिए mark करता है, जहां app integration available है.</li>
+                            <li><strong>Read count</strong> staff को समझने में मदद करता है कि students या parents ने notice open किया है या नहीं.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: important notices publish करने से पहले title, message, audience, publish time, expiry time और app option verify करें.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="deleteNoticeModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

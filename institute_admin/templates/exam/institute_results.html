@@ -7,6 +7,9 @@
     .results-page { --ink:#0f172a; --muted:#64748b; --line:#dbe4f0; --soft:#f8fafc; --primary:#7c3aed; --green:#15803d; --red:#b91c1c; }
     .results-toolbar, .results-panel, .result-stat { background:#fff; border:1px solid var(--line); border-radius:10px; }
     .results-toolbar { padding:18px; margin-bottom:18px; }
+    .results-title-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .feature-info-btn { width:38px; height:38px; border-radius:50%; border:0; background:linear-gradient(135deg,#073D66,#1669A8); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:1rem; box-shadow:0 12px 24px rgba(7,61,102,.26); transition:transform .18s ease, box-shadow .18s ease; }
+    .feature-info-btn:hover, .feature-info-btn:focus { color:#fff; transform:translateY(-2px); box-shadow:0 16px 30px rgba(7,61,102,.32); }
     .filter-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
     .filter-field label { display:block; margin-bottom:5px; color:#475569; font-size:.78rem; font-weight:800; text-transform:uppercase; }
     .filter-field input, .filter-field select { width:100%; min-height:40px; border:1px solid #cbd5e1; border-radius:6px; padding:8px 10px; background:#fff; }
@@ -36,13 +39,38 @@
     .performance.pass { background:#dcfce7; color:var(--green); }
     .performance.improve { background:#fee2e2; color:var(--red); }
     .results-empty { padding:42px 20px; text-align:center; color:var(--muted); }
+    .feature-info-modal, .feature-info-modal .modal-content, .feature-info-modal .modal-title, .feature-info-modal .nav-link, .feature-info-modal p, .feature-info-modal li { font-family:"Poppins",sans-serif; }
+    .feature-info-modal .modal-content { border:0; border-radius:24px; overflow:hidden; box-shadow:0 26px 70px rgba(7,61,102,.24); }
+    .feature-info-modal .modal-header { background:linear-gradient(135deg,#073D66,#1669A8); color:#fff; border-bottom:0; padding:22px 24px; }
+    .feature-info-modal .modal-title { font-weight:800; letter-spacing:0; }
+    .feature-info-modal .modal-body { background:#f8fbff; padding:24px; }
+    .feature-info-modal .nav-pills { gap:8px; margin-bottom:18px; }
+    .feature-info-modal .nav-pills .nav-link { border-radius:999px; color:#073D66; background:#eaf3fb; font-weight:800; padding:8px 14px; }
+    .feature-info-modal .nav-pills .nav-link.active { background:linear-gradient(135deg,#073D66,#1669A8); color:#fff; }
+    .feature-info-panel { background:#fff; border:1px solid rgba(22,105,168,.16); border-radius:18px; padding:20px; }
+    .feature-info-panel p { color:#334155; line-height:1.65; margin-bottom:14px; }
+    .feature-info-panel ul { margin:0; padding-left:20px; color:#1e293b; }
+    .feature-info-panel li { margin-bottom:10px; line-height:1.55; }
+    .feature-info-note { margin-top:16px; border-radius:16px; border:1px solid rgba(22,105,168,.18); background:#eef7ff; color:#073D66; padding:14px 16px; font-weight:700; line-height:1.55; }
+    .feature-info-modal .modal-footer { border-top:1px solid rgba(22,105,168,.12); background:#fff; }
+    .feature-info-close { border:0; border-radius:12px; background:linear-gradient(135deg,#073D66,#1669A8); color:#fff; font-weight:800; padding:10px 18px; }
+    .feature-info-close:hover, .feature-info-close:focus { color:#fff; opacity:.94; }
     @media(max-width:1100px) { .filter-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .result-stats { grid-template-columns:repeat(3,minmax(0,1fr)); } }
     @media(max-width:650px) { .filter-grid, .result-stats { grid-template-columns:1fr; } }
 </style>
 
 <main id="main" class="main results-page">
     <div class="pagetitle">
-        <h1>Exam Results</h1>
+        <div class="results-title-row">
+            <h1>Exam Results</h1>
+            <button type="button"
+                    class="feature-info-btn"
+                    data-bs-toggle="modal"
+                    data-bs-target="#examResultsFeatureInfoModal"
+                    aria-label="About Exam Results">
+                <i class="bi bi-info-lg"></i>
+            </button>
+        </div>
         <nav>
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{% url 'school_dashboard' %}">Home</a></li>
@@ -193,4 +221,73 @@
         {% endif %}
     </section>
 </main>
+
+<div class="modal fade feature-info-modal" id="examResultsFeatureInfoModal" tabindex="-1" aria-labelledby="examResultsFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="examResultsFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Exam Results Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="examResultsInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="exam-results-info-english-tab" data-bs-toggle="pill" data-bs-target="#exam-results-info-english" type="button" role="tab" aria-controls="exam-results-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="exam-results-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#exam-results-info-marathi" type="button" role="tab" aria-controls="exam-results-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="exam-results-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#exam-results-info-hindi" type="button" role="tab" aria-controls="exam-results-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="exam-results-info-english" role="tabpanel" aria-labelledby="exam-results-info-english-tab">
+                        <p>Exam Results shows submitted online exam attempts with score, percentage, rank, and performance status.</p>
+                        <ul>
+                            <li><strong>Filters</strong> help review results by batch/division, course, subject, exam, student, performance, percentage, and submission date.</li>
+                            <li><strong>Ranks</strong> are calculated separately within each exam. Students with equal scores receive the same rank.</li>
+                            <li><strong>Performance</strong> separates passed students from students who need improvement based on the configured result rule.</li>
+                            <li><strong>Correct, Wrong, and Unattempted</strong> counts help teachers understand question-level attempt quality.</li>
+                            <li><strong>Excel and PDF exports</strong> are useful for academic review, parent meetings, and office records.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: results are shown only for submitted attempts and depend on the correct answers and marks set in Exam Questions.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="exam-results-info-marathi" role="tabpanel" aria-labelledby="exam-results-info-marathi-tab">
+                        <p>Exam Results मध्ये submitted online exam attempts चे score, percentage, rank आणि performance status दिसते.</p>
+                        <ul>
+                            <li><strong>Filters</strong> वापरून batch/division, course, subject, exam, student, performance, percentage आणि submission date नुसार results पाहता येतात.</li>
+                            <li><strong>Ranks</strong> प्रत्येक exam मध्ये स्वतंत्रपणे calculate होतात. Equal score असलेल्या students ला same rank मिळतो.</li>
+                            <li><strong>Performance</strong> configured result rule नुसार passed students आणि improvement लागणारे students वेगळे दाखवते.</li>
+                            <li><strong>Correct, Wrong आणि Unattempted</strong> counts teachers ना attempt quality समजण्यासाठी मदत करतात.</li>
+                            <li><strong>Excel आणि PDF exports</strong> academic review, parent meetings आणि office records साठी उपयोगी आहेत.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: results फक्त submitted attempts साठी दिसतात आणि ते Exam Questions मधील correct answers व marks वर depend करतात.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="exam-results-info-hindi" role="tabpanel" aria-labelledby="exam-results-info-hindi-tab">
+                        <p>Exam Results में submitted online exam attempts का score, percentage, rank और performance status दिखता है.</p>
+                        <ul>
+                            <li><strong>Filters</strong> से batch/division, course, subject, exam, student, performance, percentage और submission date के अनुसार results देखे जा सकते हैं.</li>
+                            <li><strong>Ranks</strong> हर exam के अंदर अलग से calculate होते हैं. Equal score वाले students को same rank मिलता है.</li>
+                            <li><strong>Performance</strong> configured result rule के अनुसार passed students और improvement वाले students अलग दिखाता है.</li>
+                            <li><strong>Correct, Wrong और Unattempted</strong> counts teachers को attempt quality समझने में मदद करते हैं.</li>
+                            <li><strong>Excel और PDF exports</strong> academic review, parent meetings और office records के लिए उपयोगी हैं.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: results सिर्फ submitted attempts के लिए दिखते हैं और वे Exam Questions में set correct answers और marks पर depend करते हैं.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock content %}

@@ -83,6 +83,39 @@
         color: #0f172a;
     }
 
+    .reports-title-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .report-info-btn {
+        width: 42px;
+        height: 42px;
+        border: 0;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #312e81, #2563eb);
+        color: #fff;
+        box-shadow: 0 14px 28px rgba(37, 99, 235, .24);
+        transition: .2s ease;
+    }
+
+    .report-info-btn:hover,
+    .report-info-btn:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 18px 34px rgba(37, 99, 235, .32);
+    }
+
+    .report-info-btn i {
+        font-size: 1.1rem;
+        line-height: 1;
+    }
+
     .reports-subtitle {
         margin: 0;
         max-width: 780px;
@@ -453,6 +486,112 @@
         font-weight: 750;
     }
 
+    .feature-info-modal,
+    .feature-info-modal .modal-content,
+    .feature-info-modal .modal-title,
+    .feature-info-modal .nav-link,
+    .feature-info-modal p,
+    .feature-info-modal li {
+        font-family: "Poppins", sans-serif;
+    }
+
+    .feature-info-modal .modal-content {
+        border: 0;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 26px 70px rgba(49, 46, 129, .24);
+    }
+
+    .feature-info-modal .modal-header {
+        background: linear-gradient(135deg, #312e81, #2563eb);
+        color: #fff;
+        border-bottom: 0;
+        padding: 22px 24px;
+    }
+
+    .feature-info-modal .modal-title {
+        font-weight: 850;
+        letter-spacing: 0;
+    }
+
+    .feature-info-modal .modal-body {
+        background: #f8fbff;
+        padding: 24px;
+    }
+
+    .feature-info-modal .nav-pills {
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link {
+        border-radius: 999px;
+        color: #312e81;
+        background: #eef2ff;
+        font-weight: 850;
+        padding: 8px 14px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link.active {
+        background: linear-gradient(135deg, #312e81, #2563eb);
+        color: #fff;
+    }
+
+    .feature-info-panel {
+        background: #fff;
+        border: 1px solid rgba(79, 70, 229, .16);
+        border-radius: 18px;
+        padding: 20px;
+    }
+
+    .feature-info-panel p {
+        color: #334155;
+        line-height: 1.65;
+        margin-bottom: 14px;
+    }
+
+    .feature-info-panel ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #1e293b;
+    }
+
+    .feature-info-panel li {
+        margin-bottom: 10px;
+        line-height: 1.55;
+    }
+
+    .feature-info-note {
+        margin-top: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(37, 99, 235, .18);
+        background: #eef6ff;
+        color: #1e3a8a;
+        padding: 14px 16px;
+        font-weight: 750;
+        line-height: 1.55;
+    }
+
+    .feature-info-modal .modal-footer {
+        border-top: 1px solid rgba(79, 70, 229, .12);
+        background: #fff;
+    }
+
+    .feature-info-close {
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #312e81, #2563eb);
+        color: #fff;
+        font-weight: 850;
+        padding: 10px 18px;
+    }
+
+    .feature-info-close:hover,
+    .feature-info-close:focus {
+        color: #fff;
+        opacity: .94;
+    }
+
     @media (max-width: 1199px) {
         .reports-grid,
         .reports-hero {
@@ -500,7 +639,17 @@
         <section class="reports-hero">
             <div>
                 <span class="reports-kicker"><i class="bi bi-bar-chart"></i> Report Center</span>
-                <h1 class="reports-title">Premium Report Management Dashboard</h1>
+                <div class="reports-title-row">
+                    <h1 class="reports-title">Premium Report Management Dashboard</h1>
+                    <button type="button"
+                            class="report-info-btn"
+                            data-bs-toggle="modal"
+                            data-bs-target="#premiumReportFeatureInfoModal"
+                            aria-label="Premium Report Management Dashboard information"
+                            title="Dashboard information">
+                        <i class="bi bi-info-lg"></i>
+                    </button>
+                </div>
                 <p class="reports-subtitle">
                     Manage finance, fee, student and academic reports from one clean workspace. Generate reports, configure filters, export files and track saved reports with a modern professional layout.
                 </p>
@@ -634,4 +783,73 @@
         </div>
     </div>
 </main>
+
+<div class="modal fade feature-info-modal" id="premiumReportFeatureInfoModal" tabindex="-1" aria-labelledby="premiumReportFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="premiumReportFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Premium Report Management Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="premiumReportInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="premium-report-info-english-tab" data-bs-toggle="pill" data-bs-target="#premium-report-info-english" type="button" role="tab" aria-controls="premium-report-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="premium-report-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#premium-report-info-marathi" type="button" role="tab" aria-controls="premium-report-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="premium-report-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#premium-report-info-hindi" type="button" role="tab" aria-controls="premium-report-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="premium-report-info-english" role="tabpanel" aria-labelledby="premium-report-info-english-tab">
+                        <p>The Premium Report Management Dashboard brings finance, fee, student, and academic reports into one place so institute staff can quickly choose the right report and understand what each output will contain.</p>
+                        <ul>
+                            <li><strong>Report groups</strong> separate reports by purpose, such as finance, student records, and academic performance.</li>
+                            <li><strong>Filters</strong> show which inputs will be needed before generating a report, including dates, class, batch, student, and status.</li>
+                            <li><strong>Output chips</strong> show the important columns or summaries expected in each generated report.</li>
+                            <li><strong>Generate</strong> opens reports that are already connected, while Coming Soon marks planned reports that are not active yet.</li>
+                            <li><strong>Saved reports</strong> will be used to track generated files and make repeated report access easier.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: always check the selected date range, class, batch, and student filters before exporting a report for official use.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="premium-report-info-marathi" role="tabpanel" aria-labelledby="premium-report-info-marathi-tab">
+                        <p>Premium Report Management Dashboard मध्ये finance, fee, student आणि academic reports एकाच ठिकाणी दिसतात, त्यामुळे staff योग्य report पटकन निवडू शकतो आणि प्रत्येक report मध्ये कोणती माहिती मिळेल हे समजू शकते.</p>
+                        <ul>
+                            <li><strong>Report groups</strong> reports त्यांच्या उपयोगानुसार वेगळे करतात, जसे finance, student records आणि academic performance.</li>
+                            <li><strong>Filters</strong> report generate करण्यापूर्वी लागणारी माहिती दाखवतात, जसे date range, class, batch, student आणि status.</li>
+                            <li><strong>Output chips</strong> generated report मध्ये कोणते महत्त्वाचे columns किंवा summary दिसणार आहे ते दाखवतात.</li>
+                            <li><strong>Generate</strong> आधीच जोडलेले reports open करते, तर Coming Soon हे अजून active नसलेल्या planned reports साठी दाखवले जाते.</li>
+                            <li><strong>Saved reports</strong> generated files track करण्यासाठी आणि ते reports पुन्हा सहज access करण्यासाठी वापरले जातील.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: official use साठी report export करण्यापूर्वी selected date range, class, batch आणि student filters नक्की तपासा.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="premium-report-info-hindi" role="tabpanel" aria-labelledby="premium-report-info-hindi-tab">
+                        <p>Premium Report Management Dashboard में finance, fee, student और academic reports एक ही जगह पर दिखाई देते हैं, जिससे staff सही report जल्दी चुन सकता है और हर report में कौन-सी जानकारी मिलेगी यह समझ सकता है.</p>
+                        <ul>
+                            <li><strong>Report groups</strong> reports को उनके उपयोग के अनुसार अलग रखते हैं, जैसे finance, student records और academic performance.</li>
+                            <li><strong>Filters</strong> report generate करने से पहले जरूरी जानकारी दिखाते हैं, जैसे date range, class, batch, student और status.</li>
+                            <li><strong>Output chips</strong> generated report में आने वाले important columns या summary दिखाते हैं.</li>
+                            <li><strong>Generate</strong> पहले से connected reports open करता है, जबकि Coming Soon उन planned reports के लिए दिखता है जो अभी active नहीं हैं.</li>
+                            <li><strong>Saved reports</strong> generated files को track करने और उन्हीं reports को दोबारा आसानी से access करने के लिए उपयोग होंगे.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: official use के लिए report export करने से पहले selected date range, class, batch और student filters जरूर check करें.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock content %}

@@ -92,6 +92,35 @@
         letter-spacing: -0.045em;
     }
 
+    .lead-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .feature-info-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 0;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        box-shadow: 0 12px 24px rgba(7, 61, 102, 0.26);
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .feature-info-btn:hover,
+    .feature-info-btn:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 16px 30px rgba(7, 61, 102, 0.32);
+    }
+
     .page-subtitle {
         color: var(--muted);
         margin: 8px 0 0;
@@ -549,6 +578,112 @@
         font-weight: 900;
     }
 
+    .feature-info-modal,
+    .feature-info-modal .modal-content,
+    .feature-info-modal .modal-title,
+    .feature-info-modal .nav-link,
+    .feature-info-modal p,
+    .feature-info-modal li {
+        font-family: "Poppins", sans-serif;
+    }
+
+    .feature-info-modal .modal-content {
+        border: 0;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 26px 70px rgba(7, 61, 102, 0.24);
+    }
+
+    .feature-info-modal .modal-header {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        border-bottom: 0;
+        padding: 22px 24px;
+    }
+
+    .feature-info-modal .modal-title {
+        font-weight: 800;
+        letter-spacing: 0;
+    }
+
+    .feature-info-modal .modal-body {
+        background: #f8fbff;
+        padding: 24px;
+    }
+
+    .feature-info-modal .nav-pills {
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link {
+        border-radius: 999px;
+        color: #073D66;
+        background: #eaf3fb;
+        font-weight: 800;
+        padding: 8px 14px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link.active {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+    }
+
+    .feature-info-panel {
+        background: #fff;
+        border: 1px solid rgba(22, 105, 168, 0.16);
+        border-radius: 18px;
+        padding: 20px;
+    }
+
+    .feature-info-panel p {
+        color: #334155;
+        line-height: 1.65;
+        margin-bottom: 14px;
+    }
+
+    .feature-info-panel ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #1e293b;
+    }
+
+    .feature-info-panel li {
+        margin-bottom: 10px;
+        line-height: 1.55;
+    }
+
+    .feature-info-note {
+        margin-top: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(22, 105, 168, 0.18);
+        background: #eef7ff;
+        color: #073D66;
+        padding: 14px 16px;
+        font-weight: 700;
+        line-height: 1.55;
+    }
+
+    .feature-info-modal .modal-footer {
+        border-top: 1px solid rgba(22, 105, 168, 0.12);
+        background: #fff;
+    }
+
+    .feature-info-close {
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        font-weight: 800;
+        padding: 10px 18px;
+    }
+
+    .feature-info-close:hover,
+    .feature-info-close:focus {
+        color: #fff;
+        opacity: .94;
+    }
+
     @media(max-width: 992px) {
         .stat-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -614,7 +749,17 @@
 
     <div class="page-toolbar d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="page-title">Lead Management</h2>
+            <div class="lead-title-row">
+                <h2 class="page-title">Lead Management</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#leadFeatureInfoModal"
+                        aria-label="Lead Management information"
+                        title="About Lead Management">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="page-subtitle">Track enquiries, manage follow-ups, and convert interested leads into students.</p>
         </div>
 
@@ -881,6 +1026,72 @@
         </div>
     </section>
 </main>
+
+<div class="modal fade feature-info-modal" id="leadFeatureInfoModal" tabindex="-1" aria-labelledby="leadFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="leadFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Lead Management Help
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="leadInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="lead-info-english-tab" data-bs-toggle="pill" data-bs-target="#lead-info-english" type="button" role="tab" aria-controls="lead-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="lead-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#lead-info-marathi" type="button" role="tab" aria-controls="lead-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="lead-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#lead-info-hindi" type="button" role="tab" aria-controls="lead-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="lead-info-english" role="tabpanel" aria-labelledby="lead-info-english-tab">
+                        <p>Lead Management is used to record admission enquiries, track follow-ups, and convert interested enquiries into student admissions when the lead is ready.</p>
+                        <ul>
+                            <li><strong>Total Leads, New Leads, Follow Up, and Converted</strong> show the current enquiry pipeline.</li>
+                            <li><strong>Filter Leads</strong> helps you search by name, phone, email, interested course/class, or lead status.</li>
+                            <li><strong>Add Lead</strong> opens the enquiry form where you can save contact details, interested class, batch/division, source, status, message, and follow-up date.</li>
+                            <li><strong>Convert</strong> creates the student account, academic session, and enrollment after class and batch/division are selected.</li>
+                            <li><strong>Export, Edit, and Delete</strong> help you report on and maintain enquiry records.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="lead-info-marathi" role="tabpanel" aria-labelledby="lead-info-marathi-tab">
+                        <p>Lead Management चा वापर admission enquiries नोंदवण्यासाठी, follow-ups track करण्यासाठी आणि interested enquiries ready झाल्यावर student admissions मध्ये convert करण्यासाठी केला जातो.</p>
+                        <ul>
+                            <li><strong>Total Leads, New Leads, Follow Up आणि Converted</strong> enquiry pipeline चा आढावा दाखवतात.</li>
+                            <li><strong>Filter Leads</strong> वापरून name, phone, email, interested course/class किंवा lead status नुसार leads शोधता येतात.</li>
+                            <li><strong>Add Lead</strong> मधून contact details, interested class, batch/division, source, status, message आणि follow-up date save करता येते.</li>
+                            <li><strong>Convert</strong> class आणि batch/division निवडल्यानंतर student account, academic session आणि enrollment तयार करते.</li>
+                            <li><strong>Export, Edit आणि Delete</strong> enquiry records report आणि maintain करण्यासाठी मदत करतात.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="lead-info-hindi" role="tabpanel" aria-labelledby="lead-info-hindi-tab">
+                        <p>Lead Management का उपयोग admission enquiries दर्ज करने, follow-ups track करने और interested enquiries ready होने पर उन्हें student admissions में convert करने के लिए किया जाता है.</p>
+                        <ul>
+                            <li><strong>Total Leads, New Leads, Follow Up और Converted</strong> current enquiry pipeline दिखाते हैं.</li>
+                            <li><strong>Filter Leads</strong> से आप name, phone, email, interested course/class या lead status के अनुसार leads खोज सकते हैं.</li>
+                            <li><strong>Add Lead</strong> से contact details, interested class, batch/division, source, status, message और follow-up date save की जा सकती है.</li>
+                            <li><strong>Convert</strong> class और batch/division selected होने के बाद student account, academic session और enrollment बनाता है.</li>
+                            <li><strong>Export, Edit और Delete</strong> enquiry records को report और maintain करने में मदद करते हैं.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="convertLeadModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

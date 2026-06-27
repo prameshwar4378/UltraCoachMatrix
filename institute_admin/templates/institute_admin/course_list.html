@@ -81,6 +81,37 @@
         letter-spacing: -0.04em;
     }
 
+    .course-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .feature-info-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 0;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        box-shadow: 0 12px 24px rgba(7, 61, 102, 0.26);
+        position: relative;
+        z-index: 1;
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .feature-info-btn:hover,
+    .feature-info-btn:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 16px 30px rgba(7, 61, 102, 0.32);
+    }
+
     .page-subtitle {
         color: var(--muted);
         margin: 8px 0 0;
@@ -362,6 +393,100 @@
     .modal-content {
         border-radius: 22px;
         overflow: hidden;
+    }
+
+    .feature-info-modal,
+    .feature-info-modal .modal-content,
+    .feature-info-modal .modal-title,
+    .feature-info-modal .nav-link,
+    .feature-info-modal p,
+    .feature-info-modal li {
+        font-family: "Poppins", sans-serif;
+    }
+
+    .feature-info-modal .modal-content {
+        border: 0;
+        border-radius: 24px;
+        box-shadow: 0 26px 70px rgba(7, 61, 102, 0.24);
+    }
+
+    .feature-info-modal .modal-header {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        border-bottom: 0;
+        padding: 22px 24px;
+    }
+
+    .feature-info-modal .modal-title {
+        font-weight: 800;
+        letter-spacing: 0;
+    }
+
+    .feature-info-modal .modal-body {
+        background: #f8fbff;
+        padding: 24px;
+    }
+
+    .feature-info-modal .nav-pills {
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link {
+        border-radius: 999px;
+        color: #073D66;
+        background: #eaf3fb;
+        font-weight: 800;
+        padding: 8px 14px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link.active {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+    }
+
+    .feature-info-panel {
+        background: #fff;
+        border: 1px solid rgba(22, 105, 168, 0.16);
+        border-radius: 18px;
+        padding: 20px;
+    }
+
+    .feature-info-panel p {
+        color: #334155;
+        line-height: 1.65;
+        margin-bottom: 14px;
+    }
+
+    .feature-info-panel ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #1e293b;
+    }
+
+    .feature-info-panel li {
+        margin-bottom: 10px;
+        line-height: 1.55;
+    }
+
+    .feature-info-modal .modal-footer {
+        border-top: 1px solid rgba(22, 105, 168, 0.12);
+        background: #fff;
+    }
+
+    .feature-info-close {
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        font-weight: 800;
+        padding: 10px 18px;
+    }
+
+    .feature-info-close:hover,
+    .feature-info-close:focus {
+        color: #fff;
+        opacity: .94;
     }
 
     .bulk-course-modal .modal-dialog {
@@ -677,7 +802,17 @@
 
     <div class="page-toolbar d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="page-title">Course Management</h2>
+            <div class="course-title-row">
+                <h2 class="page-title">Course Management</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#courseFeatureInfoModal"
+                        aria-label="Course Management information"
+                        title="About Course Management">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="page-subtitle">Manage courses offered by your institute and use them while creating batches.</p>
         </div>
 
@@ -851,6 +986,72 @@
         {% include "includes/pagination.html" %}
     </div>
 </main>
+
+<div class="modal fade feature-info-modal" id="courseFeatureInfoModal" tabindex="-1" aria-labelledby="courseFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="courseFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Course Management Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="courseInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="course-info-english-tab" data-bs-toggle="pill" data-bs-target="#course-info-english" type="button" role="tab" aria-controls="course-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="course-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#course-info-marathi" type="button" role="tab" aria-controls="course-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="course-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#course-info-hindi" type="button" role="tab" aria-controls="course-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="course-info-english" role="tabpanel" aria-labelledby="course-info-english-tab">
+                        <p>Course Management is used to create and maintain the courses or classes offered by your institute. These courses are later connected with batches, students, fees, homework, exams, and reports.</p>
+                        <ul>
+                            <li><strong>Total Courses, Active Courses, Inactive Courses, and Total Batches</strong> show a quick summary of your academic setup.</li>
+                            <li><strong>Filter Courses</strong> helps you find courses by status or course name.</li>
+                            <li><strong>New Course</strong> opens the course form where you can add course name, duration, fee, description, and status.</li>
+                            <li><strong>Bulk Create</strong> helps school institutes create standard classes quickly, such as Nursery, LKG, UKG, and Class 1 to Class 10.</li>
+                            <li><strong>Edit and Delete</strong> actions are available in the course records table for maintaining existing course data.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="course-info-marathi" role="tabpanel" aria-labelledby="course-info-marathi-tab">
+                        <p>Course Management चा वापर आपल्या संस्थेतील courses किंवा classes तयार आणि व्यवस्थापित करण्यासाठी केला जातो. हे courses पुढे batches, students, fees, homework, exams आणि reports सोबत जोडले जातात.</p>
+                        <ul>
+                            <li><strong>Total Courses, Active Courses, Inactive Courses आणि Total Batches</strong> मधून academic setup चा झटपट आढावा मिळतो.</li>
+                            <li><strong>Filter Courses</strong> वापरून status किंवा course name नुसार courses शोधता येतात.</li>
+                            <li><strong>New Course</strong> मधून course name, duration, fee, description आणि status भरून नवीन course तयार करता येतो.</li>
+                            <li><strong>Bulk Create</strong> school institutes साठी Nursery, LKG, UKG आणि Class 1 ते Class 10 सारखे standard classes पटकन तयार करण्यास मदत करते.</li>
+                            <li><strong>Edit आणि Delete</strong> actions वापरून existing course records update किंवा remove करता येतात.</li>
+                        </ul>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="course-info-hindi" role="tabpanel" aria-labelledby="course-info-hindi-tab">
+                        <p>Course Management का उपयोग आपके institute में available courses या classes बनाने और manage करने के लिए किया जाता है. ये courses आगे batches, students, fees, homework, exams और reports से connect होते हैं.</p>
+                        <ul>
+                            <li><strong>Total Courses, Active Courses, Inactive Courses और Total Batches</strong> आपके academic setup का quick summary दिखाते हैं.</li>
+                            <li><strong>Filter Courses</strong> से आप status या course name के अनुसार courses खोज सकते हैं.</li>
+                            <li><strong>New Course</strong> से course name, duration, fee, description और status भरकर नया course बनाया जा सकता है.</li>
+                            <li><strong>Bulk Create</strong> school institutes को Nursery, LKG, UKG और Class 1 से Class 10 तक standard classes जल्दी बनाने में मदद करता है.</li>
+                            <li><strong>Edit और Delete</strong> actions से existing course records को update या remove किया जा सकता है.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="deleteCourseModal" tabindex="-1" aria-labelledby="deleteCourseModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

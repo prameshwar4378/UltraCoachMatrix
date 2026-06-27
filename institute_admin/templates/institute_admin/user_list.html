@@ -94,6 +94,35 @@
         letter-spacing: -0.04em;
     }
 
+    .user-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .feature-info-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 0;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        box-shadow: 0 12px 24px rgba(7, 61, 102, 0.26);
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .feature-info-btn:hover,
+    .feature-info-btn:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 16px 30px rgba(7, 61, 102, 0.32);
+    }
+
     .page-subtitle {
         color: rgba(255, 255, 255, 0.82);
         margin: 8px 0 0;
@@ -440,6 +469,112 @@
         background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
     }
 
+    .feature-info-modal,
+    .feature-info-modal .modal-content,
+    .feature-info-modal .modal-title,
+    .feature-info-modal .nav-link,
+    .feature-info-modal p,
+    .feature-info-modal li {
+        font-family: "Poppins", sans-serif;
+    }
+
+    .feature-info-modal .modal-content {
+        border: 0;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 26px 70px rgba(7, 61, 102, 0.24);
+    }
+
+    .feature-info-modal .modal-header {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        border-bottom: 0;
+        padding: 22px 24px;
+    }
+
+    .feature-info-modal .modal-title {
+        font-weight: 800;
+        letter-spacing: 0;
+    }
+
+    .feature-info-modal .modal-body {
+        background: #f8fbff;
+        padding: 24px;
+    }
+
+    .feature-info-modal .nav-pills {
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link {
+        border-radius: 999px;
+        color: #073D66;
+        background: #eaf3fb;
+        font-weight: 800;
+        padding: 8px 14px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link.active {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+    }
+
+    .feature-info-panel {
+        background: #fff;
+        border: 1px solid rgba(22, 105, 168, 0.16);
+        border-radius: 18px;
+        padding: 20px;
+    }
+
+    .feature-info-panel p {
+        color: #334155;
+        line-height: 1.65;
+        margin-bottom: 14px;
+    }
+
+    .feature-info-panel ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #1e293b;
+    }
+
+    .feature-info-panel li {
+        margin-bottom: 10px;
+        line-height: 1.55;
+    }
+
+    .feature-info-note {
+        margin-top: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(22, 105, 168, 0.18);
+        background: #eef7ff;
+        color: #073D66;
+        padding: 14px 16px;
+        font-weight: 700;
+        line-height: 1.55;
+    }
+
+    .feature-info-modal .modal-footer {
+        border-top: 1px solid rgba(22, 105, 168, 0.12);
+        background: #fff;
+    }
+
+    .feature-info-close {
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        font-weight: 800;
+        padding: 10px 18px;
+    }
+
+    .feature-info-close:hover,
+    .feature-info-close:focus {
+        color: #fff;
+        opacity: .94;
+    }
+
     @media(max-width: 1200px) {
         .stat-grid {
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -496,7 +631,17 @@
 
     <div class="page-toolbar d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="page-title">User Access Management</h2>
+            <div class="user-title-row">
+                <h2 class="page-title">User Access Management</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#userFeatureInfoModal"
+                        aria-label="User Access Management information"
+                        title="About User Access Management">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="page-subtitle">Manage institute logins for admins, teachers, accountants and student/parent users.</p>
         </div>
 
@@ -657,6 +802,75 @@
         {% include "includes/pagination.html" %}
     </div>
 </main>
+
+<div class="modal fade feature-info-modal" id="userFeatureInfoModal" tabindex="-1" aria-labelledby="userFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> User Access Management Help
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="userInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="user-info-english-tab" data-bs-toggle="pill" data-bs-target="#user-info-english" type="button" role="tab" aria-controls="user-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="user-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#user-info-marathi" type="button" role="tab" aria-controls="user-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="user-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#user-info-hindi" type="button" role="tab" aria-controls="user-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="user-info-english" role="tabpanel" aria-labelledby="user-info-english-tab">
+                        <p>User Access Management is used to create and control login access for people who need to use the institute software.</p>
+                        <ul>
+                            <li><strong>Who should be added:</strong> admin staff, teachers, accountants, and student/parent users who need system access.</li>
+                            <li><strong>Why roles matter:</strong> each role opens only the work area needed for that person, such as teaching, fees, admin work, or student/parent access.</li>
+                            <li><strong>When to create access:</strong> create a user when a new staff member joins, a teacher needs login, an accountant handles fees, or a student/parent account is required.</li>
+                            <li><strong>When to update or deactivate:</strong> update role/contact details when responsibilities change, and deactivate/delete access when a person leaves or should no longer log in.</li>
+                            <li><strong>Use filters:</strong> search by role, status, name, username, phone, or email to quickly find the correct account.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-lock me-1"></i> Important: give users only the role they actually need. This keeps institute data safer and avoids accidental access to unrelated sections.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="user-info-marathi" role="tabpanel" aria-labelledby="user-info-marathi-tab">
+                        <p>User Access Management चा वापर institute software वापरणाऱ्या लोकांसाठी login access तयार आणि control करण्यासाठी केला जातो.</p>
+                        <ul>
+                            <li><strong>कोणाला add करावे:</strong> admin staff, teachers, accountants आणि system access लागणारे student/parent users.</li>
+                            <li><strong>Role का महत्त्वाचा आहे:</strong> प्रत्येक role त्या व्यक्तीला लागणारेच work area उघडतो, जसे teaching, fees, admin work किंवा student/parent access.</li>
+                            <li><strong>Access कधी create करावा:</strong> नवीन staff join झाल्यावर, teacher ला login लागल्यावर, accountant fees handle करत असल्यावर किंवा student/parent account लागल्यावर.</li>
+                            <li><strong>Update किंवा deactivate कधी करावे:</strong> responsibility बदलल्यावर role/contact update करा, आणि व्यक्ती institute सोडल्यावर किंवा login नको असल्यावर access deactivate/delete करा.</li>
+                            <li><strong>Filters वापरा:</strong> role, status, name, username, phone किंवा email नुसार account पटकन शोधता येतो.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-lock me-1"></i> Important: user ला फक्त त्याला खरंच लागणारा role द्या. त्यामुळे institute data सुरक्षित राहतो आणि चुकीचा access टाळता येतो.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="user-info-hindi" role="tabpanel" aria-labelledby="user-info-hindi-tab">
+                        <p>User Access Management का उपयोग institute software इस्तेमाल करने वाले लोगों के लिए login access बनाने और control करने के लिए किया जाता है.</p>
+                        <ul>
+                            <li><strong>किसे add करना चाहिए:</strong> admin staff, teachers, accountants और system access की जरूरत वाले student/parent users.</li>
+                            <li><strong>Role क्यों जरूरी है:</strong> हर role व्यक्ति को सिर्फ जरूरी work area देता है, जैसे teaching, fees, admin work या student/parent access.</li>
+                            <li><strong>Access कब create करें:</strong> नया staff join हो, teacher को login चाहिए, accountant fees handle करे, या student/parent account चाहिए.</li>
+                            <li><strong>Update या deactivate कब करें:</strong> responsibility बदलने पर role/contact update करें, और व्यक्ति institute छोड़ दे या login access नहीं चाहिए तो access deactivate/delete करें.</li>
+                            <li><strong>Filters इस्तेमाल करें:</strong> role, status, name, username, phone या email से account जल्दी खोजा जा सकता है.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-lock me-1"></i> Important: user को केवल वही role दें जिसकी उसे सच में जरूरत है. इससे institute data सुरक्षित रहता है और गलत access से बचाव होता है.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="deleteUserModal" tabindex="-1" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

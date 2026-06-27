@@ -9,6 +9,9 @@
     .page-toolbar { padding: 22px; margin-bottom: 24px; }
     .page-title { font-size: 1.7rem; font-weight: 800; color: var(--text); margin: 0; }
     .page-subtitle { color: var(--muted); margin: 6px 0 0; }
+    .enrollment-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .feature-info-btn { width: 38px; height: 38px; border-radius: 50%; border: 0; background: linear-gradient(135deg, #073D66, #1669A8); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 1rem; box-shadow: 0 12px 24px rgba(7, 61, 102, 0.26); transition: transform .18s ease, box-shadow .18s ease; }
+    .feature-info-btn:hover, .feature-info-btn:focus { color: #fff; transform: translateY(-2px); box-shadow: 0 16px 30px rgba(7, 61, 102, 0.32); }
     .btn-gradient { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; border: none; border-radius: 12px; padding: 11px 18px; font-weight: 700; }
     .btn-gradient:hover { color: #fff; transform: translateY(-1px); }
     .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; margin-bottom: 24px; }
@@ -32,6 +35,22 @@
     .action-btn { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; }
     .empty-state { padding: 60px 20px; text-align: center; color: var(--muted); }
     .empty-state i { font-size: 3rem; color: #ddd6fe; margin-bottom: 12px; }
+    .feature-info-modal, .feature-info-modal .modal-content, .feature-info-modal .modal-title, .feature-info-modal .nav-link, .feature-info-modal p, .feature-info-modal li { font-family: "Poppins", sans-serif; }
+    .feature-info-modal .modal-content { border: 0; border-radius: 24px; overflow: hidden; box-shadow: 0 26px 70px rgba(7, 61, 102, 0.24); }
+    .feature-info-modal .modal-header { background: linear-gradient(135deg, #073D66, #1669A8); color: #fff; border-bottom: 0; padding: 22px 24px; }
+    .feature-info-modal .modal-title { font-weight: 800; letter-spacing: 0; }
+    .feature-info-modal .modal-body { background: #f8fbff; padding: 24px; }
+    .feature-info-modal .nav-pills { gap: 8px; margin-bottom: 18px; }
+    .feature-info-modal .nav-pills .nav-link { border-radius: 999px; color: #073D66; background: #eaf3fb; font-weight: 800; padding: 8px 14px; }
+    .feature-info-modal .nav-pills .nav-link.active { background: linear-gradient(135deg, #073D66, #1669A8); color: #fff; }
+    .feature-info-panel { background: #fff; border: 1px solid rgba(22, 105, 168, 0.16); border-radius: 18px; padding: 20px; }
+    .feature-info-panel p { color: #334155; line-height: 1.65; margin-bottom: 14px; }
+    .feature-info-panel ul { margin: 0; padding-left: 20px; color: #1e293b; }
+    .feature-info-panel li { margin-bottom: 10px; line-height: 1.55; }
+    .feature-info-note { margin-top: 16px; border-radius: 16px; border: 1px solid rgba(22, 105, 168, 0.18); background: #eef7ff; color: #073D66; padding: 14px 16px; font-weight: 700; line-height: 1.55; }
+    .feature-info-modal .modal-footer { border-top: 1px solid rgba(22, 105, 168, 0.12); background: #fff; }
+    .feature-info-close { border: 0; border-radius: 12px; background: linear-gradient(135deg, #073D66, #1669A8); color: #fff; font-weight: 800; padding: 10px 18px; }
+    .feature-info-close:hover, .feature-info-close:focus { color: #fff; opacity: .94; }
     @media(max-width: 992px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 
@@ -48,7 +67,17 @@
 
     <div class="page-toolbar d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="page-title">Batch & Course Enrollments</h2>
+            <div class="enrollment-title-row">
+                <h2 class="page-title">Batch & Course Enrollments</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#enrollmentFeatureInfoModal"
+                        aria-label="Batch and Course Enrollments information"
+                        title="About Enrollments">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="page-subtitle">Assign students to batches and calculate course-wise fee totals.</p>
         </div>
         <a href="javascript:void(0);" data-url="{% url 'institute_admin:enrollment_create' %}" class="btn btn-gradient" onclick="openEnrollmentWindow(this)">
@@ -183,6 +212,75 @@
         {% include "includes/pagination.html" %}
     </div>
 </main>
+
+<div class="modal fade feature-info-modal" id="enrollmentFeatureInfoModal" tabindex="-1" aria-labelledby="enrollmentFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="enrollmentFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Enrollment Management Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="enrollmentInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="enrollment-info-english-tab" data-bs-toggle="pill" data-bs-target="#enrollment-info-english" type="button" role="tab" aria-controls="enrollment-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="enrollment-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#enrollment-info-marathi" type="button" role="tab" aria-controls="enrollment-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="enrollment-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#enrollment-info-hindi" type="button" role="tab" aria-controls="enrollment-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="enrollment-info-english" role="tabpanel" aria-labelledby="enrollment-info-english-tab">
+                        <p>Enrollment Management connects a student to the correct course/class and batch/division for the selected academic year. This is the bridge between admission, academic work, and fee calculation.</p>
+                        <ul>
+                            <li><strong>New Enrollment</strong> is used when a student must be assigned to a class/course and division like 10th-A or 10th-B.</li>
+                            <li><strong>Courses</strong> decide the course-wise fee total unless a custom fee is entered.</li>
+                            <li><strong>Batch/Division</strong> decides where the student appears for attendance, homework, exams, reports, and teacher assignment.</li>
+                            <li><strong>Status</strong> shows whether the enrollment is active, completed, or cancelled.</li>
+                            <li><strong>Filters</strong> help find records by student, batch/division, course/class, or status.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: verify student, course/class, batch/division, and fee before saving. Wrong enrollment can affect fees, attendance, exams, homework, and reports.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="enrollment-info-marathi" role="tabpanel" aria-labelledby="enrollment-info-marathi-tab">
+                        <p>Enrollment Management selected academic year साठी student ला योग्य course/class आणि batch/division सोबत connect करते. हे admission, academic work आणि fee calculation यांना जोडणारा main link आहे.</p>
+                        <ul>
+                            <li><strong>New Enrollment</strong> student ला 10th-A किंवा 10th-B सारख्या class/course आणि division मध्ये assign करण्यासाठी वापरले जाते.</li>
+                            <li><strong>Courses</strong> course-wise fee total ठरवतात, custom fee दिली असल्यास ती वापरली जाते.</li>
+                            <li><strong>Batch/Division</strong> student attendance, homework, exams, reports आणि teacher assignment मध्ये कुठे दिसेल ते ठरवते.</li>
+                            <li><strong>Status</strong> enrollment active, completed किंवा cancelled आहे का ते दाखवतो.</li>
+                            <li><strong>Filters</strong> वापरून student, batch/division, course/class किंवा status नुसार records शोधता येतात.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: save करण्यापूर्वी student, course/class, batch/division आणि fee verify करा. चुकीचा enrollment fees, attendance, exams, homework आणि reports वर परिणाम करू शकतो.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="enrollment-info-hindi" role="tabpanel" aria-labelledby="enrollment-info-hindi-tab">
+                        <p>Enrollment Management selected academic year के लिए student को सही course/class और batch/division से connect करता है. यह admission, academic work और fee calculation के बीच main link है.</p>
+                        <ul>
+                            <li><strong>New Enrollment</strong> student को 10th-A या 10th-B जैसी class/course और division में assign करने के लिए उपयोग होता है.</li>
+                            <li><strong>Courses</strong> course-wise fee total तय करते हैं, जब तक custom fee entered न हो.</li>
+                            <li><strong>Batch/Division</strong> तय करता है कि student attendance, homework, exams, reports और teacher assignment में कहां दिखाई देगा.</li>
+                            <li><strong>Status</strong> enrollment active, completed या cancelled है, यह दिखाता है.</li>
+                            <li><strong>Filters</strong> से student, batch/division, course/class या status के अनुसार records खोजे जा सकते हैं.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: save करने से पहले student, course/class, batch/division और fee verify करें. गलत enrollment fees, attendance, exams, homework और reports को affect कर सकता है.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="deleteEnrollmentModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">

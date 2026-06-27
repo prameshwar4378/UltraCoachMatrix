@@ -8,8 +8,11 @@
     .template-shell, .template-group { background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:0 14px 34px rgba(15,23,42,.06); }
     .template-shell { padding:22px; margin-bottom:18px; position:relative; overflow:hidden; }
     .template-shell:before { content:""; position:absolute; inset:0 auto 0 0; width:7px; background:linear-gradient(180deg,#14b8a6,#0f766e); }
+    .template-title-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     .template-title { margin:0; color:var(--ink); font-weight:950; font-size:1.8rem; }
     .template-subtitle { margin:6px 0 0; color:var(--muted); font-weight:700; }
+    .feature-info-btn { width:38px; height:38px; border-radius:50%; border:0; background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:1rem; box-shadow:0 12px 24px rgba(15,118,110,.26); transition:transform .18s ease, box-shadow .18s ease; }
+    .feature-info-btn:hover, .feature-info-btn:focus { color:#fff; transform:translateY(-2px); box-shadow:0 16px 30px rgba(15,118,110,.32); }
     .btn-template { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:0; border-radius:8px; padding:10px 16px; font-weight:850; display:inline-flex; align-items:center; gap:8px; text-decoration:none; white-space:nowrap; }
     .btn-template:hover { color:#fff; transform:translateY(-1px); }
     .template-group { margin-bottom:18px; overflow:hidden; }
@@ -30,6 +33,22 @@
     .template-actions .btn, .template-actions button { width:100%; justify-content:center; font-weight:800; border-radius:8px; }
     .set-form { grid-column:1 / -1; margin:0; }
     .empty-state { padding:34px 20px; text-align:center; color:var(--muted); font-weight:800; }
+    .feature-info-modal, .feature-info-modal .modal-content, .feature-info-modal .modal-title, .feature-info-modal .nav-link, .feature-info-modal p, .feature-info-modal li { font-family:"Poppins", sans-serif; }
+    .feature-info-modal .modal-content { border:0; border-radius:24px; overflow:hidden; box-shadow:0 26px 70px rgba(15,118,110,.24); }
+    .feature-info-modal .modal-header { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border-bottom:0; padding:22px 24px; }
+    .feature-info-modal .modal-title { font-weight:850; letter-spacing:0; }
+    .feature-info-modal .modal-body { background:#f8fbff; padding:24px; }
+    .feature-info-modal .nav-pills { gap:8px; margin-bottom:18px; }
+    .feature-info-modal .nav-pills .nav-link { border-radius:999px; color:var(--primary); background:#ecfdf5; font-weight:850; padding:8px 14px; }
+    .feature-info-modal .nav-pills .nav-link.active { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; }
+    .feature-info-panel { background:#fff; border:1px solid rgba(15,118,110,.16); border-radius:18px; padding:20px; }
+    .feature-info-panel p { color:#334155; line-height:1.65; margin-bottom:14px; }
+    .feature-info-panel ul { margin:0; padding-left:20px; color:#1e293b; }
+    .feature-info-panel li { margin-bottom:10px; line-height:1.55; }
+    .feature-info-note { margin-top:16px; border-radius:16px; border:1px solid rgba(15,118,110,.18); background:#ecfdf5; color:#115e59; padding:14px 16px; font-weight:750; line-height:1.55; }
+    .feature-info-modal .modal-footer { border-top:1px solid rgba(15,118,110,.12); background:#fff; }
+    .feature-info-close { border:0; border-radius:12px; background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; font-weight:850; padding:10px 18px; }
+    .feature-info-close:hover, .feature-info-close:focus { color:#fff; opacity:.94; }
     @media(max-width:760px) { .template-shell, .group-head { flex-direction:column; align-items:flex-start!important; } .btn-template { width:100%; justify-content:center; } .template-grid { grid-template-columns:1fr; } }
 </style>
 
@@ -47,7 +66,17 @@
 
     <div class="template-shell d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="template-title"><i class="bi bi-filetype-html me-2"></i> Print Template Center</h2>
+            <div class="template-title-row">
+                <h2 class="template-title"><i class="bi bi-filetype-html me-2"></i> Print Template Center</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#printTemplateFeatureInfoModal"
+                        aria-label="Print Template Center information"
+                        title="Template center information">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="template-subtitle">Preview templates available to {{ institute.name }} and choose the institute default print design.</p>
         </div>
         <a href="javascript:void(0);" data-url="{% url 'institute_admin:print_template_create' %}" class="btn-template" onclick="openTemplateWindow(this)">
@@ -146,6 +175,75 @@
         </section>
     {% endfor %}
 </main>
+
+<div class="modal fade feature-info-modal" id="printTemplateFeatureInfoModal" tabindex="-1" aria-labelledby="printTemplateFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="printTemplateFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Print Template Center Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="printTemplateInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="print-template-info-english-tab" data-bs-toggle="pill" data-bs-target="#print-template-info-english" type="button" role="tab" aria-controls="print-template-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="print-template-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#print-template-info-marathi" type="button" role="tab" aria-controls="print-template-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="print-template-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#print-template-info-hindi" type="button" role="tab" aria-controls="print-template-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="print-template-info-english" role="tabpanel" aria-labelledby="print-template-info-english-tab">
+                        <p>The Print Template Center lets the institute preview, download, upload, and select default print designs for documents such as admission forms, certificates, and payment receipts.</p>
+                        <ul>
+                            <li><strong>Template groups</strong> keep designs separated by document type, so staff select the correct layout for each print document.</li>
+                            <li><strong>Preview</strong> helps verify the design before setting it as the active institute template.</li>
+                            <li><strong>Set as Template</strong> makes a selected library design the institute default for that document type.</li>
+                            <li><strong>Upload Custom Template</strong> is used when the institute needs its own HTML print layout.</li>
+                            <li><strong>Use Default</strong> removes the selected institute template and returns that document type to the built-in default.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: preview every template after upload or selection, because print alignment, logo size, and page margins affect official documents.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="print-template-info-marathi" role="tabpanel" aria-labelledby="print-template-info-marathi-tab">
+                        <p>Print Template Center madhye institute admission forms, certificates, ani payment receipts sathi print designs preview, download, upload, ani default select karu shakte.</p>
+                        <ul>
+                            <li><strong>Template groups</strong> document type pramane designs vegale thevtat, mhanun staff yogya print layout select karu shaktat.</li>
+                            <li><strong>Preview</strong> active template set karanyapurvi design check karanyas madat karto.</li>
+                            <li><strong>Set as Template</strong> selected library design la institute default banavto.</li>
+                            <li><strong>Upload Custom Template</strong> institute la swatacha HTML print layout pahije asel tar vapara.</li>
+                            <li><strong>Use Default</strong> selected institute template remove karun built-in default template parat lavto.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: upload kiwa selection nantar template preview kara, karan print alignment, logo size, ani page margins official documents var effect kartat.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="print-template-info-hindi" role="tabpanel" aria-labelledby="print-template-info-hindi-tab">
+                        <p>Print Template Center me institute admission forms, certificates, aur payment receipts ke print designs preview, download, upload, aur default select kar sakta hai.</p>
+                        <ul>
+                            <li><strong>Template groups</strong> designs ko document type ke hisab se alag rakhte hain, taaki staff sahi print layout select kar sake.</li>
+                            <li><strong>Preview</strong> active template set karne se pehle design check karne me madad karta hai.</li>
+                            <li><strong>Set as Template</strong> selected library design ko institute default banata hai.</li>
+                            <li><strong>Upload Custom Template</strong> institute ko apna HTML print layout chahiye ho to use karein.</li>
+                            <li><strong>Use Default</strong> selected institute template ko remove karke built-in default template wapas lagata hai.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: upload ya selection ke baad template preview zarur karein, kyunki print alignment, logo size, aur page margins official documents par effect karte hain.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
     function openTemplateWindow(element, customWidth = 860, customHeight = 680) {

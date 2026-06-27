@@ -14197,9 +14197,13 @@
                 <a class="nav-link nav-profile d-flex align-items-center pe-0" href="#" data-bs-toggle="dropdown">
            
                     {% if current_school and current_school.logo %}
-                    <img src="{{ current_school.logo.url }}" alt="{{ current_school.name }} logo" class="rounded-circle" style="width: 40px; height: 40px; object-fit: cover;">
+                    <span class="d-inline-flex align-items-center justify-content-center bg-white border" style="width: 42px; height: 42px; border-radius: 12px; padding: 4px; overflow: hidden;">
+                        <img src="{{ current_school.logo.url }}" alt="{{ current_school.name }} logo" style="width: 100%; height: 100%; object-fit: contain; display: block;">
+                    </span>
                     {% else %}
-                    <img src="https://cdn-icons-png.flaticon.com/512/4042/4042422.png" alt="Profile" class="rounded-circle"  style="width: 40px; height: 40px; object-fit: cover;">
+                    <span class="d-inline-flex align-items-center justify-content-center border" style="width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(135deg, #ecfeff, #ccfbf1); color: #0f766e; font-weight: 900; font-size: .95rem;">
+                        {% if current_school %}{{ current_school.name|slice:":1"|upper }}{% else %}U{% endif %}
+                    </span>
                     {% endif %}
                     
                     <span class="d-none d-md-block dropdown-toggle ps-2">{{request.user}}</span>

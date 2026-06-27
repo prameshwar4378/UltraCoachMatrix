@@ -117,6 +117,35 @@
         letter-spacing: -0.04em;
     }
 
+    .student-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .feature-info-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 0;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        box-shadow: 0 12px 24px rgba(7, 61, 102, 0.26);
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .feature-info-btn:hover,
+    .feature-info-btn:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 16px 30px rgba(7, 61, 102, 0.32);
+    }
+
     .page-subtitle {
         color: rgba(255, 255, 255, 0.80);
         margin: 8px 0 0;
@@ -816,6 +845,112 @@
         white-space: nowrap;
     }
 
+    .feature-info-modal,
+    .feature-info-modal .modal-content,
+    .feature-info-modal .modal-title,
+    .feature-info-modal .nav-link,
+    .feature-info-modal p,
+    .feature-info-modal li {
+        font-family: "Poppins", sans-serif;
+    }
+
+    .feature-info-modal .modal-content {
+        border: 0;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 26px 70px rgba(7, 61, 102, 0.24);
+    }
+
+    .feature-info-modal .modal-header {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        border-bottom: 0;
+        padding: 22px 24px;
+    }
+
+    .feature-info-modal .modal-title {
+        font-weight: 800;
+        letter-spacing: 0;
+    }
+
+    .feature-info-modal .modal-body {
+        background: #f8fbff;
+        padding: 24px;
+    }
+
+    .feature-info-modal .nav-pills {
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link {
+        border-radius: 999px;
+        color: #073D66;
+        background: #eaf3fb;
+        font-weight: 800;
+        padding: 8px 14px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link.active {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+    }
+
+    .feature-info-panel {
+        background: #fff;
+        border: 1px solid rgba(22, 105, 168, 0.16);
+        border-radius: 18px;
+        padding: 20px;
+    }
+
+    .feature-info-panel p {
+        color: #334155;
+        line-height: 1.65;
+        margin-bottom: 14px;
+    }
+
+    .feature-info-panel ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #1e293b;
+    }
+
+    .feature-info-panel li {
+        margin-bottom: 10px;
+        line-height: 1.55;
+    }
+
+    .feature-info-note {
+        margin-top: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(22, 105, 168, 0.18);
+        background: #eef7ff;
+        color: #073D66;
+        padding: 14px 16px;
+        font-weight: 700;
+        line-height: 1.55;
+    }
+
+    .feature-info-modal .modal-footer {
+        border-top: 1px solid rgba(22, 105, 168, 0.12);
+        background: #fff;
+    }
+
+    .feature-info-close {
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        font-weight: 800;
+        padding: 10px 18px;
+    }
+
+    .feature-info-close:hover,
+    .feature-info-close:focus {
+        color: #fff;
+        opacity: .94;
+    }
+
     @media(max-width: 1200px) {
         .page-toolbar {
             align-items: flex-start !important;
@@ -881,7 +1016,17 @@
 
     <div class="page-toolbar d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="page-title">Student Admissions</h2>
+            <div class="student-title-row">
+                <h2 class="page-title">Student Admissions</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#studentFeatureInfoModal"
+                        aria-label="Student Admissions information"
+                        title="About Student Admissions">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="page-subtitle">Manage student login, admission and primary parent details.</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
@@ -1087,6 +1232,78 @@
         {% include "includes/pagination.html" %}
     </div>
 </main>
+
+<div class="modal fade feature-info-modal" id="studentFeatureInfoModal" tabindex="-1" aria-labelledby="studentFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="studentFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Student Admissions Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="studentInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="student-info-english-tab" data-bs-toggle="pill" data-bs-target="#student-info-english" type="button" role="tab" aria-controls="student-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="student-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#student-info-marathi" type="button" role="tab" aria-controls="student-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="student-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#student-info-hindi" type="button" role="tab" aria-controls="student-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="student-info-english" role="tabpanel" aria-labelledby="student-info-english-tab">
+                        <p>Student Admissions is the main page for maintaining every admitted student's academic and account record. Use it after a student joins the institute or when an existing student's admission, parent, class, batch/division, or fee information needs attention.</p>
+                        <ul>
+                            <li><strong>New Student</strong> is used for a fresh admission. It stores student details, parent/guardian contact, login details, admission number, selected class/course, batch/division, and fee setup.</li>
+                            <li><strong>Student Dashboard</strong> opens the complete student profile, including admission details, enrollments, fee records, documents, certificates, and related academic information.</li>
+                            <li><strong>Enroll</strong> is used when a student must be added to a course/class and batch/division for the selected academic year.</li>
+                            <li><strong>Fee Summary</strong> helps you quickly understand total fees, paid amount, and pending dues before follow-up or payment collection.</li>
+                            <li><strong>Import and Export</strong> are useful for bulk admissions, reporting, data checking, and sharing selected student fields with management.</li>
+                            <li><strong>Edit or Delete</strong> should be used carefully because student records are connected with fees, enrollments, documents, certificates, and academic history.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: before deleting or changing a student, verify the selected academic year, batch/division, fee dues, and parent contact details.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="student-info-marathi" role="tabpanel" aria-labelledby="student-info-marathi-tab">
+                        <p>Student Admissions हे admitted student चे academic आणि account record maintain करण्यासाठी मुख्य page आहे. Student institute मध्ये join झाल्यावर किंवा existing student चे admission, parent, class, batch/division किंवा fee information update करायचे असल्यास हे page वापरले जाते.</p>
+                        <ul>
+                            <li><strong>New Student</strong> fresh admission साठी वापरले जाते. यात student details, parent/guardian contact, login details, admission number, selected class/course, batch/division आणि fee setup save होतो.</li>
+                            <li><strong>Student Dashboard</strong> मध्ये complete student profile, admission details, enrollments, fee records, documents, certificates आणि related academic information दिसते.</li>
+                            <li><strong>Enroll</strong> selected academic year साठी student ला course/class आणि batch/division मध्ये add करण्यासाठी वापरले जाते.</li>
+                            <li><strong>Fee Summary</strong> follow-up किंवा payment collection आधी total fees, paid amount आणि pending dues समजण्यासाठी मदत करते.</li>
+                            <li><strong>Import आणि Export</strong> bulk admissions, reporting, data checking आणि management सोबत selected student fields share करण्यासाठी useful आहेत.</li>
+                            <li><strong>Edit किंवा Delete</strong> काळजीपूर्वक वापरा, कारण student records fees, enrollments, documents, certificates आणि academic history सोबत जोडलेले असतात.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: student बदलण्यापूर्वी किंवा delete करण्यापूर्वी selected academic year, batch/division, fee dues आणि parent contact details verify करा.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="student-info-hindi" role="tabpanel" aria-labelledby="student-info-hindi-tab">
+                        <p>Student Admissions admitted student का academic और account record maintain करने का main page है. Student institute में join होने के बाद या existing student का admission, parent, class, batch/division या fee information update करना हो, तब यह page उपयोग करें.</p>
+                        <ul>
+                            <li><strong>New Student</strong> fresh admission के लिए उपयोग होता है. इसमें student details, parent/guardian contact, login details, admission number, selected class/course, batch/division और fee setup save होता है.</li>
+                            <li><strong>Student Dashboard</strong> complete student profile, admission details, enrollments, fee records, documents, certificates और related academic information दिखाता है.</li>
+                            <li><strong>Enroll</strong> selected academic year में student को course/class और batch/division में add करने के लिए उपयोग होता है.</li>
+                            <li><strong>Fee Summary</strong> follow-up या payment collection से पहले total fees, paid amount और pending dues समझने में मदद करता है.</li>
+                            <li><strong>Import और Export</strong> bulk admissions, reporting, data checking और management के साथ selected student fields share करने के लिए useful हैं.</li>
+                            <li><strong>Edit या Delete</strong> सावधानी से उपयोग करें, क्योंकि student records fees, enrollments, documents, certificates और academic history से connected होते हैं.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: student को change या delete करने से पहले selected academic year, batch/division, fee dues और parent contact details verify करें.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="import-lock-overlay" id="studentImportLockOverlay" aria-live="polite" aria-busy="true">
     <div class="import-progress-card" role="status">

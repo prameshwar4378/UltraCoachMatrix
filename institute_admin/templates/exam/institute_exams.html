@@ -75,6 +75,37 @@
         margin: 0;
     }
 
+    .exam-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .feature-info-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 0;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        box-shadow: 0 12px 24px rgba(7, 61, 102, 0.26);
+        position: relative;
+        z-index: 1;
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .feature-info-btn:hover,
+    .feature-info-btn:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 16px 30px rgba(7, 61, 102, 0.32);
+    }
+
     .page-subtitle {
         color: var(--muted);
         margin: 8px 0 0;
@@ -306,6 +337,112 @@
         margin-bottom: 12px;
     }
 
+    .feature-info-modal,
+    .feature-info-modal .modal-content,
+    .feature-info-modal .modal-title,
+    .feature-info-modal .nav-link,
+    .feature-info-modal p,
+    .feature-info-modal li {
+        font-family: "Poppins", sans-serif;
+    }
+
+    .feature-info-modal .modal-content {
+        border: 0;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 26px 70px rgba(7, 61, 102, 0.24);
+    }
+
+    .feature-info-modal .modal-header {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        border-bottom: 0;
+        padding: 22px 24px;
+    }
+
+    .feature-info-modal .modal-title {
+        font-weight: 800;
+        letter-spacing: 0;
+    }
+
+    .feature-info-modal .modal-body {
+        background: #f8fbff;
+        padding: 24px;
+    }
+
+    .feature-info-modal .nav-pills {
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link {
+        border-radius: 999px;
+        color: #073D66;
+        background: #eaf3fb;
+        font-weight: 800;
+        padding: 8px 14px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link.active {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+    }
+
+    .feature-info-panel {
+        background: #fff;
+        border: 1px solid rgba(22, 105, 168, 0.16);
+        border-radius: 18px;
+        padding: 20px;
+    }
+
+    .feature-info-panel p {
+        color: #334155;
+        line-height: 1.65;
+        margin-bottom: 14px;
+    }
+
+    .feature-info-panel ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #1e293b;
+    }
+
+    .feature-info-panel li {
+        margin-bottom: 10px;
+        line-height: 1.55;
+    }
+
+    .feature-info-note {
+        margin-top: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(22, 105, 168, 0.18);
+        background: #eef7ff;
+        color: #073D66;
+        padding: 14px 16px;
+        font-weight: 700;
+        line-height: 1.55;
+    }
+
+    .feature-info-modal .modal-footer {
+        border-top: 1px solid rgba(22, 105, 168, 0.12);
+        background: #fff;
+    }
+
+    .feature-info-close {
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        font-weight: 800;
+        padding: 10px 18px;
+    }
+
+    .feature-info-close:hover,
+    .feature-info-close:focus {
+        color: #fff;
+        opacity: .94;
+    }
+
     @media(max-width: 992px) {
         .stat-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -339,7 +476,17 @@
 
     <div class="page-toolbar d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="page-title">Exam Management</h2>
+            <div class="exam-title-row">
+                <h2 class="page-title">Exam Management</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#examFeatureInfoModal"
+                        aria-label="Exam Management information"
+                        title="About Exam Management">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="page-subtitle">Create MCQ exams for the selected academic year and manage questions separately.</p>
             <p class="page-subtitle mb-0"><strong>Academic Year:</strong> {{ selected_academic_year.name|default:"-" }}</p>
         </div>
@@ -499,6 +646,75 @@
         {% include "includes/pagination.html" %}
     </div>
 </main>
+
+<div class="modal fade feature-info-modal" id="examFeatureInfoModal" tabindex="-1" aria-labelledby="examFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="examFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Exam Management Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="examInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="exam-info-english-tab" data-bs-toggle="pill" data-bs-target="#exam-info-english" type="button" role="tab" aria-controls="exam-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="exam-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#exam-info-marathi" type="button" role="tab" aria-controls="exam-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="exam-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#exam-info-hindi" type="button" role="tab" aria-controls="exam-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="exam-info-english" role="tabpanel" aria-labelledby="exam-info-english-tab">
+                        <p>Exam Management is used to create MCQ exams for a selected academic year, assign them to the correct batch/division and subject, and track student submissions.</p>
+                        <ul>
+                            <li><strong>New Exam</strong> sets the exam title, batch/division, subject, date, duration, and publish status.</li>
+                            <li><strong>Draft</strong> exams are for preparation. <strong>Published</strong> exams are ready for students to attempt.</li>
+                            <li><strong>Questions</strong> must be added separately before students can properly attempt the exam.</li>
+                            <li><strong>Submissions</strong> show student attempts and help staff review exam participation and results.</li>
+                            <li><strong>Filters</strong> help find exams by batch/division, status, title, or subject.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: verify academic year, batch/division, subject, exam date, duration, marks, and questions before publishing.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="exam-info-marathi" role="tabpanel" aria-labelledby="exam-info-marathi-tab">
+                        <p>Exam Management selected academic year साठी MCQ exams create करण्यासाठी, योग्य batch/division आणि subject ला assign करण्यासाठी आणि student submissions track करण्यासाठी वापरले जाते.</p>
+                        <ul>
+                            <li><strong>New Exam</strong> मध्ये exam title, batch/division, subject, date, duration आणि publish status set केला जातो.</li>
+                            <li><strong>Draft</strong> exams preparation साठी असतात. <strong>Published</strong> exams students attempt करण्यासाठी ready असतात.</li>
+                            <li><strong>Questions</strong> students नी exam properly attempt करण्यापूर्वी separately add करणे आवश्यक आहे.</li>
+                            <li><strong>Submissions</strong> student attempts दाखवतात आणि exam participation/results review करण्यासाठी मदत करतात.</li>
+                            <li><strong>Filters</strong> वापरून batch/division, status, title किंवा subject नुसार exams शोधता येतात.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: publish करण्यापूर्वी academic year, batch/division, subject, exam date, duration, marks आणि questions verify करा.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="exam-info-hindi" role="tabpanel" aria-labelledby="exam-info-hindi-tab">
+                        <p>Exam Management selected academic year के लिए MCQ exams create करने, उन्हें सही batch/division और subject से assign करने, और student submissions track करने के लिए उपयोग होता है.</p>
+                        <ul>
+                            <li><strong>New Exam</strong> में exam title, batch/division, subject, date, duration और publish status set किया जाता है.</li>
+                            <li><strong>Draft</strong> exams preparation के लिए होते हैं. <strong>Published</strong> exams students के attempt करने के लिए ready होते हैं.</li>
+                            <li><strong>Questions</strong> students के exam attempt करने से पहले अलग से add करना जरूरी है.</li>
+                            <li><strong>Submissions</strong> student attempts दिखाते हैं और exam participation/results review करने में मदद करते हैं.</li>
+                            <li><strong>Filters</strong> से batch/division, status, title या subject के अनुसार exams खोजे जा सकते हैं.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: publish करने से पहले academic year, batch/division, subject, exam date, duration, marks और questions verify करें.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
     function openExamWindow(element, customWidth = 920, customHeight = 760) {

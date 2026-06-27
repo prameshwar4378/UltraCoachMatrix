@@ -2380,13 +2380,26 @@ def get_student_category_due_data(student_or_session):
         student = student_or_session
     data = {}
     total_due = Decimal("0.00")
-    categories = FeeCategory.objects.filter(institute=student.institute, is_active=True)
+    extra_fee_category_ids = FeeInvoice.objects.filter(
+        student=student,
+        enrollment__isnull=True,
+        category__isnull=False,
+        status__in=[FeeInvoice.Status.UNPAID, FeeInvoice.Status.PARTIAL],
+    )
+    if student_session:
+        extra_fee_category_ids = extra_fee_category_ids.filter(academic_session=student_session)
+    categories = FeeCategory.objects.filter(
+        institute=student.institute,
+        is_active=True,
+        pk__in=extra_fee_category_ids.values("category_id"),
+    )
     if student_session:
         categories = categories.filter(academic_year=student_session.academic_year)
     for category in categories:
         invoice_filter = {
             "student": student,
             "category": category,
+            "enrollment__isnull": True,
             "status__in": [FeeInvoice.Status.UNPAID, FeeInvoice.Status.PARTIAL],
         }
         if student_session:

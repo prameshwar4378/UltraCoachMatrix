@@ -91,6 +91,35 @@
         letter-spacing: -0.045em;
     }
 
+    .expense-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .feature-info-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 0;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        box-shadow: 0 12px 24px rgba(7, 61, 102, 0.26);
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .feature-info-btn:hover,
+    .feature-info-btn:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 16px 30px rgba(7, 61, 102, 0.32);
+    }
+
     .page-subtitle {
         margin: 8px 0 0;
         color: var(--muted);
@@ -588,6 +617,112 @@
         font-weight: 900;
     }
 
+    .feature-info-modal,
+    .feature-info-modal .modal-content,
+    .feature-info-modal .modal-title,
+    .feature-info-modal .nav-link,
+    .feature-info-modal p,
+    .feature-info-modal li {
+        font-family: "Poppins", sans-serif;
+    }
+
+    .feature-info-modal .modal-content {
+        border: 0;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 26px 70px rgba(7, 61, 102, 0.24);
+    }
+
+    .feature-info-modal .modal-header {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        border-bottom: 0;
+        padding: 22px 24px;
+    }
+
+    .feature-info-modal .modal-title {
+        font-weight: 800;
+        letter-spacing: 0;
+    }
+
+    .feature-info-modal .modal-body {
+        background: #f8fbff;
+        padding: 24px;
+    }
+
+    .feature-info-modal .nav-pills {
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link {
+        border-radius: 999px;
+        color: #073D66;
+        background: #eaf3fb;
+        font-weight: 800;
+        padding: 8px 14px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link.active {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+    }
+
+    .feature-info-panel {
+        background: #fff;
+        border: 1px solid rgba(22, 105, 168, 0.16);
+        border-radius: 18px;
+        padding: 20px;
+    }
+
+    .feature-info-panel p {
+        color: #334155;
+        line-height: 1.65;
+        margin-bottom: 14px;
+    }
+
+    .feature-info-panel ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #1e293b;
+    }
+
+    .feature-info-panel li {
+        margin-bottom: 10px;
+        line-height: 1.55;
+    }
+
+    .feature-info-note {
+        margin-top: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(22, 105, 168, 0.18);
+        background: #eef7ff;
+        color: #073D66;
+        padding: 14px 16px;
+        font-weight: 700;
+        line-height: 1.55;
+    }
+
+    .feature-info-modal .modal-footer {
+        border-top: 1px solid rgba(22, 105, 168, 0.12);
+        background: #fff;
+    }
+
+    .feature-info-close {
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        font-weight: 800;
+        padding: 10px 18px;
+    }
+
+    .feature-info-close:hover,
+    .feature-info-close:focus {
+        color: #fff;
+        opacity: .94;
+    }
+
     @media(max-width: 992px) {
         .stat-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -656,7 +791,16 @@
 
     <div class="page-toolbar d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="page-title">Expense Management</h2>
+            <div class="expense-title-row">
+                <h2 class="page-title">Expense Management</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#expenseFeatureInfoModal"
+                        aria-label="About Expense Management">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="page-subtitle">Track institute spending, filter records, and export expense data.</p>
         </div>
 
@@ -862,6 +1006,75 @@
         </div>
     </section>
 </main>
+
+<div class="modal fade feature-info-modal" id="expenseFeatureInfoModal" tabindex="-1" aria-labelledby="expenseFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="expenseFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Expense Management Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="expenseInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="expense-info-english-tab" data-bs-toggle="pill" data-bs-target="#expense-info-english" type="button" role="tab" aria-controls="expense-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="expense-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#expense-info-marathi" type="button" role="tab" aria-controls="expense-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="expense-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#expense-info-hindi" type="button" role="tab" aria-controls="expense-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="expense-info-english" role="tabpanel" aria-labelledby="expense-info-english-tab">
+                        <p>Expense Management is used to record and monitor money spent by the institute, so office accounts stay clear and monthly spending can be reviewed properly.</p>
+                        <ul>
+                            <li><strong>Use this page whenever institute money is spent</strong> on salary advances, rent, electricity, repairs, stationery, printing, transport, events, material purchase, or other operational costs.</li>
+                            <li><strong>Add Expense</strong> should be used on the same day or as soon as possible, with the correct title, amount, spent date, note, and supporting document if available.</li>
+                            <li><strong>Filters</strong> help review expenses by title, note, recorded user, and date range for daily, monthly, or audit checks.</li>
+                            <li><strong>Stats</strong> show total spending, this month&apos;s spending, and filtered amount so management can compare income and outgoing cash.</li>
+                            <li><strong>Export</strong> is useful for accountant review, owner reporting, audit records, and offline backup.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: verify amount, date, purpose, and proof before saving. Avoid deleting expense records unless the entry was created by mistake.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="expense-info-marathi" role="tabpanel" aria-labelledby="expense-info-marathi-tab">
+                        <p>Expense Management institute ने केलेला खर्च record आणि monitor करण्यासाठी वापरले जाते, त्यामुळे office accounts clear राहतात आणि monthly spending व्यवस्थित review करता येते.</p>
+                        <ul>
+                            <li><strong>Institute चे पैसे खर्च झाले की हे page वापरा</strong> जसे salary advance, rent, electricity, repairs, stationery, printing, transport, events, material purchase किंवा इतर operational costs.</li>
+                            <li><strong>Add Expense</strong> त्याच दिवशी किंवा लवकरात लवकर वापरा, आणि title, amount, spent date, note व available असेल तर supporting document अचूक add करा.</li>
+                            <li><strong>Filters</strong> title, note, recorded user आणि date range नुसार daily, monthly किंवा audit checks साठी expenses review करण्यास मदत करतात.</li>
+                            <li><strong>Stats</strong> total spending, this month spending आणि filtered amount दाखवतात, त्यामुळे management income आणि outgoing cash compare करू शकते.</li>
+                            <li><strong>Export</strong> accountant review, owner reporting, audit records आणि offline backup साठी उपयोगी आहे.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: save करण्यापूर्वी amount, date, purpose आणि proof verify करा. Entry चुकून created झाली असेल तेव्हाच expense delete करा.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="expense-info-hindi" role="tabpanel" aria-labelledby="expense-info-hindi-tab">
+                        <p>Expense Management institute द्वारा खर्च किए गए पैसे को record और monitor करने के लिए उपयोग होता है, ताकि office accounts clear रहें और monthly spending ठीक से review हो सके.</p>
+                        <ul>
+                            <li><strong>Institute का पैसा खर्च होते ही यह page उपयोग करें</strong> जैसे salary advance, rent, electricity, repairs, stationery, printing, transport, events, material purchase या दूसरे operational costs.</li>
+                            <li><strong>Add Expense</strong> उसी दिन या जल्द से जल्द उपयोग करें, और सही title, amount, spent date, note तथा available हो तो supporting document add करें.</li>
+                            <li><strong>Filters</strong> title, note, recorded user और date range के अनुसार daily, monthly या audit checks के लिए expenses review करने में मदद करते हैं.</li>
+                            <li><strong>Stats</strong> total spending, this month spending और filtered amount दिखाते हैं, जिससे management income और outgoing cash compare कर सकता है.</li>
+                            <li><strong>Export</strong> accountant review, owner reporting, audit records और offline backup के लिए उपयोगी है.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: save करने से पहले amount, date, purpose और proof verify करें. Expense record केवल तभी delete करें जब entry गलती से बनाई गई हो.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="expenseExportModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg expense-export-dialog">

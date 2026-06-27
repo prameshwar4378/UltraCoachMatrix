@@ -169,6 +169,49 @@
         overflow-wrap: anywhere;
     }
 
+    .student-title-row,
+    .section-title-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex-wrap: wrap;
+        min-width: 0;
+    }
+
+    .section-title-row {
+        flex-wrap: nowrap;
+    }
+
+    .dashboard-info-btn,
+    .section-info-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 0;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .88rem;
+        box-shadow: 0 10px 20px rgba(7, 61, 102, .24);
+        transition: transform .18s ease, box-shadow .18s ease;
+        flex: 0 0 auto;
+    }
+
+    .dashboard-info-btn {
+        background: rgba(255, 255, 255, .95);
+        color: #073D66;
+    }
+
+    .dashboard-info-btn:hover,
+    .dashboard-info-btn:focus,
+    .section-info-btn:hover,
+    .section-info-btn:focus {
+        transform: translateY(-2px);
+        box-shadow: 0 14px 28px rgba(7, 61, 102, .3);
+    }
+
     .student-subtitle {
         margin: 7px 0 12px;
         color: rgba(255,255,255,.82);
@@ -464,6 +507,101 @@
         font-size: 1rem;
         font-weight: 950;
         overflow-wrap: anywhere;
+    }
+
+    .feature-info-modal,
+    .feature-info-modal .modal-content,
+    .feature-info-modal .modal-title,
+    .feature-info-modal .nav-link,
+    .feature-info-modal p,
+    .feature-info-modal li {
+        font-family: "Poppins", sans-serif;
+    }
+
+    .feature-info-modal .modal-content {
+        border: 0;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 26px 70px rgba(7, 61, 102, .24);
+    }
+
+    .feature-info-modal .modal-header {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        border-bottom: 0;
+        padding: 22px 24px;
+    }
+
+    .feature-info-modal .modal-title {
+        font-weight: 800;
+        letter-spacing: 0;
+    }
+
+    .feature-info-modal .modal-body {
+        background: #f8fbff;
+        padding: 24px;
+    }
+
+    .feature-info-modal .nav-pills {
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link {
+        border-radius: 999px;
+        color: #073D66;
+        background: #eaf3fb;
+        font-weight: 800;
+        padding: 8px 14px;
+    }
+
+    .feature-info-modal .nav-pills .nav-link.active {
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+    }
+
+    .feature-info-panel {
+        background: #fff;
+        border: 1px solid rgba(22, 105, 168, .16);
+        border-radius: 18px;
+        padding: 20px;
+    }
+
+    .feature-info-panel p {
+        color: #334155;
+        line-height: 1.65;
+        margin-bottom: 14px;
+    }
+
+    .feature-info-panel ul {
+        margin: 0;
+        padding-left: 20px;
+        color: #1e293b;
+    }
+
+    .feature-info-panel li {
+        margin-bottom: 10px;
+        line-height: 1.55;
+    }
+
+    .feature-info-modal .modal-footer {
+        border-top: 1px solid rgba(22, 105, 168, .12);
+        background: #fff;
+    }
+
+    .feature-info-close {
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        font-weight: 800;
+        padding: 10px 18px;
+    }
+
+    .feature-info-close:hover,
+    .feature-info-close:focus {
+        color: #fff;
+        opacity: .94;
     }
 
     .panel-subtitle {
@@ -841,7 +979,12 @@
                 {% endif %}
             </div>
             <div class="student-identity">
-                <h2 class="student-title">{{ student.user.get_full_name|default:student.user.username }}</h2>
+                <div class="student-title-row">
+                    <h2 class="student-title">{{ student.user.get_full_name|default:student.user.username }}</h2>
+                    <button type="button" class="dashboard-info-btn" data-feature-info="dashboard_overview" aria-label="Student dashboard overview information" title="About Student Dashboard">
+                        <i class="bi bi-info-lg"></i>
+                    </button>
+                </div>
                 <p class="student-subtitle">{{ student_session.admission_number }} &middot; @{{ student.user.username }}</p>
                 <div class="hero-pills">
                     {% if student.is_active %}
@@ -925,7 +1068,7 @@
         <div class="panel-grid">
             <div class="content-panel" style="--panel-color: var(--teal); --panel-soft: #f0fdfa;">
                 <div class="panel-header">
-                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-person-vcard"></i></div><div><h5 class="panel-title">Student Basic Information</h5><div class="panel-subtitle">Admission, identity and certificate data</div></div></div>
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-person-vcard"></i></div><div><div class="section-title-row"><h5 class="panel-title">Student Basic Information</h5><button type="button" class="section-info-btn" data-feature-info="basic_info" aria-label="Student Basic Information help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">Admission, identity and certificate data</div></div></div>
                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_update' student.pk %}?section=basic" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 980, 760)"><i class="bi bi-pencil-square"></i> Update</a>
                 </div>
                 <div class="content-panel-body">
@@ -960,7 +1103,7 @@
 
             <div class="content-panel" style="--panel-color: var(--blue); --panel-soft: #eff6ff;">
                 <div class="panel-header">
-                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-shield-lock"></i></div><div><h5 class="panel-title">Student Login</h5><div class="panel-subtitle">App credentials and contact details</div></div></div>
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-shield-lock"></i></div><div><div class="section-title-row"><h5 class="panel-title">Student Login</h5><button type="button" class="section-info-btn" data-feature-info="student_login" aria-label="Student Login help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">App credentials and contact details</div></div></div>
                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_update' student.pk %}?section=login" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 980, 760)"><i class="bi bi-pencil-square"></i> Update</a>
                 </div>
                 <div class="content-panel-body">
@@ -977,7 +1120,7 @@
         <div class="panel-grid">
             <div class="content-panel" style="--panel-color: #0891b2; --panel-soft: #ecfeff;">
                 <div class="panel-header">
-                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-people"></i></div><div><h5 class="panel-title">Parent / Guardian Details</h5><div class="panel-subtitle">Father, mother and primary guardian</div></div></div>
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-people"></i></div><div><div class="section-title-row"><h5 class="panel-title">Parent / Guardian Details</h5><button type="button" class="section-info-btn" data-feature-info="guardian_details" aria-label="Parent Guardian Details help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">Father, mother and primary guardian</div></div></div>
                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_update' student.pk %}?section=parent" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 980, 760)"><i class="bi bi-pencil-square"></i> Update</a>
                 </div>
                 <div class="content-panel-body">
@@ -1011,7 +1154,7 @@
 
             <div class="content-panel" style="--panel-color: var(--violet); --panel-soft: #f5f3ff;">
                 <div class="panel-header">
-                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-house-door"></i></div><div><h5 class="panel-title">Address Information</h5><div class="panel-subtitle">Current and permanent address</div></div></div>
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-house-door"></i></div><div><div class="section-title-row"><h5 class="panel-title">Address Information</h5><button type="button" class="section-info-btn" data-feature-info="address_info" aria-label="Address Information help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">Current and permanent address</div></div></div>
                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_update' student.pk %}?section=address" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 980, 760)"><i class="bi bi-pencil-square"></i> Update</a>
                 </div>
                 <div class="content-panel-body">
@@ -1041,7 +1184,7 @@
         <div class="panel-grid">
             <div class="content-panel" style="--panel-color: var(--orange); --panel-soft: #fff7ed;">
                 <div class="panel-header">
-                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-mortarboard"></i></div><div><h5 class="panel-title">Academic Information</h5><div class="panel-subtitle">Class, batch/division and previous school</div></div></div>
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-mortarboard"></i></div><div><div class="section-title-row"><h5 class="panel-title">Academic Information</h5><button type="button" class="section-info-btn" data-feature-info="academic_info" aria-label="Academic Information help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">Class, batch/division and previous school</div></div></div>
                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_update' student.pk %}?section=academic" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 980, 760)"><i class="bi bi-pencil-square"></i> Update</a>
                 </div>
                 <div class="content-panel-body">
@@ -1066,7 +1209,7 @@
             {% if is_school_institute %}
             <div class="content-panel" style="--panel-color: var(--green); --panel-soft: #f0fdf4;">
                 <div class="panel-header">
-                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-person"></i></div><div><h5 class="panel-title">Bonafide Certificate Details</h5><div class="panel-subtitle">Generate and track Bonafide certificates separately</div></div></div>
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-person"></i></div><div><div class="section-title-row"><h5 class="panel-title">Bonafide Certificate Details</h5><button type="button" class="section-info-btn" data-feature-info="bonafide_summary" aria-label="Bonafide Certificate Details help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">Generate and track Bonafide certificates separately</div></div></div>
                     {% if is_school_institute %}
                         <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_bonafide_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 780, 620)"><i class="bi bi-plus-circle"></i> Generate Bonafide</a>
                     {% endif %}
@@ -1094,7 +1237,7 @@
         <div class="panel-grid">
             <div class="content-panel" style="--panel-color: var(--blue); --panel-soft: #eff6ff;">
                 <div class="panel-header">
-                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-person-badge"></i></div><div><h5 class="panel-title">ID Card Details</h5><div class="panel-subtitle">ID card and emergency contact values are managed separately</div></div></div>
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-person-badge"></i></div><div><div class="section-title-row"><h5 class="panel-title">ID Card Details</h5><button type="button" class="section-info-btn" data-feature-info="id_card" aria-label="ID Card Details help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">ID card and emergency contact values are managed separately</div></div></div>
                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_id_card_update' student.pk %}" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 720, 520)"><i class="bi bi-pencil-square"></i> Update ID Card</a>
                 </div>
                 <div class="content-panel-body">
@@ -1105,7 +1248,7 @@
 
             <div class="content-panel" style="--panel-color: var(--green); --panel-soft: #f0fdf4;">
                 <div class="panel-header">
-                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-check"></i></div><div><h5 class="panel-title">Latest TC Summary</h5><div class="panel-subtitle">Read-only values from the latest generated Transfer Certificate</div></div></div>
+                    <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-check"></i></div><div><div class="section-title-row"><h5 class="panel-title">Latest TC Summary</h5><button type="button" class="section-info-btn" data-feature-info="tc_summary" aria-label="Latest TC Summary help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">Read-only values from the latest generated Transfer Certificate</div></div></div>
                     {% if is_school_institute %}
                         <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_tc_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 820, 720)"><i class="bi bi-plus-circle"></i> Generate TC</a>
                     {% endif %}
@@ -1136,7 +1279,7 @@
 
         <div class="content-panel" style="--panel-color: var(--green); --panel-soft: #f0fdf4;">
             <div class="panel-header">
-                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-person"></i></div><div><h5 class="panel-title">Bonafide Certificate Records</h5><div class="panel-subtitle">See when each Bonafide certificate was generated and open the A4 certificate pattern</div></div></div>
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-person"></i></div><div><div class="section-title-row"><h5 class="panel-title">Bonafide Certificate Records</h5><button type="button" class="section-info-btn" data-feature-info="bonafide_records" aria-label="Bonafide Certificate Records help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">See when each Bonafide certificate was generated and open the A4 certificate pattern</div></div></div>
                 {% if is_school_institute %}
                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_bonafide_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 780, 620)"><i class="bi bi-plus-circle"></i> Generate Bonafide</a>
                 {% endif %}
@@ -1188,7 +1331,7 @@
 
         <div class="content-panel" style="--panel-color: #0891b2; --panel-soft: #ecfeff;">
             <div class="panel-header">
-                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-check"></i></div><div><h5 class="panel-title">Transfer Certificate Records</h5><div class="panel-subtitle">See when each TC was generated, who generated it, and open the A4 TC pattern</div></div></div>
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-check"></i></div><div><div class="section-title-row"><h5 class="panel-title">Transfer Certificate Records</h5><button type="button" class="section-info-btn" data-feature-info="tc_records" aria-label="Transfer Certificate Records help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">See when each TC was generated, who generated it, and open the A4 TC pattern</div></div></div>
                 {% if is_school_institute %}
                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_tc_generate' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 820, 720)"><i class="bi bi-plus-circle"></i> Generate TC</a>
                 {% endif %}
@@ -1242,7 +1385,7 @@
 
         <div class="content-panel" style="--panel-color: #0891b2; --panel-soft: #ecfeff;">
             <div class="panel-header">
-                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-arrow-up"></i></div><div><h5 class="panel-title">Documents to Collect and Store</h5><div class="panel-subtitle">Document checklist with registration-form names</div></div></div>
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-file-earmark-arrow-up"></i></div><div><div class="section-title-row"><h5 class="panel-title">Documents to Collect and Store</h5><button type="button" class="section-info-btn" data-feature-info="documents" aria-label="Documents to Collect and Store help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">Document checklist with registration-form names</div></div></div>
                 <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_document_upload' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this, 720, 620)"><i class="bi bi-plus-circle"></i> Upload</a>
             </div>
             <div class="table-responsive">
@@ -1289,7 +1432,7 @@
     <div class="tab-pane" data-tab-pane="enrollment">
         <div class="content-panel" style="--panel-color: var(--violet); --panel-soft: #f5f3ff;">
             <div class="panel-header">
-                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-diagram-3"></i></div><div><h5 class="panel-title">Enrollments</h5><div class="panel-subtitle">Batch and course mapping</div></div></div>
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-diagram-3"></i></div><div><div class="section-title-row"><h5 class="panel-title">Enrollments</h5><button type="button" class="section-info-btn" data-feature-info="enrollments" aria-label="Enrollments help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">Batch and course mapping</div></div></div>
                 <a href="javascript:void(0);" data-url="{% url 'institute_admin:enrollment_create' %}?student={{ student.pk }}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this)"><i class="bi bi-plus-circle"></i> Add</a>
             </div>
             <div class="table-responsive">
@@ -1332,7 +1475,7 @@
     <div class="tab-pane" data-tab-pane="fees">
         <div class="content-panel" style="--panel-color: var(--orange); --panel-soft: #fff7ed;">
             <div class="panel-header">
-                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-receipt"></i></div><div><h5 class="panel-title">Fees</h5><div class="panel-subtitle">Invoices, received amount and due amount</div></div></div>
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-receipt"></i></div><div><div class="section-title-row"><h5 class="panel-title">Fees</h5><button type="button" class="section-info-btn" data-feature-info="fees" aria-label="Fees help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">Invoices, received amount and due amount</div></div></div>
                 <div class="d-flex gap-2 flex-wrap">
                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_add_fee' student.pk %}" class="btn btn-sm btn-main btn-add-fee" onclick="openStudentDashboardWindow(this, 760, 620)"><i class="bi bi-plus-circle"></i> Add Additional Fee</a>
                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_receive_fee' student.pk %}" class="btn btn-sm btn-main" onclick="openStudentDashboardWindow(this)"><i class="bi bi-wallet2"></i> Receive Fee</a>
@@ -1377,7 +1520,7 @@
     <div class="tab-pane" data-tab-pane="payment">
         <div class="content-panel" style="--panel-color: var(--blue); --panel-soft: #eff6ff;">
             <div class="panel-header">
-                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-wallet2"></i></div><div><h5 class="panel-title">Payment History</h5><div class="panel-subtitle">Showing all {{ all_payment_count }} receipt(s), {{ active_payment_count }} active. Active total: {{ raw_paid_amount }}</div></div></div>
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-wallet2"></i></div><div><div class="section-title-row"><h5 class="panel-title">Payment History</h5><button type="button" class="section-info-btn" data-feature-info="payment_history" aria-label="Payment History help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">Showing all {{ all_payment_count }} receipt(s), {{ active_payment_count }} active. Active total: {{ raw_paid_amount }}</div></div></div>
             </div>
             <div class="table-responsive">
                 <table class="table table-modern align-middle">
@@ -1418,7 +1561,7 @@
 
         <div class="content-panel" style="--panel-color: var(--red); --panel-soft: #fff1f2;">
             <div class="panel-header">
-                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-clock-history"></i></div><div><h5 class="panel-title">Payment Activity History</h5><div class="panel-subtitle">Corrections and void actions</div></div></div>
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-clock-history"></i></div><div><div class="section-title-row"><h5 class="panel-title">Payment Activity History</h5><button type="button" class="section-info-btn" data-feature-info="payment_activity" aria-label="Payment Activity History help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">Corrections and void actions</div></div></div>
             </div>
             <div class="table-responsive">
                 <table class="table table-modern align-middle">
@@ -1446,7 +1589,7 @@
     <div class="tab-pane" data-tab-pane="attendance">
         <div class="content-panel" style="--panel-color: var(--green); --panel-soft: #f0fdf4;">
             <div class="panel-header">
-                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-check2-square"></i></div><div><h5 class="panel-title">Attendance</h5><div class="panel-subtitle">Present: {{ present_count }} &middot; Absent: {{ absent_count }} &middot; Late: {{ late_count }}{% if attendance_filter_active %} &middot; Showing {{ attendance_filtered_count }} filtered record(s){% else %} &middot; Showing recent 10 records{% endif %}</div></div></div>
+                <div class="panel-title-wrap"><div class="panel-icon"><i class="bi bi-check2-square"></i></div><div><div class="section-title-row"><h5 class="panel-title">Attendance</h5><button type="button" class="section-info-btn" data-feature-info="attendance" aria-label="Attendance help"><i class="bi bi-info-lg"></i></button></div><div class="panel-subtitle">Present: {{ present_count }} &middot; Absent: {{ absent_count }} &middot; Late: {{ late_count }}{% if attendance_filter_active %} &middot; Showing {{ attendance_filtered_count }} filtered record(s){% else %} &middot; Showing recent 10 records{% endif %}</div></div></div>
             </div>
             <div class="attendance-toolbar">
                 <form method="get" class="attendance-filter-grid">
@@ -1533,7 +1676,187 @@
     </div>
 </main>
 
+<div class="modal fade feature-info-modal" id="studentDashboardFeatureInfoModal" tabindex="-1" aria-labelledby="studentDashboardFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="studentDashboardFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Student Dashboard Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="studentDashboardInfoTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="student-dashboard-info-english-tab" data-bs-toggle="pill" data-bs-target="#student-dashboard-info-english" type="button" role="tab" aria-controls="student-dashboard-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="student-dashboard-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#student-dashboard-info-marathi" type="button" role="tab" aria-controls="student-dashboard-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="student-dashboard-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#student-dashboard-info-hindi" type="button" role="tab" aria-controls="student-dashboard-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="student-dashboard-info-english" role="tabpanel" aria-labelledby="student-dashboard-info-english-tab"></div>
+                    <div class="tab-pane fade feature-info-panel" id="student-dashboard-info-marathi" role="tabpanel" aria-labelledby="student-dashboard-info-marathi-tab"></div>
+                    <div class="tab-pane fade feature-info-panel" id="student-dashboard-info-hindi" role="tabpanel" aria-labelledby="student-dashboard-info-hindi-tab"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    const studentDashboardFeatureInfo = {
+        dashboard_overview: {
+            title: "Student Dashboard Overview",
+            en: ["Shows one student's complete academic, fee, document, certificate, login, parent, and attendance view in one place.", "Use this page when you want to verify a student's full record before updating fees, enrollment, certificates, or personal details.", "The top buttons open focused update windows without leaving the dashboard."],
+            mr: ["एका student ची academic, fee, document, certificate, login, parent आणि attendance माहिती एका ठिकाणी दिसते.", "Fee, enrollment, certificates किंवा personal details update करण्यापूर्वी full record verify करण्यासाठी हे page वापरा.", "वरचे buttons dashboard न सोडता focused update windows उघडतात."],
+            hi: ["एक student की academic, fee, document, certificate, login, parent और attendance जानकारी एक जगह दिखती है.", "Fee, enrollment, certificates या personal details update करने से पहले full record verify करने के लिए यह page उपयोग करें.", "ऊपर के buttons dashboard छोड़े बिना focused update windows खोलते हैं."]
+        },
+        basic_info: {
+            title: "Student Basic Information",
+            en: ["Stores the student's identity and admission information such as name, admission number, birth details, gender, category, and certificate-related fields.", "Use it to confirm the legal and school record details used in admission forms, certificates, reports, and student identity documents.", "Update carefully because mistakes here can appear in printed certificates and official records."],
+            mr: ["Student ची identity आणि admission माहिती जसे name, admission number, birth details, gender, category आणि certificate fields येथे ठेवले जातात.", "Admission forms, certificates, reports आणि student identity documents साठी लागणारी official माहिती verify करण्यासाठी वापरा.", "येथील चुका printed certificates आणि official records मध्ये दिसू शकतात, म्हणून update काळजीपूर्वक करा."],
+            hi: ["Student की identity और admission जानकारी जैसे name, admission number, birth details, gender, category और certificate fields यहां रखे जाते हैं.", "Admission forms, certificates, reports और student identity documents में उपयोग होने वाली official जानकारी verify करने के लिए उपयोग करें.", "यहां की गलती printed certificates और official records में दिख सकती है, इसलिए update सावधानी से करें."]
+        },
+        student_login: {
+            title: "Student Login",
+            en: ["Controls the student's username, email, phone, active status, and profile photo.", "Use this section when login, contact, or photo details need correction.", "Keep phone and email accurate because they are used for communication and account identification."],
+            mr: ["Student चे username, email, phone, active status आणि profile photo येथे manage होतात.", "Login, contact किंवा photo details correct करायचे असल्यास हा section वापरा.", "Phone आणि email अचूक ठेवा कारण communication आणि account identification साठी ते वापरले जातात."],
+            hi: ["Student का username, email, phone, active status और profile photo यहां manage होते हैं.", "Login, contact या photo details correct करने हों तो यह section उपयोग करें.", "Phone और email सही रखें क्योंकि communication और account identification में इनका उपयोग होता है."]
+        },
+        guardian_details: {
+            title: "Parent / Guardian Details",
+            en: ["Stores father, mother, and primary guardian information for communication, emergency contact, and admission records.", "Use this section before calling parents, printing forms, or verifying guardian responsibility.", "Primary guardian details should be kept current for urgent contact and fee follow-up."],
+            mr: ["Father, mother आणि primary guardian माहिती communication, emergency contact आणि admission records साठी येथे ठेवली जाते.", "Parents ला call करण्यापूर्वी, forms print करण्यापूर्वी किंवा guardian responsibility verify करण्यासाठी हा section वापरा.", "Urgent contact आणि fee follow-up साठी primary guardian details updated ठेवा."],
+            hi: ["Father, mother और primary guardian जानकारी communication, emergency contact और admission records के लिए यहां रखी जाती है.", "Parents को call करने, forms print करने या guardian responsibility verify करने से पहले यह section उपयोग करें.", "Urgent contact और fee follow-up के लिए primary guardian details updated रखें."]
+        },
+        address_info: {
+            title: "Address Information",
+            en: ["Stores current and permanent address details used for admission records, certificates, and correspondence.", "Use this section when address proof changes or the student shifts residence.", "Verify address before generating official documents where address is printed."],
+            mr: ["Current आणि permanent address details admission records, certificates आणि correspondence साठी येथे ठेवले जातात.", "Address proof बदलल्यास किंवा student चे residence बदलल्यास हा section वापरा.", "Address print होणारे official documents generate करण्यापूर्वी address verify करा."],
+            hi: ["Current और permanent address details admission records, certificates और correspondence के लिए यहां रखे जाते हैं.", "Address proof बदले या student का residence बदले तो यह section उपयोग करें.", "Address print होने वाले official documents generate करने से पहले address verify करें."]
+        },
+        academic_info: {
+            title: "Academic Information",
+            en: ["Shows the student's class/course, batch/division, previous school, roll number, and academic background.", "Use this section to verify that the student is mapped to the correct class and division for the selected academic year.", "Correct academic mapping is important for attendance, homework, exams, reports, and fee structure."],
+            mr: ["Student चा class/course, batch/division, previous school, roll number आणि academic background येथे दिसतो.", "Selected academic year साठी student योग्य class आणि division मध्ये आहे का हे verify करण्यासाठी वापरा.", "Attendance, homework, exams, reports आणि fee structure साठी academic mapping बरोबर असणे महत्त्वाचे आहे."],
+            hi: ["Student का class/course, batch/division, previous school, roll number और academic background यहां दिखता है.", "Selected academic year में student सही class और division में mapped है या नहीं, यह verify करने के लिए उपयोग करें.", "Attendance, homework, exams, reports और fee structure के लिए academic mapping सही होना जरूरी है."]
+        },
+        bonafide_summary: {
+            title: "Bonafide Certificate Details",
+            en: ["Shows the latest Bonafide certificate summary for quick reference.", "Use it to check the latest certificate number and related certificate values before generating or sharing a new certificate.", "Bonafide records are separate from normal profile edits so generated history stays traceable."],
+            mr: ["Latest Bonafide certificate summary quick reference साठी येथे दिसतो.", "नवीन certificate generate किंवा share करण्यापूर्वी latest certificate number आणि values तपासण्यासाठी वापरा.", "Generated history traceable राहावी म्हणून Bonafide records normal profile edits पासून वेगळे ठेवले आहेत."],
+            hi: ["Latest Bonafide certificate summary quick reference के लिए यहां दिखता है.", "नया certificate generate या share करने से पहले latest certificate number और values जांचने के लिए उपयोग करें.", "Generated history traceable रहे इसलिए Bonafide records normal profile edits से अलग रखे गए हैं."]
+        },
+        id_card: {
+            title: "ID Card Details",
+            en: ["Contains values used for student ID card printing, including photo and emergency contact details.", "Use it before printing or updating an ID card.", "Keep emergency contact accurate because it may be used during campus incidents."],
+            mr: ["Student ID card printing साठी photo आणि emergency contact details येथे वापरले जातात.", "ID card print किंवा update करण्यापूर्वी हा section वापरा.", "Campus incidents मध्ये emergency contact वापरला जाऊ शकतो, म्हणून तो अचूक ठेवा."],
+            hi: ["Student ID card printing के लिए photo और emergency contact details यहां उपयोग होते हैं.", "ID card print या update करने से पहले यह section उपयोग करें.", "Campus incidents में emergency contact उपयोग हो सकता है, इसलिए उसे सही रखें."]
+        },
+        tc_summary: {
+            title: "Latest TC Summary",
+            en: ["Shows read-only information from the latest generated Transfer Certificate.", "Use it to quickly confirm the last TC status without opening the full TC record.", "If TC details look wrong, check the Transfer Certificate records before generating a new one."],
+            mr: ["Latest generated Transfer Certificate मधील read-only information येथे दिसते.", "Full TC record न उघडता last TC status quickly confirm करण्यासाठी वापरा.", "TC details चुकीचे वाटल्यास नवीन TC generate करण्यापूर्वी Transfer Certificate records तपासा."],
+            hi: ["Latest generated Transfer Certificate की read-only information यहां दिखती है.", "Full TC record खोले बिना last TC status जल्दी confirm करने के लिए उपयोग करें.", "TC details गलत लगें तो नया TC generate करने से पहले Transfer Certificate records जांचें."]
+        },
+        bonafide_records: {
+            title: "Bonafide Certificate Records",
+            en: ["Lists every Bonafide certificate generated for this student.", "Use it to open, verify, and track certificate history.", "This helps avoid duplicate or mismatched certificate numbers."],
+            mr: ["या student साठी generated झालेले सर्व Bonafide certificates येथे list होतात.", "Certificate history open, verify आणि track करण्यासाठी वापरा.", "Duplicate किंवा mismatched certificate numbers टाळण्यासाठी हे उपयोगी आहे."],
+            hi: ["इस student के लिए generated सभी Bonafide certificates यहां list होते हैं.", "Certificate history open, verify और track करने के लिए उपयोग करें.", "Duplicate या mismatched certificate numbers से बचने में यह मदद करता है."]
+        },
+        tc_records: {
+            title: "Transfer Certificate Records",
+            en: ["Lists every Transfer Certificate generated for this student with generation details.", "Use it when a student leaves, needs TC verification, or requires a reprint.", "Check these records before creating a new TC to avoid duplicate processing."],
+            mr: ["या student साठी generated सर्व Transfer Certificates generation details सह येथे दिसतात.", "Student institute सोडताना, TC verification किंवा reprint लागल्यास वापरा.", "Duplicate processing टाळण्यासाठी नवीन TC तयार करण्यापूर्वी records तपासा."],
+            hi: ["इस student के लिए generated सभी Transfer Certificates generation details के साथ यहां दिखते हैं.", "Student institute छोड़ते समय, TC verification या reprint चाहिए तो उपयोग करें.", "Duplicate processing से बचने के लिए नया TC बनाने से पहले records जांचें."]
+        },
+        documents: {
+            title: "Documents to Collect and Store",
+            en: ["Tracks the admission document checklist and uploaded files such as certificates, photos, ID proof, and other required documents.", "Use it to see which documents are pending and upload missing records.", "Only delete a document after confirming it is the wrong or outdated file."],
+            mr: ["Admission document checklist आणि uploaded files जसे certificates, photos, ID proof आणि required documents येथे track होतात.", "कोणते documents pending आहेत आणि missing records upload करण्यासाठी वापरा.", "Document wrong किंवा outdated आहे याची खात्री झाल्यावरच delete करा."],
+            hi: ["Admission document checklist और uploaded files जैसे certificates, photos, ID proof और required documents यहां track होते हैं.", "कौन से documents pending हैं और missing records upload करने के लिए उपयोग करें.", "Document गलत या outdated हो यह confirm करने के बाद ही delete करें."]
+        },
+        enrollments: {
+            title: "Enrollments",
+            en: ["Connects the student to the correct batch/division and course/class for an academic year.", "Use Add or Edit when a student changes class, division, or course mapping.", "Enrollment affects fees, attendance, exams, homework, and reports."],
+            mr: ["Student ला academic year साठी योग्य batch/division आणि course/class सोबत connect केले जाते.", "Student चा class, division किंवा course mapping बदलल्यास Add किंवा Edit वापरा.", "Enrollment चा fees, attendance, exams, homework आणि reports वर परिणाम होतो."],
+            hi: ["Student को academic year के लिए सही batch/division और course/class से connect किया जाता है.", "Student का class, division या course mapping बदले तो Add या Edit उपयोग करें.", "Enrollment fees, attendance, exams, homework और reports को affect करता है."]
+        },
+        fees: {
+            title: "Fees",
+            en: ["Shows invoices, total amount, paid amount, pending dues, and payment status.", "Use Add Additional Fee for extra charges and Receive Fee when collecting payment.", "Verify invoice and due amount before collecting payment to avoid over-collection or wrong receipt."],
+            mr: ["Invoices, total amount, paid amount, pending dues आणि payment status येथे दिसतो.", "Extra charges साठी Add Additional Fee आणि payment collection साठी Receive Fee वापरा.", "Over-collection किंवा wrong receipt टाळण्यासाठी payment घेण्यापूर्वी invoice आणि due amount verify करा."],
+            hi: ["Invoices, total amount, paid amount, pending dues और payment status यहां दिखते हैं.", "Extra charges के लिए Add Additional Fee और payment collection के लिए Receive Fee उपयोग करें.", "Over-collection या wrong receipt से बचने के लिए payment लेने से पहले invoice और due amount verify करें."]
+        },
+        payment_history: {
+            title: "Payment History",
+            en: ["Shows all receipts and payment records for the student.", "Use it to print receipts, confirm received amounts, and review payment method or receiver details.", "Correction and void actions should be used only when a receipt was entered incorrectly."],
+            mr: ["Student चे सर्व receipts आणि payment records येथे दिसतात.", "Receipts print करणे, received amounts confirm करणे आणि payment method किंवा receiver details review करण्यासाठी वापरा.", "Receipt चुकीचा entered असेल तेव्हाच correction आणि void actions वापरा."],
+            hi: ["Student के सभी receipts और payment records यहां दिखते हैं.", "Receipts print करने, received amounts confirm करने और payment method या receiver details review करने के लिए उपयोग करें.", "Correction और void actions केवल receipt गलत entered होने पर उपयोग करें."]
+        },
+        payment_activity: {
+            title: "Payment Activity History",
+            en: ["Keeps an audit trail of fee corrections and void actions.", "Use it to understand who changed a payment, when it changed, and why.", "This section is important for accountability and fee reconciliation."],
+            mr: ["Fee corrections आणि void actions ची audit trail येथे ठेवली जाते.", "Payment कोणी, कधी आणि का change केले हे समजण्यासाठी वापरा.", "Accountability आणि fee reconciliation साठी हा section महत्त्वाचा आहे."],
+            hi: ["Fee corrections और void actions की audit trail यहां रखी जाती है.", "Payment किसने, कब और क्यों change किया यह समझने के लिए उपयोग करें.", "Accountability और fee reconciliation के लिए यह section महत्वपूर्ण है."]
+        },
+        attendance: {
+            title: "Attendance",
+            en: ["Shows the student's attendance records with present, absent, and late counts.", "Use filters to review attendance by date range, status, or batch/division.", "PDF and Excel exports are useful for parent meetings, internal review, and monthly reporting."],
+            mr: ["Student चे attendance records present, absent आणि late counts सह येथे दिसतात.", "Date range, status किंवा batch/division नुसार attendance review करण्यासाठी filters वापरा.", "Parent meetings, internal review आणि monthly reporting साठी PDF आणि Excel exports useful आहेत."],
+            hi: ["Student के attendance records present, absent और late counts के साथ यहां दिखते हैं.", "Date range, status या batch/division के अनुसार attendance review करने के लिए filters उपयोग करें.", "Parent meetings, internal review और monthly reporting के लिए PDF और Excel exports useful हैं."]
+        }
+    };
+
+    function renderStudentDashboardFeatureInfo(key) {
+        const info = studentDashboardFeatureInfo[key];
+        if (!info) {
+            return;
+        }
+
+        document.getElementById("studentDashboardFeatureInfoModalLabel").innerHTML =
+            '<i class="bi bi-info-circle me-2"></i> ' + info.title;
+
+        const languageTargets = {
+            en: document.getElementById("student-dashboard-info-english"),
+            mr: document.getElementById("student-dashboard-info-marathi"),
+            hi: document.getElementById("student-dashboard-info-hindi")
+        };
+
+        Object.keys(languageTargets).forEach(function(language) {
+            const items = info[language] || [];
+            languageTargets[language].innerHTML = "<ul>" + items.map(function(item) {
+                return "<li>" + item + "</li>";
+            }).join("") + "</ul>";
+        });
+
+        const firstTab = document.getElementById("student-dashboard-info-english-tab");
+        if (window.bootstrap && bootstrap.Tab && firstTab) {
+            bootstrap.Tab.getOrCreateInstance(firstTab).show();
+        }
+
+        const modalElement = document.getElementById("studentDashboardFeatureInfoModal");
+        bootstrap.Modal.getOrCreateInstance(modalElement).show();
+    }
+
+    document.querySelectorAll("[data-feature-info]").forEach(function(button) {
+        button.addEventListener("click", function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            renderStudentDashboardFeatureInfo(button.dataset.featureInfo);
+        });
+    });
+
     function openStudentDashboardWindow(element, customWidth = 1000, customHeight = 760) {
         const url = element.dataset.url;
         const availableWidth = window.screen.availWidth || window.innerWidth;

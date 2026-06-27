@@ -20,6 +20,26 @@
     }
     .page-toolbar { padding: 22px; margin-bottom: 24px; }
     .page-title { font-size: 1.7rem; font-weight: 800; color: var(--text); margin: 0; }
+    .fee-category-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .feature-info-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 0;
+        background: linear-gradient(135deg, #073D66, #1669A8);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        box-shadow: 0 12px 24px rgba(7, 61, 102, 0.26);
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .feature-info-btn:hover, .feature-info-btn:focus {
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 16px 30px rgba(7, 61, 102, 0.32);
+    }
     .page-subtitle { color: var(--muted); margin: 6px 0 0; }
     .btn-gradient {
         background: linear-gradient(135deg, var(--primary), var(--primary-dark));
@@ -81,6 +101,22 @@
     .action-btn { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; }
     .empty-state { padding: 60px 20px; text-align: center; color: var(--muted); }
     .empty-state i { font-size: 3rem; color: #a5f3fc; margin-bottom: 12px; }
+    .feature-info-modal, .feature-info-modal .modal-content, .feature-info-modal .modal-title, .feature-info-modal .nav-link, .feature-info-modal p, .feature-info-modal li { font-family: "Poppins", sans-serif; }
+    .feature-info-modal .modal-content { border: 0; border-radius: 24px; overflow: hidden; box-shadow: 0 26px 70px rgba(7, 61, 102, 0.24); }
+    .feature-info-modal .modal-header { background: linear-gradient(135deg, #073D66, #1669A8); color: #fff; border-bottom: 0; padding: 22px 24px; }
+    .feature-info-modal .modal-title { font-weight: 800; letter-spacing: 0; }
+    .feature-info-modal .modal-body { background: #f8fbff; padding: 24px; }
+    .feature-info-modal .nav-pills { gap: 8px; margin-bottom: 18px; }
+    .feature-info-modal .nav-pills .nav-link { border-radius: 999px; color: #073D66; background: #eaf3fb; font-weight: 800; padding: 8px 14px; }
+    .feature-info-modal .nav-pills .nav-link.active { background: linear-gradient(135deg, #073D66, #1669A8); color: #fff; }
+    .feature-info-panel { background: #fff; border: 1px solid rgba(22, 105, 168, 0.16); border-radius: 18px; padding: 20px; }
+    .feature-info-panel p { color: #334155; line-height: 1.65; margin-bottom: 14px; }
+    .feature-info-panel ul { margin: 0; padding-left: 20px; color: #1e293b; }
+    .feature-info-panel li { margin-bottom: 10px; line-height: 1.55; }
+    .feature-info-note { margin-top: 16px; border-radius: 16px; border: 1px solid rgba(22, 105, 168, 0.18); background: #eef7ff; color: #073D66; padding: 14px 16px; font-weight: 700; line-height: 1.55; }
+    .feature-info-modal .modal-footer { border-top: 1px solid rgba(22, 105, 168, 0.12); background: #fff; }
+    .feature-info-close { border: 0; border-radius: 12px; background: linear-gradient(135deg, #073D66, #1669A8); color: #fff; font-weight: 800; padding: 10px 18px; }
+    .feature-info-close:hover, .feature-info-close:focus { color: #fff; opacity: .94; }
     @media(max-width: 992px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media(max-width: 576px) { .stat-grid { grid-template-columns: 1fr; } .page-toolbar, .table-header { flex-direction: column; align-items: flex-start !important; gap: 14px; } }
 </style>
@@ -98,7 +134,16 @@
 
     <div class="page-toolbar d-flex justify-content-between align-items-center">
         <div>
-            <h2 class="page-title">Dynamic Fee Categories</h2>
+            <div class="fee-category-title-row">
+                <h2 class="page-title">Dynamic Fee Categories</h2>
+                <button type="button"
+                        class="feature-info-btn"
+                        data-bs-toggle="modal"
+                        data-bs-target="#feeCategoryFeatureInfoModal"
+                        aria-label="About Dynamic Fee Categories">
+                    <i class="bi bi-info-lg"></i>
+                </button>
+            </div>
             <p class="page-subtitle">Create institute-specific fee heads like tuition, exam, material or admission fees.</p>
         </div>
         <a href="javascript:void(0);" data-url="{% url 'institute_admin:fee_category_create' %}" class="btn btn-gradient" onclick="openFeeCategoryWindow(this)">
@@ -209,6 +254,75 @@
         </div>
     </div>
 </main>
+
+<div class="modal fade feature-info-modal" id="feeCategoryFeatureInfoModal" tabindex="-1" aria-labelledby="feeCategoryFeatureInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="feeCategoryFeatureInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i> Dynamic Fee Categories Help
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-pills" id="feeCategoryInfoLanguageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="fee-category-info-english-tab" data-bs-toggle="pill" data-bs-target="#fee-category-info-english" type="button" role="tab" aria-controls="fee-category-info-english" aria-selected="true">English</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="fee-category-info-marathi-tab" data-bs-toggle="pill" data-bs-target="#fee-category-info-marathi" type="button" role="tab" aria-controls="fee-category-info-marathi" aria-selected="false">Marathi</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="fee-category-info-hindi-tab" data-bs-toggle="pill" data-bs-target="#fee-category-info-hindi" type="button" role="tab" aria-controls="fee-category-info-hindi" aria-selected="false">Hindi</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <div class="tab-pane fade show active feature-info-panel" id="fee-category-info-english" role="tabpanel" aria-labelledby="fee-category-info-english-tab">
+                        <p>Dynamic Fee Categories are used to create reusable fee heads for the institute, so fees can be assigned, collected, tracked, and reported in a clear way.</p>
+                        <ul>
+                            <li><strong>Use this before fee collection</strong> when the institute wants separate heads such as Tuition Fee, Admission Fee, Exam Fee, Material Fee, Transport Fee, or Hostel Fee.</li>
+                            <li><strong>Default Amount</strong> saves a standard amount for the category, which helps staff add fees faster while still allowing changes where required.</li>
+                            <li><strong>Active categories</strong> should be used for current fee collection. Inactive categories are useful for old or discontinued fees that should not be selected anymore.</li>
+                            <li><strong>Invoice count</strong> helps identify categories already used in student invoices, so staff can avoid unnecessary deletion or renaming.</li>
+                            <li><strong>Reports and receipts</strong> become easier to understand because each payment is grouped under the correct fee category.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: create clear category names and avoid deleting categories already used in invoices, because they may be needed for old receipts, dues, and reports.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="fee-category-info-marathi" role="tabpanel" aria-labelledby="fee-category-info-marathi-tab">
+                        <p>Dynamic Fee Categories institute साठी reusable fee heads तयार करण्यासाठी वापरले जातात, ज्यामुळे fees assign, collect, track आणि report करणे स्पष्ट होते.</p>
+                        <ul>
+                            <li><strong>Fee collection सुरू करण्यापूर्वी वापरा</strong> जेव्हा Tuition Fee, Admission Fee, Exam Fee, Material Fee, Transport Fee किंवा Hostel Fee सारखे वेगळे heads ठेवायचे असतात.</li>
+                            <li><strong>Default Amount</strong> category साठी standard amount ठेवतो, त्यामुळे staff fees जलद add करू शकतात आणि गरजेनुसार amount बदलू शकतात.</li>
+                            <li><strong>Active categories</strong> current fee collection साठी वापरा. जुने किंवा बंद झालेले fees select होऊ नयेत म्हणून त्यांना inactive ठेवता येते.</li>
+                            <li><strong>Invoice count</strong> category student invoices मध्ये वापरली आहे का हे दाखवतो, त्यामुळे delete किंवा rename करताना काळजी घेता येते.</li>
+                            <li><strong>Reports आणि receipts</strong> समजायला सोपे होतात कारण प्रत्येक payment योग्य fee category मध्ये group होते.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: category names स्पष्ट ठेवा आणि invoices मध्ये वापरलेल्या categories delete करू नका, कारण त्या old receipts, dues आणि reports साठी लागतात.</div>
+                    </div>
+
+                    <div class="tab-pane fade feature-info-panel" id="fee-category-info-hindi" role="tabpanel" aria-labelledby="fee-category-info-hindi-tab">
+                        <p>Dynamic Fee Categories institute के reusable fee heads बनाने के लिए उपयोग होते हैं, ताकि fees assign, collect, track और report करना साफ और व्यवस्थित रहे.</p>
+                        <ul>
+                            <li><strong>Fee collection से पहले उपयोग करें</strong> जब institute को Tuition Fee, Admission Fee, Exam Fee, Material Fee, Transport Fee या Hostel Fee जैसे अलग heads रखने हों.</li>
+                            <li><strong>Default Amount</strong> category के लिए standard amount रखता है, जिससे staff fees जल्दी add कर सकता है और जरूरत के अनुसार amount बदल सकता है.</li>
+                            <li><strong>Active categories</strong> current fee collection के लिए उपयोग करें. पुराने या बंद हो चुके fees को select होने से रोकने के लिए inactive रखा जा सकता है.</li>
+                            <li><strong>Invoice count</strong> दिखाता है कि category student invoices में उपयोग हुई है या नहीं, इसलिए delete या rename करते समय सावधानी रखी जा सकती है.</li>
+                            <li><strong>Reports और receipts</strong> समझना आसान होता है क्योंकि हर payment सही fee category में group होता है.</li>
+                        </ul>
+                        <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: category names clear रखें और invoices में उपयोग हुई categories delete न करें, क्योंकि वे old receipts, dues और reports के लिए जरूरी हो सकती हैं.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="feature-info-close" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="deleteFeeCategoryModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
