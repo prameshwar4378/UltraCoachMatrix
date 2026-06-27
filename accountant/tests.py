@@ -64,6 +64,7 @@ class MobileFeesApiTests(TestCase):
         self.enrollment.courses.add(self.course)
         self.category = FeeCategory.objects.create(
             institute=self.institute,
+            academic_year=self.academic_year,
             name="Tuition",
             default_amount=Decimal("12000.00"),
         )
@@ -164,6 +165,12 @@ class MobileFeesApiTests(TestCase):
             name="Advanced",
         )
         next_batch.courses.add(next_course)
+        next_category = FeeCategory.objects.create(
+            institute=self.institute,
+            academic_year=next_year,
+            name="Tuition",
+            default_amount=Decimal("20000.00"),
+        )
         next_enrollment = StudentEnrollment.objects.create(
             student=self.student,
             academic_session=next_session,
@@ -177,7 +184,7 @@ class MobileFeesApiTests(TestCase):
             enrollment=next_enrollment,
             course=next_course,
             batch=next_batch,
-            category=self.category,
+            category=next_category,
             title="Annual Fee",
             amount=Decimal("45000.00"),
             due_date=date(2027, 6, 30),

@@ -500,8 +500,9 @@ class FeeCategoryForm(forms.ModelForm):
         model = FeeCategory
         fields = ("name", "default_amount", "is_active")
 
-    def __init__(self, *args, institute=None, **kwargs):
+    def __init__(self, *args, institute=None, academic_year=None, **kwargs):
         self.institute = institute
+        self.academic_year = academic_year
         super().__init__(*args, **kwargs)
         self.fields["default_amount"].widget.attrs.setdefault("min", "0")
         self.fields["default_amount"].widget.attrs.setdefault("step", "0.01")
@@ -511,11 +512,15 @@ class FeeCategoryForm(forms.ModelForm):
 
     def clean_name(self):
         name = self.cleaned_data["name"].strip()
-        queryset = FeeCategory.objects.filter(institute=self.institute, name__iexact=name)
+        queryset = FeeCategory.objects.filter(
+            institute=self.institute,
+            academic_year=self.academic_year,
+            name__iexact=name,
+        )
         if self.instance and self.instance.pk:
             queryset = queryset.exclude(pk=self.instance.pk)
         if queryset.exists():
-            raise ValidationError("This fee category already exists in this institute.")
+            raise ValidationError("This fee category already exists in the selected academic session.")
         return name
 
     def clean_default_amount(self):
@@ -746,7 +751,9 @@ class ExpenseForm(forms.ModelForm):
             "note": forms.Textarea(attrs={"rows": 4}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, institute=None, academic_year=None, **kwargs):
+        self.institute = institute
+        self.academic_year = academic_year
         super().__init__(*args, **kwargs)
         self.fields["files"].widget.attrs.update(
             {
@@ -763,6 +770,13 @@ class ExpenseForm(forms.ModelForm):
         if amount <= 0:
             raise ValidationError("Expense amount must be greater than zero.")
         return amount
+
+    def clean_spent_on(self):
+        spent_on = self.cleaned_data["spent_on"]
+        if self.academic_year and spent_on:
+            if not (self.academic_year.start_date <= spent_on <= self.academic_year.end_date):
+                raise ValidationError("Expense date must be inside the selected academic session.")
+        return spent_on
 
 
 class VisitorForm(forms.ModelForm):
@@ -2406,8 +2420,21 @@ class NoticeForm(forms.ModelForm):
         cleaned_data = super().clean()
         publish_at = cleaned_data.get("publish_at")
         expires_at = cleaned_data.get("expires_at")
+        target_batches = cleaned_data.get("target_batches")
+        target_courses = cleaned_data.get("target_courses")
+        target_students = cleaned_data.get("target_students")
         if publish_at and expires_at and expires_at <= publish_at:
             raise ValidationError("Expiry date must be after publish date.")
+        if self.academic_year:
+            if target_batches and target_batches.exclude(academic_year=self.academic_year).exists():
+                raise ValidationError("Selected batches must belong to the selected academic session.")
+            if target_courses and target_courses.exclude(academic_year=self.academic_year).exists():
+                raise ValidationError("Selected courses must belong to the selected academic session.")
+            if target_students and (
+                target_students.count()
+                != target_students.filter(academic_sessions__academic_year=self.academic_year).distinct().count()
+            ):
+                raise ValidationError("Selected students must belong to the selected academic session.")
         return cleaned_data
 
 
@@ -2565,7 +2592,10 @@ class ReceiveFeeForm(forms.Form):
             self.fields["enrollment"].queryset = self.fields["enrollment"].queryset.filter(
                 academic_session=academic_session
             )
-        self.fields["category"].queryset = FeeCategory.objects.filter(institute=institute, is_active=True)
+        categories = FeeCategory.objects.filter(institute=institute, is_active=True)
+        if academic_session:
+            categories = categories.filter(academic_year=academic_session.academic_year)
+        self.fields["category"].queryset = categories
         self.fields["enrollment"].label_from_instance = lambda enrollment: (
             f"{enrollment.batch.name} - {enrollment.total_course_fee}"
         )
@@ -2593,6 +2623,8 @@ class ReceiveFeeForm(forms.Form):
 
         if payment_amount is not None and payment_amount <= 0:
             raise ValidationError("Payment amount must be greater than zero.")
+        if category and self.academic_session and category.academic_year_id != self.academic_session.academic_year_id:
+            raise ValidationError("Selected fee category must belong to the selected academic session.")
 
         if category:
             existing_invoice = self.get_pending_category_invoice(category)
@@ -2699,10 +2731,14 @@ class AddStudentFeeForm(forms.Form):
     amount = forms.DecimalField(max_digits=10, decimal_places=2, min_value=0)
     due_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
 
-    def __init__(self, *args, institute=None, **kwargs):
+    def __init__(self, *args, institute=None, academic_session=None, **kwargs):
         self.institute = institute
+        self.academic_session = academic_session
         super().__init__(*args, **kwargs)
-        self.fields["category"].queryset = FeeCategory.objects.filter(institute=institute, is_active=True)
+        categories = FeeCategory.objects.filter(institute=institute, is_active=True)
+        if academic_session:
+            categories = categories.filter(academic_year=academic_session.academic_year)
+        self.fields["category"].queryset = categories
         self.fields["amount"].widget.attrs.setdefault("step", "0.01")
         self.fields["amount"].widget.attrs.setdefault("min", "0")
 

@@ -562,7 +562,12 @@ def mobile_fee_categories(request):
     student, error = _student_for_request(request)
     if error:
         return error
-    categories = FeeCategory.objects.filter(institute=student.institute, is_active=True).order_by("name")
+    sessions = _student_sessions(student, request)
+    categories = FeeCategory.objects.filter(
+        institute=student.institute,
+        academic_year__in=sessions.values_list("academic_year_id", flat=True),
+        is_active=True,
+    ).order_by("name")
     return JsonResponse(
         {
             "categories": [

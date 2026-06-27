@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Count, F, Q, Sum
 from django.db.models.functions import Coalesce
 
-from accountant.models import FeeInvoice, Payment
+from accountant.models import Expense, FeeCategory, FeeInvoice, Payment
 from institute_admin.models import AcademicYear, Batch, Course, Notice
 from student_parent.models import StudentAcademicSession, StudentEnrollment, StudentProfile
 from super_admin.models import Institute, UserProfile
@@ -58,6 +58,8 @@ class Command(BaseCommand):
         students = StudentProfile.objects.filter(institute_id__in=institute_ids)
         enrollments = StudentEnrollment.objects.filter(academic_session__institute_id__in=institute_ids)
         invoices = FeeInvoice.objects.filter(institute_id__in=institute_ids)
+        fee_categories = FeeCategory.objects.filter(institute_id__in=institute_ids)
+        expenses = Expense.objects.filter(institute_id__in=institute_ids)
         attendance = Attendance.objects.filter(academic_session__institute_id__in=institute_ids)
         notices = Notice.objects.filter(institute_id__in=institute_ids)
         homework = Homework.objects.filter(batch__institute_id__in=institute_ids)
@@ -197,6 +199,15 @@ class Command(BaseCommand):
         self._add_check(
             checks,
             "ERROR",
+            "Invoices with category academic-year mismatch",
+            invoices.filter(category__isnull=False)
+            .exclude(category__academic_year_id=F("academic_session__academic_year_id"))
+            .count(),
+            "Fee category must belong to the same academic year as the invoice session.",
+        )
+        self._add_check(
+            checks,
+            "ERROR",
             "Invoices with course institute mismatch",
             invoices.filter(course__isnull=False).exclude(course__institute_id=F("institute_id")).count(),
             "Invoice course must belong to the invoice institute.",
@@ -248,6 +259,24 @@ class Command(BaseCommand):
             "Attendance with batch academic-year mismatch",
             attendance.exclude(batch__academic_year_id=F("academic_session__academic_year_id")).count(),
             "Attendance batch must belong to the same academic year as the student session.",
+        )
+        self._add_check(
+            checks,
+            "ERROR",
+            "Fee categories with institute/year mismatch",
+            fee_categories.filter(academic_year__isnull=False)
+            .exclude(academic_year__institute_id=F("institute_id"))
+            .count(),
+            "Fee category academic year must belong to the same institute.",
+        )
+        self._add_check(
+            checks,
+            "ERROR",
+            "Expenses with institute/year mismatch",
+            expenses.filter(academic_year__isnull=False)
+            .exclude(academic_year__institute_id=F("institute_id"))
+            .count(),
+            "Expense academic year must belong to the same institute.",
         )
         self._add_check(
             checks,

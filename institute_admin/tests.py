@@ -18,7 +18,7 @@ from django.urls import reverse
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
-from accountant.models import Expense, FeeCategory, FeeInvoice, Payment
+from accountant.models import Expense, ExpenseDocument, FeeCategory, FeeInvoice, Payment
 from student_parent.models import GuardianProfile, StudentAcademicSession, StudentEnrollment, StudentProfile
 from super_admin.models import (
     Institute,
@@ -26,8 +26,7 @@ from super_admin.models import (
     SubscriptionPayment,
     UserProfile,
 )
-from super_admin.mobile_auth import create_access_token
-from teacher.models import Attendance, Exam, ExamAttempt, ExamAttemptUpload, ExamResult, Homework
+from teacher.models import Attendance, Exam, ExamAttempt, ExamAttemptUpload, ExamResult, Homework, TeacherProfile
 
 from . import views
 from .forms import (
@@ -148,7 +147,7 @@ class AcademicSessionSettingsTests(TestCase):
         self.assertContains(response, self.session.name)
         self.assertNotContains(response, self.other_institute.name)
 
-    def test_create_session_assigns_current_institute(self):
+    def test_create_session_assigns_current_institute_without_syncing_students(self):
         student_user = User.objects.create_user(
             username="mobile-session-student",
             password="pass12345",
@@ -183,21 +182,14 @@ class AcademicSessionSettingsTests(TestCase):
             ).exists()
         )
         created_year = AcademicYear.objects.get(institute=self.institute, name="2026-27")
-        student_session = StudentAcademicSession.objects.get(
-            student=student,
-            academic_year=created_year,
-        )
-        mobile_response = self.client.get(
-            reverse("mobile_profile"),
-            HTTP_AUTHORIZATION=f"Bearer {create_access_token(student_user)}",
-        )
-        self.assertEqual(mobile_response.status_code, 200)
-        self.assertIn(
-            student_session.pk,
-            [item["id"] for item in mobile_response.json()["academic_sessions"]],
+        self.assertFalse(
+            StudentAcademicSession.objects.filter(
+                student=student,
+                academic_year=created_year,
+            ).exists()
         )
 
-    def test_sync_students_adds_missing_links_only_once(self):
+    def test_sync_students_action_is_not_available(self):
         student_user = User.objects.create_user(
             username="existing-session-student",
             password="pass12345",
@@ -214,25 +206,21 @@ class AcademicSessionSettingsTests(TestCase):
             is_active=True,
         )
 
-        for _index in range(2):
-            response = self.client.post(
-                reverse("institute_admin:academic_session_settings"),
-                {
-                    "action": "sync_students",
-                    "session_id": self.session.pk,
-                },
-            )
-            self.assertRedirects(
-                response,
-                reverse("institute_admin:academic_session_settings"),
-            )
+        response = self.client.post(
+            reverse("institute_admin:academic_session_settings"),
+            {
+                "action": "sync_students",
+                "session_id": self.session.pk,
+            },
+        )
 
+        self.assertRedirects(response, reverse("institute_admin:academic_session_settings"))
         self.assertEqual(
             StudentAcademicSession.objects.filter(
                 student=student,
                 academic_year=self.session,
             ).count(),
-            1,
+            0,
         )
 
     def test_form_rejects_overlapping_dates_and_duplicate_name(self):
@@ -1589,7 +1577,7 @@ class AcademicSessionIsolationTests(TestCase):
             enrolled_on=date(2027, 4, 5),
             custom_fee_amount=Decimal("2000.00"),
         )
-        self.enrollment_2027.courses.add(self.course)
+        self.enrollment_2027.courses.add(self.course_2027)
         self.invoice_2026 = FeeInvoice.objects.create(
             institute=self.institute,
             student=self.student,
@@ -1715,6 +1703,314 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertContains(response, "12th Batch")
         self.assertNotContains(response, "SMIS-2026-27-0001")
         self.assertNotContains(response, "11th Batch")
+
+    def test_notice_list_uses_selected_academic_session(self):
+        Notice.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            title="2026 Session Notice",
+            message="Only 2026 students should see this.",
+            audience=Notice.Audience.EVERYONE,
+        )
+        Notice.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2027,
+            title="2027 Session Notice",
+            message="Only 2027 students should see this.",
+            audience=Notice.Audience.EVERYONE,
+        )
+
+        self.select_year(self.year_2026)
+        response = self.client.get(reverse("institute_admin:notice_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "2026 Session Notice")
+        self.assertNotContains(response, "2027 Session Notice")
+
+        self.select_year(self.year_2027)
+        response = self.client.get(reverse("institute_admin:notice_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "2027 Session Notice")
+        self.assertNotContains(response, "2026 Session Notice")
+
+    def test_student_notice_feed_uses_selected_academic_session(self):
+        notice_2026 = Notice.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            title="Student 2026 Notice",
+            message="Only 2026 feed.",
+            audience=Notice.Audience.STUDENTS_PARENTS,
+        )
+        notice_2027 = Notice.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2027,
+            title="Student 2027 Notice",
+            message="Only 2027 feed.",
+            audience=Notice.Audience.STUDENTS_PARENTS,
+        )
+
+        visible_2026 = Notice.for_student(self.student, academic_session_id=self.session_2026.pk)
+        self.assertIn(notice_2026, visible_2026)
+        self.assertNotIn(notice_2027, visible_2026)
+
+        visible_2027 = Notice.for_student(self.student, academic_session_id=self.session_2027.pk)
+        self.assertIn(notice_2027, visible_2027)
+        self.assertNotIn(notice_2026, visible_2027)
+
+    def test_fee_category_list_uses_selected_academic_session(self):
+        FeeCategory.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            name="2026 Transport",
+            default_amount=Decimal("500.00"),
+        )
+        FeeCategory.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2027,
+            name="2027 Transport",
+            default_amount=Decimal("700.00"),
+        )
+
+        self.select_year(self.year_2026)
+        response = self.client.get(reverse("institute_admin:fee_category_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "2026 Transport")
+        self.assertNotContains(response, "2027 Transport")
+
+        self.select_year(self.year_2027)
+        response = self.client.get(reverse("institute_admin:fee_category_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "2027 Transport")
+        self.assertNotContains(response, "2026 Transport")
+
+    def test_expense_list_uses_selected_academic_session(self):
+        Expense.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            title="2026 Repair",
+            amount=Decimal("125.00"),
+            spent_on=date(2026, 7, 1),
+            recorded_by=self.admin_user,
+        )
+        Expense.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2027,
+            title="2027 Repair",
+            amount=Decimal("175.00"),
+            spent_on=date(2027, 7, 1),
+            recorded_by=self.admin_user,
+        )
+
+        self.select_year(self.year_2026)
+        response = self.client.get(reverse("institute_admin:expense_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "2026 Repair")
+        self.assertNotContains(response, "2027 Repair")
+
+        self.select_year(self.year_2027)
+        response = self.client.get(reverse("institute_admin:expense_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "2027 Repair")
+        self.assertNotContains(response, "2026 Repair")
+
+    def test_expense_export_can_include_media_links(self):
+        self.select_year(self.year_2026)
+        expense = Expense.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            title="Receipt Expense",
+            amount=Decimal("125.00"),
+            spent_on=date(2026, 7, 1),
+            recorded_by=self.admin_user,
+        )
+        ExpenseDocument.objects.create(
+            expense=expense,
+            file="expenses/receipts/receipt-one.pdf",
+        )
+
+        response = self.client.get(
+            reverse("institute_admin:expense_export"),
+            {"columns": ["title", "media_links"]},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        export_text = response.content.decode("utf-8-sig")
+        self.assertIn("Title,Media Links", export_text)
+        self.assertIn("Receipt Expense", export_text)
+        self.assertIn(
+            "http://testserver/media/expenses/receipts/receipt-one.pdf",
+            export_text,
+        )
+
+    def test_lead_list_uses_selected_academic_session(self):
+        Lead.objects.create(
+            institute=self.institute,
+            first_name="Lead",
+            last_name="TwentySix",
+            mobile_number="9000002026",
+            interested_class=self.course,
+            interested_batch=self.batch_2026,
+        )
+        Lead.objects.create(
+            institute=self.institute,
+            first_name="Lead",
+            last_name="TwentySeven",
+            mobile_number="9000002027",
+            academic_year=self.year_2027,
+            interested_class=self.course_2027,
+            interested_batch=self.batch_2027,
+        )
+        Lead.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            first_name="Open",
+            last_name="TwentySix",
+            mobile_number="9000003026",
+        )
+        Lead.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2027,
+            first_name="Open",
+            last_name="TwentySeven",
+            mobile_number="9000003027",
+        )
+
+        self.select_year(self.year_2026)
+        response = self.client.get(reverse("institute_admin:lead_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Lead TwentySix")
+        self.assertContains(response, "Open TwentySix")
+        self.assertNotContains(response, "Lead TwentySeven")
+        self.assertNotContains(response, "Open TwentySeven")
+
+        self.select_year(self.year_2027)
+        response = self.client.get(reverse("institute_admin:lead_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Lead TwentySeven")
+        self.assertContains(response, "Open TwentySeven")
+        self.assertNotContains(response, "Lead TwentySix")
+        self.assertNotContains(response, "Open TwentySix")
+
+    def test_visitor_list_uses_selected_academic_session_dates(self):
+        Visitor.objects.create(
+            institute=self.institute,
+            visitor_name="Visitor TwentySix",
+            phone_number="9000012026",
+            meeting_with="Office",
+            visit_date=date(2026, 6, 1),
+            entry_time="10:00",
+        )
+        Visitor.objects.create(
+            institute=self.institute,
+            visitor_name="Visitor TwentySeven",
+            phone_number="9000012027",
+            meeting_with="Office",
+            visit_date=date(2027, 6, 1),
+            entry_time="10:00",
+        )
+
+        self.select_year(self.year_2026)
+        response = self.client.get(reverse("institute_admin:visitor_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Visitor TwentySix")
+        self.assertNotContains(response, "Visitor TwentySeven")
+
+        self.select_year(self.year_2027)
+        response = self.client.get(reverse("institute_admin:visitor_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Visitor TwentySeven")
+        self.assertNotContains(response, "Visitor TwentySix")
+
+    def test_teacher_list_uses_selected_academic_session_assignments(self):
+        teacher_2026_user = User.objects.create_user(
+            username="teacher-2026",
+            password="pass12345",
+            first_name="Teacher",
+            last_name="TwentySix",
+        )
+        UserProfile.objects.create(
+            user=teacher_2026_user,
+            institute=self.institute,
+            role=UserProfile.Role.TEACHER,
+        )
+        TeacherProfile.objects.create(
+            institute=self.institute,
+            user=teacher_2026_user,
+            employee_id="T2026",
+        )
+        self.batch_2026.teachers.add(teacher_2026_user)
+
+        teacher_2027_user = User.objects.create_user(
+            username="teacher-2027",
+            password="pass12345",
+            first_name="Teacher",
+            last_name="TwentySeven",
+        )
+        UserProfile.objects.create(
+            user=teacher_2027_user,
+            institute=self.institute,
+            role=UserProfile.Role.TEACHER,
+        )
+        TeacherProfile.objects.create(
+            institute=self.institute,
+            user=teacher_2027_user,
+            employee_id="T2027",
+        )
+        self.batch_2027.teachers.add(teacher_2027_user)
+
+        self.select_year(self.year_2026)
+        response = self.client.get(reverse("institute_admin:teacher_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Teacher TwentySix")
+        self.assertNotContains(response, "Teacher TwentySeven")
+
+        self.select_year(self.year_2027)
+        response = self.client.get(reverse("institute_admin:teacher_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Teacher TwentySeven")
+        self.assertNotContains(response, "Teacher TwentySix")
+
+    def test_user_access_list_uses_selected_academic_session(self):
+        teacher_2026_user = User.objects.create_user(
+            username="access-teacher-2026",
+            password="pass12345",
+            first_name="Access",
+            last_name="Teacher2026",
+        )
+        UserProfile.objects.create(
+            user=teacher_2026_user,
+            institute=self.institute,
+            role=UserProfile.Role.TEACHER,
+        )
+        TeacherProfile.objects.create(institute=self.institute, user=teacher_2026_user)
+        self.batch_2026.teachers.add(teacher_2026_user)
+
+        teacher_2027_user = User.objects.create_user(
+            username="access-teacher-2027",
+            password="pass12345",
+            first_name="Access",
+            last_name="Teacher2027",
+        )
+        UserProfile.objects.create(
+            user=teacher_2027_user,
+            institute=self.institute,
+            role=UserProfile.Role.TEACHER,
+        )
+        TeacherProfile.objects.create(institute=self.institute, user=teacher_2027_user)
+        self.batch_2027.teachers.add(teacher_2027_user)
+
+        self.select_year(self.year_2026)
+        response = self.client.get(reverse("institute_admin:user_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "access-teacher-2026")
+        self.assertContains(response, "student-one")
+        self.assertNotContains(response, "access-teacher-2027")
+
+        self.select_year(self.year_2027)
+        response = self.client.get(reverse("institute_admin:user_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "access-teacher-2027")
+        self.assertContains(response, "student-one")
+        self.assertNotContains(response, "access-teacher-2026")
 
     def test_student_list_rows_link_to_student_dashboard(self):
         self.select_year(self.year_2026)
@@ -2229,6 +2525,41 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertIn("Net Profit/Loss,175.00", export_text)
         self.assertIn("Rent", export_text)
 
+    def test_profit_loss_report_uses_selected_academic_session_for_payments(self):
+        self.select_year(self.year_2026)
+        Payment.objects.create(
+            invoice=self.invoice_2027,
+            amount=Decimal("777.00"),
+            paid_on=date(2026, 5, 8),
+            method=Payment.Method.CASH,
+            receipt_number="RCP-SESSION-LEAK",
+            received_by=self.admin_user,
+        )
+
+        response = self.client.get(
+            reverse("institute_admin:profit_loss_report"),
+            {
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-31",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["collection_total"], Decimal("250.00"))
+        self.assertNotContains(response, "RCP-SESSION-LEAK")
+
+        export_response = self.client.get(
+            reverse("institute_admin:profit_loss_report"),
+            {
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-31",
+                "export": "csv",
+            },
+        )
+        export_text = export_response.content.decode()
+        self.assertIn("Total Collection,250.00", export_text)
+        self.assertNotIn("RCP-SESSION-LEAK", export_text)
+
     def test_fee_collection_report_filters_groups_and_exports_payments(self):
         self.select_year(self.year_2026)
         matching_payment = Payment.objects.create(
@@ -2294,6 +2625,41 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertIn("Science", export_text)
         self.assertIn("11th Batch", export_text)
         self.assertNotIn("RCP-OUTSIDE", export_text)
+
+    def test_fee_collection_report_uses_selected_academic_session(self):
+        self.select_year(self.year_2026)
+        Payment.objects.create(
+            invoice=self.invoice_2027,
+            amount=Decimal("888.00"),
+            paid_on=date(2026, 5, 8),
+            method=Payment.Method.UPI,
+            receipt_number="RCP-FEE-SESSION-LEAK",
+            received_by=self.admin_user,
+        )
+
+        response = self.client.get(
+            reverse("institute_admin:fee_collection_report"),
+            {
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-31",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["total_collection"], Decimal("250.00"))
+        self.assertNotContains(response, "RCP-FEE-SESSION-LEAK")
+
+        export_response = self.client.get(
+            reverse("institute_admin:fee_collection_report"),
+            {
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-31",
+                "export": "csv",
+            },
+        )
+        export_text = export_response.content.decode()
+        self.assertIn("Total Collection,250.00", export_text)
+        self.assertNotIn("RCP-FEE-SESSION-LEAK", export_text)
 
     def test_registration_prefix_uses_normalized_institute_code(self):
         other_institute = Institute.objects.create(

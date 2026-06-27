@@ -101,10 +101,6 @@
                     </div>
                     <div class="session-actions">
                         <a class="btn btn-sm btn-outline-primary" href="?edit={{ academic_session.pk }}">Edit</a>
-                        <form method="post">
-                            {% csrf_token %}<input type="hidden" name="action" value="sync_students"><input type="hidden" name="session_id" value="{{ academic_session.pk }}">
-                            <button class="btn btn-sm btn-outline-success" type="submit">Sync Students</button>
-                        </form>
                         {% if selected_academic_year.pk != academic_session.pk %}
                         <form method="post">
                             {% csrf_token %}<input type="hidden" name="action" value="set_current"><input type="hidden" name="session_id" value="{{ academic_session.pk }}">

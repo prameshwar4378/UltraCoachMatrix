@@ -274,12 +274,16 @@ def students_for_notice(notice):
     queryset = StudentProfile.objects.filter(institute=notice.institute, is_active=True).select_related("user")
     if notice.audience == Notice.Audience.TEACHERS:
         return queryset.none()
+    if notice.academic_year_id:
+        queryset = queryset.filter(academic_sessions__academic_year=notice.academic_year)
 
     student_ids = set(notice.target_students.values_list("pk", flat=True))
     batch_ids = list(notice.target_batches.values_list("pk", flat=True))
     course_ids = list(notice.target_courses.values_list("pk", flat=True))
     if batch_ids or course_ids:
         enrollment_filter = Q(status=StudentEnrollment.Status.ACTIVE)
+        if notice.academic_year_id:
+            enrollment_filter &= Q(academic_session__academic_year=notice.academic_year)
         if batch_ids:
             enrollment_filter &= Q(batch_id__in=batch_ids)
         if course_ids:

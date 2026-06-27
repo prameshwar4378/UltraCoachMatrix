@@ -364,6 +364,270 @@
         overflow: hidden;
     }
 
+    .bulk-course-modal .modal-dialog {
+        max-width: 980px;
+    }
+
+    .bulk-course-modal .modal-content {
+        max-height: min(92vh, 820px);
+    }
+
+    .bulk-shell {
+        border-left: 5px solid #6366f1;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+        max-height: min(92vh, 820px);
+    }
+
+    .bulk-header {
+        padding: 24px 28px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+    }
+
+    .bulk-title-wrap {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+    }
+
+    .bulk-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #6366f1, #0891b2);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        font-size: 1.2rem;
+    }
+
+    .bulk-title {
+        color: var(--text);
+        font-weight: 900;
+        margin: 0;
+        font-size: 1.16rem;
+        letter-spacing: 0;
+    }
+
+    .bulk-subtitle {
+        color: #475569;
+        margin: 4px 0 0;
+        font-size: .9rem;
+    }
+
+    .bulk-optional {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 8px;
+        padding: 4px 8px;
+        background: #f1f5f9;
+        color: #0f172a;
+        font-size: .75rem;
+        font-weight: 900;
+        margin-left: 7px;
+    }
+
+    .bulk-close {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        border: 0;
+        background: linear-gradient(135deg, #6366f1, #4338ca);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        box-shadow: 0 12px 24px rgba(79, 70, 229, .24);
+    }
+
+    .bulk-body {
+        padding: 24px 28px 0;
+        background: #f8fafc;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .bulk-actions-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+        flex: 0 0 auto;
+    }
+
+    .bulk-row-list {
+        min-height: 220px;
+        max-height: 430px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 4px;
+        scrollbar-width: thin;
+        scrollbar-color: #a5b4fc #eef2ff;
+    }
+
+    .bulk-row-list::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .bulk-row-list::-webkit-scrollbar-track {
+        background: #eef2ff;
+        border-radius: 999px;
+    }
+
+    .bulk-row-list::-webkit-scrollbar-thumb {
+        background: #a5b4fc;
+        border-radius: 999px;
+    }
+
+    .bulk-row {
+        border: 1px solid #c7d2fe;
+        border-radius: 13px;
+        background: #fff;
+        padding: 14px;
+        margin-bottom: 12px;
+        display: grid;
+        grid-template-columns: 52px minmax(160px, 1.2fr) minmax(110px, .8fr) minmax(100px, .55fr) minmax(150px, 1fr) 42px;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .bulk-toggle {
+        width: 44px;
+        height: 24px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        border: 0;
+        padding: 3px;
+        display: inline-flex;
+        justify-content: flex-start;
+        transition: background .16s ease;
+    }
+
+    .bulk-toggle::after {
+        content: "";
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, .22);
+        transition: transform .16s ease;
+    }
+
+    .bulk-toggle.active {
+        background: #6366f1;
+    }
+
+    .bulk-toggle.active::after {
+        transform: translateX(20px);
+    }
+
+    .bulk-row .form-control {
+        min-height: 42px;
+        border-radius: 10px;
+        padding: 9px 11px;
+    }
+
+    .bulk-delete {
+        width: 40px;
+        height: 40px;
+        border-radius: 11px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        background: #fff;
+        border-color: #ef4444;
+        color: #dc2626;
+    }
+
+    .bulk-toolbar-btn,
+    .bulk-submit-btn,
+    .bulk-cancel-btn {
+        min-height: 46px;
+        border-radius: 12px;
+        padding: 10px 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .bulk-add-btn,
+    .bulk-submit-btn {
+        border: 0;
+        color: #fff;
+        background: linear-gradient(135deg, #6366f1, #4338ca);
+        box-shadow: 0 14px 28px rgba(79, 70, 229, .24);
+    }
+
+    .bulk-add-btn:hover,
+    .bulk-submit-btn:hover {
+        color: #fff;
+        transform: translateY(-1px);
+    }
+
+    .bulk-add-btn:disabled,
+    .bulk-submit-btn:disabled {
+        opacity: .65;
+        box-shadow: none;
+    }
+
+    .bulk-foot {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 16px 0 28px;
+        background: #f8fafc;
+        flex: 0 0 auto;
+    }
+
+    @media(max-width: 900px) {
+        .bulk-row {
+            grid-template-columns: 52px 1fr 1fr 42px;
+        }
+
+        .bulk-row .bulk-description {
+            grid-column: 2 / 4;
+        }
+    }
+
+    @media(max-width: 576px) {
+        .bulk-header,
+        .bulk-body {
+            padding: 18px;
+        }
+
+        .bulk-body {
+            padding-bottom: 0;
+        }
+
+        .bulk-row {
+            grid-template-columns: 1fr;
+        }
+
+        .bulk-row .bulk-description {
+            grid-column: auto;
+        }
+    }
+
     @media(max-width: 992px) {
         .stat-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -417,12 +681,19 @@
             <p class="page-subtitle">Manage courses offered by your institute and use them while creating batches.</p>
         </div>
 
-        <a href="javascript:void(0);"
-           data-url="{% url 'institute_admin:course_create' %}"
-           class="btn btn-gradient"
-           onclick="openCourseWindow(this)">
-            <i class="bi bi-plus-circle"></i> New Course
-        </a>
+        <div class="d-flex gap-2 flex-wrap">
+            {% if is_school_institute %}
+            <button type="button" class="btn btn-reset border" data-bs-toggle="modal" data-bs-target="#bulkCourseModal">
+                <i class="bi bi-layers"></i> Bulk Create
+            </button>
+            {% endif %}
+            <a href="javascript:void(0);"
+               data-url="{% url 'institute_admin:course_create' %}"
+               class="btn btn-gradient"
+               onclick="openCourseWindow(this)">
+                <i class="bi bi-plus-circle"></i> New Course
+            </a>
+        </div>
     </div>
 
     {% if messages %}
@@ -613,7 +884,182 @@
     </div>
 </div>
 
+{% if is_school_institute %}
+<div class="modal fade bulk-course-modal" id="bulkCourseModal" tabindex="-1" aria-labelledby="bulkCourseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <form method="post" action="{% url 'institute_admin:course_bulk_create' %}" id="bulkCourseForm">
+                {% csrf_token %}
+                <input type="hidden" name="courses" id="bulkCoursePayload">
+                <div class="bulk-shell">
+                    <div class="bulk-header">
+                        <div class="bulk-title-wrap">
+                            <div class="bulk-icon"><i class="bi bi-journals"></i></div>
+                            <div>
+                                <h5 class="bulk-title" id="bulkCourseModalLabel">Bulk Course Create <span class="bulk-optional">Local Draft</span></h5>
+                                <p class="bulk-subtitle">Edit, add, or delete rows locally. Records are created only after final submit.</p>
+                            </div>
+                        </div>
+                        <button type="button" class="bulk-close" data-bs-dismiss="modal" aria-label="Close">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+
+                    <div class="bulk-body">
+                        <div class="bulk-actions-row">
+                            <div class="small text-muted fw-bold" id="bulkCourseCount"></div>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <button type="button" class="btn btn-light border bulk-toolbar-btn" id="resetDefaultCourses">
+                                    <i class="bi bi-arrow-counterclockwise"></i> Defaults
+                                </button>
+                                <button type="button" class="bulk-toolbar-btn bulk-add-btn" id="addBulkCourse">
+                                    <i class="bi bi-plus-circle"></i> Add Row
+                                </button>
+                            </div>
+                        </div>
+                        <div id="bulkCourseRows" class="bulk-row-list"></div>
+                        <div class="bulk-foot">
+                            <button type="button" class="btn btn-light border bulk-cancel-btn" data-bs-dismiss="modal">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </button>
+                            <button type="submit" class="bulk-submit-btn" id="bulkCourseSubmit">
+                                <i class="bi bi-check2-circle"></i> Create Bulk Records
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <script>
+    {% if is_school_institute %}
+    const defaultCourseRows = [
+        "Nursery",
+        "LKG",
+        "UKG",
+        "Class 1",
+        "Class 2",
+        "Class 3",
+        "Class 4",
+        "Class 5",
+        "Class 6",
+        "Class 7",
+        "Class 8",
+        "Class 9",
+        "Class 10"
+    ].map(function(name) {
+        return {
+            name: name,
+            duration: "1 Year",
+            fee_amount: "0.00",
+            description: "",
+            is_active: true
+        };
+    });
+    let bulkCourseRows = defaultCourseRows.map(function(row) { return {...row}; });
+
+    function renderBulkCourseRows() {
+        const container = document.getElementById("bulkCourseRows");
+        const counter = document.getElementById("bulkCourseCount");
+        const submitButton = document.getElementById("bulkCourseSubmit");
+        if (!container || !counter) {
+            return;
+        }
+        const validRows = bulkCourseRows.filter(function(row) {
+            return String(row.name || "").trim();
+        });
+        counter.textContent = `${bulkCourseRows.length} draft course row(s)`;
+        if (submitButton) {
+            submitButton.disabled = !validRows.length;
+        }
+        container.innerHTML = "";
+        bulkCourseRows.forEach(function(row, index) {
+            const item = document.createElement("div");
+            item.className = "bulk-row";
+            item.innerHTML = `
+                <button type="button" class="bulk-toggle ${row.is_active ? "active" : ""}" data-index="${index}" data-action="toggle" title="Toggle active status"></button>
+                <input type="text" class="form-control" data-index="${index}" data-field="name" value="${escapeHtml(row.name)}" placeholder="Course name">
+                <input type="text" class="form-control" data-index="${index}" data-field="duration" value="${escapeHtml(row.duration)}" placeholder="Duration">
+                <input type="number" min="0" step="0.01" class="form-control" data-index="${index}" data-field="fee_amount" value="${escapeHtml(row.fee_amount)}" placeholder="Fee">
+                <input type="text" class="form-control bulk-description" data-index="${index}" data-field="description" value="${escapeHtml(row.description)}" placeholder="Description">
+                <button type="button" class="btn btn-outline-danger bulk-delete" data-index="${index}" data-action="delete" title="Delete row">
+                    <i class="bi bi-trash"></i>
+                </button>
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    function escapeHtml(value) {
+        return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+
+    document.addEventListener("input", function(event) {
+        const field = event.target.dataset.field;
+        const index = Number(event.target.dataset.index);
+        if (!field || Number.isNaN(index) || !bulkCourseRows[index]) {
+            return;
+        }
+        bulkCourseRows[index][field] = event.target.value;
+    });
+
+    document.addEventListener("click", function(event) {
+        const actionButton = event.target.closest("[data-action]");
+        if (!actionButton) {
+            return;
+        }
+        const index = Number(actionButton.dataset.index);
+        if (Number.isNaN(index) || !bulkCourseRows[index]) {
+            return;
+        }
+        if (actionButton.dataset.action === "delete") {
+            bulkCourseRows.splice(index, 1);
+        }
+        if (actionButton.dataset.action === "toggle") {
+            bulkCourseRows[index].is_active = !bulkCourseRows[index].is_active;
+        }
+        renderBulkCourseRows();
+    });
+
+    document.getElementById("addBulkCourse")?.addEventListener("click", function() {
+        bulkCourseRows.push({
+            name: "",
+            duration: "1 Year",
+            fee_amount: "0.00",
+            description: "",
+            is_active: true
+        });
+        renderBulkCourseRows();
+    });
+
+    document.getElementById("resetDefaultCourses")?.addEventListener("click", function() {
+        bulkCourseRows = defaultCourseRows.map(function(row) { return {...row}; });
+        renderBulkCourseRows();
+    });
+
+    document.getElementById("bulkCourseForm")?.addEventListener("submit", function(event) {
+        const validRows = bulkCourseRows.filter(function(row) {
+            return String(row.name || "").trim();
+        });
+        if (!validRows.length) {
+            event.preventDefault();
+            window.alert("Add at least one course name before creating records.");
+            return;
+        }
+        document.getElementById("bulkCoursePayload").value = JSON.stringify(validRows);
+    });
+
+    document.getElementById("bulkCourseModal")?.addEventListener("shown.bs.modal", renderBulkCourseRows);
+    renderBulkCourseRows();
+    {% endif %}
+
     function openCourseWindow(element, customWidth = 920, customHeight = 720) {
         const url = element.dataset.url;
         const left = Math.max(0, (window.screen.width - customWidth) / 2);

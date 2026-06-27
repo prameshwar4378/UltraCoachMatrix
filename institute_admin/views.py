@@ -142,46 +142,6 @@ from UltraCoachMatrix.email_notifications import (
 )
 
 
-def sync_students_to_academic_session(institute, academic_year):
-    with transaction.atomic():
-        locked_year = AcademicYear.objects.select_for_update().get(
-            pk=academic_year.pk,
-            institute=institute,
-        )
-        students = list(
-            StudentProfile.objects.filter(
-                institute=institute,
-                is_active=True,
-            )
-            .exclude(academic_sessions__academic_year=locked_year)
-            .order_by("pk")
-        )
-        if not students:
-            return 0
-
-        prefix = get_student_admission_prefix(institute, locked_year)
-        sequence = get_last_student_admission_sequence(institute, locked_year)
-        sessions = []
-        for student in students:
-            sequence += 1
-            sessions.append(
-                StudentAcademicSession(
-                    institute=institute,
-                    student=student,
-                    academic_year=locked_year,
-                    admission_number=f"{prefix}{sequence:04d}",
-                    joined_on=timezone.localdate(),
-                    status=StudentAcademicSession.Status.ACTIVE,
-                    current_school_name=student.current_school_name,
-                    current_school_address=student.current_school_address,
-                    previous_school_name=student.previous_school_name,
-                    previous_class=student.previous_class,
-                )
-            )
-        StudentAcademicSession.objects.bulk_create(sessions, batch_size=500)
-        return len(sessions)
-
-
 def close_popup_response(receipt_url=None):
     receipt_script = ""
     if receipt_url:
@@ -590,31 +550,14 @@ def academic_session_settings(request):
                 academic_session = form.save(commit=False)
                 academic_session.institute = institute
                 academic_session.save()
-                synced_count = sync_students_to_academic_session(institute, academic_session)
                 invalidate_academic_years_cache(institute.pk)
                 messages.success(
                     request,
                     f"Academic session {academic_session.name} "
-                    f"{'updated' if instance else 'created'} successfully. "
-                    f"{synced_count} active student session(s) synced for mobile access.",
+                    f"{'updated' if instance else 'created'} successfully.",
                 )
                 return redirect("institute_admin:academic_session_settings")
             editing_session = instance
-
-        elif action == "sync_students":
-            academic_session = get_object_or_404(AcademicYear, pk=session_id, institute=institute)
-            synced_count = sync_students_to_academic_session(institute, academic_session)
-            if synced_count:
-                messages.success(
-                    request,
-                    f"{synced_count} active student session(s) added to {academic_session.name}.",
-                )
-            else:
-                messages.info(
-                    request,
-                    f"All active students are already synced with {academic_session.name}.",
-                )
-            return redirect("institute_admin:academic_session_settings")
 
         elif action == "set_current":
             academic_session = get_object_or_404(AcademicYear, pk=session_id, institute=institute)
@@ -861,6 +804,58 @@ def get_current_academic_year(request, institute=None):
     return academic_year
 
 
+def filter_leads_for_academic_year(queryset, academic_year):
+    if not academic_year:
+        return queryset
+    return queryset.filter(
+        Q(academic_year=academic_year)
+        | Q(academic_year__isnull=True, interested_class__academic_year=academic_year)
+        | Q(academic_year__isnull=True, interested_batch__academic_year=academic_year)
+    ).distinct()
+
+
+def filter_visitors_for_academic_year(queryset, academic_year):
+    if not academic_year:
+        return queryset
+    return queryset.filter(
+        visit_date__gte=academic_year.start_date,
+        visit_date__lte=academic_year.end_date,
+    )
+
+
+def filter_teachers_for_academic_year(queryset, academic_year):
+    if not academic_year:
+        return queryset
+    return queryset.filter(
+        Q(user__assigned_batches__academic_year=academic_year)
+        | Q(user__assigned_batches__isnull=True)
+    ).distinct()
+
+
+def filter_user_profiles_for_academic_year(queryset, academic_year):
+    if not academic_year:
+        return queryset
+    session_bound_users = (
+        Q(
+            role=UserProfile.Role.STUDENT_PARENT,
+            user__student_profile__academic_sessions__academic_year=academic_year,
+        )
+        | Q(role=UserProfile.Role.STUDENT_PARENT, user__student_profile__isnull=True)
+        | Q(
+            role=UserProfile.Role.TEACHER,
+            user__assigned_batches__academic_year=academic_year,
+        )
+        | Q(role=UserProfile.Role.TEACHER, user__assigned_batches__isnull=True)
+    )
+    always_visible_staff = Q(
+        role__in=[
+            UserProfile.Role.INSTITUTE_ADMIN,
+            UserProfile.Role.ACCOUNTANT,
+        ]
+    )
+    return queryset.filter(always_visible_staff | session_bound_users).distinct()
+
+
 def get_batch_course_data(institute, academic_year=None):
     if not institute:
         return {}
@@ -952,6 +947,7 @@ def get_lead_export_value(lead, field):
 @institute_admin_required
 def lead_list(request):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     leads = Lead.objects.select_related(
         "interested_class",
         "interested_batch",
@@ -959,6 +955,7 @@ def lead_list(request):
     )
     if institute:
         leads = leads.filter(institute=institute)
+    leads = filter_leads_for_academic_year(leads, academic_year)
 
     search_query = request.GET.get("search", "").strip()
     status_filter = request.GET.get("status", "").strip()
@@ -975,7 +972,10 @@ def lead_list(request):
     if status_filter in Lead.Status.values:
         leads = leads.filter(status=status_filter)
 
-    base_queryset = Lead.objects.filter(institute=institute)
+    base_queryset = filter_leads_for_academic_year(
+        Lead.objects.filter(institute=institute),
+        academic_year,
+    )
     paginator = Paginator(leads, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
     return render(
@@ -1000,6 +1000,7 @@ def lead_list(request):
 @institute_admin_required
 def lead_export(request):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     leads = Lead.objects.select_related(
         "interested_class",
         "interested_batch",
@@ -1009,6 +1010,7 @@ def lead_export(request):
         leads = leads.filter(institute=institute)
     else:
         leads = leads.none()
+    leads = filter_leads_for_academic_year(leads, academic_year)
 
     status_filter = request.GET.get("status", "").strip()
     start_date = parse_date(request.GET.get("start_date", "").strip())
@@ -1051,6 +1053,7 @@ def lead_create(request):
         if form.is_valid():
             lead = form.save(commit=False)
             lead.institute = institute
+            lead.academic_year = academic_year
             lead.created_by = request.user
             lead.save()
             messages.success(request, "Lead created successfully.")
@@ -1084,7 +1087,10 @@ def lead_update(request, pk):
             academic_year=academic_year,
         )
         if form.is_valid():
-            form.save()
+            lead = form.save(commit=False)
+            if not lead.academic_year_id:
+                lead.academic_year = academic_year
+            lead.save()
             messages.success(request, "Lead updated successfully.")
             return close_popup_response()
     else:
@@ -1122,6 +1128,7 @@ EXPENSE_EXPORT_FIELD_OPTIONS = [
     ("spent_on", "Spent Date"),
     ("note", "Note"),
     ("recorded_by", "Recorded By"),
+    ("media_links", "Media Links"),
 ]
 
 EXPENSE_EXPORT_DEFAULT_FIELDS = ["title", "amount", "spent_on", "recorded_by"]
@@ -1133,7 +1140,15 @@ def get_expense_export_field_keys(request):
     return selected or EXPENSE_EXPORT_DEFAULT_FIELDS
 
 
-def get_expense_export_value(expense, field):
+def get_expense_media_links(expense, request):
+    links = []
+    for document in expense.documents.all():
+        if document.file:
+            links.append(request.build_absolute_uri(document.file.url))
+    return " | ".join(links)
+
+
+def get_expense_export_value(expense, field, request=None):
     if field == "title":
         return expense.title
     if field == "amount":
@@ -1146,6 +1161,8 @@ def get_expense_export_value(expense, field):
         if not expense.recorded_by:
             return ""
         return expense.recorded_by.get_full_name() or expense.recorded_by.username
+    if field == "media_links":
+        return get_expense_media_links(expense, request) if request else ""
     return ""
 
 
@@ -1155,14 +1172,23 @@ def save_expense_documents(expense, uploaded_files):
             ExpenseDocument.objects.create(expense=expense, file=uploaded_file)
 
 
+def filter_payments_for_academic_year(queryset, academic_year):
+    if not academic_year:
+        return queryset
+    return queryset.filter(invoice__academic_session__academic_year=academic_year)
+
+
 @institute_admin_required
 def expense_list(request):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     expenses = Expense.objects.select_related("recorded_by").prefetch_related("documents")
     if institute:
         expenses = expenses.filter(institute=institute)
     else:
         expenses = expenses.none()
+    if academic_year:
+        expenses = expenses.filter(academic_year=academic_year)
 
     search_query = request.GET.get("search", "").strip()
     start_date_value = request.GET.get("start_date", "").strip()
@@ -1184,6 +1210,8 @@ def expense_list(request):
         expenses = expenses.filter(spent_on__lte=end_date)
 
     base_queryset = Expense.objects.filter(institute=institute) if institute else Expense.objects.none()
+    if academic_year:
+        base_queryset = base_queryset.filter(academic_year=academic_year)
     today = timezone.localdate()
     month_start = today.replace(day=1)
     filtered_total = expenses.aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
@@ -1214,11 +1242,14 @@ def expense_list(request):
 @institute_admin_required
 def expense_export(request):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     expenses = Expense.objects.select_related("recorded_by").prefetch_related("documents")
     if institute:
         expenses = expenses.filter(institute=institute)
     else:
         expenses = expenses.none()
+    if academic_year:
+        expenses = expenses.filter(academic_year=academic_year)
 
     search_query = request.GET.get("search", "").strip()
     start_date = parse_date(request.GET.get("start_date", "").strip())
@@ -1247,25 +1278,27 @@ def expense_export(request):
     writer = csv.writer(response)
     writer.writerow([field_labels[field] for field in selected_fields])
     for expense in expenses.order_by("-spent_on", "-pk"):
-        writer.writerow([get_expense_export_value(expense, field) for field in selected_fields])
+        writer.writerow([get_expense_export_value(expense, field, request) for field in selected_fields])
     return response
 
 
 @institute_admin_required
 def expense_create(request):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     if request.method == "POST":
-        form = ExpenseForm(request.POST, request.FILES)
+        form = ExpenseForm(request.POST, request.FILES, institute=institute, academic_year=academic_year)
         if form.is_valid():
             expense = form.save(commit=False)
             expense.institute = institute
+            expense.academic_year = academic_year
             expense.recorded_by = request.user
             expense.save()
             save_expense_documents(expense, form.cleaned_data.get("files"))
             messages.success(request, "Expense created successfully.")
             return close_popup_response()
     else:
-        form = ExpenseForm()
+        form = ExpenseForm(institute=institute, academic_year=academic_year)
 
     return render(
         request,
@@ -1277,20 +1310,28 @@ def expense_create(request):
 @institute_admin_required
 def expense_update(request, pk):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     expense = get_object_or_404(
         Expense.objects.prefetch_related("documents"),
         pk=pk,
         institute=institute,
+        academic_year=academic_year,
     )
     if request.method == "POST":
-        form = ExpenseForm(request.POST, request.FILES, instance=expense)
+        form = ExpenseForm(
+            request.POST,
+            request.FILES,
+            institute=institute,
+            academic_year=expense.academic_year,
+            instance=expense,
+        )
         if form.is_valid():
             expense = form.save()
             save_expense_documents(expense, form.cleaned_data.get("files"))
             messages.success(request, "Expense updated successfully.")
             return close_popup_response()
     else:
-        form = ExpenseForm(instance=expense)
+        form = ExpenseForm(institute=institute, academic_year=expense.academic_year, instance=expense)
 
     return render(
         request,
@@ -1308,7 +1349,8 @@ def expense_update(request, pk):
 @require_POST
 def expense_delete(request, pk):
     institute = get_current_institute(request)
-    expense = get_object_or_404(Expense, pk=pk, institute=institute)
+    academic_year = get_current_academic_year(request, institute)
+    expense = get_object_or_404(Expense, pk=pk, institute=institute, academic_year=academic_year)
     expense.delete()
     messages.success(request, "Expense deleted successfully.")
     return redirect("institute_admin:expense_list")
@@ -1318,10 +1360,12 @@ def expense_delete(request, pk):
 @require_POST
 def expense_document_delete(request, pk):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     document = get_object_or_404(
         ExpenseDocument.objects.select_related("expense"),
         pk=pk,
         expense__institute=institute,
+        expense__academic_year=academic_year,
     )
     if document.file:
         document.file.delete(save=False)
@@ -1371,10 +1415,11 @@ def get_profit_loss_filter_state(request, institute):
 
     course = None
     batch = None
+    academic_year = get_current_academic_year(request, institute)
     if course_id:
-        course = Course.objects.filter(institute=institute, pk=course_id).first()
+        course = Course.objects.filter(institute=institute, academic_year=academic_year, pk=course_id).first()
     if batch_id:
-        batch = Batch.objects.filter(institute=institute, pk=batch_id).first()
+        batch = Batch.objects.filter(institute=institute, academic_year=academic_year, pk=batch_id).first()
 
     return {
         "start_date": start_date,
@@ -1392,6 +1437,7 @@ def get_profit_loss_filter_state(request, institute):
 
 def build_profit_loss_report(request, institute):
     filters = get_profit_loss_filter_state(request, institute)
+    academic_year = get_current_academic_year(request, institute)
     payments = Payment.objects.select_related(
         "invoice",
         "invoice__student",
@@ -1403,7 +1449,8 @@ def build_profit_loss_report(request, institute):
         status=Payment.Status.ACTIVE,
         invoice__institute=institute,
     ).exclude(invoice__status=FeeInvoice.Status.CANCELLED)
-    expenses = Expense.objects.select_related("recorded_by").filter(institute=institute)
+    payments = filter_payments_for_academic_year(payments, academic_year)
+    expenses = Expense.objects.select_related("recorded_by").filter(institute=institute, academic_year=academic_year)
 
     if filters["start_date"]:
         payments = payments.filter(paid_on__gte=filters["start_date"])
@@ -1602,8 +1649,14 @@ def get_fee_collection_filter_state(request, institute):
     if start_date and end_date and start_date > end_date:
         start_date, end_date = end_date, start_date
 
-    course = Course.objects.filter(institute=institute, pk=course_id).first() if course_id else None
-    batch = Batch.objects.filter(institute=institute, pk=batch_id).first() if batch_id else None
+    academic_year = get_current_academic_year(request, institute)
+    course_queryset = Course.objects.filter(institute=institute)
+    batch_queryset = Batch.objects.filter(institute=institute)
+    if academic_year:
+        course_queryset = course_queryset.filter(academic_year=academic_year)
+        batch_queryset = batch_queryset.filter(academic_year=academic_year)
+    course = course_queryset.filter(pk=course_id).first() if course_id else None
+    batch = batch_queryset.filter(pk=batch_id).first() if batch_id else None
     if method not in Payment.Method.values:
         method = ""
 
@@ -1636,6 +1689,7 @@ def summarize_grouped_amounts(rows):
 
 def build_fee_collection_report(request, institute):
     filters = get_fee_collection_filter_state(request, institute)
+    academic_year = get_current_academic_year(request, institute)
     payments = Payment.objects.select_related(
         "invoice",
         "invoice__student",
@@ -1651,6 +1705,7 @@ def build_fee_collection_report(request, institute):
         status=Payment.Status.ACTIVE,
         invoice__institute=institute,
     ).exclude(invoice__status=FeeInvoice.Status.CANCELLED)
+    payments = filter_payments_for_academic_year(payments, academic_year)
 
     if filters["start_date"]:
         payments = payments.filter(paid_on__gte=filters["start_date"])
@@ -1976,7 +2031,9 @@ def get_visitor_export_value(visitor, field, request=None):
 @institute_admin_required
 def visitor_list(request):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     visitors = Visitor.objects.select_related("created_by").filter(institute=institute)
+    visitors = filter_visitors_for_academic_year(visitors, academic_year)
 
     search_query = request.GET.get("search", "").strip()
     visit_date_filter = request.GET.get("visit_date", "").strip()
@@ -2013,11 +2070,13 @@ def visitor_list(request):
 @institute_admin_required
 def visitor_export(request):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     visitors = Visitor.objects.select_related("created_by")
     if institute:
         visitors = visitors.filter(institute=institute)
     else:
         visitors = visitors.none()
+    visitors = filter_visitors_for_academic_year(visitors, academic_year)
 
     search_query = request.GET.get("search", "").strip()
     start_date = parse_date(request.GET.get("start_date", "").strip())
@@ -2322,6 +2381,8 @@ def get_student_category_due_data(student_or_session):
     data = {}
     total_due = Decimal("0.00")
     categories = FeeCategory.objects.filter(institute=student.institute, is_active=True)
+    if student_session:
+        categories = categories.filter(academic_year=student_session.academic_year)
     for category in categories:
         invoice_filter = {
             "student": student,
@@ -2659,7 +2720,7 @@ def dashboard(request):
     latest_students = students.select_related("student", "student__user").order_by("-id")[:5]
     now = timezone.now()
     recent_notices = (
-        Notice.objects.filter(institute=institute, is_published=True)
+        Notice.objects.filter(institute=institute, academic_year=academic_year, is_published=True)
         .filter(Q(publish_at__isnull=True) | Q(publish_at__lte=now))
         .filter(Q(expires_at__isnull=True) | Q(expires_at__gte=now))[:5]
     )
@@ -2726,6 +2787,7 @@ def course_list(request):
         "active_courses": base_queryset.filter(is_active=True).count(),
         "inactive_courses": base_queryset.filter(is_active=False).count(),
         "total_batches": batch_queryset.count(),
+        "is_school_institute": institute.institute_type == Institute.InstituteType.SCHOOL,
     }
     return render(request, "institute_admin/course_list.html", context)
 
@@ -2760,6 +2822,79 @@ def course_create(request):
             "button_text": "Save Course",
         },
     )
+
+
+@require_POST
+@institute_admin_required
+def course_bulk_create(request):
+    institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
+    if not institute or not academic_year:
+        messages.error(request, "Select an institute and academic session before bulk creating courses.")
+        return redirect("institute_admin:course_list")
+    if institute.institute_type != Institute.InstituteType.SCHOOL:
+        messages.error(request, "Bulk course creation is available only for school institutes.")
+        return redirect("institute_admin:course_list")
+
+    try:
+        rows = json.loads(request.POST.get("courses", "[]"))
+    except json.JSONDecodeError:
+        rows = []
+
+    if not isinstance(rows, list):
+        rows = []
+
+    existing_names = {
+        name.lower()
+        for name in Course.objects.filter(institute=institute, academic_year=academic_year).values_list("name", flat=True)
+    }
+    seen_names = set()
+    created_count = 0
+    skipped_count = 0
+    invalid_count = 0
+
+    with transaction.atomic():
+        for row in rows[:100]:
+            if not isinstance(row, dict):
+                invalid_count += 1
+                continue
+            name = str(row.get("name") or "").strip()
+            if not name:
+                invalid_count += 1
+                continue
+            normalized_name = name.lower()
+            if normalized_name in existing_names or normalized_name in seen_names:
+                skipped_count += 1
+                continue
+            try:
+                fee_amount = Decimal(str(row.get("fee_amount") or "0")).quantize(Decimal("0.01"))
+            except Exception:
+                invalid_count += 1
+                continue
+            if fee_amount < 0:
+                invalid_count += 1
+                continue
+            Course.objects.create(
+                institute=institute,
+                academic_year=academic_year,
+                name=name,
+                description=str(row.get("description") or "").strip(),
+                duration=str(row.get("duration") or "").strip(),
+                fee_amount=fee_amount,
+                is_active=bool(row.get("is_active", True)),
+            )
+            seen_names.add(normalized_name)
+            created_count += 1
+
+    if created_count:
+        messages.success(request, f"{created_count} course(s) created successfully.")
+    if skipped_count:
+        messages.warning(request, f"{skipped_count} duplicate course row(s) were skipped.")
+    if invalid_count:
+        messages.error(request, f"{invalid_count} invalid course row(s) were not created.")
+    if not created_count and not skipped_count and not invalid_count:
+        messages.error(request, "Add at least one course row before creating records.")
+    return redirect("institute_admin:course_list")
 
 
 @institute_admin_required
@@ -2931,9 +3066,12 @@ def subject_delete(request, pk):
 @institute_admin_required
 def fee_category_list(request):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     categories = FeeCategory.objects.select_related("institute").annotate(invoice_count=Count("invoices"))
     if institute:
         categories = categories.filter(institute=institute)
+    if academic_year:
+        categories = categories.filter(academic_year=academic_year)
 
     search_query = request.GET.get("search", "").strip()
     status_filter = request.GET.get("status", "").strip()
@@ -2947,6 +3085,8 @@ def fee_category_list(request):
         categories = categories.filter(is_active=False)
 
     base_queryset = FeeCategory.objects.filter(institute=institute)
+    if academic_year:
+        base_queryset = base_queryset.filter(academic_year=academic_year)
     context = {
         "categories": categories,
         "search_query": search_query,
@@ -2962,20 +3102,22 @@ def fee_category_list(request):
 @institute_admin_required
 def fee_category_create(request):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     if not institute:
         messages.error(request, "Select an institute before creating a fee category.")
         return redirect("institute_admin:fee_category_list")
 
     if request.method == "POST":
-        form = FeeCategoryForm(request.POST, institute=institute)
+        form = FeeCategoryForm(request.POST, institute=institute, academic_year=academic_year)
         if form.is_valid():
             category = form.save(commit=False)
             category.institute = institute
+            category.academic_year = academic_year
             category.save()
             messages.success(request, "Fee category created successfully.")
             return close_popup_response()
     else:
-        form = FeeCategoryForm(institute=institute)
+        form = FeeCategoryForm(institute=institute, academic_year=academic_year)
 
     return render(
         request,
@@ -2992,17 +3134,23 @@ def fee_category_create(request):
 @institute_admin_required
 def fee_category_update(request, pk):
     institute = get_current_institute(request)
-    queryset = FeeCategory.objects.filter(institute=institute)
+    academic_year = get_current_academic_year(request, institute)
+    queryset = FeeCategory.objects.filter(institute=institute, academic_year=academic_year)
     category = get_object_or_404(queryset, pk=pk)
 
     if request.method == "POST":
-        form = FeeCategoryForm(request.POST, institute=category.institute, instance=category)
+        form = FeeCategoryForm(
+            request.POST,
+            institute=category.institute,
+            academic_year=category.academic_year,
+            instance=category,
+        )
         if form.is_valid():
             form.save()
             messages.success(request, "Fee category updated successfully.")
             return close_popup_response()
     else:
-        form = FeeCategoryForm(institute=category.institute, instance=category)
+        form = FeeCategoryForm(institute=category.institute, academic_year=category.academic_year, instance=category)
 
     return render(
         request,
@@ -3019,7 +3167,8 @@ def fee_category_update(request, pk):
 @institute_admin_required
 def fee_category_delete(request, pk):
     institute = get_current_institute(request)
-    queryset = FeeCategory.objects.filter(institute=institute)
+    academic_year = get_current_academic_year(request, institute)
+    queryset = FeeCategory.objects.filter(institute=institute, academic_year=academic_year)
     category = get_object_or_404(queryset, pk=pk)
 
     if request.method == "POST":
@@ -3180,11 +3329,13 @@ def batch_delete(request, pk):
 @institute_admin_required
 def user_list(request):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     profiles = UserProfile.objects.select_related("user", "institute").exclude(
         role=UserProfile.Role.SUPER_ADMIN
     ).order_by("user__first_name", "user__username", "pk")
     if institute:
         profiles = profiles.filter(institute=institute)
+    profiles = filter_user_profiles_for_academic_year(profiles, academic_year)
 
     search_query = request.GET.get("search", "").strip()
     role_filter = request.GET.get("role", "").strip()
@@ -3210,6 +3361,7 @@ def user_list(request):
     base_queryset = UserProfile.objects.exclude(role=UserProfile.Role.SUPER_ADMIN)
     if institute:
         base_queryset = base_queryset.filter(institute=institute)
+    base_queryset = filter_user_profiles_for_academic_year(base_queryset, academic_year)
 
     page_obj, paginator, pagination_query = paginate_queryset(request, profiles)
     context = {
@@ -5459,11 +5611,15 @@ def student_add_fee(request, pk):
             "name": category.name,
             "default_amount": str(category.default_amount),
         }
-        for category in FeeCategory.objects.filter(institute=student.institute, is_active=True)
+        for category in FeeCategory.objects.filter(
+            institute=student.institute,
+            academic_year=student_session.academic_year,
+            is_active=True,
+        )
     }
 
     if request.method == "POST":
-        form = AddStudentFeeForm(request.POST, institute=student.institute)
+        form = AddStudentFeeForm(request.POST, institute=student.institute, academic_session=student_session)
         if form.is_valid():
             category = form.cleaned_data["category"]
             pending_invoice = (
@@ -5499,6 +5655,7 @@ def student_add_fee(request, pk):
     else:
         form = AddStudentFeeForm(
             institute=student.institute,
+            academic_session=student_session,
             initial={
                 "due_date": date.today(),
             },
@@ -6687,6 +6844,7 @@ def homework_delete(request, pk):
 @institute_admin_required
 def notice_list(request):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     notices = Notice.objects.select_related("created_by").prefetch_related(
         "target_batches",
         "target_courses",
@@ -6695,6 +6853,8 @@ def notice_list(request):
     )
     if institute:
         notices = notices.filter(institute=institute)
+    if academic_year:
+        notices = notices.filter(academic_year=academic_year)
 
     search_query = request.GET.get("search", "").strip()
     audience_filter = request.GET.get("audience", "").strip()
@@ -6719,6 +6879,8 @@ def notice_list(request):
         notices = notices.filter(is_published=False)
 
     base_queryset = Notice.objects.filter(institute=institute)
+    if academic_year:
+        base_queryset = base_queryset.filter(academic_year=academic_year)
     paginator = Paginator(notices, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
 
@@ -6753,6 +6915,7 @@ def notice_create(request):
         if form.is_valid():
             notice = form.save(commit=False)
             notice.institute = institute
+            notice.academic_year = academic_year
             notice.created_by = request.user
             notice.save()
             form.save_m2m()
@@ -6781,10 +6944,12 @@ def notice_update(request, pk):
     queryset = Notice.objects.prefetch_related("target_batches", "target_courses", "target_students")
     if institute:
         queryset = queryset.filter(institute=institute)
+    if academic_year:
+        queryset = queryset.filter(academic_year=academic_year)
     notice = get_object_or_404(queryset, pk=pk)
 
     if request.method == "POST":
-        form = NoticeForm(request.POST, institute=notice.institute, academic_year=academic_year, instance=notice)
+        form = NoticeForm(request.POST, institute=notice.institute, academic_year=notice.academic_year, instance=notice)
         if form.is_valid():
             notification_fields = {
                 "title",
@@ -6802,7 +6967,10 @@ def notice_update(request, pk):
             }
             should_notify = bool(notification_fields.intersection(form.changed_data))
             with transaction.atomic():
-                notice = form.save()
+                notice = form.save(commit=False)
+                notice.academic_year = notice.academic_year or academic_year
+                notice.save()
+                form.save_m2m()
                 if should_notify:
                     Notice.objects.filter(pk=notice.pk).update(
                         push_notification_queued_at=None,
@@ -6816,7 +6984,7 @@ def notice_update(request, pk):
             messages.success(request, "Notice updated successfully.")
             return close_popup_response()
     else:
-        form = NoticeForm(institute=notice.institute, academic_year=academic_year, instance=notice)
+        form = NoticeForm(institute=notice.institute, academic_year=notice.academic_year, instance=notice)
 
     return render(
         request,
@@ -6833,7 +7001,10 @@ def notice_update(request, pk):
 @institute_admin_required
 def notice_delete(request, pk):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     queryset = Notice.objects.filter(institute=institute)
+    if academic_year:
+        queryset = queryset.filter(academic_year=academic_year)
     notice = get_object_or_404(queryset, pk=pk)
 
     if request.method == "POST":
@@ -7262,10 +7433,12 @@ def attendance_export(request):
 @institute_admin_required
 def teacher_list(request):
     institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
     teachers = TeacherProfile.objects.select_related("institute", "user", "user__profile")
     if institute:
         teachers = teachers.filter(institute=institute)
     teachers = teachers.filter(user__profile__role=UserProfile.Role.TEACHER)
+    teachers = filter_teachers_for_academic_year(teachers, academic_year)
 
     search_query = request.GET.get("search", "").strip()
     teacher_type_filter = request.GET.get("teacher_type", "").strip()
@@ -7290,7 +7463,10 @@ def teacher_list(request):
     elif status_filter == "inactive":
         teachers = teachers.filter(is_active=False)
 
-    base_queryset = TeacherProfile.objects.filter(institute=institute)
+    base_queryset = filter_teachers_for_academic_year(
+        TeacherProfile.objects.filter(institute=institute),
+        academic_year,
+    )
     page_obj, paginator, pagination_query = paginate_queryset(request, teachers)
     context = {
         "teachers": page_obj.object_list,

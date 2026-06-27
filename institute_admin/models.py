@@ -60,7 +60,7 @@ class AcademicYear(models.Model):
 
     def clean(self):
         super().clean()
-        if self.end_date < self.start_date:
+        if self.start_date and self.end_date and self.end_date < self.start_date:
             raise ValidationError({"end_date": "End date cannot be before start date."})
 
     def save(self, *args, **kwargs):
@@ -259,6 +259,13 @@ class Lead(models.Model):
         on_delete=models.CASCADE,
         related_name="leads",
     )
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="leads",
+    )
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150, blank=True)
     mobile_number = models.CharField(max_length=20)
@@ -314,6 +321,10 @@ class Lead(models.Model):
                 fields=["institute", "status", "-created_at"],
                 name="lead_inst_status_idx",
             ),
+            models.Index(
+                fields=["institute", "academic_year", "status"],
+                name="lead_inst_year_status_idx",
+            ),
         ]
 
     def __str__(self):
@@ -325,11 +336,36 @@ class Lead(models.Model):
 
     def clean(self):
         super().clean()
+        if self.academic_year_id:
+            validate_same_institute(self, self.academic_year, "academic_year")
         validate_same_institute(self, self.interested_class, "interested_class")
         validate_same_institute(self, self.interested_batch, "interested_batch")
         validate_same_institute(self, self.converted_student, "converted_student")
+        validate_same_academic_year(self, self.interested_class, "interested_class")
+        validate_same_academic_year(self, self.interested_batch, "interested_batch")
 
     def save(self, *args, **kwargs):
+        if not self.academic_year_id:
+            if self.interested_class_id:
+                self.academic_year = self.interested_class.academic_year
+            elif self.interested_batch_id:
+                self.academic_year = self.interested_batch.academic_year
+            elif self.institute_id:
+                self.academic_year = (
+                    AcademicYear.objects.filter(
+                        institute_id=self.institute_id,
+                        start_date__lte=timezone.localdate(),
+                        end_date__gte=timezone.localdate(),
+                    )
+                    .order_by("-start_date", "-pk")
+                    .first()
+                    or AcademicYear.objects.filter(institute_id=self.institute_id, is_active=True)
+                    .order_by("-start_date", "-pk")
+                    .first()
+                    or AcademicYear.objects.filter(institute_id=self.institute_id)
+                    .order_by("-start_date", "-pk")
+                    .first()
+                )
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -409,6 +445,13 @@ class Notice(models.Model):
         on_delete=models.CASCADE,
         related_name="notices",
     )
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="notices",
+    )
     title = models.CharField(max_length=160)
     message = models.TextField()
     audience = models.CharField(max_length=30, choices=Audience.choices, default=Audience.EVERYONE)
@@ -440,6 +483,7 @@ class Notice(models.Model):
     class Meta:
         ordering = ["-pin_on_top", "-created_at"]
         indexes = [
+            models.Index(fields=["institute", "academic_year", "-created_at"], name="notice_inst_year_idx"),
             models.Index(fields=["institute", "is_published", "push_to_app", "-pin_on_top", "-created_at"], name="notice_app_feed_idx"),
             models.Index(fields=["institute", "category", "-created_at"], name="notice_category_idx"),
             models.Index(fields=["institute", "priority", "-created_at"], name="notice_priority_idx"),
@@ -454,10 +498,28 @@ class Notice(models.Model):
 
     def clean(self):
         super().clean()
+        if self.academic_year_id and self.academic_year.institute_id != self.institute_id:
+            raise ValidationError({"academic_year": "Selected academic session belongs to another institute."})
         if self.expires_at and self.publish_at and self.expires_at < self.publish_at:
             raise ValidationError({"expires_at": "Expiry time cannot be before publish time."})
 
     def save(self, *args, **kwargs):
+        if self.institute_id and not self.academic_year_id:
+            self.academic_year = (
+                AcademicYear.objects.filter(
+                    institute_id=self.institute_id,
+                    start_date__lte=timezone.localdate(),
+                    end_date__gte=timezone.localdate(),
+                )
+                .order_by("-start_date", "-pk")
+                .first()
+                or AcademicYear.objects.filter(institute_id=self.institute_id, is_active=True)
+                .order_by("-start_date", "-pk")
+                .first()
+                or AcademicYear.objects.filter(institute_id=self.institute_id)
+                .order_by("-start_date", "-pk")
+                .first()
+            )
         self.full_clean()
         super().save(*args, **kwargs)
 
@@ -488,11 +550,34 @@ class Notice(models.Model):
     @classmethod
     def for_student(cls, student, academic_session_id=None):
         from django.db.models import Q
-        from student_parent.models import StudentEnrollment
+        from student_parent.models import StudentAcademicSession, StudentEnrollment
 
         enrollments = StudentEnrollment.objects.filter(student=student)
+        academic_year_ids = list(
+            StudentAcademicSession.objects.filter(student=student).values_list(
+                "academic_year_id",
+                flat=True,
+            )
+        )
+        if not academic_year_ids:
+            fallback_year = student.academic_year
+            if fallback_year is None:
+                fallback_year = (
+                    AcademicYear.objects.filter(
+                        institute=student.institute,
+                        start_date__lte=timezone.localdate(),
+                        end_date__gte=timezone.localdate(),
+                    )
+                    .order_by("-start_date", "-pk")
+                    .first()
+                )
+            academic_year_ids = [fallback_year.pk] if fallback_year else []
         if academic_session_id:
             enrollments = enrollments.filter(academic_session_id=academic_session_id)
+            academic_year_ids = list(StudentAcademicSession.objects.filter(
+                student=student,
+                pk=academic_session_id,
+            ).values_list("academic_year_id", flat=True))
         batch_ids = enrollments.values_list("batch_id", flat=True)
         course_ids = enrollments.values_list("courses__id", flat=True)
         audience_filter = Q(audience=cls.Audience.EVERYONE) | Q(audience=cls.Audience.STUDENTS_PARENTS)
@@ -502,7 +587,13 @@ class Notice(models.Model):
             | Q(target_courses__in=course_ids)
             | Q(target_students=student)
         )
-        return cls.active_for_app().filter(institute=student.institute).filter(audience_filter).filter(target_filter).distinct()
+        return (
+            cls.active_for_app()
+            .filter(institute=student.institute, academic_year_id__in=academic_year_ids)
+            .filter(audience_filter)
+            .filter(target_filter)
+            .distinct()
+        )
 
     @classmethod
     def for_teacher(cls, user, academic_year_id=None):
@@ -522,6 +613,7 @@ class Notice(models.Model):
             batches = batches.filter(academic_year_id=academic_year_id)
         batch_ids = batches.values_list("pk", flat=True)
         course_ids = Course.objects.filter(batches__in=batches).values_list("pk", flat=True)
+        academic_year_ids = [academic_year_id] if academic_year_id else batches.values_list("academic_year_id", flat=True)
         audience_filter = Q(audience=cls.Audience.EVERYONE) | Q(audience=cls.Audience.TEACHERS)
         target_filter = (
             Q(target_batches__isnull=True, target_courses__isnull=True, target_students__isnull=True)
@@ -534,6 +626,7 @@ class Notice(models.Model):
             .filter(Q(publish_at__isnull=True) | Q(publish_at__lte=now))
             .filter(Q(expires_at__isnull=True) | Q(expires_at__gte=now))
             .filter(institute_id=profile.institute_id)
+            .filter(academic_year_id__in=academic_year_ids)
             .filter(audience_filter)
             .filter(target_filter)
             .distinct()

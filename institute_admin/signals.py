@@ -113,19 +113,25 @@ def invalidate_batch_courses_dashboard(sender, instance, action, **kwargs):
 @receiver(m2m_changed, sender=Notice.target_batches.through)
 def validate_notice_target_batches(sender, instance, action, **kwargs):
     if action == "pre_add" and kwargs.get("pk_set"):
-        _validate_same_scope(Batch.objects, kwargs["pk_set"], instance.institute_id)
+        _validate_same_scope(Batch.objects, kwargs["pk_set"], instance.institute_id, instance.academic_year_id)
 
 
 @receiver(m2m_changed, sender=Notice.target_courses.through)
 def validate_notice_target_courses(sender, instance, action, **kwargs):
     if action == "pre_add" and kwargs.get("pk_set"):
-        _validate_same_scope(Course.objects, kwargs["pk_set"], instance.institute_id)
+        _validate_same_scope(Course.objects, kwargs["pk_set"], instance.institute_id, instance.academic_year_id)
 
 
 @receiver(m2m_changed, sender=Notice.target_students.through)
 def validate_notice_target_students(sender, instance, action, **kwargs):
     if action == "pre_add" and kwargs.get("pk_set"):
         _validate_same_scope(StudentProfile.objects, kwargs["pk_set"], instance.institute_id)
+        if instance.academic_year_id:
+            missing_students = StudentProfile.objects.filter(pk__in=kwargs["pk_set"]).exclude(
+                academic_sessions__academic_year_id=instance.academic_year_id,
+            )
+            if missing_students.exists():
+                raise ValidationError("Selected students must belong to the notice academic session.")
 
 
 @receiver([post_save, post_delete], sender=UserProfile)
