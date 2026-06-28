@@ -1676,6 +1676,31 @@
     </div>
 </main>
 
+<div class="modal fade" id="studentSessionUnavailableModal" tabindex="-1" aria-labelledby="studentSessionUnavailableModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 18px; overflow: hidden;">
+            <div class="modal-header text-white" style="background: linear-gradient(135deg, #dc2626, #991b1b); border-bottom: 0;">
+                <h5 class="modal-title fw-bold" id="studentSessionUnavailableModalLabel">
+                    <i class="bi bi-exclamation-triangle me-2"></i> Student Not Available
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="mb-2 fw-bold text-dark">This student is not available in the selected session.</p>
+                <p class="mb-0 text-muted">
+                    The dashboard will remain on the current session because this student does not have an academic record for
+                    <strong id="studentUnavailableSessionName">that session</strong>.
+                </p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-primary fw-bold" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle me-1"></i> Stay on Current Session
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade feature-info-modal" id="studentDashboardFeatureInfoModal" tabindex="-1" aria-labelledby="studentDashboardFeatureInfoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
@@ -1713,6 +1738,37 @@
 </div>
 
 <script>
+    const studentDashboardAvailableAcademicYears = {
+        {% for available_session in student.academic_sessions.all %}
+            "{{ available_session.academic_year_id }}": "{{ available_session.academic_year.name|escapejs }}"{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    };
+    const studentDashboardCurrentAcademicYearId = "{{ student_session.academic_year_id }}";
+
+    window.handleAcademicYearChange = function(selectElement) {
+        const selectedYearId = String(selectElement.value || "");
+        if (studentDashboardAvailableAcademicYears[selectedYearId]) {
+            selectElement.form.submit();
+            return;
+        }
+
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+        const selectedSessionName = selectedOption ? selectedOption.text.replace(" (Inactive)", "") : "that session";
+        selectElement.value = studentDashboardCurrentAcademicYearId;
+
+        const sessionNameTarget = document.getElementById("studentUnavailableSessionName");
+        if (sessionNameTarget) {
+            sessionNameTarget.textContent = selectedSessionName;
+        }
+
+        const modalElement = document.getElementById("studentSessionUnavailableModal");
+        if (modalElement && window.bootstrap && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalElement).show();
+        } else {
+            alert("This student is not available in the selected session.");
+        }
+    };
+
     const studentDashboardFeatureInfo = {
         dashboard_overview: {
             title: "Student Dashboard Overview",

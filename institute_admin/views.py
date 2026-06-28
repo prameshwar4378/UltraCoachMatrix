@@ -18,7 +18,7 @@ from django.core.paginator import Paginator
 from django.db import IntegrityError, connection, transaction
 from django.db.models import Avg, Case, Count, DecimalField, ExpressionWrapper, F, IntegerField, Max, OuterRef, Prefetch, Q, Subquery, Sum, Value, When
 from django.db.models.deletion import ProtectedError
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Concat
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.urls import reverse
@@ -3714,10 +3714,26 @@ def student_list(request):
             sessions = sessions.none()
 
     if search_query:
+        sessions = sessions.annotate(
+            student_full_name=Concat(
+                "student__user__first_name",
+                Value(" "),
+                "student__user__last_name",
+            ),
+            student_full_name_with_middle=Concat(
+                "student__user__first_name",
+                Value(" "),
+                "student__middle_name",
+                Value(" "),
+                "student__user__last_name",
+            ),
+        )
         sessions = sessions.filter(
             Q(admission_number__icontains=search_query)
             | Q(student__user__first_name__icontains=search_query)
             | Q(student__user__last_name__icontains=search_query)
+            | Q(student_full_name__icontains=search_query)
+            | Q(student_full_name_with_middle__icontains=search_query)
             | Q(student__user__username__icontains=search_query)
             | Q(student__user__email__icontains=search_query)
             | Q(student__user__profile__phone__icontains=search_query)
@@ -6539,10 +6555,26 @@ def enrollment_list(request):
     status_filter = request.GET.get("status", "").strip()
 
     if search_query:
+        enrollments = enrollments.annotate(
+            student_full_name=Concat(
+                "student__user__first_name",
+                Value(" "),
+                "student__user__last_name",
+            ),
+            student_full_name_with_middle=Concat(
+                "student__user__first_name",
+                Value(" "),
+                "student__middle_name",
+                Value(" "),
+                "student__user__last_name",
+            ),
+        )
         enrollments = enrollments.filter(
             Q(academic_session__admission_number__icontains=search_query)
             | Q(student__user__first_name__icontains=search_query)
             | Q(student__user__last_name__icontains=search_query)
+            | Q(student_full_name__icontains=search_query)
+            | Q(student_full_name_with_middle__icontains=search_query)
             | Q(batch__name__icontains=search_query)
             | Q(courses__name__icontains=search_query)
         ).distinct()

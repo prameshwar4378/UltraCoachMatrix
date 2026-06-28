@@ -2034,6 +2034,30 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertContains(response, f'data-dashboard-url-template="{dashboard_url_template}"')
         self.assertContains(response, 'id="studentListSearchSuggestions"')
 
+    def test_student_list_search_matches_full_student_name(self):
+        self.student_user.first_name = "Nisha"
+        self.student_user.last_name = "Iyer"
+        self.student_user.save(update_fields=["first_name", "last_name"])
+
+        self.select_year(self.year_2026)
+        response = self.client.get(reverse("institute_admin:student_list"), {"search": "Nisha Iyer"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Nisha Iyer")
+        self.assertContains(response, "SMIS-2026-27-0001")
+
+    def test_enrollment_list_search_matches_full_student_name(self):
+        self.student_user.first_name = "Nisha"
+        self.student_user.last_name = "Iyer"
+        self.student_user.save(update_fields=["first_name", "last_name"])
+
+        self.select_year(self.year_2026)
+        response = self.client.get(reverse("institute_admin:enrollment_list"), {"search": "Nisha Iyer"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Nisha Iyer")
+        self.assertContains(response, "11th Batch")
+
     def test_student_list_calculates_fee_details_for_current_page_only(self):
         users = [
             User(username=f"page-student-{index}", first_name=f"Page {index}")

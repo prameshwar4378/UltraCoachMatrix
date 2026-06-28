@@ -13309,15 +13309,60 @@
 
             .profile-panel-header {
                 border-radius: 14px;
-                padding: 16px;
-                background: linear-gradient(135deg, #123c7a, #2563eb);
-                color: #fff;
+                padding: 12px;
+                background: #f8fbff;
+                border: 1px solid #e5edf8;
+                color: #0f172a;
+            }
+
+            .profile-panel-top {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                min-width: 0;
             }
 
             .profile-panel-user {
                 display: flex;
                 align-items: center;
                 gap: 12px;
+            }
+
+            .profile-panel-logo {
+                width: 42px;
+                height: 42px;
+                border-radius: 12px;
+                display: grid;
+                place-items: center;
+                overflow: hidden;
+                flex: 0 0 auto;
+                background: #ffffff;
+                border: 1px solid #dbe7f5;
+                box-shadow: 0 8px 18px rgba(15, 23, 42, .08);
+                padding: 4px;
+            }
+
+            .header-nav .profile .profile-panel-logo img,
+            .profile-panel-logo img {
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+                display: block;
+                max-width: 100%;
+                max-height: 100%;
+                border-radius: 9px;
+            }
+
+            .profile-panel-logo span {
+                width: 100%;
+                height: 100%;
+                border-radius: 9px;
+                display: grid;
+                place-items: center;
+                background: linear-gradient(135deg, #ecfeff, #ccfbf1);
+                color: #075985;
+                font-size: 16px;
+                font-weight: 900;
             }
 
             .profile-panel-avatar {
@@ -13333,19 +13378,76 @@
                 flex: 0 0 auto;
             }
 
+            .profile-panel-copy {
+                min-width: 0;
+                flex: 1 1 auto;
+            }
+
+            .profile-panel-eyebrow {
+                display: block;
+                margin-bottom: 2px;
+                color: #64748b;
+                font-size: 10px;
+                font-weight: 800;
+                letter-spacing: .04em;
+                text-transform: uppercase;
+            }
+
             .profile-panel-header h6 {
                 margin: 0;
-                color: #fff;
-                font-size: 16px;
+                color: #0f2f57;
+                font-size: 14px;
                 font-weight: 800;
+                line-height: 1.2;
+                white-space: normal;
+                word-break: break-word;
             }
 
             .profile-panel-role {
                 display: inline-flex;
-                margin-top: 4px;
-                font-size: 12px;
+                margin-top: 3px;
+                font-size: 11px;
                 font-weight: 700;
-                color: rgba(255, 255, 255, .82);
+                color: #64748b;
+            }
+
+            .profile-panel-actions {
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+                margin-top: 10px;
+            }
+
+            .profile-view-btn {
+                min-height: 34px;
+                padding: 7px 10px;
+                border-radius: 999px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                background: #ffffff;
+                border: 1px solid #cfe1f2;
+                color: #073d66;
+                font-size: 12px;
+                font-weight: 800;
+                text-decoration: none;
+                white-space: nowrap;
+                box-shadow: 0 6px 14px rgba(15, 23, 42, .06);
+                transition: .2s ease;
+                flex: 0 0 auto;
+            }
+
+            .profile-view-btn:hover,
+            .profile-view-btn:focus {
+                color: #073d66;
+                background: #eef7ff;
+                border-color: #b6d5ee;
+                box-shadow: 0 8px 18px rgba(15, 23, 42, .09);
+            }
+
+            .profile-view-btn i {
+                font-size: 14px;
             }
 
             .profile-school-chip {
@@ -13377,13 +13479,30 @@
             }
 
             .profile-status-pill {
-                white-space: nowrap;
+                width: 100%;
                 border-radius: 999px;
-                padding: 6px 10px;
-                background: #f4b942;
-                color: #071527;
+                padding: 7px 10px;
+                background: #fff7df;
+                border: 1px solid #f8d56b;
+                color: #7a4b00;
                 font-size: 12px;
                 font-weight: 800;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                line-height: 1.2;
+                text-align: center;
+            }
+
+            @media (max-width: 575px) {
+                .header-nav .profile {
+                    min-width: 320px;
+                }
+
+                .profile-view-btn {
+                    padding-inline: 9px;
+                }
             }
 
             .profile-menu-list {

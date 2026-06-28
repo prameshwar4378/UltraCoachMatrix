@@ -57,7 +57,7 @@
                 <form method="post" action="{% url 'institute_admin:academic_year_switch' %}" class="d-flex align-items-center gap-2" style="margin:0;">
                     {% csrf_token %}
                     <label class="d-none d-lg-inline" style="font-size:.78rem; font-weight:800; color:#475569; margin:0;">Session</label>
-                    <select name="academic_year_id" onchange="this.form.submit()" style="height:38px; min-width:132px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:#0f172a; font-weight:800; padding:0 10px;">
+                    <select name="academic_year_id" onchange="if (window.handleAcademicYearChange) { window.handleAcademicYearChange(this); } else { this.form.submit(); }" style="height:38px; min-width:132px; border:1px solid #cbd5e1; border-radius:10px; background:#fff; color:#0f172a; font-weight:800; padding:0 10px;">
                         {% for academic_year in academic_years %}
                             <option value="{{ academic_year.pk }}" {% if selected_academic_year and selected_academic_year.pk == academic_year.pk %}selected{% endif %}>{{ academic_year.name }}{% if not academic_year.is_active %} (Inactive){% endif %}</option>
                         {% endfor %}
@@ -83,17 +83,22 @@
                 </a><!-- End Profile Iamge Icon -->
 
                 <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow profile">
-                    <!-- <li class="profile-panel-header">
-                        <div class="profile-panel-user">
-                            <div class="profile-panel-avatar">
-                                {{ user.first_name|default:user.username|first|upper }}
+                    <li class="profile-panel-header">
+                        <div class="profile-panel-top">
+                            <div class="profile-panel-logo">
+                                {% if current_school and current_school.logo %}
+                                    <img src="{{ current_school.logo.url }}" alt="{{ current_school.name }} logo">
+                                {% else %}
+                                    <span>{% if current_school %}{{ current_school.name|slice:":1"|upper }}{% else %}U{% endif %}</span>
+                                {% endif %}
                             </div>
-                            <div>
+                            <div class="profile-panel-copy">
+                                <span class="profile-panel-eyebrow">Institute</span>
                                 <h6>
-                                    {% if user.first_name or user.last_name %}
-                                        {{ user.first_name }} {{ user.last_name }}
+                                    {% if current_school %}
+                                        {{ current_school.name }}
                                     {% else %}
-                                        {{ user.username }}
+                                        Institute not selected
                                     {% endif %}
                                 </h6>
                                 <span class="profile-panel-role">
@@ -104,30 +109,26 @@
                                     {% endif %}
                                 </span>
                             </div>
+                            <a class="profile-view-btn" href="{% url 'institute_profile' %}">
+                                <i class="bi bi-person-badge"></i>
+                                <span>View Profile</span>
+                            </a>
                         </div>
 
-                        <div class="profile-school-chip">
-                            <div>
-                                <span>Institute</span>
-                                <strong>
-                                    {% if current_school %}
-                                        {{ current_school.name }}
-                                    {% else %}
-                                        Institute not selected
-                                    {% endif %}
-                                </strong>
+                        {% if current_subscription %}
+                        <div class="profile-panel-actions">
+                            <div class="profile-status-pill">
+                                {% if is_trial_active %}
+                                    <i class="bi bi-clock-history"></i>
+                                    <span>{{ trial_days_remaining }} day{{ trial_days_remaining|pluralize }} left</span>
+                                {% else %}
+                                    <i class="bi bi-check2-circle"></i>
+                                    <span>{{ current_subscription.get_status_display }}</span>
+                                {% endif %}
                             </div>
-                            {% if current_subscription %}
-                                <div class="profile-status-pill">
-                                    {% if is_trial_active %}
-                                        {{ trial_days_remaining }} day{{ trial_days_remaining|pluralize }} left
-                                    {% else %}
-                                        {{ current_subscription.get_status_display }}
-                                    {% endif %}
-                                </div>
-                            {% endif %}
                         </div>
-                    </li> -->
+                        {% endif %}
+                    </li>
 
                     <li class="profile-menu-list">
                         <a class="dropdown-item profile-menu-item" href="{% url 'institute_profile' %}">
