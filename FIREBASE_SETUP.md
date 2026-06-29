@@ -68,8 +68,56 @@ absolute path when the WSGI process starts.
 
    ```bash
    python manage.py check_push_notifications
+   python manage.py check_push_notifications --user-status STUDENT_USERNAME
    python manage.py check_push_notifications --send-test STUDENT_USERNAME
    ```
 
-The first command must report `Ready: True`. The second command must report
-`Notification status: SENT`.
+The first command must report `Ready: True`. The user status command must show
+at least one active device for the logged-in mobile user. The send-test command
+must report `Notification status: SENT`.
+
+If the user status command shows no active devices, log out and log in again on
+the mobile app, allow notifications, then run the status command again. If it
+shows active devices but the send test is skipped or failed, check the printed
+latest error. A `sender id` or `requested entity was not found` error usually
+means the server service-account JSON does not belong to the same Firebase
+project as the Android app's `google-services.json`.
+
+If production does not run Celery/Redis, keep these enabled in the WSGI or
+process environment so fee and notice notification jobs can run synchronously:
+
+```python
+os.environ["BACKGROUND_JOB_SYNC_FEE_FALLBACK"] = "true"
+os.environ["BACKGROUND_JOB_SYNC_NOTICE_FALLBACK"] = "true"
+```
+
+## Flutter Web / PWA on ultracoachmatrix.in
+
+Web push also needs a Firebase Web app config and VAPID key. Android
+`google-services.json` is not enough for browser notifications.
+
+1. In Firebase Console, add `ultracoachmatrix.in` and
+   `www.ultracoachmatrix.in` under Authentication > Settings >
+   Authorized domains.
+2. In Project settings, create or open the Web app and copy its config.
+3. Build Flutter web with the public web config:
+
+   ```bash
+   flutter build web --release \
+     --dart-define=API_BASE_URL=https://ultracoachmatrix.in \
+     --dart-define=FIREBASE_WEB_API_KEY=<web-api-key> \
+     --dart-define=FIREBASE_WEB_APP_ID=<web-app-id> \
+     --dart-define=FIREBASE_WEB_MESSAGING_SENDER_ID=1078485477591 \
+     --dart-define=FIREBASE_WEB_PROJECT_ID=pushnotification-3839e \
+     --dart-define=FIREBASE_WEB_AUTH_DOMAIN=pushnotification-3839e.firebaseapp.com \
+     --dart-define=FIREBASE_WEB_STORAGE_BUCKET=pushnotification-3839e.firebasestorage.app \
+     --dart-define=FIREBASE_WEB_VAPID_KEY=<web-push-certificate-key>
+   ```
+
+4. Before uploading the web build, set the same public values in
+   `web/firebase-config.js` or replace that file in the generated build output.
+   The deployed site must serve this file and `/firebase-messaging-sw.js` from
+   the domain root.
+5. Open the deployed site over `https://ultracoachmatrix.in`, log in as a
+   student, allow notifications, and check `/api/mobile/push/status/` from the
+   app session. It should show at least one active `WEB` device.

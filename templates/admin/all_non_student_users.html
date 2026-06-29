@@ -1,0 +1,82 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+  &rsaquo; All users except students
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <form method="get" style="margin-bottom: 16px;">
+    <input type="text" name="q" value="{{ search }}" placeholder="Search username, name, email, phone, institute" style="min-width: 320px;">
+    <select name="institute">
+      <option value="">All institutes</option>
+      {% for institute in institutes %}
+        <option value="{{ institute.pk }}" {% if selected_institute == institute.pk|stringformat:"s" %}selected{% endif %}>{{ institute.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="active">
+      <option value="">Active and inactive</option>
+      <option value="active" {% if selected_active == "active" %}selected{% endif %}>Active only</option>
+      <option value="inactive" {% if selected_active == "inactive" %}selected{% endif %}>Inactive only</option>
+    </select>
+    <button type="submit" class="button">Filter</button>
+    <a href="{% url 'admin:all_non_student_users' %}" class="button">Clear</a>
+  </form>
+
+  <div class="module">
+    <table id="result_list">
+      <thead>
+        <tr>
+          <th scope="col">Username</th>
+          <th scope="col">Full name</th>
+          <th scope="col">Email</th>
+          <th scope="col">Role</th>
+          <th scope="col">Institute</th>
+          <th scope="col">Active</th>
+          <th scope="col">Staff</th>
+          <th scope="col">Superuser</th>
+          <th scope="col">Date joined</th>
+          <th scope="col">Last login</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in users %}
+          <tr class="{% cycle 'row1' 'row2' %}">
+            <th scope="row">
+              <a href="{% url 'admin:auth_user_change' row.user.pk %}">{{ row.user.username }}</a>
+            </th>
+            <td>{{ row.user.get_full_name|default:"-" }}</td>
+            <td>{{ row.user.email|default:"-" }}</td>
+            <td>{{ row.role }}</td>
+            <td>{{ row.institute|default:"-" }}</td>
+            <td>{% if row.user.is_active %}Active{% else %}Inactive{% endif %}</td>
+            <td>{{ row.user.is_staff|yesno:"Yes,No" }}</td>
+            <td>{{ row.user.is_superuser|yesno:"Yes,No" }}</td>
+            <td>{{ row.user.date_joined }}</td>
+            <td>{{ row.user.last_login|default:"-" }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="10">No non-student users found.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <p class="paginator">
+    {{ paginator.count }} user{{ paginator.count|pluralize }}
+    {% if page_obj.has_previous %}
+      <a href="?q={{ search|urlencode }}&institute={{ selected_institute }}&active={{ selected_active }}&page={{ page_obj.previous_page_number }}">Previous</a>
+    {% endif %}
+    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    {% if page_obj.has_next %}
+      <a href="?q={{ search|urlencode }}&institute={{ selected_institute }}&active={{ selected_active }}&page={{ page_obj.next_page_number }}">Next</a>
+    {% endif %}
+  </p>
+</div>
+{% endblock %}
