@@ -411,29 +411,79 @@ body.lock-scroll{overflow:hidden}
   display:none;
   width:48px;
   height:48px;
-  border:0;
+  min-width:48px;
+  border:1px solid rgba(18,60,122,.16);
   border-radius:16px;
+  position:relative;
+  place-items:center;
+  overflow:hidden;
   color:#fff;
-  font-size:24px;
-  background:linear-gradient(135deg,var(--primary),var(--secondary));
+  background:
+    radial-gradient(circle at 26% 22%,rgba(255,255,255,.36),transparent 32%),
+    linear-gradient(135deg,var(--primary),var(--secondary));
+  box-shadow:
+    0 16px 34px rgba(18,60,122,.24),
+    inset 0 1px 0 rgba(255,255,255,.28);
+  transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .25s ease;
 }
 
-.backdrop{
-  position:fixed;
+.mobile-toggle::after{
+  content:"";
+  position:absolute;
   inset:0;
-  background:rgba(7,21,39,.18);
-  backdrop-filter:blur(4px);
-  z-index:998;
-  opacity:0;
-  visibility:hidden;
+  background:linear-gradient(135deg,transparent,rgba(244,185,66,.22));
+  opacity:.72;
   pointer-events:none;
-  transition:.3s ease;
 }
 
-.backdrop.show{
-  opacity:1;
-  visibility:visible;
-  pointer-events:auto;
+.mobile-toggle:hover,
+.mobile-toggle:focus-visible{
+  transform:translateY(-2px);
+  border-color:rgba(244,185,66,.42);
+  box-shadow:
+    0 22px 46px rgba(18,60,122,.3),
+    inset 0 1px 0 rgba(255,255,255,.34);
+  outline:0;
+}
+
+.menu-glyph{
+  position:relative;
+  z-index:1;
+  width:22px;
+  height:16px;
+  display:grid;
+  align-content:space-between;
+}
+
+.menu-glyph span{
+  display:block;
+  height:2px;
+  border-radius:999px;
+  background:#fff;
+  box-shadow:0 1px 5px rgba(7,21,39,.24);
+  transition:transform .28s var(--ease),width .28s var(--ease),opacity .2s ease;
+}
+
+.menu-glyph span:nth-child(2){
+  width:16px;
+  justify-self:end;
+}
+
+.mobile-toggle:hover .menu-glyph span:nth-child(2),
+.mobile-toggle:focus-visible .menu-glyph span:nth-child(2){
+  width:22px;
+}
+
+body.lock-scroll .mobile-toggle .menu-glyph span:first-child{
+  transform:translateY(7px) rotate(45deg);
+}
+
+body.lock-scroll .mobile-toggle .menu-glyph span:nth-child(2){
+  opacity:0;
+}
+
+body.lock-scroll .mobile-toggle .menu-glyph span:last-child{
+  transform:translateY(-7px) rotate(-45deg);
 }
 
 .mega-wrap{
@@ -1023,7 +1073,6 @@ body.lock-scroll{overflow:hidden}
           <a href="{% url 'web_contact_us' %}" class="nav-btn">Contact us</a>
           <button class="nav-btn" data-menu="help">Help <i class="bi bi-chevron-down"></i></button>
       </nav>
-
       {% if request.user.is_authenticated %}
       <a href="/dashboard/" class="nav-btn dashboard-btn">
         <i class="bi bi-speedometer2"></i> <span class="dashboard-label">Dashboard</span>
@@ -1032,7 +1081,13 @@ body.lock-scroll{overflow:hidden}
       <a href="/login/" class="nav-btn">Login</a>
       <a href="{% url 'signup' %}" class="apply-btn">Start Free Trial <i class="bi bi-arrow-right"></i></a>
       {% endif %}
-      <button class="mobile-toggle" id="openMobile"><i class="bi bi-list"></i></button>
+      <button class="mobile-toggle" id="openMobile" type="button" aria-label="Open navigation menu" aria-controls="mobileDrawer">
+        <span class="menu-glyph" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+      </button>
     </div>
 
     <div class="mega-wrap" id="megaWrap">
@@ -1083,7 +1138,6 @@ body.lock-scroll{overflow:hidden}
         <span>Contact us</span>
       </a>
     </div>
-
     <div class="mobile-action-row">
       {% if request.user.is_authenticated %}
       <a href="/dashboard/" class="mobile-action-btn dashboard">

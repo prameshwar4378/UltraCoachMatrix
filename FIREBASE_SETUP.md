@@ -25,6 +25,65 @@ this repository, the Flutter application, an APK, static files, or media files.
 When no credential path is configured, the application continues to run and
 records push notifications as skipped with a configuration message.
 
+## Current Production Project
+
+The current production Firebase project is:
+
+```text
+push-notification-ucm-producti
+```
+
+The backend service-account JSON, Android `google-services.json`, and any
+Flutter web Firebase build values must all come from this same Firebase project.
+Do not mix it with the older `pushnotification-3839e` project, or Firebase may
+accept device registration but reject sends with sender/project permission
+errors.
+
+For production, keep these values in the Django `.env` file next to
+`manage.py`, or in the service manager environment:
+
+```env
+FIREBASE_CREDENTIALS_FILE=/home/ultracoachmatrix/.secrets/firebase-service-account.json
+FIREBASE_PROJECT_ID=push-notification-ucm-producti
+PUSH_NOTIFICATIONS_ENABLED=true
+BACKGROUND_JOB_SYNC_FEE_FALLBACK=true
+BACKGROUND_JOB_SYNC_NOTICE_FALLBACK=true
+```
+
+The service account also needs the Google Cloud IAM role:
+
+```text
+Firebase Cloud Messaging API Admin
+```
+
+Make sure the Firebase Cloud Messaging API is enabled for the same project.
+
+## Android App Configuration
+
+If the Firebase project changes, the Android app must also be rebuilt with the
+matching Firebase Android config:
+
+1. In Firebase Console, open `push-notification-ucm-producti`.
+2. Add/open the Android app with package name:
+
+   ```text
+   ultracoachmatrix.pythonanywhere.com
+   ```
+
+3. Download the Android `google-services.json`.
+4. Replace:
+
+   ```text
+   FrontEnd/ultracoachmatrix/android/app/google-services.json
+   ```
+
+5. Rebuild and reinstall the APK.
+6. Log in again on the mobile app so the device registers a new FCM token for
+   the new Firebase project.
+
+Old device tokens from another Firebase project cannot be used for the new
+project.
+
 ## Rotation
 
 If the old JSON was emailed, uploaded, backed up to a shared location, or
@@ -76,6 +135,10 @@ The first command must report `Ready: True`. The user status command must show
 at least one active device for the logged-in mobile user. The send-test command
 must report `Notification status: SENT`.
 
+When the frontend source is present on the same machine, the check command also
+prints the Android `google-services.json` project ID and warns if it does not
+match the backend service-account project.
+
 If the user status command shows no active devices, log out and log in again on
 the mobile app, allow notifications, then run the status command again. If it
 shows active devices but the send test is skipped or failed, check the printed
@@ -107,10 +170,10 @@ Web push also needs a Firebase Web app config and VAPID key. Android
      --dart-define=API_BASE_URL=https://ultracoachmatrix.in \
      --dart-define=FIREBASE_WEB_API_KEY=<web-api-key> \
      --dart-define=FIREBASE_WEB_APP_ID=<web-app-id> \
-     --dart-define=FIREBASE_WEB_MESSAGING_SENDER_ID=1078485477591 \
-     --dart-define=FIREBASE_WEB_PROJECT_ID=pushnotification-3839e \
-     --dart-define=FIREBASE_WEB_AUTH_DOMAIN=pushnotification-3839e.firebaseapp.com \
-     --dart-define=FIREBASE_WEB_STORAGE_BUCKET=pushnotification-3839e.firebasestorage.app \
+     --dart-define=FIREBASE_WEB_MESSAGING_SENDER_ID=<web-messaging-sender-id> \
+     --dart-define=FIREBASE_WEB_PROJECT_ID=push-notification-ucm-producti \
+     --dart-define=FIREBASE_WEB_AUTH_DOMAIN=push-notification-ucm-producti.firebaseapp.com \
+     --dart-define=FIREBASE_WEB_STORAGE_BUCKET=<web-storage-bucket> \
      --dart-define=FIREBASE_WEB_VAPID_KEY=<web-push-certificate-key>
    ```
 
