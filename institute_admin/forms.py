@@ -2216,6 +2216,14 @@ class StudentBonafideCertificateForm(forms.Form):
         student = self.student
         session = self.academic_session
         primary_guardian = student.guardians.filter(is_primary=True).first() or student.guardians.first()
+        enrollment = (
+            session.enrollments.exclude(status=StudentEnrollment.Status.CANCELLED)
+            .select_related("batch")
+            .order_by("pk")
+            .first()
+        )
+        batch_name = enrollment.batch.name if enrollment and enrollment.batch else ""
+        current_class = student.current_class or batch_name
         return {
             "institute_name": student.institute.name,
             "institute_address": student.institute.address,
@@ -2231,7 +2239,9 @@ class StudentBonafideCertificateForm(forms.Form):
             "gr_number_udise": student.gr_number_udise,
             "udise_number": student.udise_number,
             "roll_number": student.roll_number,
-            "current_class": student.current_class,
+            "current_class": current_class,
+            "batch_name": batch_name,
+            "batches": batch_name,
             "admission_class": student.admission_class,
             "division": student.division,
             "medium": student.medium,

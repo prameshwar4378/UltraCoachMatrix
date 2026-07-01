@@ -299,6 +299,40 @@
         line-height:1.55;
     }
 
+    .browser-reset-card {
+        margin-top:16px;
+        padding:16px;
+        border:1px solid rgba(245,158,11,.28);
+        border-radius:16px;
+        background:linear-gradient(135deg, #fffbeb, #ffffff);
+    }
+
+    .browser-reset-card strong {
+        display:block;
+        color:#92400e;
+        font-weight:950;
+        margin-bottom:5px;
+    }
+
+    .browser-reset-card p {
+        margin:0 0 12px;
+        color:#64748b;
+        font-size:.88rem;
+        line-height:1.55;
+    }
+
+    .browser-reset-status {
+        display:none;
+        margin-top:10px;
+        color:#92400e;
+        font-size:.83rem;
+        font-weight:900;
+    }
+
+    .browser-reset-status.show {
+        display:block;
+    }
+
     .security-table-wrap {
         width:100%;
         overflow-x:auto;
@@ -649,6 +683,20 @@
                     Current login: {{ request.user.username }}<br>
                     Last login: {{ request.user.last_login|date:"d M Y, h:i A"|default:"Not available" }}
                 </div>
+
+                <div class="browser-reset-card">
+                    <strong><i class="bi bi-browser-chrome"></i> Reset This Browser</strong>
+                    <p>Clear this browser's saved app data, cache storage, local/session storage, accessible cookies, and sign out this device.</p>
+                    <form id="browserDataResetForm" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="reset_browser_data">
+                        <button id="browserDataResetButton" class="security-button secondary" type="submit">
+                            <i class="bi bi-trash3"></i>
+                            Reset Cache & Cookies
+                        </button>
+                    </form>
+                    <div id="browserDataResetStatus" class="browser-reset-status">Clearing browser data...</div>
+                </div>
             </section>
         </div>
 
@@ -704,4 +752,66 @@
         </section>
     </div>
 </main>
+<script>
+    (function () {
+        const form = document.getElementById("browserDataResetForm");
+        const button = document.getElementById("browserDataResetButton");
+        const status = document.getElementById("browserDataResetStatus");
+
+        async function clearBrowserData() {
+            try { localStorage.clear(); } catch (error) {}
+            try { sessionStorage.clear(); } catch (error) {}
+
+            if ("caches" in window) {
+                try {
+                    const cacheNames = await caches.keys();
+                    await Promise.all(cacheNames.map(function (cacheName) { return caches.delete(cacheName); }));
+                } catch (error) {}
+            }
+
+            if (navigator.serviceWorker) {
+                try {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(registrations.map(function (registration) { return registration.unregister(); }));
+                } catch (error) {}
+            }
+
+            if (window.indexedDB && indexedDB.databases) {
+                try {
+                    const databases = await indexedDB.databases();
+                    await Promise.all(
+                        databases
+                            .filter(function (database) { return database && database.name; })
+                            .map(function (database) {
+                                return new Promise(function (resolve) {
+                                    const request = indexedDB.deleteDatabase(database.name);
+                                    request.onsuccess = request.onerror = request.onblocked = resolve;
+                                });
+                            })
+                    );
+                } catch (error) {}
+            }
+        }
+
+        if (!form) {
+            return;
+        }
+
+        form.addEventListener("submit", async function (event) {
+            event.preventDefault();
+            if (!confirm("Reset cache and cookies for this browser? You will be signed out from this device.")) {
+                return;
+            }
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<i class="bi bi-hourglass-split"></i> Resetting...';
+            }
+            if (status) {
+                status.classList.add("show");
+            }
+            await clearBrowserData();
+            form.submit();
+        });
+    })();
+</script>
 {% endblock content %}

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Transfer Certificate - {{ tc.tc_number }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+@page { size: A4; margin: 0; }
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 210mm;
+    height: 297mm;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #111827;
+    font-size: 9.5px;
+    background: #e5e7eb;
+}
+
+.toolbar {
+    width: 210mm;
+    margin: 10px auto;
+    display: flex;
+    justify-content: space-between;
+}
+
+.btn {
+    border: 1px solid #111827;
+    background: #111827;
+    color: #fff;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn.secondary {
+    background: #fff;
+    color: #111827;
+    border-color: #cbd5e1;
+}
+
+.sheet {
+    width: 210mm;
+    height: 297mm;
+    margin: 0 auto;
+    background: #fff;
+    padding: 7mm;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, .18);
+    overflow: hidden;
+}
+
+.certificate {
+    width: 100%;
+    height: 283mm;
+    border: 2px solid #111827;
+    padding: 5mm 7mm;
+    position: relative;
+    overflow: hidden;
+}
+
+.certificate::before {
+    content: "";
+    position: absolute;
+    inset: 3mm;
+    border: 1px solid #111827;
+    pointer-events: none;
+}
+
+.inner {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+}
+
+.letterhead-space {
+    height: 34mm;
+    border-bottom: 2px solid #111827;
+    margin-bottom: 4mm;
+}
+
+.title-wrap {
+    text-align: center;
+    margin: 0 0 4mm;
+}
+
+.title {
+    display: inline-block;
+    padding: 3px 28px;
+    border-top: 2px solid #111827;
+    border-bottom: 2px solid #111827;
+    text-transform: uppercase;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 1px;
+}
+
+.meta-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-bottom: 5px;
+}
+
+.meta-item,
+.compact-box {
+    border-bottom: 1.3px solid #111827;
+    padding: 1px 0 3px;
+}
+
+.meta-label,
+.compact-label {
+    font-size: 7.5px;
+    text-transform: uppercase;
+    color: #374151;
+    font-weight: 800;
+}
+
+.meta-value,
+.compact-value {
+    margin-top: 1px;
+    font-size: 9.5px;
+    font-weight: 800;
+}
+
+.section-title {
+    margin: 6px 0 3px;
+    padding-bottom: 2px;
+    border-bottom: 1.3px solid #111827;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-weight: 900;
+}
+
+.student-block {
+    display: grid;
+    grid-template-columns: 1fr 24mm;
+    gap: 8px;
+    align-items: start;
+}
+
+.photo {
+    width: 23mm;
+    height: 28mm;
+    border: 1.3px solid #111827;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    font-size: 8px;
+    font-weight: 700;
+    overflow: hidden;
+}
+
+.photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.info-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.info-table td {
+    padding: 3px 3px;
+    vertical-align: top;
+    border-bottom: 1px dotted #94a3b8;
+}
+
+.info-table .label {
+    width: 35%;
+    font-weight: 800;
+    color: #334155;
+}
+
+.info-table .value {
+    width: 65%;
+    font-weight: 700;
+}
+
+.two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+}
+
+.compact-line {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+    margin-top: 4px;
+}
+
+.reason-box {
+    margin-top: 5px;
+}
+
+.note {
+    margin-top: 6px;
+    line-height: 1.35;
+    text-align: justify;
+    font-size: 9.5px;
+}
+
+.declaration {
+    margin-top: 6px;
+    padding: 5px 8px;
+    background: #f8fafc;
+    border-left: 3px solid #111827;
+    line-height: 1.3;
+    color: #334155;
+    font-size: 9px;
+}
+
+.signatures {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 13mm;
+}
+
+.signature {
+    border-top: 1.3px solid #111827;
+    padding-top: 4px;
+    text-align: center;
+    font-weight: 900;
+}
+
+@media print {
+    html, body {
+        background: #fff;
+        width: 210mm;
+        height: 297mm;
+        overflow: hidden;
+    }
+
+    .toolbar { display: none; }
+
+    .sheet {
+        margin: 0;
+        padding: 7mm;
+        box-shadow: none;
+        page-break-after: avoid;
+        overflow: hidden;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="toolbar">
+    <a class="btn secondary" href="{% url 'institute_admin:student_dashboard' student.pk %}">Back to Dashboard</a>
+    <button class="btn" type="button" onclick="window.print()">Print / Download TC</button>
+</div>
+
+<div class="sheet">
+<div class="certificate">
+<div class="inner">
+
+    <div class="letterhead-space"></div>
+
+    <div class="title-wrap">
+        <div class="title">Transfer Certificate</div>
+    </div>
+
+    <div class="meta-row">
+        <div class="meta-item">
+            <div class="meta-label">TC Number</div>
+            <div class="meta-value">{{ tc.tc_number|default:"-" }}</div>
+        </div>
+        <div class="meta-item">
+            <div class="meta-label">Issue Date</div>
+            <div class="meta-value">{{ tc.issue_date|default:"-" }}</div>
+        </div>
+        <div class="meta-item">
+            <div class="meta-label">Academic Year</div>
+            <div class="meta-value">{{ snapshot.academic_year|default:student_session.academic_year.name|default:"-" }}</div>
+        </div>
+    </div>
+
+    <div class="student-block">
+        <div>
+            <div class="section-title">Student Details</div>
+            <table class="info-table">
+                <tr>
+                    <td class="label">Student Name</td>
+                    <td class="value">{{ snapshot.student_name|default:student.user.get_full_name|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Admission Number</td>
+                    <td class="value">{{ snapshot.admission_number|default:student_session.admission_number|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">GR No.</td>
+                    <td class="value">{{ snapshot.gr_number_udise|default:student.gr_number_udise|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">PEN No.</td>
+                    <td class="value">---</td>
+                </tr>
+                <tr>
+                    <td class="label">Father Name</td>
+                    <td class="value">{{ snapshot.father_name|default:student.father_name|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Mother Name</td>
+                    <td class="value">{{ snapshot.mother_name|default:student.mother_name|default:"-" }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="photo">
+            {% if student.profile_image %}
+                <img src="{{ student.profile_image.url }}" alt="{{ snapshot.student_name|default:student.user.get_full_name }}">
+            {% else %}
+                Photo
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="two-col">
+        <div>
+            <div class="section-title">Personal Information</div>
+            <table class="info-table">
+                <tr>
+                    <td class="label">Date of Birth</td>
+                    <td class="value" id="dobNumber">{{ snapshot.date_of_birth|default:student.date_of_birth|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Date of Birth in Words</td>
+                    <td class="value" id="dobWords">-</td>
+                </tr>
+                <tr>
+                    <td class="label">Place of Birth</td>
+                    <td class="value">{{ snapshot.place_of_birth|default:student.place_of_birth|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Nationality</td>
+                    <td class="value">{{ snapshot.nationality|default:student.nationality|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Religion / Caste</td>
+                    <td class="value">{{ snapshot.religion|default:student.religion|default:"-" }} / {{ snapshot.caste_category|default:student.caste_category|default:"-" }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div>
+            <div class="section-title">Admission Information</div>
+            <table class="info-table">
+                <tr>
+                    <td class="label">Admission Date</td>
+                    <td class="value">{{ snapshot.admission_date|default:student_session.joined_on|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Admission Class</td>
+                    <td class="value">{{ snapshot.admission_class|default:student.admission_class|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Current Class</td>
+                    <td class="value">{{ snapshot.current_class|default:student.current_class|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Batch / Division</td>
+                    <td class="value">{{ snapshot.batches|default:student.division|default:"-" }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="two-col">
+        <div>
+            <div class="section-title">Previous School Details</div>
+            <table class="info-table">
+                <tr>
+                    <td class="label">Previous School</td>
+                    <td class="value">{{ snapshot.previous_school_name|default:student.previous_school_name|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Previous Class</td>
+                    <td class="value">{{ snapshot.previous_class|default:student.previous_class|default:"-" }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div>
+            <div class="section-title">Academic Status</div>
+            <table class="info-table">
+                <tr>
+                    <td class="label">Last Class Attended</td>
+                    <td class="value">{{ tc.last_class_attended|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Result</td>
+                    <td class="value">{{ tc.result|default:"-" }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Qualified for Promotion</td>
+                    <td class="value">{% if tc.qualified_for_promotion %}Yes{% else %}No{% endif %}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="section-title">Leaving Details</div>
+
+    <div class="compact-line">
+        <div class="compact-box">
+            <div class="compact-label">Leaving Date</div>
+            <div class="compact-value">{{ tc.leaving_date|default:"-" }}</div>
+        </div>
+        <div class="compact-box">
+            <div class="compact-label">Fees Cleared</div>
+            <div class="compact-value">{% if tc.fees_cleared %}Yes{% else %}No{% endif %}</div>
+        </div>
+        <div class="compact-box">
+            <div class="compact-label">Conduct</div>
+            <div class="compact-value">{{ tc.conduct|default:"-" }}</div>
+        </div>
+    </div>
+
+    <table class="info-table reason-box">
+        <tr>
+            <td class="label">Reason for Leaving</td>
+            <td class="value">{{ tc.reason_for_leaving|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Remarks</td>
+            <td class="value">{{ tc.remarks|default:"-" }}</td>
+        </tr>
+    </table>
+
+    <p class="note">
+        This is to certify that the above named student was enrolled in this institution as per the official school record.
+        The Transfer Certificate has been issued on the basis of student profile and academic session details maintained by the school.
+    </p>
+
+    <div class="declaration">
+        Certified that the information given above is true and correct as per the records of the institution.
+    </div>
+
+    <div class="signatures">
+        <div class="signature">Class Teacher</div>
+        <div class="signature">Office Clerk</div>
+        <div class="signature">Principal / Head Master</div>
+    </div>
+
+</div>
+</div>
+</div>
+
+<script>
+function numberToWords(num) {
+    const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+    const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+    if (num < 20) return ones[num];
+    if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 ? " " + ones[num % 10] : "");
+    if (num < 1000) return ones[Math.floor(num / 100)] + " Hundred" + (num % 100 ? " " + numberToWords(num % 100) : "");
+    if (num < 100000) return numberToWords(Math.floor(num / 1000)) + " Thousand" + (num % 1000 ? " " + numberToWords(num % 1000) : "");
+    return String(num);
+}
+
+function parseDateValue(value) {
+    value = value.trim();
+    if (!value || value === "-") return null;
+
+    let parts;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        parts = value.split("-");
+        return { year: +parts[0], month: +parts[1], day: +parts[2] };
+    }
+
+    if (/^\d{2}-\d{2}-\d{4}$/.test(value)) {
+        parts = value.split("-");
+        return { day: +parts[0], month: +parts[1], year: +parts[2] };
+    }
+
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+        parts = value.split("/");
+        return { day: +parts[0], month: +parts[1], year: +parts[2] };
+    }
+
+    const parsed = new Date(value);
+    if (!isNaN(parsed.getTime())) {
+        return {
+            day: parsed.getDate(),
+            month: parsed.getMonth() + 1,
+            year: parsed.getFullYear()
+        };
+    }
+
+    return null;
+}
+
+function dobToWords(value) {
+    const date = parseDateValue(value);
+    if (!date) return "-";
+
+    const months = [
+        "", "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ];
+
+    return numberToWords(date.day) + " " + months[date.month] + " " + numberToWords(date.year);
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    const dobNumber = document.getElementById("dobNumber");
+    const dobWords = document.getElementById("dobWords");
+
+    if (dobNumber && dobWords) {
+        dobWords.textContent = dobToWords(dobNumber.textContent);
+    }
+});
+</script>
+
+</body>
+</html>

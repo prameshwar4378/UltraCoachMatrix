@@ -371,9 +371,11 @@ body {
             <span class="blank">{{ snapshot.academic_year|default:student_session.academic_year.name|default:"" }}</span>.
             The student is / was studying in
             <span class="blank">{{ snapshot.current_class|default:student.current_class|default:student.admission_class|default:"" }}</span>
-            {% if snapshot.division|default:student.division %}
-                division <span class="blank">{{ snapshot.division|default:student.division }}</span>
-            {% endif %}
+            {% with batch_label=snapshot.batch_name|default:snapshot.batches|default:snapshot.division|default:student.division %}
+                {% if batch_label %}
+                    division <span class="blank">{{ batch_label }}</span>
+                {% endif %}
+            {% endwith %}
             as per the official record of the institution.
             This certificate is issued for
             <span class="blank">{{ bonafide.purpose|default:"" }}</span>.
@@ -394,9 +396,11 @@ body {
                 <div class="field-label">Class</div>
                 <div class="field-value">
                     {{ snapshot.current_class|default:student.current_class|default:student.admission_class|default:"-" }}
-                    {% if snapshot.division|default:student.division %}
-                        - {{ snapshot.division|default:student.division }}
-                    {% endif %}
+                    {% with batch_label=snapshot.batch_name|default:snapshot.batches|default:snapshot.division|default:student.division %}
+                        {% if batch_label %}
+                            - {{ batch_label }}
+                        {% endif %}
+                    {% endwith %}
                 </div>
             </div>
 

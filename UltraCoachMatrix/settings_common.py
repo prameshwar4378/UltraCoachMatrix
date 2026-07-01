@@ -32,7 +32,8 @@ SECRET_KEY = 'django-insecure--9g_w960n(bzd)lhgg)w0(n)_)^nnc!ldvn@g225=ujrb*zepj
 DEBUG = True
 
 DEFAULT_ALLOWED_HOSTS = [
-    "ultracoachmatrix.pythonanywhere.com",
+    "ultracoachmatrix.in",
+    "www.ultracoachmatrix.in",
     "localhost",
     "127.0.0.1",
     "10.0.2.2",
@@ -227,7 +228,7 @@ DEFAULT_FROM_EMAIL = os.environ.get(
 EMAIL_REPLY_TO = os.environ.get("EMAIL_REPLY_TO", EMAIL_HOST_USER)
 EMAIL_BASE_URL = os.environ.get(
     "EMAIL_BASE_URL",
-    "https://ultracoachmatrix.pythonanywhere.com",
+    "https://ultracoachmatrix.in",
 )
 STUDENT_APP_DOWNLOAD_URL = os.environ.get("STUDENT_APP_DOWNLOAD_URL", "")
 STUDENT_APP_APK_PATH = os.environ.get("STUDENT_APP_APK_PATH") or str(

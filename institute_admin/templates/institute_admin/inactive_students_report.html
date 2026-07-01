@@ -1,0 +1,876 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Inactive / Left Students Report{% endblock title %}
+
+{% block content %}
+<style>
+    .isr-page {
+        --ink: #0f172a;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --panel: #ffffff;
+        --soft: #f8fafc;
+        --red: #b91c1c;
+        --teal: #0f766e;
+        --blue: #2563eb;
+        --amber: #d97706;
+        --green: #16a34a;
+        padding: 24px;
+        background: linear-gradient(180deg, #f8fafc 0%, #fff5f5 100%);
+        min-height: calc(100vh - 120px);
+    }
+
+    .isr-shell { max-width: 1480px; margin: 0 auto; }
+
+    .isr-header,
+    .isr-filter,
+    .isr-card,
+    .isr-panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.07);
+    }
+
+    .isr-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        align-items: center;
+        padding: 22px;
+        margin-bottom: 16px;
+    }
+
+    .isr-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--blue);
+        font-weight: 900;
+        text-decoration: none;
+        margin-bottom: 8px;
+    }
+
+    .isr-title {
+        margin: 0;
+        color: var(--ink);
+        font-size: clamp(1.55rem, 2.4vw, 2.25rem);
+        font-weight: 900;
+        letter-spacing: 0;
+    }
+
+    .isr-subtitle {
+        margin: 7px 0 0;
+        color: var(--muted);
+        font-weight: 600;
+        line-height: 1.55;
+    }
+
+    .isr-export-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px;
+        justify-content: flex-end;
+    }
+
+    .isr-export {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 7px;
+        padding: 11px 14px;
+        background: var(--red);
+        color: #fff;
+        text-decoration: none;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .isr-export.excel { background: var(--green); }
+
+    .isr-filter {
+        padding: 18px;
+        margin-bottom: 16px;
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+        align-items: end;
+    }
+
+    .filter-field label {
+        display: block;
+        margin-bottom: 6px;
+        color: #334155;
+        font-size: .78rem;
+        font-weight: 900;
+    }
+
+    .filter-field input,
+    .filter-field select {
+        width: 100%;
+        height: 42px;
+        border: 1px solid #cbd5e1;
+        border-radius: 7px;
+        padding: 0 10px;
+        color: var(--ink);
+        background: #fff;
+        font-weight: 700;
+    }
+
+    .filter-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 13px;
+    }
+
+    .filter-button,
+    .filter-reset {
+        height: 42px;
+        border-radius: 7px;
+        padding: 0 13px;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .filter-button {
+        border: 0;
+        background: var(--ink);
+        color: #fff;
+    }
+
+    .filter-reset {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--line);
+        color: #334155;
+        background: #fff;
+        text-decoration: none;
+    }
+
+    .quick-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+    }
+
+    .quick-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 36px;
+        border: 1px solid #cbd5e1;
+        border-radius: 999px;
+        padding: 0 12px;
+        color: #334155;
+        background: #fff;
+        text-decoration: none;
+        font-size: .8rem;
+        font-weight: 900;
+    }
+
+    .quick-chip.due { color: #92400e; border-color: #fcd34d; background: #fffbeb; }
+    .quick-chip.overdue { color: #991b1b; border-color: #fecaca; background: #fef2f2; }
+    .quick-chip.clear { color: #166534; border-color: #bbf7d0; background: #f0fdf4; }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 16px;
+    }
+
+    .isr-card {
+        padding: 18px;
+        display: grid;
+        grid-template-columns: 48px minmax(0, 1fr);
+        gap: 13px;
+        align-items: center;
+    }
+
+    .card-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 1.25rem;
+        background: var(--red);
+    }
+
+    .pending .card-icon { background: var(--amber); }
+    .overdue .card-icon { background: var(--blue); }
+    .clear .card-icon { background: var(--green); }
+
+    .card-value {
+        color: var(--ink);
+        font-size: clamp(1.25rem, 2vw, 1.8rem);
+        font-weight: 900;
+        line-height: 1.1;
+    }
+
+    .card-label {
+        color: var(--muted);
+        font-size: .82rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        margin-top: 5px;
+    }
+
+    .isr-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .insight-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .insight-panel {
+        background: #0f172a;
+        color: #fff;
+        border-radius: 8px;
+        padding: 18px;
+        display: grid;
+        gap: 14px;
+        box-shadow: 0 18px 50px rgba(15, 23, 42, .18);
+    }
+
+    .insight-title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 900;
+    }
+
+    .insight-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 10px 0;
+        border-top: 1px solid rgba(255,255,255,.14);
+    }
+
+    .insight-row strong {
+        display: block;
+        overflow-wrap: anywhere;
+        color: #fff;
+        font-weight: 900;
+    }
+
+    .insight-row span {
+        color: #cbd5e1;
+        font-size: .8rem;
+        font-weight: 700;
+    }
+
+    .insight-amount {
+        color: #fbbf24;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .isr-panel { overflow: hidden; }
+
+    .panel-head {
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        background: var(--soft);
+    }
+
+    .panel-head h2 {
+        margin: 0;
+        color: var(--ink);
+        font-size: 1rem;
+        font-weight: 900;
+    }
+
+    .panel-head span {
+        color: var(--muted);
+        font-size: .82rem;
+        font-weight: 800;
+    }
+
+    .chart-list {
+        display: grid;
+        gap: 11px;
+        padding: 15px;
+        max-height: 360px;
+        overflow: auto;
+    }
+
+    .chart-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 94px;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .chart-label {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 5px;
+        color: var(--ink);
+        font-size: .86rem;
+        font-weight: 900;
+    }
+
+    .chart-label span { overflow-wrap: anywhere; }
+
+    .bar-track {
+        height: 10px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        overflow: hidden;
+    }
+
+    .bar-fill {
+        height: 100%;
+        min-width: 4px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--red), #fb7185);
+    }
+
+    .bar-fill.teal { background: linear-gradient(90deg, var(--teal), #2dd4bf); }
+    .bar-fill.amber { background: linear-gradient(90deg, var(--amber), #fbbf24); }
+
+    .chart-count {
+        color: var(--ink);
+        font-weight: 900;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    .isr-table {
+        width: 100%;
+        margin: 0;
+        border-collapse: collapse;
+    }
+
+    .isr-table th {
+        padding: 12px 14px;
+        color: #334155;
+        background: var(--soft);
+        border-bottom: 1px solid var(--line);
+        font-size: .75rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .isr-table td {
+        padding: 13px 14px;
+        color: #1e293b;
+        border-bottom: 1px solid #f1f5f9;
+        font-weight: 650;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    .student-name { color: var(--ink); font-weight: 900; }
+    .muted-line { color: var(--muted); font-size: .78rem; font-weight: 700; }
+    .due-amount { color: var(--red); font-weight: 900; }
+    .clear-amount { color: var(--green); font-weight: 900; }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: #fff1f2;
+        color: #be123c;
+        border: 1px solid #fecdd3;
+        font-size: .76rem;
+        font-weight: 900;
+    }
+
+    .risk-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: #f8fafc;
+        color: #334155;
+        border: 1px solid #e2e8f0;
+        font-size: .76rem;
+        font-weight: 900;
+    }
+
+    .risk-pill.high {
+        background: #fef2f2;
+        color: #991b1b;
+        border-color: #fecaca;
+    }
+
+    .risk-pill.follow {
+        background: #fffbeb;
+        color: #92400e;
+        border-color: #fcd34d;
+    }
+
+    .action-text {
+        max-width: 260px;
+        color: #334155;
+        font-size: .82rem;
+        font-weight: 800;
+        white-space: normal;
+        line-height: 1.35;
+    }
+
+    .empty-line {
+        padding: 24px;
+        color: var(--muted);
+        font-weight: 700;
+        text-align: center;
+    }
+
+    .pager {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        padding: 14px 16px;
+        border-top: 1px solid var(--line);
+        background: var(--soft);
+    }
+
+    .pager-links {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .pager a,
+    .pager span {
+        display: inline-flex;
+        align-items: center;
+        height: 36px;
+        border-radius: 7px;
+        padding: 0 11px;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: #334155;
+        text-decoration: none;
+        font-weight: 900;
+    }
+
+    .pager span {
+        background: var(--ink);
+        border-color: var(--ink);
+        color: #fff;
+    }
+
+    @media (max-width: 1199px) {
+        .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .summary-grid,
+        .insight-grid,
+        .isr-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 767px) {
+        .isr-page { padding: 14px; }
+        .isr-header,
+        .filter-grid,
+        .summary-grid,
+        .insight-grid,
+        .isr-grid,
+        .pager {
+            grid-template-columns: 1fr;
+            display: grid;
+        }
+        .isr-header,
+        .pager { align-items: start; }
+        .isr-export-row,
+        .pager-links { justify-content: start; }
+    }
+</style>
+
+<main id="main" class="main isr-page">
+    <div class="isr-shell">
+        <section class="isr-header">
+            <div>
+                <a class="isr-back" href="{% url 'institute_admin:reports_dashboard' %}">
+                    <i class="bi bi-arrow-left"></i> Reports
+                </a>
+                <h1 class="isr-title">Inactive / Left Students Report</h1>
+                <p class="isr-subtitle">
+                    Review left, inactive, TC issued, completed and login-disabled students with pending balance visibility.
+                </p>
+            </div>
+            <div class="isr-export-row">
+                <a class="isr-export" href="?{{ csv_export_query }}">
+                    <i class="bi bi-filetype-csv"></i> Export CSV
+                </a>
+                <a class="isr-export excel" href="?{{ excel_export_query }}">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> Export Excel
+                </a>
+            </div>
+        </section>
+
+        <form class="isr-filter" method="get">
+            <div class="filter-grid">
+                <div class="filter-field">
+                    <label for="id_start_date">Start Date</label>
+                    <input id="id_start_date" type="date" name="start_date" value="{{ filters.start_date_value }}">
+                </div>
+                <div class="filter-field">
+                    <label for="id_end_date">End Date</label>
+                    <input id="id_end_date" type="date" name="end_date" value="{{ filters.end_date_value }}">
+                </div>
+                <div class="filter-field">
+                    <label for="id_academic_year">Session</label>
+                    <select id="id_academic_year" name="academic_year">
+                        <option value="all" {% if filters.academic_year_id == "all" %}selected{% endif %}>All sessions</option>
+                        {% for year in academic_years %}
+                        <option value="{{ year.pk }}" {% if filters.academic_year_id == year.pk|stringformat:"s" %}selected{% endif %}>{{ year.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_course">Class</label>
+                    <select id="id_course" name="course">
+                        <option value="">All classes</option>
+                        {% for course in courses %}
+                        <option value="{{ course.pk }}" {% if filters.course_id == course.pk|stringformat:"s" %}selected{% endif %}>{{ course.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_batch">Batch</label>
+                    <select id="id_batch" name="batch">
+                        <option value="">All batches</option>
+                        {% for batch in batches %}
+                        <option value="{{ batch.pk }}" {% if filters.batch_id == batch.pk|stringformat:"s" %}selected{% endif %}>{{ batch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_status">Status Type</label>
+                    <select id="id_status" name="status">
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_balance">Balance</label>
+                    <select id="id_balance" name="balance">
+                        {% for value, label in balance_choices %}
+                        <option value="{{ value }}" {% if filters.balance == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_search">Search</label>
+                    <input id="id_search" type="search" name="search" value="{{ filters.search }}" placeholder="Name, admission no, reason">
+                </div>
+                <div class="filter-field">
+                    <label for="id_page_size">Rows</label>
+                    <select id="id_page_size" name="page_size">
+                        {% for size in page_size_options %}
+                        <option value="{{ size }}" {% if filters.page_size == size %}selected{% endif %}>{{ size }} per page</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="filter-actions">
+                <button class="filter-button" type="submit"><i class="bi bi-funnel"></i> Apply Filter</button>
+                <a class="filter-reset" href="{% url 'institute_admin:inactive_students_report' %}">Reset</a>
+            </div>
+            <div class="quick-strip">
+                <a class="quick-chip" href="?{{ quick_all_query }}"><i class="bi bi-collection"></i> All Records</a>
+                <a class="quick-chip due" href="?{{ quick_due_query }}"><i class="bi bi-wallet2"></i> With Pending</a>
+                <a class="quick-chip overdue" href="?{{ quick_overdue_query }}"><i class="bi bi-exclamation-triangle"></i> Overdue</a>
+                <a class="quick-chip clear" href="?{{ quick_clear_query }}"><i class="bi bi-check2-circle"></i> Clear Accounts</a>
+                <a class="quick-chip" href="?{{ quick_left_query }}"><i class="bi bi-box-arrow-right"></i> Left School</a>
+                <a class="quick-chip" href="?{{ quick_tc_query }}"><i class="bi bi-file-earmark-text"></i> TC Issued</a>
+            </div>
+        </form>
+
+        <section class="summary-grid">
+            <div class="isr-card">
+                <div class="card-icon"><i class="bi bi-person-dash"></i></div>
+                <div>
+                    <div class="card-value">{{ inactive_count }}</div>
+                    <div class="card-label">Inactive / Left</div>
+                </div>
+            </div>
+            <div class="isr-card pending">
+                <div class="card-icon"><i class="bi bi-wallet2"></i></div>
+                <div>
+                    <div class="card-value">₹{{ total_pending|floatformat:2 }}</div>
+                    <div class="card-label">Pending Balance</div>
+                </div>
+            </div>
+            <div class="isr-card overdue">
+                <div class="card-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                <div>
+                    <div class="card-value">{{ high_risk_count }}</div>
+                    <div class="card-label">High Risk Cases</div>
+                </div>
+            </div>
+            <div class="isr-card clear">
+                <div class="card-icon"><i class="bi bi-check2-circle"></i></div>
+                <div>
+                    <div class="card-value">₹{{ average_pending|floatformat:2 }}</div>
+                    <div class="card-label">Avg Pending</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="insight-grid">
+            <div class="insight-panel">
+                <h2 class="insight-title"><i class="bi bi-lightning-charge"></i> Priority Follow-up Queue</h2>
+                {% for row in top_due_rows %}
+                <div class="insight-row">
+                    <div>
+                        <strong>{{ row.student.user.get_full_name|default:row.student.user.username }}</strong>
+                        <span>{{ row.session.admission_number }} · {{ row.status_label }} · {{ row.action_label }}</span>
+                    </div>
+                    <div class="insight-amount">₹{{ row.pending_amount|floatformat:2 }}</div>
+                </div>
+                {% empty %}
+                <div class="insight-row">
+                    <div><strong>No fee follow-up needed</strong><span>Every matching inactive or left record has a clear balance.</span></div>
+                    <div class="insight-amount">₹0.00</div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="isr-panel">
+                <div class="panel-head">
+                    <h2>Closure Health</h2>
+                    <span>Financial readiness</span>
+                </div>
+                <div class="chart-list">
+                    <div class="chart-row">
+                        <div>
+                            <div class="chart-label"><span>Pending Follow-up</span><span>{{ pending_students_count }}</span></div>
+                            <div class="bar-track"><div class="bar-fill amber" style="width: {% widthratio pending_students_count inactive_count 100 %}%;"></div></div>
+                        </div>
+                        <div class="chart-count">₹{{ total_pending|floatformat:2 }}</div>
+                    </div>
+                    <div class="chart-row">
+                        <div>
+                            <div class="chart-label"><span>Overdue Cases</span><span>{{ overdue_count }}</span></div>
+                            <div class="bar-track"><div class="bar-fill" style="width: {% widthratio overdue_count inactive_count 100 %}%;"></div></div>
+                        </div>
+                        <div class="chart-count">{{ overdue_count }}</div>
+                    </div>
+                    <div class="chart-row">
+                        <div>
+                            <div class="chart-label"><span>Clear Accounts</span><span>{{ clear_count }}</span></div>
+                            <div class="bar-track"><div class="bar-fill teal" style="width: {% widthratio clear_count inactive_count 100 %}%;"></div></div>
+                        </div>
+                        <div class="chart-count">{{ clear_count }}</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="isr-grid">
+            <div class="isr-panel">
+                <div class="panel-head">
+                    <h2>Status Breakdown</h2>
+                    <span>{{ status_groups|length }} status group{{ status_groups|length|pluralize }}</span>
+                </div>
+                <div class="chart-list">
+                    {% for row in status_groups %}
+                    <div class="chart-row">
+                        <div>
+                            <div class="chart-label"><span>{{ row.label }}</span></div>
+                            <div class="bar-track"><div class="bar-fill" style="width: {{ row.percent }}%;"></div></div>
+                        </div>
+                        <div class="chart-count">{{ row.count }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-line">No status data found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="isr-panel">
+                <div class="panel-head">
+                    <h2>Pending Balance Range</h2>
+                    <span>Balance buckets</span>
+                </div>
+                <div class="chart-list">
+                    {% for row in balance_groups %}
+                    <div class="chart-row">
+                        <div>
+                            <div class="chart-label"><span>{{ row.label }}</span><span>₹{{ row.amount|floatformat:2 }}</span></div>
+                            <div class="bar-track"><div class="bar-fill amber" style="width: {{ row.percent }}%;"></div></div>
+                        </div>
+                        <div class="chart-count">{{ row.count }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-line">No balance data found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="isr-panel">
+                <div class="panel-head">
+                    <h2>Reason Wise</h2>
+                    <span>{{ reason_groups|length }} reason{{ reason_groups|length|pluralize }}</span>
+                </div>
+                <div class="chart-list">
+                    {% for row in reason_groups %}
+                    <div class="chart-row">
+                        <div>
+                            <div class="chart-label"><span>{{ row.label }}</span></div>
+                            <div class="bar-track"><div class="bar-fill teal" style="width: {{ row.percent }}%;"></div></div>
+                        </div>
+                        <div class="chart-count">{{ row.count }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-line">No reason data found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="isr-panel">
+                <div class="panel-head">
+                    <h2>Class and Batch</h2>
+                    <span>Academic split</span>
+                </div>
+                <div class="chart-list">
+                    {% for row in class_groups %}
+                    <div class="chart-row">
+                        <div>
+                            <div class="chart-label"><span>{{ row.label }}</span></div>
+                            <div class="bar-track"><div class="bar-fill teal" style="width: {{ row.percent }}%;"></div></div>
+                        </div>
+                        <div class="chart-count">{{ row.count }}</div>
+                    </div>
+                    {% endfor %}
+                    {% for row in batch_groups %}
+                    <div class="chart-row">
+                        <div>
+                            <div class="chart-label"><span>{{ row.label }}</span></div>
+                            <div class="bar-track"><div class="bar-fill" style="width: {{ row.percent }}%;"></div></div>
+                        </div>
+                        <div class="chart-count">{{ row.count }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-line">No class or batch data found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="isr-panel">
+                <div class="panel-head">
+                    <h2>Month Wise</h2>
+                    <span>{{ month_groups|length }} period{{ month_groups|length|pluralize }}</span>
+                </div>
+                <div class="chart-list">
+                    {% for row in month_groups %}
+                    <div class="chart-row">
+                        <div>
+                            <div class="chart-label"><span>{{ row.label }}</span></div>
+                            <div class="bar-track"><div class="bar-fill" style="width: {{ row.percent }}%;"></div></div>
+                        </div>
+                        <div class="chart-count">{{ row.count }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-line">No month-wise data found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <section class="isr-panel">
+            <div class="panel-head">
+                <h2>Student Details</h2>
+                <span>{{ inactive_count }} matching record{{ inactive_count|pluralize }}</span>
+            </div>
+            <div class="table-wrap">
+                <table class="isr-table">
+                    <thead>
+                        <tr>
+                            <th>Event Date</th>
+                            <th>Admission No.</th>
+                            <th>Student</th>
+                            <th>Class</th>
+                            <th>Batch</th>
+                            <th>Status</th>
+                            <th>Reason</th>
+                            <th>Risk</th>
+                            <th>Recommended Action</th>
+                            <th class="text-end">Pending</th>
+                            <th>Oldest Due</th>
+                            <th>Phone</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in page_obj.object_list %}
+                        <tr>
+                            <td>{{ row.event_date|date:"d M Y"|default:"-" }}</td>
+                            <td>
+                                <a href="{% url 'institute_admin:student_dashboard' row.student.pk %}" class="fw-bold text-decoration-none">
+                                    {{ row.session.admission_number }}
+                                </a>
+                            </td>
+                            <td>
+                                <div class="student-name">{{ row.student.user.get_full_name|default:row.student.user.username }}</div>
+                                <div class="muted-line">@{{ row.student.user.username }} · {{ row.session.academic_year.name }}</div>
+                            </td>
+                            <td>{{ row.class_label }}</td>
+                            <td>{{ row.batch_label }}</td>
+                            <td><span class="status-pill">{{ row.status_label }}</span></td>
+                            <td>{{ row.reason }}</td>
+                            <td>
+                                <span class="risk-pill {% if row.risk_label == 'High Risk' %}high{% elif row.risk_label == 'Fee Follow-up' %}follow{% endif %}">
+                                    {{ row.risk_label }}
+                                </span>
+                            </td>
+                            <td><div class="action-text">{{ row.action_label }}</div></td>
+                            <td class="text-end {% if row.pending_amount > 0 %}due-amount{% else %}clear-amount{% endif %}">
+                                ₹{{ row.pending_amount|floatformat:2 }}
+                            </td>
+                            <td>{{ row.oldest_due_date|date:"d M Y"|default:"-" }}</td>
+                            <td>{{ row.phone|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="12" class="empty-line">No inactive or left students match the selected filters.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if page_obj.paginator.num_pages > 1 %}
+            <div class="pager">
+                <div class="muted-line">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</div>
+                <div class="pager-links">
+                    {% if page_obj.has_previous %}
+                    <a href="?{{ page_query }}&page={{ page_obj.previous_page_number }}">Previous</a>
+                    {% endif %}
+                    <span>{{ page_obj.number }}</span>
+                    {% if page_obj.has_next %}
+                    <a href="?{{ page_query }}&page={{ page_obj.next_page_number }}">Next</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </section>
+    </div>
+</main>
+{% endblock content %}

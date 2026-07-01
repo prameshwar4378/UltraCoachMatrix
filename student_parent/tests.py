@@ -26,6 +26,50 @@ from .models import PushNotification, StudentAcademicSession, StudentDocument, S
 from .notifications import notify_result_declared
 
 
+class StudentFullNameTests(TestCase):
+    def test_student_get_full_name_includes_middle_name_between_first_and_last(self):
+        institute = Institute.objects.create(name="Name Institute", code="name-inst")
+        user = User.objects.create_user(
+            username="name-student",
+            first_name="Krisha",
+            last_name="Kulkarni",
+        )
+        StudentProfile.objects.create(
+            institute=institute,
+            user=user,
+            admission_number="NAME-001",
+            middle_name="Ambadas",
+            father_name="Rajesh",
+        )
+
+        self.assertEqual(user.get_full_name(), "Krisha Ambadas Kulkarni")
+
+    def test_student_get_full_name_falls_back_to_father_name(self):
+        institute = Institute.objects.create(name="Father Name Institute", code="father-name-inst")
+        user = User.objects.create_user(
+            username="father-name-student",
+            first_name="Aarav",
+            last_name="Sharma",
+        )
+        StudentProfile.objects.create(
+            institute=institute,
+            user=user,
+            admission_number="NAME-002",
+            father_name="Rajesh",
+        )
+
+        self.assertEqual(user.get_full_name(), "Aarav Rajesh Sharma")
+
+    def test_non_student_get_full_name_stays_first_and_last_name(self):
+        user = User.objects.create_user(
+            username="name-teacher",
+            first_name="Priya",
+            last_name="Deshmukh",
+        )
+
+        self.assertEqual(user.get_full_name(), "Priya Deshmukh")
+
+
 class MobileHomeworkPlannerTests(TestCase):
     def setUp(self):
         self.institute = Institute.objects.create(name="Demo Institute", code="demo")

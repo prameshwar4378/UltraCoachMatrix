@@ -3,6 +3,7 @@ from decimal import Decimal
 from io import BytesIO, StringIO
 from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -19,7 +20,13 @@ from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
 from accountant.models import Expense, ExpenseDocument, FeeCategory, FeeInvoice, Payment
-from student_parent.models import GuardianProfile, StudentAcademicSession, StudentEnrollment, StudentProfile
+from student_parent.models import (
+    GuardianProfile,
+    StudentAcademicSession,
+    StudentBonafideCertificate,
+    StudentEnrollment,
+    StudentProfile,
+)
 from super_admin.models import (
     Institute,
     InstituteSubscription,
@@ -641,6 +648,26 @@ class SecuritySettingsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Security Settings")
+
+    def test_security_page_has_browser_cache_cookie_reset_button(self):
+        response = self.client.get(reverse("security_settings"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Reset Cache & Cookies")
+        self.assertContains(response, 'name="action" value="reset_browser_data"')
+
+    def test_reset_browser_data_logs_out_current_browser_and_deletes_cookies(self):
+        session_key = self.client.session.session_key
+
+        response = self.client.post(
+            reverse("security_settings"),
+            {"action": "reset_browser_data"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Session.objects.filter(session_key=session_key).exists())
+        self.assertEqual(response.cookies[settings.SESSION_COOKIE_NAME]["max-age"], 0)
+        self.assertEqual(response.cookies[settings.CSRF_COOKIE_NAME]["max-age"], 0)
 
 
 class HelpSupportTests(TestCase):
@@ -3025,6 +3052,17 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertEqual(response.context["total_fee_amount"], Decimal("2000.00"))
         self.assertEqual(response.context["total_paid_amount"], Decimal("500.00"))
 
+    def test_student_dashboard_shows_middle_name_in_full_name(self):
+        self.student.middle_name = "Ambadas"
+        self.student.save(update_fields=["middle_name"])
+        self.select_year(self.year_2026)
+
+        response = self.client.get(reverse("institute_admin:student_dashboard", args=[self.student.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["student_full_name"], "Student Ambadas One")
+        self.assertContains(response, "Student Ambadas One")
+
     def test_student_dashboard_hides_certificate_generate_buttons_for_coaching_classes(self):
         self.select_year(self.year_2026)
         response = self.client.get(reverse("institute_admin:student_dashboard", args=[self.student.pk]))
@@ -3048,6 +3086,183 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertTrue(response.context["is_school_institute"])
         self.assertContains(response, "Generate TC")
         self.assertContains(response, "Generate Bonafide")
+
+    def test_reports_dashboard_links_student_admission_report(self):
+        response = self.client.get(reverse("institute_admin:reports_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("institute_admin:student_admission_report"))
+
+    def test_student_admission_report_uses_filters_and_selected_session_data(self):
+        self.select_year(self.year_2027)
+
+        response = self.client.get(
+            reverse("institute_admin:student_admission_report"),
+            {
+                "start_date": "2027-04-01",
+                "end_date": "2027-04-30",
+                "academic_year": self.year_2027.pk,
+                "course": self.course_2027.pk,
+                "batch": self.batch_2027.pk,
+                "status": StudentAcademicSession.Status.ACTIVE,
+                "search": "student-one",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["admission_count"], 1)
+        self.assertContains(response, "SMIS-2027-28-0001")
+        self.assertContains(response, "12th Batch")
+        self.assertNotContains(response, "SMIS-2026-27-0001")
+
+    def test_student_admission_report_exports_filtered_csv_and_excel(self):
+        self.select_year(self.year_2026)
+
+        csv_response = self.client.get(
+            reverse("institute_admin:student_admission_report"),
+            {"academic_year": self.year_2026.pk, "export": "csv"},
+        )
+        self.assertEqual(csv_response.status_code, 200)
+        self.assertEqual(csv_response["Content-Type"], "text/csv; charset=utf-8")
+        csv_content = csv_response.content.decode("utf-8")
+        self.assertIn("Student Admission Report", csv_content)
+        self.assertIn("SMIS-2026-27-0001", csv_content)
+        self.assertNotIn("SMIS-2027-28-0001", csv_content)
+
+        excel_response = self.client.get(
+            reverse("institute_admin:student_admission_report"),
+            {"academic_year": self.year_2026.pk, "export": "excel"},
+        )
+        self.assertEqual(excel_response.status_code, 200)
+        workbook = load_workbook(BytesIO(excel_response.content), data_only=True)
+        sheet = workbook.active
+        values = [cell.value for row in sheet.iter_rows() for cell in row if cell.value]
+        self.assertIn("Student Admission Report", values)
+        self.assertIn("SMIS-2026-27-0001", values)
+        self.assertNotIn("SMIS-2027-28-0001", values)
+
+    def mark_student_left_for_report(self):
+        self.student.student_status = StudentProfile.StudentStatus.LEFT_SCHOOL
+        self.student.reason_for_leaving = "Shifted to another city"
+        self.student.date_of_leaving_school = date(2026, 6, 15)
+        self.student.is_active = False
+        self.student.save(
+            update_fields=[
+                "student_status",
+                "reason_for_leaving",
+                "date_of_leaving_school",
+                "is_active",
+            ]
+        )
+        self.session_2026.status = StudentAcademicSession.Status.LEFT
+        self.session_2026.save(update_fields=["status"])
+
+    def test_reports_dashboard_links_inactive_students_report(self):
+        response = self.client.get(reverse("institute_admin:reports_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("institute_admin:inactive_students_report"))
+
+    def test_inactive_students_report_filters_and_shows_pending_balance(self):
+        self.mark_student_left_for_report()
+        self.select_year(self.year_2026)
+
+        response = self.client.get(
+            reverse("institute_admin:inactive_students_report"),
+            {
+                "start_date": "2026-06-01",
+                "end_date": "2026-06-30",
+                "academic_year": self.year_2026.pk,
+                "course": self.course.pk,
+                "batch": self.batch_2026.pk,
+                "status": "left_school",
+                "balance": "overdue",
+                "search": "Shifted",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["inactive_count"], 1)
+        self.assertEqual(response.context["total_pending"], Decimal("750.00"))
+        self.assertEqual(response.context["overdue_count"], 1)
+        self.assertContains(response, "SMIS-2026-27-0001")
+        self.assertContains(response, "Shifted to another city")
+        self.assertNotContains(response, "SMIS-2027-28-0001")
+
+    def test_inactive_students_report_exports_filtered_csv_and_excel(self):
+        self.mark_student_left_for_report()
+        self.select_year(self.year_2026)
+
+        csv_response = self.client.get(
+            reverse("institute_admin:inactive_students_report"),
+            {"academic_year": self.year_2026.pk, "status": "left_school", "export": "csv"},
+        )
+        self.assertEqual(csv_response.status_code, 200)
+        self.assertEqual(csv_response["Content-Type"], "text/csv; charset=utf-8")
+        csv_content = csv_response.content.decode("utf-8")
+        self.assertIn("Inactive / Left Students Report", csv_content)
+        self.assertIn("SMIS-2026-27-0001", csv_content)
+        self.assertIn("750.00", csv_content)
+
+        excel_response = self.client.get(
+            reverse("institute_admin:inactive_students_report"),
+            {"academic_year": self.year_2026.pk, "status": "left_school", "export": "excel"},
+        )
+        self.assertEqual(excel_response.status_code, 200)
+        workbook = load_workbook(BytesIO(excel_response.content), data_only=True)
+        sheet = workbook.active
+        values = [cell.value for row in sheet.iter_rows() for cell in row if cell.value is not None]
+        self.assertIn("Inactive / Left Students Report", values)
+        self.assertIn("SMIS-2026-27-0001", values)
+        self.assertIn(750, values)
+
+    def test_bonafide_snapshot_uses_selected_session_batch_when_profile_class_is_blank(self):
+        self.institute.institute_type = Institute.InstituteType.SCHOOL
+        self.institute.save(update_fields=["institute_type"])
+        self.student.current_class = ""
+        self.student.save(update_fields=["current_class"])
+        self.select_year(self.year_2027)
+
+        response = self.client.post(
+            reverse("institute_admin:student_bonafide_generate", args=[self.student.pk]),
+            {
+                "certificate_number": "BON-2027-0001",
+                "issue_date": "2027-06-01",
+                "purpose": "Scholarship application",
+                "remarks": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        bonafide = StudentBonafideCertificate.objects.get(certificate_number="BON-2027-0001")
+        self.assertEqual(bonafide.academic_session, self.session_2027)
+        self.assertEqual(bonafide.student_snapshot["current_class"], "12th Batch")
+        self.assertEqual(bonafide.student_snapshot["batch_name"], "12th Batch")
+        self.assertEqual(bonafide.student_snapshot["batches"], "12th Batch")
+
+    def test_bonafide_print_supports_old_snapshot_without_batch_keys(self):
+        self.institute.institute_type = Institute.InstituteType.SCHOOL
+        self.institute.save(update_fields=["institute_type"])
+        bonafide = StudentBonafideCertificate.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_session=self.session_2027,
+            certificate_number="BON-OLD-0001",
+            issue_date=date(2027, 6, 1),
+            purpose="Scholarship application",
+            student_snapshot={
+                "academic_year": "2027-28",
+                "student_name": "Student One",
+                "current_class": "12th",
+                "division": "",
+            },
+            generated_by=self.admin_user,
+        )
+
+        response = self.client.get(reverse("institute_admin:student_bonafide_print", args=[bonafide.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "12th Batch")
 
     def test_student_school_only_routes_reject_coaching_classes(self):
         self.select_year(self.year_2026)

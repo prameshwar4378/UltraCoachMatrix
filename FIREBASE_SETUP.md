@@ -67,7 +67,7 @@ matching Firebase Android config:
 2. Add/open the Android app with package name:
 
    ```text
-   ultracoachmatrix.pythonanywhere.com
+   ultracoachmatrix.in
    ```
 
 3. Download the Android `google-services.json`.
@@ -98,31 +98,27 @@ otherwise exposed:
 Removing the local JSON file does not revoke the key. Revocation must happen in
 Google Cloud.
 
-## PythonAnywhere
+## Production Linux / VPS
 
 Uploading the JSON file is not enough. The web application must receive its
-absolute path when the WSGI process starts.
+absolute path when the Django process starts.
 
 1. Store the replacement credential outside the repository, for example:
 
    ```text
-   /home/<pythonanywhere-username>/.secrets/firebase-service-account.json
+   /home/ultracoachmatrix/.secrets/firebase-service-account.json
    ```
 
-2. In the PythonAnywhere Web tab, open the WSGI configuration file and add this
-   before the Django application is imported:
+2. Add these values to the production `.env`, systemd service, or process
+   manager environment:
 
-   ```python
-   import os
-
-   os.environ["FIREBASE_CREDENTIALS_FILE"] = (
-       "/home/<pythonanywhere-username>/.secrets/firebase-service-account.json"
-   )
-   os.environ["BACKGROUND_JOB_SYNC_FEE_FALLBACK"] = "true"
-   os.environ["BACKGROUND_JOB_SYNC_NOTICE_FALLBACK"] = "true"
+   ```env
+   FIREBASE_CREDENTIALS_FILE=/home/ultracoachmatrix/.secrets/firebase-service-account.json
+   BACKGROUND_JOB_SYNC_FEE_FALLBACK=true
+   BACKGROUND_JOB_SYNC_NOTICE_FALLBACK=true
    ```
 
-3. Reload the web application from the Web tab.
+3. Restart the Django/Gunicorn service.
 4. Open a Bash console in the deployed project directory and verify:
 
    ```bash

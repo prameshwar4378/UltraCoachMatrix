@@ -973,14 +973,14 @@
         <div class="student-hero">
             <div class="student-avatar">
                 {% if student.profile_image %}
-                    <img src="{{ student.profile_image.url }}" alt="{{ student.user.get_full_name|default:student.user.username }}">
+                    <img src="{{ student.profile_image.url }}" alt="{{ student_full_name }}">
                 {% else %}
                     {{ student.user.first_name|default:student.user.username|slice:":1" }}
                 {% endif %}
             </div>
             <div class="student-identity">
                 <div class="student-title-row">
-                    <h2 class="student-title">{{ student.user.get_full_name|default:student.user.username }}</h2>
+                    <h2 class="student-title">{{ student_full_name }}</h2>
                     <button type="button" class="dashboard-info-btn" data-feature-info="dashboard_overview" aria-label="Student dashboard overview information" title="About Student Dashboard">
                         <i class="bi bi-info-lg"></i>
                     </button>
@@ -1072,7 +1072,7 @@
                     <a href="javascript:void(0);" data-url="{% url 'institute_admin:student_update' student.pk %}?section=basic" class="btn btn-sm btn-light border" onclick="openStudentDashboardWindow(this, 980, 760)"><i class="bi bi-pencil-square"></i> Update</a>
                 </div>
                 <div class="content-panel-body">
-                    <div class="info-row"><span class="info-label">Full Name</span><span class="info-value">{{ student.user.get_full_name|default:"-" }}</span></div>
+                    <div class="info-row"><span class="info-label">Full Name</span><span class="info-value">{{ student_full_name|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">First Name</span><span class="info-value">{{ student.user.first_name|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Middle Name</span><span class="info-value">{{ student.middle_name|default:"-" }}</span></div>
                     <div class="info-row"><span class="info-label">Surname</span><span class="info-value">{{ student.user.last_name|default:"-" }}</span></div>

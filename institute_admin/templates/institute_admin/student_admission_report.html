@@ -1,0 +1,708 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Student Admission Report{% endblock title %}
+
+{% block content %}
+<style>
+    .sar-page {
+        --ink: #0f172a;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --panel: #ffffff;
+        --soft: #f8fafc;
+        --cyan: #0891b2;
+        --blue: #2563eb;
+        --green: #16a34a;
+        --amber: #d97706;
+        padding: 24px;
+        background: linear-gradient(180deg, #f8fafc 0%, #eef9ff 100%);
+        min-height: calc(100vh - 120px);
+    }
+
+    .sar-shell {
+        max-width: 1480px;
+        margin: 0 auto;
+    }
+
+    .sar-header,
+    .sar-filter,
+    .sar-card,
+    .sar-panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.07);
+    }
+
+    .sar-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        align-items: center;
+        padding: 22px;
+        margin-bottom: 16px;
+    }
+
+    .sar-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--blue);
+        font-weight: 900;
+        text-decoration: none;
+        margin-bottom: 8px;
+    }
+
+    .sar-title {
+        margin: 0;
+        color: var(--ink);
+        font-size: clamp(1.55rem, 2.4vw, 2.25rem);
+        font-weight: 900;
+        letter-spacing: 0;
+    }
+
+    .sar-subtitle {
+        margin: 7px 0 0;
+        color: var(--muted);
+        font-weight: 600;
+        line-height: 1.55;
+    }
+
+    .sar-export-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px;
+        justify-content: flex-end;
+    }
+
+    .sar-export {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 7px;
+        padding: 11px 14px;
+        background: var(--cyan);
+        color: #fff;
+        text-decoration: none;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .sar-export.excel {
+        background: var(--green);
+    }
+
+    .sar-filter {
+        padding: 18px;
+        margin-bottom: 16px;
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+        align-items: end;
+    }
+
+    .filter-field label {
+        display: block;
+        margin-bottom: 6px;
+        color: #334155;
+        font-size: .78rem;
+        font-weight: 900;
+    }
+
+    .filter-field input,
+    .filter-field select {
+        width: 100%;
+        height: 42px;
+        border: 1px solid #cbd5e1;
+        border-radius: 7px;
+        padding: 0 10px;
+        color: var(--ink);
+        background: #fff;
+        font-weight: 700;
+    }
+
+    .filter-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 13px;
+    }
+
+    .filter-button,
+    .filter-reset {
+        height: 42px;
+        border-radius: 7px;
+        padding: 0 13px;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .filter-button {
+        border: 0;
+        background: var(--ink);
+        color: #fff;
+    }
+
+    .filter-reset {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--line);
+        color: #334155;
+        background: #fff;
+        text-decoration: none;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 16px;
+    }
+
+    .sar-card {
+        padding: 18px;
+        display: grid;
+        grid-template-columns: 48px minmax(0, 1fr);
+        gap: 13px;
+        align-items: center;
+    }
+
+    .card-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 1.25rem;
+        background: var(--cyan);
+    }
+
+    .active .card-icon { background: var(--green); }
+    .classes .card-icon { background: var(--blue); }
+    .batches .card-icon { background: var(--amber); }
+
+    .card-value {
+        color: var(--ink);
+        font-size: clamp(1.25rem, 2vw, 1.8rem);
+        font-weight: 900;
+        line-height: 1.1;
+    }
+
+    .card-label {
+        color: var(--muted);
+        font-size: .82rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        margin-top: 5px;
+    }
+
+    .sar-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .sar-panel {
+        overflow: hidden;
+    }
+
+    .panel-head {
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        background: var(--soft);
+    }
+
+    .panel-head h2 {
+        margin: 0;
+        color: var(--ink);
+        font-size: 1rem;
+        font-weight: 900;
+    }
+
+    .panel-head span {
+        color: var(--muted);
+        font-size: .82rem;
+        font-weight: 800;
+    }
+
+    .chart-list {
+        display: grid;
+        gap: 11px;
+        padding: 15px;
+        max-height: 360px;
+        overflow: auto;
+    }
+
+    .chart-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 64px;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .chart-label {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 5px;
+        color: var(--ink);
+        font-size: .86rem;
+        font-weight: 900;
+    }
+
+    .chart-label span {
+        overflow-wrap: anywhere;
+    }
+
+    .bar-track {
+        height: 10px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        overflow: hidden;
+    }
+
+    .bar-fill {
+        height: 100%;
+        min-width: 4px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--cyan), #38bdf8);
+    }
+
+    .chart-count {
+        color: var(--ink);
+        font-weight: 900;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+    }
+
+    .sar-table {
+        width: 100%;
+        margin: 0;
+        border-collapse: collapse;
+    }
+
+    .sar-table th {
+        padding: 12px 14px;
+        color: #334155;
+        background: var(--soft);
+        border-bottom: 1px solid var(--line);
+        font-size: .75rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .sar-table td {
+        padding: 13px 14px;
+        color: #1e293b;
+        border-bottom: 1px solid #f1f5f9;
+        font-weight: 650;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    .student-name {
+        color: var(--ink);
+        font-weight: 900;
+    }
+
+    .muted-line {
+        color: var(--muted);
+        font-size: .78rem;
+        font-weight: 700;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: #ecfeff;
+        color: #0e7490;
+        border: 1px solid #a5f3fc;
+        font-size: .76rem;
+        font-weight: 900;
+    }
+
+    .empty-line {
+        padding: 24px;
+        color: var(--muted);
+        font-weight: 700;
+        text-align: center;
+    }
+
+    .pager {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        padding: 14px 16px;
+        border-top: 1px solid var(--line);
+        background: var(--soft);
+    }
+
+    .pager-links {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .pager a,
+    .pager span {
+        display: inline-flex;
+        align-items: center;
+        height: 36px;
+        border-radius: 7px;
+        padding: 0 11px;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: #334155;
+        text-decoration: none;
+        font-weight: 900;
+    }
+
+    .pager span {
+        background: var(--ink);
+        border-color: var(--ink);
+        color: #fff;
+    }
+
+    @media (max-width: 1199px) {
+        .filter-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .summary-grid,
+        .sar-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .sar-page { padding: 14px; }
+        .sar-header,
+        .filter-grid,
+        .summary-grid,
+        .sar-grid,
+        .pager {
+            grid-template-columns: 1fr;
+            display: grid;
+        }
+        .sar-header,
+        .pager {
+            align-items: start;
+        }
+        .sar-export-row,
+        .pager-links {
+            justify-content: start;
+        }
+    }
+</style>
+
+<main id="main" class="main sar-page">
+    <div class="sar-shell">
+        <section class="sar-header">
+            <div>
+                <a class="sar-back" href="{% url 'institute_admin:reports_dashboard' %}">
+                    <i class="bi bi-arrow-left"></i> Reports
+                </a>
+                <h1 class="sar-title">Student Admission Report</h1>
+                <p class="sar-subtitle">
+                    Track new admissions by date, academic session, class, batch, status and student profile data.
+                </p>
+            </div>
+            <div class="sar-export-row">
+                <a class="sar-export" href="?{{ csv_export_query }}">
+                    <i class="bi bi-filetype-csv"></i> Export CSV
+                </a>
+                <a class="sar-export excel" href="?{{ excel_export_query }}">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> Export Excel
+                </a>
+            </div>
+        </section>
+
+        <form class="sar-filter" method="get">
+            <div class="filter-grid">
+                <div class="filter-field">
+                    <label for="id_start_date">Start Date</label>
+                    <input id="id_start_date" type="date" name="start_date" value="{{ filters.start_date_value }}">
+                </div>
+                <div class="filter-field">
+                    <label for="id_end_date">End Date</label>
+                    <input id="id_end_date" type="date" name="end_date" value="{{ filters.end_date_value }}">
+                </div>
+                <div class="filter-field">
+                    <label for="id_academic_year">Session</label>
+                    <select id="id_academic_year" name="academic_year">
+                        <option value="all" {% if filters.academic_year_id == "all" %}selected{% endif %}>All sessions</option>
+                        {% for year in academic_years %}
+                        <option value="{{ year.pk }}" {% if filters.academic_year_id == year.pk|stringformat:"s" %}selected{% endif %}>{{ year.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_course">Class</label>
+                    <select id="id_course" name="course">
+                        <option value="">All classes</option>
+                        {% for course in courses %}
+                        <option value="{{ course.pk }}" {% if filters.course_id == course.pk|stringformat:"s" %}selected{% endif %}>{{ course.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_batch">Batch</label>
+                    <select id="id_batch" name="batch">
+                        <option value="">All batches</option>
+                        {% for batch in batches %}
+                        <option value="{{ batch.pk }}" {% if filters.batch_id == batch.pk|stringformat:"s" %}selected{% endif %}>{{ batch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_status">Admission Status</label>
+                    <select id="id_status" name="status">
+                        <option value="">All statuses</option>
+                        {% for value, label in session_status_choices %}
+                        <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_student_status">Student Status</label>
+                    <select id="id_student_status" name="student_status">
+                        <option value="">All student statuses</option>
+                        {% for value, label in student_status_choices %}
+                        <option value="{{ value }}" {% if filters.student_status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_gender">Gender</label>
+                    <select id="id_gender" name="gender">
+                        <option value="">All genders</option>
+                        {% for value, label in gender_choices %}
+                        <option value="{{ value }}" {% if filters.gender == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_search">Search</label>
+                    <input id="id_search" type="search" name="search" value="{{ filters.search }}" placeholder="Name, admission no, phone">
+                </div>
+                <div class="filter-field">
+                    <label for="id_page_size">Rows</label>
+                    <select id="id_page_size" name="page_size">
+                        {% for size in page_size_options %}
+                        <option value="{{ size }}" {% if filters.page_size == size %}selected{% endif %}>{{ size }} per page</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="filter-actions">
+                <button class="filter-button" type="submit"><i class="bi bi-funnel"></i> Apply Filter</button>
+                <a class="filter-reset" href="{% url 'institute_admin:student_admission_report' %}">Reset</a>
+            </div>
+        </form>
+
+        <section class="summary-grid">
+            <div class="sar-card">
+                <div class="card-icon"><i class="bi bi-person-plus"></i></div>
+                <div>
+                    <div class="card-value">{{ admission_count }}</div>
+                    <div class="card-label">Admissions</div>
+                </div>
+            </div>
+            <div class="sar-card active">
+                <div class="card-icon"><i class="bi bi-check2-circle"></i></div>
+                <div>
+                    <div class="card-value">{{ active_count }}</div>
+                    <div class="card-label">Active Sessions</div>
+                </div>
+            </div>
+            <div class="sar-card classes">
+                <div class="card-icon"><i class="bi bi-journals"></i></div>
+                <div>
+                    <div class="card-value">{{ class_groups|length }}</div>
+                    <div class="card-label">Classes</div>
+                </div>
+            </div>
+            <div class="sar-card batches">
+                <div class="card-icon"><i class="bi bi-layers"></i></div>
+                <div>
+                    <div class="card-value">{{ batch_groups|length }}</div>
+                    <div class="card-label">Batches</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="sar-grid">
+            <div class="sar-panel">
+                <div class="panel-head">
+                    <h2>Month Wise Admissions</h2>
+                    <span>{{ month_groups|length }} period{{ month_groups|length|pluralize }}</span>
+                </div>
+                <div class="chart-list">
+                    {% for row in month_groups %}
+                    <div class="chart-row">
+                        <div>
+                            <div class="chart-label"><span>{{ row.label }}</span></div>
+                            <div class="bar-track"><div class="bar-fill" style="width: {{ row.percent }}%;"></div></div>
+                        </div>
+                        <div class="chart-count">{{ row.count }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-line">No month-wise admission data found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="sar-panel">
+                <div class="panel-head">
+                    <h2>Class Wise Admissions</h2>
+                    <span>{{ class_groups|length }} class{{ class_groups|length|pluralize:"es" }}</span>
+                </div>
+                <div class="chart-list">
+                    {% for row in class_groups %}
+                    <div class="chart-row">
+                        <div>
+                            <div class="chart-label"><span>{{ row.label }}</span></div>
+                            <div class="bar-track"><div class="bar-fill" style="width: {{ row.percent }}%;"></div></div>
+                        </div>
+                        <div class="chart-count">{{ row.count }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-line">No class-wise admission data found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="sar-panel">
+                <div class="panel-head">
+                    <h2>Batch Wise Admissions</h2>
+                    <span>{{ batch_groups|length }} batch{{ batch_groups|length|pluralize:"es" }}</span>
+                </div>
+                <div class="chart-list">
+                    {% for row in batch_groups %}
+                    <div class="chart-row">
+                        <div>
+                            <div class="chart-label"><span>{{ row.label }}</span></div>
+                            <div class="bar-track"><div class="bar-fill" style="width: {{ row.percent }}%;"></div></div>
+                        </div>
+                        <div class="chart-count">{{ row.count }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-line">No batch-wise admission data found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="sar-panel">
+                <div class="panel-head">
+                    <h2>Status and Gender</h2>
+                    <span>Admission profile split</span>
+                </div>
+                <div class="chart-list">
+                    {% for row in status_groups %}
+                    <div class="chart-row">
+                        <div>
+                            <div class="chart-label"><span>{{ row.label }}</span></div>
+                            <div class="bar-track"><div class="bar-fill" style="width: {{ row.percent }}%;"></div></div>
+                        </div>
+                        <div class="chart-count">{{ row.count }}</div>
+                    </div>
+                    {% endfor %}
+                    {% for row in gender_groups %}
+                    <div class="chart-row">
+                        <div>
+                            <div class="chart-label"><span>{{ row.label }}</span></div>
+                            <div class="bar-track"><div class="bar-fill" style="width: {{ row.percent }}%;"></div></div>
+                        </div>
+                        <div class="chart-count">{{ row.count }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-line">No status or gender data found.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <section class="sar-panel">
+            <div class="panel-head">
+                <h2>Admission Details</h2>
+                <span>{{ admission_count }} matching admission{{ admission_count|pluralize }}</span>
+            </div>
+            <div class="table-wrap">
+                <table class="sar-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Admission No.</th>
+                            <th>Student</th>
+                            <th>Class</th>
+                            <th>Batch</th>
+                            <th>Session</th>
+                            <th>Status</th>
+                            <th>Student Status</th>
+                            <th>Gender</th>
+                            <th>Phone</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in page_obj.object_list %}
+                        <tr>
+                            <td>{{ row.joined_on|date:"d M Y"|default:"-" }}</td>
+                            <td>
+                                <a href="{% url 'institute_admin:student_dashboard' row.student.pk %}" class="fw-bold text-decoration-none">
+                                    {{ row.session.admission_number }}
+                                </a>
+                            </td>
+                            <td>
+                                <div class="student-name">{{ row.student.user.get_full_name|default:row.student.user.username }}</div>
+                                <div class="muted-line">@{{ row.student.user.username }}</div>
+                            </td>
+                            <td>{{ row.class_label }}</td>
+                            <td>{{ row.batch_label }}</td>
+                            <td>{{ row.session.academic_year.name }}</td>
+                            <td><span class="status-pill">{{ row.status_label }}</span></td>
+                            <td>{{ row.student_status_label }}</td>
+                            <td>{{ row.gender_label }}</td>
+                            <td>{{ row.phone|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="10" class="empty-line">No admissions match the selected filters.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if page_obj.paginator.num_pages > 1 %}
+            <div class="pager">
+                <div class="muted-line">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </div>
+                <div class="pager-links">
+                    {% if page_obj.has_previous %}
+                    <a href="?{{ page_query }}&page={{ page_obj.previous_page_number }}">Previous</a>
+                    {% endif %}
+                    <span>{{ page_obj.number }}</span>
+                    {% if page_obj.has_next %}
+                    <a href="?{{ page_query }}&page={{ page_obj.next_page_number }}">Next</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </section>
+    </div>
+</main>
+{% endblock content %}
