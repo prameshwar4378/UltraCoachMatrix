@@ -2058,31 +2058,121 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'id="studentListSearchInput"')
         self.assertContains(response, f'data-autocomplete-url="{autocomplete_url}"')
+        self.assertContains(response, f'data-academic-year="{self.year_2026.pk}"')
         self.assertContains(response, f'data-dashboard-url-template="{dashboard_url_template}"')
         self.assertContains(response, 'id="studentListSearchSuggestions"')
 
     def test_student_list_search_matches_full_student_name(self):
-        self.student_user.first_name = "Nisha"
-        self.student_user.last_name = "Iyer"
+        self.student_user.first_name = "Rameshwar"
+        self.student_user.last_name = "Pawar"
         self.student_user.save(update_fields=["first_name", "last_name"])
+        StudentProfile.objects.filter(pk=self.student.pk).update(middle_name="Ambadas")
 
         self.select_year(self.year_2026)
-        response = self.client.get(reverse("institute_admin:student_list"), {"search": "Nisha Iyer"})
+        response = self.client.get(reverse("institute_admin:student_list"), {"search": "rameshwar ambadas pawar"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Nisha Iyer")
+        self.assertEqual([session.pk for session in response.context["students"]], [self.session_2026.pk])
         self.assertContains(response, "SMIS-2026-27-0001")
 
+    def test_student_list_autocomplete_searches_beyond_current_page_in_active_session(self):
+        self.select_year(self.year_2026)
+        users = [
+            User(username=f"auto-student-{index:04d}", first_name=f"Auto", last_name=f"Student {index}")
+            for index in range(1, 25)
+        ]
+        User.objects.bulk_create(users)
+        users = list(User.objects.filter(username__startswith="auto-student-").order_by("username"))
+        UserProfile.objects.bulk_create(
+            [
+                UserProfile(
+                    user=user,
+                    institute=self.institute,
+                    role=UserProfile.Role.STUDENT_PARENT,
+                )
+                for user in users
+            ]
+        )
+        students = [
+            StudentProfile(
+                institute=self.institute,
+                user=user,
+                academic_year=None,
+                admission_number=f"LEGACY-AUTO-{index:04d}",
+                is_active=True,
+            )
+            for index, user in enumerate(users, start=1)
+        ]
+        StudentProfile.objects.bulk_create(students)
+        students = list(StudentProfile.objects.filter(admission_number__startswith="LEGACY-AUTO-").order_by("admission_number"))
+        StudentAcademicSession.objects.bulk_create(
+            [
+                StudentAcademicSession(
+                    institute=self.institute,
+                    student=student,
+                    academic_year=self.year_2026,
+                    admission_number=f"AUTO-2026-{index:04d}",
+                    status=StudentAcademicSession.Status.ACTIVE,
+                )
+                for index, student in enumerate(students, start=1)
+            ]
+        )
+        StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=students[-1],
+            academic_year=self.year_2027,
+            admission_number="AUTO-2027-0024",
+            status=StudentAcademicSession.Status.ACTIVE,
+        )
+
+        list_response = self.client.get(reverse("institute_admin:student_list"))
+        autocomplete_response = self.client.get(
+            reverse("institute_admin:student_autocomplete"),
+            {"q": "AUTO-2026-0024", "academic_year": self.year_2026.pk},
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertNotContains(list_response, "AUTO-2026-0024")
+        self.assertEqual(autocomplete_response.status_code, 200)
+        result_texts = [result["text"] for result in autocomplete_response.json()["results"]]
+        self.assertIn("AUTO-2026-0024 - Auto Student 24", result_texts)
+        self.assertNotIn("AUTO-2027-0024 - Auto Student 24", result_texts)
+
     def test_enrollment_list_search_matches_full_student_name(self):
-        self.student_user.first_name = "Nisha"
-        self.student_user.last_name = "Iyer"
+        self.student_user.first_name = "Rameshwar"
+        self.student_user.last_name = "Pawar"
         self.student_user.save(update_fields=["first_name", "last_name"])
+        StudentProfile.objects.filter(pk=self.student.pk).update(middle_name="Ambadas")
 
         self.select_year(self.year_2026)
-        response = self.client.get(reverse("institute_admin:enrollment_list"), {"search": "Nisha Iyer"})
+        response = self.client.get(reverse("institute_admin:enrollment_list"), {"search": "rameshwar ambadas pawar"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Nisha Iyer")
+        self.assertEqual(list(response.context["enrollments"]), [self.enrollment_2026])
+        self.assertContains(response, "11th Batch")
+        self.assertContains(response, 'id="enrollmentStudentSearchInput"')
+        self.assertContains(response, f'data-autocomplete-url="{reverse("institute_admin:student_autocomplete")}"')
+        self.assertContains(response, 'id="enrollmentStudentSearchSuggestions"')
+
+    def test_enrollment_list_search_matches_student_contact_fields(self):
+        self.select_year(self.year_2026)
+
+        response = self.client.get(reverse("institute_admin:enrollment_list"), {"search": "9111111111"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Student One")
+        self.assertContains(response, "11th Batch")
+
+    def test_enrollment_list_search_matches_autocomplete_label(self):
+        self.select_year(self.year_2026)
+
+        response = self.client.get(
+            reverse("institute_admin:enrollment_list"),
+            {"search": f"{self.session_2026.admission_number} - Student One"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Student One")
         self.assertContains(response, "11th Batch")
 
     def test_student_list_calculates_fee_details_for_current_page_only(self):
@@ -2554,7 +2644,16 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertEqual(response.context["collection_total"], Decimal("250.00"))
         self.assertEqual(response.context["expense_total"], Decimal("75.00"))
         self.assertEqual(response.context["net_profit"], Decimal("175.00"))
-        self.assertContains(response, "Profit & Loss Report")
+        self.assertEqual(response.context["profit_margin"], Decimal("70.0"))
+        self.assertEqual(response.context["expense_ratio"], Decimal("30.0"))
+        self.assertEqual(response.context["monthly_finance_rows"][0]["label"], "May 2026")
+        self.assertEqual(response.context["expense_summary_rows"][0]["label"], "Rent")
+        self.assertContains(response, "Finance Report Dashboard")
+        self.assertContains(response, "Monthly Collection vs Expense Summary")
+        self.assertContains(response, "Income vs Expense by Month")
+        self.assertContains(response, "Payment Mode Share")
+        self.assertContains(response, "Net Profit Movement")
+        self.assertContains(response, "Expense Concentration")
         self.assertContains(response, "Rent")
 
         export_response = self.client.get(
@@ -2564,17 +2663,64 @@ class AcademicSessionIsolationTests(TestCase):
                 "end_date": "2026-05-31",
                 "course": str(self.course.pk),
                 "batch": str(self.batch_2026.pk),
-                "export": "csv",
+                "export": "excel",
             },
         )
 
         self.assertEqual(export_response.status_code, 200)
-        self.assertEqual(export_response["Content-Type"], "text/csv")
-        export_text = export_response.content.decode()
-        self.assertIn("Total Collection,250.00", export_text)
-        self.assertIn("Total Expenses,75.00", export_text)
-        self.assertIn("Net Profit/Loss,175.00", export_text)
-        self.assertIn("Rent", export_text)
+        self.assertEqual(
+            export_response["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        workbook = load_workbook(BytesIO(export_response.content), data_only=True)
+        self.assertEqual(
+            workbook.sheetnames,
+            ["Summary", "Monthly Trend", "Payment Modes", "Expense Summary", "Collections", "Expenses"],
+        )
+        summary_values = [cell.value for row in workbook["Summary"].iter_rows() for cell in row if cell.value is not None]
+        self.assertIn("Finance Report Dashboard", summary_values)
+        self.assertIn("Total Collection", summary_values)
+        self.assertIn(250, summary_values)
+        self.assertIn("Net Profit/Loss", summary_values)
+        self.assertIn(175, summary_values)
+        self.assertIn("Rent", [cell.value for row in workbook["Expense Summary"].iter_rows() for cell in row if cell.value is not None])
+
+    def test_finance_report_excel_exports_all_matching_rows(self):
+        self.select_year(self.year_2026)
+        for index in range(30):
+            Payment.objects.create(
+                invoice=self.invoice_2026,
+                amount=Decimal("10.00"),
+                paid_on=date(2026, 5, 10),
+                method=Payment.Method.CASH,
+                receipt_number=f"RCP-BULK-{index:03d}",
+                received_by=self.admin_user,
+            )
+        for index in range(30):
+            Expense.objects.create(
+                institute=self.institute,
+                title=f"Bulk Expense {index:03d}",
+                amount=Decimal("1.00"),
+                spent_on=date(2026, 5, 10),
+                recorded_by=self.admin_user,
+            )
+
+        export_response = self.client.get(
+            reverse("institute_admin:profit_loss_report"),
+            {
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-31",
+                "export": "excel",
+            },
+        )
+
+        workbook = load_workbook(BytesIO(export_response.content), data_only=True)
+        collection_values = [cell.value for row in workbook["Collections"].iter_rows() for cell in row if cell.value is not None]
+        expense_values = [cell.value for row in workbook["Expenses"].iter_rows() for cell in row if cell.value is not None]
+        self.assertIn("RCP-BULK-000", collection_values)
+        self.assertIn("RCP-BULK-029", collection_values)
+        self.assertIn("Bulk Expense 000", expense_values)
+        self.assertIn("Bulk Expense 029", expense_values)
 
     def test_profit_loss_report_uses_selected_academic_session_for_payments(self):
         self.select_year(self.year_2026)
@@ -2604,14 +2750,42 @@ class AcademicSessionIsolationTests(TestCase):
             {
                 "start_date": "2026-05-01",
                 "end_date": "2026-05-31",
-                "export": "csv",
+                "export": "excel",
             },
         )
-        export_text = export_response.content.decode()
-        self.assertIn("Total Collection,250.00", export_text)
-        self.assertNotIn("RCP-SESSION-LEAK", export_text)
+        workbook = load_workbook(BytesIO(export_response.content), data_only=True)
+        workbook_values = [cell.value for sheet in workbook.worksheets for row in sheet.iter_rows() for cell in row if cell.value is not None]
+        self.assertIn("Total Collection", workbook_values)
+        self.assertIn(250, workbook_values)
+        self.assertNotIn("RCP-SESSION-LEAK", workbook_values)
 
-    def test_fee_collection_report_filters_groups_and_exports_payments(self):
+    def test_finance_report_academic_session_sets_date_range(self):
+        self.select_year(self.year_2026)
+
+        response = self.client.get(
+            reverse("institute_admin:profit_loss_report"),
+            {"academic_year": str(self.year_2027.pk)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["filters"]["academic_year"], self.year_2027)
+        self.assertEqual(response.context["filters"]["start_date"], self.year_2027.start_date)
+        self.assertEqual(response.context["filters"]["end_date"], self.year_2027.end_date)
+        self.assertEqual(response.context["collection_total"], Decimal("500.00"))
+        self.assertContains(response, "Academic Session")
+        self.assertContains(response, 'data-start="2027-04-01"')
+        self.assertContains(response, 'data-end="2028-03-31"')
+        self.assertNotContains(response, "Year</label>")
+
+        export_response = self.client.get(
+            reverse("institute_admin:profit_loss_report"),
+            {"academic_year": str(self.year_2027.pk), "export": "excel"},
+        )
+        workbook = load_workbook(BytesIO(export_response.content), data_only=True)
+        summary_values = [cell.value for row in workbook["Summary"].iter_rows() for cell in row if cell.value is not None]
+        self.assertIn("Session: 2027-28 | From: 2027-04-01 | To: 2028-03-31 | Class: All | Batch: All", summary_values)
+
+    def test_fee_collection_report_filters_summary_and_exports_excel(self):
         self.select_year(self.year_2026)
         matching_payment = Payment.objects.create(
             invoice=self.invoice_2026,
@@ -2629,6 +2803,15 @@ class AcademicSessionIsolationTests(TestCase):
             receipt_number="RCP-OUTSIDE",
             received_by=self.admin_user,
         )
+        voided_payment = Payment.objects.create(
+            invoice=self.invoice_2026,
+            amount=Decimal("33.00"),
+            paid_on=date(2026, 5, 8),
+            method=Payment.Method.CASH,
+            receipt_number="RCP-UPI-VOID",
+            received_by=self.admin_user,
+        )
+        voided_payment.void(self.admin_user, "Duplicate receipt")
 
         response = self.client.get(
             reverse("institute_admin:fee_collection_report"),
@@ -2645,10 +2828,34 @@ class AcademicSessionIsolationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["total_collection"], Decimal("150.00"))
+        self.assertEqual(response.context["total_fee_amount"], Decimal("1000.00"))
+        self.assertEqual(response.context["total_paid_amount"], Decimal("1000.00"))
+        self.assertEqual(response.context["total_pending_amount"], Decimal("0.00"))
         self.assertEqual(response.context["payment_count"], 1)
+        self.assertEqual(len(response.context["receipt_lookup_rows"]), 2)
         self.assertEqual(response.context["method_groups"][0]["label"], "UPI")
-        self.assertEqual(response.context["student_groups"][0]["amount"], Decimal("150.00"))
-        self.assertContains(response, "Fee Collection Report")
+        self.assertEqual(response.context["student_summary_rows"][0]["class_label"], "Science")
+        self.assertEqual(response.context["student_summary_rows"][0]["batch_label"], "11th Batch")
+        self.assertEqual(response.context["class_summary_rows"][0]["class_label"], "Science")
+        self.assertEqual(response.context["class_summary_rows"][0]["batch_label"], "11th Batch")
+        self.assertEqual(response.context["class_summary_rows"][0]["students"], 1)
+        self.assertIn("export=student_detail", response.context["class_summary_rows"][0]["detail_export_query"])
+        self.assertContains(response, "Fees Report Dashboard")
+        self.assertContains(response, "Batch Wise Fee Summary")
+        self.assertContains(response, "Highest Pending Batches")
+        self.assertContains(response, "Download All Batches Report")
+        self.assertContains(response, "Receipt Review")
+        self.assertContains(response, "Received By")
+        self.assertContains(response, "Admin")
+        self.assertContains(response, "Active")
+        self.assertContains(response, "Voided")
+        self.assertContains(response, "Duplicate receipt")
+        self.assertContains(response, "Download Collections Excel")
+        self.assertContains(response, "Download Ledger Excel")
+        self.assertContains(response, "Excel")
+        self.assertContains(response, reverse("institute_admin:student_autocomplete"))
+        self.assertContains(response, "feeStudentSuggestions")
+        self.assertNotContains(response, "fees-pending-tab")
         self.assertContains(response, "RCP-UPI-001")
         self.assertContains(response, reverse("institute_admin:payment_receipt", args=[matching_payment.pk]))
         self.assertNotContains(response, "RCP-OUTSIDE")
@@ -2663,19 +2870,317 @@ class AcademicSessionIsolationTests(TestCase):
                 "method": Payment.Method.UPI,
                 "student": "Student",
                 "receipt_number": "RCP-UPI",
-                "export": "csv",
+                "export": "excel",
             },
         )
 
         self.assertEqual(export_response.status_code, 200)
-        self.assertEqual(export_response["Content-Type"], "text/csv")
-        export_text = export_response.content.decode()
-        self.assertIn("Total Collection,150.00", export_text)
-        self.assertIn("Receipt Number,RCP-UPI", export_text)
-        self.assertIn("RCP-UPI-001", export_text)
-        self.assertIn("Science", export_text)
-        self.assertIn("11th Batch", export_text)
-        self.assertNotIn("RCP-OUTSIDE", export_text)
+        self.assertEqual(
+            export_response["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        workbook = load_workbook(BytesIO(export_response.content), data_only=True)
+        self.assertEqual(
+            workbook.sheetnames,
+            ["Overview", "Class Wise Student Summary", "Collections", "Student Ledger"],
+        )
+        workbook_values = [
+            cell.value
+            for sheet in workbook.worksheets
+            for row in sheet.iter_rows()
+            for cell in row
+            if cell.value is not None
+        ]
+        self.assertIn("Fees Report Dashboard", workbook_values)
+        self.assertIn("Class Wise Student Fee Summary", workbook_values)
+        self.assertIn("RCP-UPI-001", workbook_values)
+        self.assertIn("Science", workbook_values)
+        self.assertIn("11th Batch", workbook_values)
+        self.assertNotIn("RCP-OUTSIDE", workbook_values)
+
+        ledger_response = self.client.get(
+            reverse("institute_admin:fee_collection_report"),
+            {
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-31",
+                "course": str(self.course.pk),
+                "batch": str(self.batch_2026.pk),
+                "method": Payment.Method.UPI,
+                "student": "Student",
+                "receipt_number": "RCP-UPI",
+                "export": "student_ledger",
+            },
+        )
+        self.assertEqual(ledger_response.status_code, 200)
+        self.assertIn("Student-One-SMIS-2026-27-0001-Student-Ledger-", ledger_response["Content-Disposition"])
+        ledger_workbook = load_workbook(BytesIO(ledger_response.content), data_only=True)
+        self.assertEqual(ledger_workbook.sheetnames, ["Student Ledger"])
+        ledger_values = [
+            cell.value
+            for row in ledger_workbook["Student Ledger"].iter_rows()
+            for cell in row
+            if cell.value is not None
+        ]
+        self.assertIn("Student Ledger - Student One", ledger_values)
+        self.assertIn("Student Name", ledger_values)
+        self.assertIn("Student One", ledger_values)
+        self.assertIn("Admission No", ledger_values)
+        self.assertIn("SMIS-2026-27-0001", ledger_values)
+        self.assertIn("Total Fees", ledger_values)
+        self.assertIn("Total Collected", ledger_values)
+        self.assertIn("Total Pending", ledger_values)
+        self.assertIn("Payment Ledger", ledger_values)
+        self.assertIn("RCP-UPI-001", ledger_values)
+
+        collections_response = self.client.get(
+            reverse("institute_admin:fee_collection_report"),
+            {
+                "start_date": "2026-05-01",
+                "end_date": "2026-05-31",
+                "course": str(self.course.pk),
+                "batch": str(self.batch_2026.pk),
+                "method": Payment.Method.UPI,
+                "student": "Student",
+                "receipt_number": "RCP-UPI",
+                "export": "collections",
+            },
+        )
+        self.assertEqual(collections_response.status_code, 200)
+        self.assertIn("Fee-Collections-", collections_response["Content-Disposition"])
+        collections_workbook = load_workbook(BytesIO(collections_response.content), data_only=True)
+        self.assertEqual(collections_workbook.sheetnames, ["Collections"])
+        collections_values = [
+            cell.value
+            for row in collections_workbook["Collections"].iter_rows()
+            for cell in row
+            if cell.value is not None
+        ]
+        self.assertIn("Fee Collection Details", collections_values)
+        self.assertIn("Received By", collections_values)
+        self.assertIn("Invoice Status", collections_values)
+        self.assertIn("Collection Total", collections_values)
+        self.assertIn("RCP-UPI-001", collections_values)
+        self.assertIn(150, collections_values)
+        self.assertNotIn("RCP-UPI-VOID", collections_values)
+
+        detail_response = self.client.get(
+            reverse("institute_admin:fee_collection_report"),
+            {
+                "academic_year": str(self.year_2026.pk),
+                "course": str(self.course.pk),
+                "batch": str(self.batch_2026.pk),
+                "export": "student_detail",
+            },
+        )
+        self.assertIn("11th-Batch-Student-Fees-Details-", detail_response["Content-Disposition"])
+        detail_workbook = load_workbook(BytesIO(detail_response.content), data_only=True)
+        self.assertEqual(detail_workbook.sheetnames, ["Student Fee Detail"])
+        detail_values = [
+            cell.value
+            for row in detail_workbook["Student Fee Detail"].iter_rows()
+            for cell in row
+            if cell.value is not None
+        ]
+        self.assertIn("Student One", detail_values)
+        self.assertIn("SMIS-2026-27-0001", detail_values)
+        self.assertIn("Total Fees", detail_values)
+        self.assertIn("Total Collected", detail_values)
+        self.assertIn("Total Pending", detail_values)
+        self.assertIn("Grand Total", detail_values)
+        self.assertIn(1000, detail_values)
+
+        second_user = User.objects.create_user(
+            username="student-two",
+            password="pass12345",
+            first_name="Student",
+            last_name="Two",
+        )
+        UserProfile.objects.create(
+            user=second_user,
+            institute=self.institute,
+            role=UserProfile.Role.STUDENT_PARENT,
+        )
+        second_student = StudentProfile.objects.create(
+            institute=self.institute,
+            user=second_user,
+            admission_number="LEGACY-0002",
+            is_active=True,
+        )
+        second_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=second_student,
+            academic_year=self.year_2026,
+            admission_number="SMIS-2026-27-0002",
+            joined_on=date(2026, 4, 6),
+            status=StudentAcademicSession.Status.ACTIVE,
+        )
+        second_batch = Batch.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            name="A",
+            is_active=True,
+        )
+        second_batch.courses.add(self.course)
+        second_enrollment = StudentEnrollment.objects.create(
+            academic_session=second_session,
+            student=second_student,
+            batch=second_batch,
+            enrolled_on=date(2026, 4, 6),
+            custom_fee_amount=Decimal("700.00"),
+        )
+        second_enrollment.courses.add(self.course)
+        second_invoice = FeeInvoice.objects.create(
+            institute=self.institute,
+            student=second_student,
+            academic_session=second_session,
+            enrollment=second_enrollment,
+            batch=second_batch,
+            title="A Batch Fee",
+            amount=Decimal("700.00"),
+            due_date=date(2026, 5, 1),
+        )
+        Payment.objects.create(
+            invoice=second_invoice,
+            amount=Decimal("200.00"),
+            paid_on=date(2026, 5, 9),
+            method=Payment.Method.CASH,
+            receipt_number="RCP-A-001",
+            received_by=self.admin_user,
+        )
+
+        all_batches_response = self.client.get(
+            reverse("institute_admin:fee_collection_report"),
+            {
+                "academic_year": str(self.year_2026.pk),
+                "export": "all_batch_details",
+            },
+        )
+        self.assertIn("All-Batches-Student-Fees-Details-", all_batches_response["Content-Disposition"])
+        all_batches_workbook = load_workbook(BytesIO(all_batches_response.content), data_only=True)
+        self.assertIn("11th Batch", all_batches_workbook.sheetnames)
+        self.assertIn("A", all_batches_workbook.sheetnames)
+        a_values = [
+            cell.value
+            for row in all_batches_workbook["A"].iter_rows()
+            for cell in row
+            if cell.value is not None
+        ]
+        self.assertIn("Student Two", a_values)
+        self.assertIn("Grand Total", a_values)
+        self.assertIn(700, a_values)
+
+    def test_fee_collection_report_category_filter_scopes_dashboard_and_exports(self):
+        self.select_year(self.year_2026)
+        books = FeeCategory.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            name="Books",
+            default_amount=Decimal("400.00"),
+        )
+        uniform = FeeCategory.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            name="Uniform",
+            default_amount=Decimal("300.00"),
+        )
+        books_invoice = FeeInvoice.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_session=self.session_2026,
+            category=books,
+            title="Books Fee",
+            amount=Decimal("400.00"),
+            due_date=date(2026, 5, 11),
+        )
+        uniform_invoice = FeeInvoice.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_session=self.session_2026,
+            category=uniform,
+            title="Uniform Fee",
+            amount=Decimal("300.00"),
+            due_date=date(2026, 5, 12),
+        )
+        Payment.objects.create(
+            invoice=books_invoice,
+            amount=Decimal("125.00"),
+            paid_on=date(2026, 5, 13),
+            method=Payment.Method.UPI,
+            receipt_number="RCP-BOOKS-001",
+            received_by=self.admin_user,
+        )
+        Payment.objects.create(
+            invoice=uniform_invoice,
+            amount=Decimal("80.00"),
+            paid_on=date(2026, 5, 14),
+            method=Payment.Method.UPI,
+            receipt_number="RCP-UNIFORM-001",
+            received_by=self.admin_user,
+        )
+
+        params = {
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-31",
+            "academic_year": str(self.year_2026.pk),
+            "course": str(self.course.pk),
+            "batch": str(self.batch_2026.pk),
+            "category": str(books.pk),
+            "status": "PARTIAL",
+            "method": Payment.Method.UPI,
+            "student": "Student",
+            "receipt_number": "RCP-BOOKS",
+        }
+        response = self.client.get(reverse("institute_admin:fee_collection_report"), params)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["filters"]["category"], books)
+        self.assertEqual(response.context["total_collection"], Decimal("125.00"))
+        self.assertEqual(response.context["total_fee_amount"], Decimal("400.00"))
+        self.assertEqual(response.context["total_paid_amount"], Decimal("125.00"))
+        self.assertEqual(response.context["total_pending_amount"], Decimal("275.00"))
+        self.assertEqual(response.context["payment_count"], 1)
+        self.assertEqual(response.context["student_count"], 1)
+        self.assertEqual(response.context["class_summary_rows"][0]["total"], Decimal("400.00"))
+        self.assertEqual(response.context["class_summary_rows"][0]["paid"], Decimal("125.00"))
+        self.assertEqual(response.context["class_summary_rows"][0]["pending"], Decimal("275.00"))
+        self.assertEqual(response.context["ledger_invoice_rows"][0].category, books)
+        self.assertEqual(response.context["ledger_payment_rows"][0].invoice.category, books)
+        self.assertContains(response, "Books")
+        self.assertContains(response, "RCP-BOOKS-001")
+        self.assertNotContains(response, "RCP-UNIFORM-001")
+
+        export_response = self.client.get(
+            reverse("institute_admin:fee_collection_report"),
+            {**params, "export": "excel"},
+        )
+        workbook = load_workbook(BytesIO(export_response.content), data_only=True)
+        values = [
+            cell.value
+            for sheet in workbook.worksheets
+            for row in sheet.iter_rows()
+            for cell in row
+            if cell.value is not None
+        ]
+        self.assertIn("Books Fee", values)
+        self.assertIn("RCP-BOOKS-001", values)
+        self.assertIn(400, values)
+        self.assertIn(125, values)
+        self.assertNotIn("Uniform Fee", values)
+        self.assertNotIn("RCP-UNIFORM-001", values)
+
+        collections_response = self.client.get(
+            reverse("institute_admin:fee_collection_report"),
+            {**params, "export": "collections"},
+        )
+        collections_workbook = load_workbook(BytesIO(collections_response.content), data_only=True)
+        collection_values = [
+            cell.value
+            for row in collections_workbook["Collections"].iter_rows()
+            for cell in row
+            if cell.value is not None
+        ]
+        self.assertIn("RCP-BOOKS-001", collection_values)
+        self.assertNotIn("RCP-UNIFORM-001", collection_values)
 
     def test_fee_collection_report_uses_selected_academic_session(self):
         self.select_year(self.year_2026)
@@ -2698,6 +3203,10 @@ class AcademicSessionIsolationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["total_collection"], Decimal("250.00"))
+        self.assertEqual(response.context["total_fee_amount"], Decimal("1000.00"))
+        self.assertEqual(response.context["total_paid_amount"], Decimal("250.00"))
+        self.assertEqual(response.context["total_pending_amount"], Decimal("750.00"))
+        self.assertEqual(response.context["students_with_pending"], 1)
         self.assertNotContains(response, "RCP-FEE-SESSION-LEAK")
 
         export_response = self.client.get(
@@ -2705,12 +3214,16 @@ class AcademicSessionIsolationTests(TestCase):
             {
                 "start_date": "2026-05-01",
                 "end_date": "2026-05-31",
-                "export": "csv",
+                "export": "excel",
             },
         )
-        export_text = export_response.content.decode()
-        self.assertIn("Total Collection,250.00", export_text)
-        self.assertNotIn("RCP-FEE-SESSION-LEAK", export_text)
+        workbook = load_workbook(BytesIO(export_response.content), data_only=True)
+        workbook_values = [cell.value for sheet in workbook.worksheets for row in sheet.iter_rows() for cell in row if cell.value is not None]
+        self.assertIn("Total Fee", workbook_values)
+        self.assertIn(1000, workbook_values)
+        self.assertIn("Pending Amount", workbook_values)
+        self.assertIn(750, workbook_values)
+        self.assertNotIn("RCP-FEE-SESSION-LEAK", workbook_values)
 
     def test_registration_prefix_uses_normalized_institute_code(self):
         other_institute = Institute.objects.create(
@@ -3093,6 +3606,18 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("institute_admin:student_admission_report"))
 
+    def test_reports_dashboard_shows_only_supported_active_actions(self):
+        response = self.client.get(reverse("institute_admin:reports_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["connected_report_count"], 4)
+        self.assertContains(response, "CSV/XLSX")
+        self.assertContains(response, "Finance Report Dashboard")
+        self.assertContains(response, "Planned")
+        self.assertNotContains(response, "Collection vs Expense Summary")
+        self.assertNotContains(response, "<strong>PDF</strong>", html=True)
+        self.assertNotContains(response, "Configure")
+
     def test_student_admission_report_uses_filters_and_selected_session_data(self):
         self.select_year(self.year_2027)
 
@@ -3183,11 +3708,33 @@ class AcademicSessionIsolationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["inactive_count"], 1)
+        self.assertIsNone(response.context["filters"]["academic_year"])
+        self.assertEqual(response.context["filters"]["academic_year_id"], "all")
+        self.assertEqual(response.context["filters"]["date_mode"], "custom")
         self.assertEqual(response.context["total_pending"], Decimal("750.00"))
         self.assertEqual(response.context["overdue_count"], 1)
         self.assertContains(response, "SMIS-2026-27-0001")
         self.assertContains(response, "Shifted to another city")
         self.assertNotContains(response, "SMIS-2027-28-0001")
+
+    def test_inactive_students_report_session_autofills_date_range(self):
+        self.mark_student_left_for_report()
+        self.select_year(self.year_2026)
+
+        response = self.client.get(
+            reverse("institute_admin:inactive_students_report"),
+            {"academic_year": self.year_2026.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["filters"]["start_date"], self.year_2026.start_date)
+        self.assertEqual(response.context["filters"]["end_date"], self.year_2026.end_date)
+        self.assertEqual(response.context["filters"]["date_mode"], "session")
+        self.assertContains(response, 'data-start="2026-04-01"')
+        self.assertContains(response, 'data-end="2027-03-31"')
+        self.assertContains(response, 'name="date_mode" value="session"')
+        self.assertContains(response, "clearSessionForCustomDates")
+        self.assertContains(response, "SMIS-2026-27-0001")
 
     def test_inactive_students_report_exports_filtered_csv_and_excel(self):
         self.mark_student_left_for_report()
@@ -3890,6 +4437,10 @@ class AcademicSessionIsolationTests(TestCase):
 
     def test_student_autocomplete_requires_two_characters_and_scopes_academic_year(self):
         self.select_year(self.year_2026)
+        self.student_user.first_name = "Rameshwar"
+        self.student_user.last_name = "Pawar"
+        self.student_user.save(update_fields=["first_name", "last_name"])
+        StudentProfile.objects.filter(pk=self.student.pk).update(middle_name="Ambadas")
 
         short_response = self.client.get(
             reverse("institute_admin:student_autocomplete"),
@@ -3897,7 +4448,7 @@ class AcademicSessionIsolationTests(TestCase):
         )
         response = self.client.get(
             reverse("institute_admin:student_autocomplete"),
-            {"q": "SMIS", "academic_year": self.year_2026.pk},
+            {"q": "rameshwar ambadas pawar", "academic_year": self.year_2026.pk},
         )
 
         self.assertEqual(short_response.status_code, 200)
@@ -3906,10 +4457,13 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertLessEqual(len(response.json()["results"]), 20)
         self.assertEqual(response.json()["results"][0]["id"], self.student.pk)
         self.assertIn(self.session_2026.admission_number, response.json()["results"][0]["text"])
+        self.assertEqual(response.json()["results"][0]["name"], "Rameshwar Ambadas Pawar")
+        self.assertEqual(response.json()["results"][0]["admission_number"], self.session_2026.admission_number)
         self.assertNotIn(self.session_2027.admission_number, response.content.decode())
 
     def test_large_student_forms_use_ajax_without_rendering_full_student_choices(self):
         self.select_year(self.year_2026)
+        autocomplete_url = reverse("institute_admin:student_autocomplete")
 
         enrollment_response = self.client.get(reverse("institute_admin:enrollment_create"))
         selected_enrollment_response = self.client.get(
@@ -3920,9 +4474,14 @@ class AcademicSessionIsolationTests(TestCase):
         attendance_response = self.client.get(reverse("institute_admin:attendance_list"))
 
         self.assertContains(enrollment_response, 'data-student-autocomplete="true"')
+        self.assertContains(enrollment_response, f'data-autocomplete-url="{autocomplete_url}"')
         self.assertNotContains(enrollment_response, self.session_2026.admission_number)
         self.assertContains(selected_enrollment_response, f'value="{self.student.pk}" selected')
+        self.assertContains(selected_enrollment_response, f"{self.session_2026.admission_number} - Student One")
+        self.assertContains(selected_enrollment_response, f'data-autocomplete-url="{autocomplete_url}"')
+        self.assertNotContains(selected_enrollment_response, self.session_2027.admission_number)
         self.assertContains(notice_response, 'data-student-autocomplete="true"')
+        self.assertContains(notice_response, f'data-autocomplete-url="{autocomplete_url}"')
         self.assertNotContains(notice_response, self.session_2026.admission_number)
         self.assertContains(attendance_response, 'data-student-autocomplete="true"')
         self.assertNotContains(

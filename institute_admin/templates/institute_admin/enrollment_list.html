@@ -21,6 +21,14 @@
     .stat-label { color: var(--muted); font-size: .86rem; margin-top: 8px; font-weight: 600; }
     .filter-panel { padding: 22px; margin-bottom: 24px; }
     .form-control, .form-select { border-radius: 12px; border: 1px solid var(--border); padding: 11px 14px; }
+    .student-search-suggest { position: relative; }
+    .student-search-suggest__results { position: absolute; z-index: 9999; top: calc(100% + 8px); left: 0; right: 0; display: none; max-height: 320px; overflow-y: auto; border: 1px solid #ddd6fe; border-radius: 16px; background: #ffffff; box-shadow: 0 22px 52px rgba(15, 23, 42, .16); }
+    .student-search-suggest__results.is-open { display: block; }
+    .student-search-suggest__option, .student-search-suggest__message { width: 100%; padding: 12px 14px; border: 0; border-bottom: 1px solid #edf2f7; background: #ffffff; color: #111827; text-align: left; }
+    .student-search-suggest__option:hover, .student-search-suggest__option:focus { background: #f5f3ff; outline: 0; }
+    .student-search-suggest__option strong, .student-search-suggest__option small { display: block; }
+    .student-search-suggest__option strong { font-size: .92rem; font-weight: 900; }
+    .student-search-suggest__option small, .student-search-suggest__message { color: #64748b; font-size: .8rem; line-height: 1.45; }
     .table-card { overflow: hidden; }
     .table-header { padding: 20px 22px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
     .table-header h5 { margin: 0; font-weight: 800; }
@@ -102,7 +110,7 @@
     </div>
 
     <div class="filter-panel">
-        <form method="get" class="row g-3">
+        <form method="get" class="row g-3" id="enrollmentFilterForm">
             <div class="col-lg-3 col-md-6">
                 <label class="form-label">Batch</label>
                 <select name="batch" class="form-select">
@@ -123,7 +131,20 @@
             </div>
             <div class="col-lg-4 col-md-12">
                 <label class="form-label">Search</label>
-                <input type="text" name="search" class="form-control" placeholder="Search student, batch, course..." value="{{ search_query }}">
+                <div class="student-search-suggest">
+                    <input
+                        type="search"
+                        name="search"
+                        class="form-control"
+                        id="enrollmentStudentSearchInput"
+                        placeholder="Search student, admission no, phone, batch, course..."
+                        value="{{ search_query }}"
+                        autocomplete="off"
+                        data-autocomplete-url="{% url 'institute_admin:student_autocomplete' %}"
+                        data-minimum-input-length="2"
+                    >
+                    <div class="student-search-suggest__results" id="enrollmentStudentSearchSuggestions" role="listbox" aria-label="Student suggestions"></div>
+                </div>
             </div>
             <div class="col-lg-2 col-md-12 d-flex align-items-end gap-2">
                 <button type="submit" class="btn btn-gradient"><i class="bi bi-search"></i> Filter</button>
@@ -305,6 +326,128 @@
 </div>
 
 <script>
+    function debounceEnrollmentSearch(callback, delay) {
+        let timer;
+        return function () {
+            const args = arguments;
+            clearTimeout(timer);
+            timer = setTimeout(function () {
+                callback.apply(null, args);
+            }, delay);
+        };
+    }
+
+    const enrollmentFilterForm = document.getElementById("enrollmentFilterForm");
+    const enrollmentStudentSearchInput = document.getElementById("enrollmentStudentSearchInput");
+    const enrollmentStudentSearchSuggestions = document.getElementById("enrollmentStudentSearchSuggestions");
+    let enrollmentStudentSearchController = null;
+
+    function closeEnrollmentStudentSuggestions() {
+        if (enrollmentStudentSearchSuggestions) {
+            enrollmentStudentSearchSuggestions.classList.remove("is-open");
+        }
+    }
+
+    function showEnrollmentStudentMessage(message) {
+        if (!enrollmentStudentSearchSuggestions) {
+            return;
+        }
+        enrollmentStudentSearchSuggestions.innerHTML = "";
+        const item = document.createElement("div");
+        item.className = "student-search-suggest__message";
+        item.textContent = message;
+        enrollmentStudentSearchSuggestions.appendChild(item);
+        enrollmentStudentSearchSuggestions.classList.add("is-open");
+    }
+
+    function renderEnrollmentStudentSuggestions(items) {
+        if (!enrollmentStudentSearchSuggestions) {
+            return;
+        }
+        enrollmentStudentSearchSuggestions.innerHTML = "";
+        if (!items.length) {
+            showEnrollmentStudentMessage("No matching students found.");
+            return;
+        }
+        items.forEach(function (student) {
+            const button = document.createElement("button");
+            const title = document.createElement("strong");
+            const meta = document.createElement("small");
+            button.type = "button";
+            button.className = "student-search-suggest__option";
+            button.setAttribute("role", "option");
+            title.textContent = student.text || "Student";
+            meta.textContent = student.meta || "";
+            button.appendChild(title);
+            button.appendChild(meta);
+            button.addEventListener("click", function () {
+                enrollmentStudentSearchInput.value = student.admission_number || student.name || student.text || "";
+                closeEnrollmentStudentSuggestions();
+                if (enrollmentFilterForm) {
+                    enrollmentFilterForm.submit();
+                }
+            });
+            enrollmentStudentSearchSuggestions.appendChild(button);
+        });
+        enrollmentStudentSearchSuggestions.classList.add("is-open");
+    }
+
+    const searchEnrollmentStudents = debounceEnrollmentSearch(function () {
+        if (!enrollmentStudentSearchInput || !enrollmentFilterForm) {
+            return;
+        }
+        const query = enrollmentStudentSearchInput.value.trim();
+        const minimumLength = Number(enrollmentStudentSearchInput.dataset.minimumInputLength || 2);
+        if (query.length < minimumLength) {
+            closeEnrollmentStudentSuggestions();
+            return;
+        }
+        if (enrollmentStudentSearchController) {
+            enrollmentStudentSearchController.abort();
+        }
+        enrollmentStudentSearchController = new AbortController();
+        const url = new URL(enrollmentStudentSearchInput.dataset.autocompleteUrl, window.location.origin);
+        const batchField = enrollmentFilterForm.querySelector("[name='batch']");
+        url.searchParams.set("q", query);
+        if (batchField && batchField.value) {
+            url.searchParams.set("batch", batchField.value);
+        }
+        showEnrollmentStudentMessage("Searching...");
+        fetch(url.toString(), {
+            headers: {"Accept": "application/json"},
+            signal: enrollmentStudentSearchController.signal,
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error("Student search failed.");
+                }
+                return response.json();
+            })
+            .then(function (payload) {
+                renderEnrollmentStudentSuggestions(payload.results || []);
+            })
+            .catch(function (error) {
+                if (error.name !== "AbortError") {
+                    showEnrollmentStudentMessage("Unable to load students.");
+                }
+            });
+    }, 250);
+
+    if (enrollmentStudentSearchInput) {
+        enrollmentStudentSearchInput.addEventListener("input", searchEnrollmentStudents);
+        enrollmentStudentSearchInput.addEventListener("focus", function () {
+            const minimumLength = Number(enrollmentStudentSearchInput.dataset.minimumInputLength || 2);
+            if (enrollmentStudentSearchInput.value.trim().length >= minimumLength) {
+                searchEnrollmentStudents();
+            }
+        });
+        document.addEventListener("click", function (event) {
+            if (!event.target.closest(".student-search-suggest")) {
+                closeEnrollmentStudentSuggestions();
+            }
+        });
+    }
+
     function openEnrollmentWindow(element, customWidth = 940, customHeight = 720) {
         const url = element.dataset.url;
         const left = Math.max(0, (window.screen.width - customWidth) / 2);

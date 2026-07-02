@@ -527,6 +527,7 @@
         </section>
 
         <form class="isr-filter" method="get">
+            <input id="id_date_mode" type="hidden" name="date_mode" value="{{ filters.date_mode }}">
             <div class="filter-grid">
                 <div class="filter-field">
                     <label for="id_start_date">Start Date</label>
@@ -541,7 +542,12 @@
                     <select id="id_academic_year" name="academic_year">
                         <option value="all" {% if filters.academic_year_id == "all" %}selected{% endif %}>All sessions</option>
                         {% for year in academic_years %}
-                        <option value="{{ year.pk }}" {% if filters.academic_year_id == year.pk|stringformat:"s" %}selected{% endif %}>{{ year.name }}</option>
+                        <option value="{{ year.pk }}"
+                                data-start="{{ year.start_date|date:'Y-m-d' }}"
+                                data-end="{{ year.end_date|date:'Y-m-d' }}"
+                                {% if filters.academic_year_id == year.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ year.name }}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
@@ -873,4 +879,35 @@
         </section>
     </div>
 </main>
+<script>
+    (function () {
+        const sessionSelect = document.getElementById("id_academic_year");
+        const startInput = document.getElementById("id_start_date");
+        const endInput = document.getElementById("id_end_date");
+        const dateModeInput = document.getElementById("id_date_mode");
+
+        if (!sessionSelect || !startInput || !endInput || !dateModeInput) {
+            return;
+        }
+
+        sessionSelect.addEventListener("change", function () {
+            const selected = sessionSelect.options[sessionSelect.selectedIndex];
+            startInput.value = selected.dataset.start || "";
+            endInput.value = selected.dataset.end || "";
+            dateModeInput.value = sessionSelect.value === "all" ? "" : "session";
+        });
+
+        function clearSessionForCustomDates() {
+            if (sessionSelect.value !== "all") {
+                sessionSelect.value = "all";
+            }
+            dateModeInput.value = startInput.value || endInput.value ? "custom" : "";
+        }
+
+        startInput.addEventListener("input", clearSessionForCustomDates);
+        startInput.addEventListener("change", clearSessionForCustomDates);
+        endInput.addEventListener("input", clearSessionForCustomDates);
+        endInput.addEventListener("change", clearSessionForCustomDates);
+    })();
+</script>
 {% endblock content %}

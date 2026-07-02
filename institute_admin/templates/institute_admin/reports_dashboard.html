@@ -665,7 +665,11 @@
                     <span>Report Groups</span>
                 </div>
                 <div class="hero-stat">
-                    <strong>PDF</strong>
+                    <strong>{{ connected_report_count }}</strong>
+                    <span>Active Reports</span>
+                </div>
+                <div class="hero-stat">
+                    <strong>Excel</strong>
                     <span>Export Ready</span>
                 </div>
             </div>
@@ -677,7 +681,7 @@
                 <section class="report-section accent-{{ section.accent }}">
                     <div class="section-heading">
                         <h2 class="section-title">{{ section.group }} Reports</h2>
-                        <span class="section-count">{{ section.reports|length }} planned reports</span>
+                        <span class="section-count">{{ section.reports|length }} report{{ section.reports|length|pluralize }}</span>
                     </div>
 
                     <div class="report-card-grid">
@@ -719,12 +723,9 @@
                                 </a>
                                 {% else %}
                                 <button type="button" class="report-action primary" disabled>
-                                    <i class="bi bi-hourglass"></i> Coming Soon
+                                    <i class="bi bi-hourglass"></i> Planned
                                 </button>
                                 {% endif %}
-                                <button type="button" class="report-action">
-                                    <i class="bi bi-sliders"></i> Configure
-                                </button>
                             </div>
                         </article>
                         {% endfor %}
@@ -757,9 +758,7 @@
                         </div>
 
                         <div class="format-row">
-                            <div class="format-pill">PDF</div>
                             <div class="format-pill">Excel</div>
-                            <div class="format-pill">CSV</div>
                         </div>
                     </div>
                 </section>
@@ -813,7 +812,7 @@
                             <li><strong>Report groups</strong> separate reports by purpose, such as finance, student records, and academic performance.</li>
                             <li><strong>Filters</strong> show which inputs will be needed before generating a report, including dates, class, batch, student, and status.</li>
                             <li><strong>Output chips</strong> show the important columns or summaries expected in each generated report.</li>
-                            <li><strong>Generate</strong> opens reports that are already connected, while Coming Soon marks planned reports that are not active yet.</li>
+                            <li><strong>Generate</strong> opens reports that are already connected, while Planned marks reports that are not active yet.</li>
                             <li><strong>Saved reports</strong> will be used to track generated files and make repeated report access easier.</li>
                         </ul>
                         <div class="feature-info-note"><i class="bi bi-shield-check me-1"></i> Important: always check the selected date range, class, batch, and student filters before exporting a report for official use.</div>

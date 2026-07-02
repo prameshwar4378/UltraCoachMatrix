@@ -5,6 +5,7 @@ from io import BytesIO
 import csv
 import json
 import random
+import re
 
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
@@ -445,26 +446,65 @@ def student_autocomplete(request):
 
     batch_id = request.GET.get("batch", "").strip()
     course_id = request.GET.get("course", "").strip()
+    status_filter = request.GET.get("status", "").strip()
     if batch_id:
         sessions = sessions.filter(enrollments__batch_id=batch_id)
     if course_id:
         sessions = sessions.filter(enrollments__courses__id=course_id)
+    if status_filter == "active":
+        sessions = sessions.filter(status=StudentAcademicSession.Status.ACTIVE, student__is_active=True)
+    elif status_filter == "inactive":
+        sessions = sessions.exclude(status=StudentAcademicSession.Status.ACTIVE, student__is_active=True)
     if profile.role == UserProfile.Role.TEACHER:
         sessions = sessions.filter(enrollments__batch__teachers=request.user)
 
-    sessions = (
-        sessions.filter(
-            Q(admission_number__icontains=query)
-            | Q(student__user__first_name__icontains=query)
-            | Q(student__user__last_name__icontains=query)
-            | Q(student__user__username__icontains=query)
-            | Q(student__user__email__icontains=query)
-            | Q(student__user__profile__phone__icontains=query)
-            | Q(student__guardians__name__icontains=query)
-            | Q(student__guardians__phone__icontains=query)
+    sessions = sessions.annotate(
+        student_full_name=Concat(
+            "student__user__first_name",
+            Value(" "),
+            "student__user__last_name",
+        ),
+        student_full_name_with_middle=Concat(
+            "student__user__first_name",
+            Value(" "),
+            "student__middle_name",
+            Value(" "),
+            "student__user__last_name",
         )
-        .distinct()
-        .order_by("admission_number", "student__user__first_name", "student__user__username")
+    )
+    search_filter = (
+        Q(admission_number__icontains=query)
+        | Q(student__user__first_name__icontains=query)
+        | Q(student__middle_name__icontains=query)
+        | Q(student__user__last_name__icontains=query)
+        | Q(student_full_name__icontains=query)
+        | Q(student_full_name_with_middle__icontains=query)
+        | Q(student__user__username__icontains=query)
+        | Q(student__user__email__icontains=query)
+        | Q(student__user__profile__phone__icontains=query)
+        | Q(student__guardians__name__icontains=query)
+        | Q(student__guardians__phone__icontains=query)
+    )
+    name_tokens = [token for token in re.split(r"\s+", query) if token]
+    if len(name_tokens) > 1:
+        token_filter = Q()
+        for token in name_tokens:
+            token_filter &= (
+                Q(admission_number__icontains=token)
+                | Q(student__user__first_name__icontains=token)
+                | Q(student__middle_name__icontains=token)
+                | Q(student__user__last_name__icontains=token)
+                | Q(student__user__username__icontains=token)
+                | Q(student__user__email__icontains=token)
+                | Q(student__user__profile__phone__icontains=token)
+                | Q(student__guardians__name__icontains=token)
+                | Q(student__guardians__phone__icontains=token)
+            )
+        search_filter |= token_filter
+    sessions = sessions.filter(search_filter).distinct().order_by(
+        "admission_number",
+        "student__user__first_name",
+        "student__user__username",
     )
     matches = list(sessions[:21])
     results = []
@@ -479,6 +519,8 @@ def student_autocomplete(request):
             {
                 "id": session.student_id,
                 "text": f"{session.admission_number} - {name}",
+                "name": name,
+                "admission_number": session.admission_number,
                 "meta": " | ".join(meta_parts),
             }
         )
@@ -1385,7 +1427,8 @@ def expense_document_delete(request, pk):
 
 def get_profit_loss_filter_state(request, institute):
     today = timezone.localdate()
-    year_value = (request.GET.get("year") or "").strip()
+    academic_year_param = request.GET.get("academic_year")
+    academic_year_id = (academic_year_param or "").strip()
     month_value = (request.GET.get("month") or "").strip()
     start_date_value = (request.GET.get("start_date") or "").strip()
     end_date_value = (request.GET.get("end_date") or "").strip()
@@ -1394,48 +1437,65 @@ def get_profit_loss_filter_state(request, institute):
 
     start_date = parse_date(start_date_value)
     end_date = parse_date(end_date_value)
-    selected_year = None
     selected_month = None
-    try:
-        selected_year = int(year_value) if year_value else None
-    except ValueError:
-        selected_year = None
     try:
         selected_month = int(month_value) if month_value else None
     except ValueError:
         selected_month = None
 
-    if selected_year and selected_month and 1 <= selected_month <= 12:
+    academic_year_queryset = AcademicYear.objects.filter(institute=institute).order_by("-start_date", "-pk")
+    if academic_year_param is None:
+        selected_academic_year = get_current_academic_year(request, institute)
+    elif academic_year_id:
+        selected_academic_year = academic_year_queryset.filter(pk=academic_year_id).first()
+        if not selected_academic_year:
+            selected_academic_year = get_current_academic_year(request, institute)
+    else:
+        selected_academic_year = get_current_academic_year(request, institute)
+
+    if selected_month and 1 <= selected_month <= 12:
+        if selected_academic_year:
+            selected_year = (
+                selected_academic_year.start_date.year
+                if selected_month >= selected_academic_year.start_date.month
+                else selected_academic_year.end_date.year
+            )
+        else:
+            selected_year = today.year
         start_date = date(selected_year, selected_month, 1)
         if selected_month == 12:
             end_date = date(selected_year, 12, 31)
         else:
             end_date = date(selected_year, selected_month + 1, 1) - timedelta(days=1)
-    elif selected_year:
-        start_date = date(selected_year, 1, 1)
-        end_date = date(selected_year, 12, 31)
+        if selected_academic_year:
+            start_date = max(start_date, selected_academic_year.start_date)
+            end_date = min(end_date, selected_academic_year.end_date)
     elif not start_date and not end_date:
-        start_date = today.replace(day=1)
-        next_month = date(today.year + (1 if today.month == 12 else 0), 1 if today.month == 12 else today.month + 1, 1)
-        end_date = next_month - timedelta(days=1)
+        if selected_academic_year:
+            start_date = selected_academic_year.start_date
+            end_date = selected_academic_year.end_date
+        else:
+            start_date = today.replace(day=1)
+            next_month = date(today.year + (1 if today.month == 12 else 0), 1 if today.month == 12 else today.month + 1, 1)
+            end_date = next_month - timedelta(days=1)
 
     if start_date and end_date and start_date > end_date:
         start_date, end_date = end_date, start_date
 
     course = None
     batch = None
-    academic_year = get_current_academic_year(request, institute)
     if course_id:
-        course = Course.objects.filter(institute=institute, academic_year=academic_year, pk=course_id).first()
+        course = Course.objects.filter(institute=institute, academic_year=selected_academic_year, pk=course_id).first()
     if batch_id:
-        batch = Batch.objects.filter(institute=institute, academic_year=academic_year, pk=batch_id).first()
+        batch = Batch.objects.filter(institute=institute, academic_year=selected_academic_year, pk=batch_id).first()
 
     return {
         "start_date": start_date,
         "end_date": end_date,
         "start_date_value": start_date.isoformat() if start_date else "",
         "end_date_value": end_date.isoformat() if end_date else "",
-        "year": str(selected_year or ""),
+        "academic_year": selected_academic_year,
+        "academic_year_id": str(selected_academic_year.pk) if selected_academic_year else "",
         "month": str(selected_month or ""),
         "course": course,
         "batch": batch,
@@ -1446,10 +1506,11 @@ def get_profit_loss_filter_state(request, institute):
 
 def build_profit_loss_report(request, institute):
     filters = get_profit_loss_filter_state(request, institute)
-    academic_year = get_current_academic_year(request, institute)
+    academic_year = filters["academic_year"]
     payments = Payment.objects.select_related(
         "invoice",
         "invoice__student",
+        "invoice__academic_session",
         "invoice__batch",
         "invoice__course",
         "invoice__enrollment",
@@ -1459,7 +1520,9 @@ def build_profit_loss_report(request, institute):
         invoice__institute=institute,
     ).exclude(invoice__status=FeeInvoice.Status.CANCELLED)
     payments = filter_payments_for_academic_year(payments, academic_year)
-    expenses = Expense.objects.select_related("recorded_by").filter(institute=institute, academic_year=academic_year)
+    expenses = Expense.objects.select_related("recorded_by").filter(institute=institute)
+    if academic_year:
+        expenses = expenses.filter(academic_year=academic_year)
 
     if filters["start_date"]:
         payments = payments.filter(paid_on__gte=filters["start_date"])
@@ -1472,32 +1535,133 @@ def build_profit_loss_report(request, institute):
             Q(invoice__course=filters["course"])
             | Q(invoice__enrollment__courses=filters["course"])
             | Q(invoice__batch__courses=filters["course"])
+            | Q(
+                invoice__academic_session__enrollments__courses=filters["course"],
+                invoice__academic_session__enrollments__status=StudentEnrollment.Status.ACTIVE,
+            )
         ).distinct()
     if filters["batch"]:
         payments = payments.filter(
             Q(invoice__batch=filters["batch"])
             | Q(invoice__enrollment__batch=filters["batch"])
+            | Q(
+                invoice__academic_session__enrollments__batch=filters["batch"],
+                invoice__academic_session__enrollments__status=StudentEnrollment.Status.ACTIVE,
+            )
         ).distinct()
 
     collection_total = payments.aggregate(total=Coalesce(Sum("amount"), Decimal("0.00")))["total"]
     expense_total = expenses.aggregate(total=Coalesce(Sum("amount"), Decimal("0.00")))["total"]
     net_profit = collection_total - expense_total
 
-    payment_method_rows = []
+    export_collection_rows = list(payments.order_by("-paid_on", "-pk"))
+    export_expense_rows = list(expenses.order_by("-spent_on", "-pk"))
+    collection_count = len(export_collection_rows)
+    expense_count = len(export_expense_rows)
     method_labels = dict(Payment.Method.choices)
-    for row in payments.values("method").annotate(total=Sum("amount"), count=Count("pk")).order_by("method"):
+
+    payment_method_groups = defaultdict(lambda: {"amount": Decimal("0.00"), "count": 0})
+    monthly_groups = defaultdict(lambda: {"collection": Decimal("0.00"), "expense": Decimal("0.00")})
+    expense_groups = defaultdict(lambda: {"amount": Decimal("0.00"), "count": 0})
+    daily_collection_groups = defaultdict(lambda: {"amount": Decimal("0.00"), "count": 0})
+    daily_expense_groups = defaultdict(lambda: {"amount": Decimal("0.00"), "count": 0})
+
+    for payment in export_collection_rows:
+        method_label = method_labels.get(payment.method, payment.method)
+        payment_method_groups[method_label]["amount"] += payment.amount
+        payment_method_groups[method_label]["count"] += 1
+        month_key = payment.paid_on.replace(day=1)
+        monthly_groups[month_key]["collection"] += payment.amount
+        daily_collection_groups[payment.paid_on]["amount"] += payment.amount
+        daily_collection_groups[payment.paid_on]["count"] += 1
+
+    for expense in export_expense_rows:
+        month_key = expense.spent_on.replace(day=1)
+        monthly_groups[month_key]["expense"] += expense.amount
+        expense_groups[expense.title]["amount"] += expense.amount
+        expense_groups[expense.title]["count"] += 1
+        daily_expense_groups[expense.spent_on]["amount"] += expense.amount
+        daily_expense_groups[expense.spent_on]["count"] += 1
+
+    payment_method_rows = []
+    for label, data in sorted(payment_method_groups.items(), key=lambda item: (-item[1]["amount"], item[0])):
         payment_method_rows.append(
             {
-                "label": method_labels.get(row["method"], row["method"]),
-                "amount": row["total"] or Decimal("0.00"),
-                "count": row["count"],
+                "label": label,
+                "amount": data["amount"],
+                "count": data["count"],
+                "percent": round((data["amount"] / collection_total) * 100, 1) if collection_total else 0,
             }
         )
 
-    collection_rows = list(payments.order_by("-paid_on", "-pk")[:25])
-    expense_rows = list(expenses.order_by("-spent_on", "-pk")[:25])
+    max_month_amount = max(
+        [
+            amount
+            for data in monthly_groups.values()
+            for amount in (data["collection"], data["expense"])
+        ],
+        default=Decimal("0.00"),
+    )
+    raw_monthly_finance_rows = []
+    for month_date in sorted(monthly_groups):
+        data = monthly_groups[month_date]
+        net_amount = data["collection"] - data["expense"]
+        raw_monthly_finance_rows.append(
+            {
+                "label": month_date.strftime("%b %Y"),
+                "collection": data["collection"],
+                "expense": data["expense"],
+                "net": net_amount,
+                "is_profit": net_amount >= 0,
+                "collection_percent": round((data["collection"] / max_month_amount) * 100, 1) if max_month_amount else 0,
+                "expense_percent": round((data["expense"] / max_month_amount) * 100, 1) if max_month_amount else 0,
+            }
+        )
+    max_abs_monthly_net = max((abs(row["net"]) for row in raw_monthly_finance_rows), default=Decimal("0.00"))
+    monthly_finance_rows = []
+    for row in raw_monthly_finance_rows:
+        row["net_percent"] = round((abs(row["net"]) / max_abs_monthly_net) * 100, 1) if max_abs_monthly_net else 0
+        monthly_finance_rows.append(row)
+
+    expense_summary_rows = [
+        {
+            "label": label,
+            "amount": data["amount"],
+            "count": data["count"],
+            "percent": round((data["amount"] / expense_total) * 100, 1) if expense_total else 0,
+        }
+        for label, data in sorted(expense_groups.items(), key=lambda item: (-item[1]["amount"], item[0]))
+    ]
+    daily_activity_rows = []
+    for day in sorted(set(daily_collection_groups) | set(daily_expense_groups), reverse=True):
+        collection = daily_collection_groups[day]["amount"]
+        expense = daily_expense_groups[day]["amount"]
+        net_amount = collection - expense
+        daily_activity_rows.append(
+            {
+                "date": day,
+                "collection": collection,
+                "expense": expense,
+                "net": net_amount,
+                "is_profit": net_amount >= 0,
+                "collection_count": daily_collection_groups[day]["count"],
+                "expense_count": daily_expense_groups[day]["count"],
+            }
+        )
+    max_abs_daily_net = max((abs(row["net"]) for row in daily_activity_rows), default=Decimal("0.00"))
+    for row in daily_activity_rows:
+        row["net_percent"] = round((abs(row["net"]) / max_abs_daily_net) * 100, 1) if max_abs_daily_net else 0
+
+    profit_margin = round((net_profit / collection_total) * 100, 1) if collection_total else Decimal("0.0")
+    expense_ratio = round((expense_total / collection_total) * 100, 1) if collection_total else Decimal("0.0")
+    average_collection = collection_total / collection_count if collection_count else Decimal("0.00")
+    average_expense = expense_total / expense_count if expense_count else Decimal("0.00")
+    best_month = max(monthly_finance_rows, key=lambda row: row["net"], default=None)
+    weakest_month = min(monthly_finance_rows, key=lambda row: row["net"], default=None)
+    top_expense = expense_summary_rows[0] if expense_summary_rows else None
+    top_payment_method = payment_method_rows[0] if payment_method_rows else None
     query_params = request.GET.copy()
-    query_params["export"] = "csv"
+    query_params["export"] = "excel"
 
     return {
         "filters": filters,
@@ -1506,12 +1670,201 @@ def build_profit_loss_report(request, institute):
         "net_profit": net_profit,
         "is_profit": net_profit >= 0,
         "payment_method_rows": payment_method_rows,
-        "collection_rows": collection_rows,
-        "expense_rows": expense_rows,
-        "collection_count": payments.count(),
-        "expense_count": expenses.count(),
+        "collection_rows": export_collection_rows[:25],
+        "expense_rows": export_expense_rows[:25],
+        "export_collection_rows": export_collection_rows,
+        "export_expense_rows": export_expense_rows,
+        "collection_count": collection_count,
+        "expense_count": expense_count,
+        "monthly_finance_rows": monthly_finance_rows,
+        "expense_summary_rows": expense_summary_rows,
+        "daily_activity_rows": daily_activity_rows[:60],
+        "profit_margin": profit_margin,
+        "expense_ratio": expense_ratio,
+        "average_collection": average_collection,
+        "average_expense": average_expense,
+        "best_month": best_month,
+        "weakest_month": weakest_month,
+        "top_expense": top_expense,
+        "top_payment_method": top_payment_method,
         "export_query": urlencode(query_params, doseq=True),
     }
+
+
+def write_finance_sheet_title(sheet, title, subtitle, end_column):
+    primary = "0F172A"
+    muted = "64748B"
+    center = Alignment(horizontal="center", vertical="center")
+    sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=end_column)
+    title_cell = sheet.cell(row=1, column=1, value=title)
+    title_cell.font = Font(size=18, bold=True, color="FFFFFF")
+    title_cell.fill = PatternFill("solid", fgColor=primary)
+    title_cell.alignment = center
+    sheet.row_dimensions[1].height = 30
+    sheet.merge_cells(start_row=2, start_column=1, end_row=2, end_column=end_column)
+    subtitle_cell = sheet.cell(row=2, column=1, value=subtitle)
+    subtitle_cell.font = Font(size=10, color=muted)
+    subtitle_cell.alignment = center
+
+
+def style_finance_header_row(sheet, row, columns):
+    dark = "1E293B"
+    thin = Side(style="thin", color="CBD5E1")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    center = Alignment(horizontal="center", vertical="center")
+    for index, column in enumerate(columns, start=1):
+        cell = sheet.cell(row=row, column=index, value=column)
+        cell.fill = PatternFill("solid", fgColor=dark)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.alignment = center
+        cell.border = border
+
+
+def write_finance_table(sheet, start_row, columns, rows, amount_columns=None):
+    amount_columns = set(amount_columns or [])
+    thin = Side(style="thin", color="CBD5E1")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    center = Alignment(horizontal="center", vertical="center")
+    left = Alignment(horizontal="left", vertical="center")
+    style_finance_header_row(sheet, start_row, columns)
+    for row_index, row_values in enumerate(rows, start=start_row + 1):
+        for col_index, value in enumerate(row_values, start=1):
+            cell = sheet.cell(row=row_index, column=col_index, value=value)
+            cell.border = border
+            cell.alignment = left if col_index not in amount_columns else center
+            if col_index in amount_columns:
+                cell.number_format = '#,##0.00'
+    last_row = max(start_row + 1, start_row + len(rows))
+    sheet.auto_filter.ref = f"A{start_row}:{get_column_letter(len(columns))}{last_row}"
+    return last_row
+
+
+def export_finance_report_excel(report, institute):
+    workbook = Workbook()
+    generated_label = timezone.localtime().strftime("%d-%m-%Y %I:%M %p")
+    subtitle = f"{institute.name} | Generated {generated_label}"
+    green_fill = PatternFill("solid", fgColor="DCFCE7")
+    red_fill = PatternFill("solid", fgColor="FEE2E2")
+    blue_fill = PatternFill("solid", fgColor="DBEAFE")
+    amber_fill = PatternFill("solid", fgColor="FEF3C7")
+    dark_font = Font(color="0F172A", bold=True)
+    center = Alignment(horizontal="center", vertical="center")
+    thin = Side(style="thin", color="CBD5E1")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    summary = workbook.active
+    summary.title = "Summary"
+    write_finance_sheet_title(summary, "Finance Report Dashboard", subtitle, 8)
+    filters = report["filters"]
+    filter_text = (
+        f"Session: {filters['academic_year'].name if filters['academic_year'] else 'All'} | "
+        f"From: {filters['start_date_value'] or 'Any'} | "
+        f"To: {filters['end_date_value'] or 'Any'} | "
+        f"Class: {filters['course'].name if filters['course'] else 'All'} | "
+        f"Batch: {filters['batch'].name if filters['batch'] else 'All'}"
+    )
+    summary.merge_cells(start_row=4, start_column=1, end_row=4, end_column=8)
+    summary.cell(row=4, column=1, value=filter_text).font = Font(italic=True, color="64748B")
+    cards = [
+        ("Total Collection", float(report["collection_total"]), green_fill),
+        ("Total Expenses", float(report["expense_total"]), red_fill),
+        ("Net Profit/Loss", float(report["net_profit"]), blue_fill if report["is_profit"] else red_fill),
+        ("Profit Margin %", float(report["profit_margin"]), blue_fill),
+        ("Expense Ratio %", float(report["expense_ratio"]), amber_fill),
+        ("Collection Entries", report["collection_count"], green_fill),
+        ("Expense Entries", report["expense_count"], red_fill),
+        ("Average Collection", float(report["average_collection"]), green_fill),
+    ]
+    for index, (label, value, fill) in enumerate(cards, start=1):
+        summary.cell(row=6, column=index, value=label).fill = fill
+        summary.cell(row=6, column=index).font = dark_font
+        summary.cell(row=6, column=index).alignment = center
+        summary.cell(row=6, column=index).border = border
+        summary.cell(row=7, column=index, value=value).font = Font(size=13, bold=True, color="0F172A")
+        summary.cell(row=7, column=index).alignment = center
+        summary.cell(row=7, column=index).border = border
+        if isinstance(value, float):
+            summary.cell(row=7, column=index).number_format = '#,##0.00'
+    insight_rows = [
+        ("Best Month", report["best_month"]["label"] if report["best_month"] else "-", float(report["best_month"]["net"]) if report["best_month"] else 0),
+        ("Weakest Month", report["weakest_month"]["label"] if report["weakest_month"] else "-", float(report["weakest_month"]["net"]) if report["weakest_month"] else 0),
+        ("Top Payment Mode", report["top_payment_method"]["label"] if report["top_payment_method"] else "-", float(report["top_payment_method"]["amount"]) if report["top_payment_method"] else 0),
+        ("Top Expense Head", report["top_expense"]["label"] if report["top_expense"] else "-", float(report["top_expense"]["amount"]) if report["top_expense"] else 0),
+    ]
+    write_finance_table(summary, 10, ["Insight", "Label", "Amount"], insight_rows, amount_columns={3})
+    for col, width in enumerate([22, 18, 18, 16, 16, 16, 16, 18], start=1):
+        summary.column_dimensions[get_column_letter(col)].width = width
+
+    monthly = workbook.create_sheet("Monthly Trend")
+    write_finance_sheet_title(monthly, "Monthly Income / Expense Trend", subtitle, 5)
+    monthly_rows = [
+        [row["label"], float(row["collection"]), float(row["expense"]), float(row["net"]), "Profit" if row["is_profit"] else "Loss"]
+        for row in report["monthly_finance_rows"]
+    ]
+    write_finance_table(monthly, 4, ["Month", "Collection", "Expense", "Net Profit/Loss", "Status"], monthly_rows, amount_columns={2, 3, 4})
+    for col, width in enumerate([18, 18, 18, 18, 14], start=1):
+        monthly.column_dimensions[get_column_letter(col)].width = width
+
+    methods = workbook.create_sheet("Payment Modes")
+    write_finance_sheet_title(methods, "Payment Mode Split", subtitle, 4)
+    method_rows = [[row["label"], row["count"], float(row["amount"]), float(row["percent"])] for row in report["payment_method_rows"]]
+    write_finance_table(methods, 4, ["Payment Mode", "Entries", "Amount", "Share %"], method_rows, amount_columns={3, 4})
+    for col, width in enumerate([24, 14, 18, 14], start=1):
+        methods.column_dimensions[get_column_letter(col)].width = width
+
+    expense_summary = workbook.create_sheet("Expense Summary")
+    write_finance_sheet_title(expense_summary, "Expense Summary", subtitle, 4)
+    exp_summary_rows = [[row["label"], row["count"], float(row["amount"]), float(row["percent"])] for row in report["expense_summary_rows"]]
+    write_finance_table(expense_summary, 4, ["Expense Head", "Entries", "Amount", "Share %"], exp_summary_rows, amount_columns={3, 4})
+    for col, width in enumerate([34, 14, 18, 14], start=1):
+        expense_summary.column_dimensions[get_column_letter(col)].width = width
+
+    collections = workbook.create_sheet("Collections")
+    write_finance_sheet_title(collections, "Collection Details", subtitle, 6)
+    collection_rows = [
+        [
+            payment.paid_on.strftime("%d-%m-%Y") if payment.paid_on else "",
+            payment.receipt_number,
+            str(payment.invoice.student),
+            payment.invoice.title,
+            payment.get_method_display(),
+            float(payment.amount),
+        ]
+        for payment in report["export_collection_rows"]
+    ]
+    write_finance_table(collections, 4, ["Date", "Receipt", "Student", "Invoice", "Method", "Amount"], collection_rows, amount_columns={6})
+    for col, width in enumerate([16, 20, 34, 28, 18, 18], start=1):
+        collections.column_dimensions[get_column_letter(col)].width = width
+
+    expenses = workbook.create_sheet("Expenses")
+    write_finance_sheet_title(expenses, "Expense Details", subtitle, 5)
+    expense_rows = [
+        [
+            expense.spent_on.strftime("%d-%m-%Y") if expense.spent_on else "",
+            expense.title,
+            expense.recorded_by.get_full_name() or expense.recorded_by.username if expense.recorded_by else "",
+            expense.note,
+            float(expense.amount),
+        ]
+        for expense in report["export_expense_rows"]
+    ]
+    write_finance_table(expenses, 4, ["Date", "Title", "Recorded By", "Note", "Amount"], expense_rows, amount_columns={5})
+    for col, width in enumerate([16, 34, 24, 40, 18], start=1):
+        expenses.column_dimensions[get_column_letter(col)].width = width
+
+    for sheet in workbook.worksheets:
+        sheet.freeze_panes = "A5" if sheet.title != "Summary" else "A10"
+
+    buffer = BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
+    response["Content-Disposition"] = f'attachment; filename="finance_report_dashboard_{stamp}.xlsx"'
+    return response
 
 
 @institute_admin_required
@@ -1522,58 +1875,22 @@ def profit_loss_report(request):
         return redirect("school_dashboard")
 
     report = build_profit_loss_report(request, institute)
-    if request.GET.get("export") == "csv":
-        response = HttpResponse(content_type="text/csv")
-        stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
-        response["Content-Disposition"] = f'attachment; filename="profit_loss_report_{stamp}.csv"'
-        writer = csv.writer(response)
-        writer.writerow(["Profit & Loss Report"])
-        writer.writerow(["Institute", institute.name])
-        writer.writerow(["From", report["filters"]["start_date_value"] or "Any"])
-        writer.writerow(["To", report["filters"]["end_date_value"] or "Any"])
-        writer.writerow(["Class", report["filters"]["course"].name if report["filters"]["course"] else "All"])
-        writer.writerow(["Batch", report["filters"]["batch"].name if report["filters"]["batch"] else "All"])
-        writer.writerow([])
-        writer.writerow(["Total Collection", f"{report['collection_total']:.2f}"])
-        writer.writerow(["Total Expenses", f"{report['expense_total']:.2f}"])
-        writer.writerow(["Net Profit/Loss", f"{report['net_profit']:.2f}"])
-        writer.writerow([])
-        writer.writerow(["Collections"])
-        writer.writerow(["Date", "Receipt", "Student", "Invoice", "Method", "Amount"])
-        for payment in report["collection_rows"]:
-            writer.writerow([
-                payment.paid_on,
-                payment.receipt_number,
-                payment.invoice.student,
-                payment.invoice.title,
-                payment.get_method_display(),
-                payment.amount,
-            ])
-        writer.writerow([])
-        writer.writerow(["Expenses"])
-        writer.writerow(["Date", "Title", "Recorded By", "Amount", "Note"])
-        for expense in report["expense_rows"]:
-            writer.writerow([
-                expense.spent_on,
-                expense.title,
-                expense.recorded_by.get_full_name() or expense.recorded_by.username if expense.recorded_by else "",
-                expense.amount,
-                expense.note,
-            ])
-        return response
+    if (request.GET.get("export") or "").strip().lower() in {"excel", "xlsx"}:
+        return export_finance_report_excel(report, institute)
 
     academic_year = get_current_academic_year(request, institute)
+    selected_academic_year = report["filters"]["academic_year"] or academic_year
     courses = Course.objects.filter(institute=institute, is_active=True)
     batches = Batch.objects.filter(institute=institute, is_active=True)
-    if academic_year:
-        courses = courses.filter(academic_year=academic_year)
-        batches = batches.filter(academic_year=academic_year)
+    if selected_academic_year:
+        courses = courses.filter(academic_year=selected_academic_year)
+        batches = batches.filter(academic_year=selected_academic_year)
     context = {
         **report,
         "courses": courses.order_by("name"),
         "batches": batches.order_by("name"),
+        "academic_years": AcademicYear.objects.filter(institute=institute).order_by("-start_date", "-pk"),
         "current_institute": institute,
-        "year_options": range(timezone.localdate().year - 5, timezone.localdate().year + 2),
         "month_options": [
             (1, "January"),
             (2, "February"),
@@ -1592,18 +1909,38 @@ def profit_loss_report(request):
     return render(request, "institute_admin/profit_loss_report.html", context)
 
 
+def course_name_for_report(courses, institute_id, academic_year_id=None):
+    for course in courses:
+        if course.institute_id != institute_id:
+            continue
+        if academic_year_id and course.academic_year_id != academic_year_id:
+            continue
+        return course.name
+    return ""
+
+
 def get_payment_course_label(payment):
     invoice = payment.invoice
     if invoice.course_id:
-        return invoice.course.name
+        if invoice.course.institute_id == invoice.institute_id:
+            return invoice.course.name
+        return "Unassigned"
     if invoice.enrollment_id:
-        course = next(iter(invoice.enrollment.courses.all()), None)
-        if course:
-            return course.name
+        course_name = course_name_for_report(
+            invoice.enrollment.courses.all(),
+            invoice.institute_id,
+            invoice.academic_session.academic_year_id,
+        )
+        if course_name:
+            return course_name
     if invoice.batch_id:
-        course = next(iter(invoice.batch.courses.all()), None)
-        if course:
-            return course.name
+        course_name = course_name_for_report(
+            invoice.batch.courses.all(),
+            invoice.institute_id,
+            invoice.academic_session.academic_year_id,
+        )
+        if course_name:
+            return course_name
     return "Unassigned"
 
 
@@ -1618,69 +1955,97 @@ def get_payment_batch_label(payment):
 
 def get_fee_collection_filter_state(request, institute):
     today = timezone.localdate()
-    year_value = (request.GET.get("year") or "").strip()
+    academic_year_param = request.GET.get("academic_year")
+    academic_year_id = (academic_year_param or "").strip()
     month_value = (request.GET.get("month") or "").strip()
     start_date_value = (request.GET.get("start_date") or "").strip()
     end_date_value = (request.GET.get("end_date") or "").strip()
     course_id = (request.GET.get("course") or "").strip()
     batch_id = (request.GET.get("batch") or "").strip()
+    category_id = (request.GET.get("category") or "").strip()
     method = (request.GET.get("method") or "").strip().upper()
+    status = (request.GET.get("status") or "").strip().upper()
     student_query = (request.GET.get("student") or "").strip()
     receipt_number = (request.GET.get("receipt_number") or "").strip()
 
     start_date = parse_date(start_date_value)
     end_date = parse_date(end_date_value)
-    selected_year = None
     selected_month = None
-    try:
-        selected_year = int(year_value) if year_value else None
-    except ValueError:
-        selected_year = None
     try:
         selected_month = int(month_value) if month_value else None
     except ValueError:
         selected_month = None
 
-    if selected_year and selected_month and 1 <= selected_month <= 12:
+    academic_year_queryset = AcademicYear.objects.filter(institute=institute).order_by("-start_date", "-pk")
+    if academic_year_param is None:
+        selected_academic_year = get_current_academic_year(request, institute)
+    elif academic_year_id:
+        selected_academic_year = academic_year_queryset.filter(pk=academic_year_id).first()
+        if not selected_academic_year:
+            selected_academic_year = get_current_academic_year(request, institute)
+    else:
+        selected_academic_year = get_current_academic_year(request, institute)
+
+    if selected_month and 1 <= selected_month <= 12:
+        if selected_academic_year:
+            selected_year = (
+                selected_academic_year.start_date.year
+                if selected_month >= selected_academic_year.start_date.month
+                else selected_academic_year.end_date.year
+            )
+        else:
+            selected_year = today.year
         start_date = date(selected_year, selected_month, 1)
         if selected_month == 12:
             end_date = date(selected_year, 12, 31)
         else:
             end_date = date(selected_year, selected_month + 1, 1) - timedelta(days=1)
-    elif selected_year:
-        start_date = date(selected_year, 1, 1)
-        end_date = date(selected_year, 12, 31)
+        if selected_academic_year:
+            start_date = max(start_date, selected_academic_year.start_date)
+            end_date = min(end_date, selected_academic_year.end_date)
     elif not start_date and not end_date:
-        start_date = today.replace(day=1)
-        next_month = date(today.year + (1 if today.month == 12 else 0), 1 if today.month == 12 else today.month + 1, 1)
-        end_date = next_month - timedelta(days=1)
+        if selected_academic_year:
+            start_date = selected_academic_year.start_date
+            end_date = selected_academic_year.end_date
+        else:
+            start_date = today.replace(day=1)
+            next_month = date(today.year + (1 if today.month == 12 else 0), 1 if today.month == 12 else today.month + 1, 1)
+            end_date = next_month - timedelta(days=1)
 
     if start_date and end_date and start_date > end_date:
         start_date, end_date = end_date, start_date
 
-    academic_year = get_current_academic_year(request, institute)
     course_queryset = Course.objects.filter(institute=institute)
     batch_queryset = Batch.objects.filter(institute=institute)
-    if academic_year:
-        course_queryset = course_queryset.filter(academic_year=academic_year)
-        batch_queryset = batch_queryset.filter(academic_year=academic_year)
+    category_queryset = FeeCategory.objects.filter(institute=institute)
+    if selected_academic_year:
+        course_queryset = course_queryset.filter(academic_year=selected_academic_year)
+        batch_queryset = batch_queryset.filter(academic_year=selected_academic_year)
+        category_queryset = category_queryset.filter(academic_year=selected_academic_year)
     course = course_queryset.filter(pk=course_id).first() if course_id else None
     batch = batch_queryset.filter(pk=batch_id).first() if batch_id else None
+    category = category_queryset.filter(pk=category_id).first() if category_id else None
     if method not in Payment.Method.values:
         method = ""
+    if status not in {"PAID", "PARTIAL", "UNPAID", "PENDING"}:
+        status = ""
 
     return {
         "start_date": start_date,
         "end_date": end_date,
         "start_date_value": start_date.isoformat() if start_date else "",
         "end_date_value": end_date.isoformat() if end_date else "",
-        "year": str(selected_year or ""),
+        "academic_year": selected_academic_year,
+        "academic_year_id": str(selected_academic_year.pk) if selected_academic_year else "",
         "month": str(selected_month or ""),
         "course": course,
         "batch": batch,
+        "category": category,
         "course_id": str(course.pk) if course else "",
         "batch_id": str(batch.pk) if batch else "",
+        "category_id": str(category.pk) if category else "",
         "method": method,
+        "status": status,
         "student": student_query,
         "receipt_number": receipt_number,
     }
@@ -1696,17 +2061,99 @@ def summarize_grouped_amounts(rows):
     ]
 
 
+def get_session_class_batch_labels(student_session):
+    enrollments = [
+        enrollment
+        for enrollment in student_session.enrollments.all()
+        if enrollment.status != StudentEnrollment.Status.CANCELLED
+    ]
+    class_names = []
+    batch_names = []
+    primary_course_id = None
+    primary_batch_id = None
+    for enrollment in enrollments:
+        if enrollment.batch_id and enrollment.batch.name not in batch_names:
+            batch_names.append(enrollment.batch.name)
+        if primary_batch_id is None and enrollment.batch_id:
+            primary_batch_id = enrollment.batch_id
+        for course in enrollment.courses.all():
+            if course.institute_id == student_session.institute_id and course.academic_year_id == student_session.academic_year_id:
+                if course.name not in class_names:
+                    class_names.append(course.name)
+                if primary_course_id is None:
+                    primary_course_id = course.pk
+    if not class_names:
+        class_names = ["Unassigned"]
+    if not batch_names:
+        batch_names = ["Unassigned"]
+    return ", ".join(class_names), ", ".join(batch_names), class_names[0], batch_names[0], primary_course_id, primary_batch_id
+
+
+def fee_status_from_amounts(total_amount, paid_amount, pending_amount):
+    if total_amount <= 0:
+        return "UNPAID"
+    if pending_amount <= 0:
+        return "PAID"
+    if paid_amount > 0:
+        return "PARTIAL"
+    return "UNPAID"
+
+
 def build_fee_collection_report(request, institute):
     filters = get_fee_collection_filter_state(request, institute)
-    academic_year = get_current_academic_year(request, institute)
+    academic_year = filters["academic_year"]
+    student_sessions = StudentAcademicSession.objects.select_related(
+        "student",
+        "student__user",
+    ).prefetch_related(
+        "enrollments",
+        "enrollments__batch",
+        "enrollments__courses",
+        "student__guardians",
+    ).filter(
+        institute=institute,
+    ).exclude(status=StudentAcademicSession.Status.CANCELLED)
+    if academic_year:
+        student_sessions = student_sessions.filter(academic_year=academic_year)
+    if filters["course"]:
+        student_sessions = student_sessions.filter(
+            enrollments__courses=filters["course"],
+            enrollments__status=StudentEnrollment.Status.ACTIVE,
+        )
+    if filters["batch"]:
+        student_sessions = student_sessions.filter(
+            enrollments__batch=filters["batch"],
+            enrollments__status=StudentEnrollment.Status.ACTIVE,
+        )
+    if filters["student"]:
+        student_sessions = student_sessions.filter(
+            Q(admission_number__icontains=filters["student"])
+            | Q(student__admission_number__icontains=filters["student"])
+            | Q(student__roll_number__icontains=filters["student"])
+            | Q(student__father_mobile_number__icontains=filters["student"])
+            | Q(student__mother_mobile_number__icontains=filters["student"])
+            | Q(student__user__first_name__icontains=filters["student"])
+            | Q(student__user__last_name__icontains=filters["student"])
+            | Q(student__user__username__icontains=filters["student"])
+        )
+    if filters["category"]:
+        student_sessions = student_sessions.filter(
+            fee_invoices__category=filters["category"],
+        ).exclude(fee_invoices__status=FeeInvoice.Status.CANCELLED)
+    student_sessions = student_sessions.distinct().order_by("enrollments__batch__name", "admission_number", "student__user__first_name")
+    session_ids = list(student_sessions.values_list("pk", flat=True))
+    fee_summaries = get_student_session_fee_summaries(session_ids, category=filters["category"])
+
     payments = Payment.objects.select_related(
         "invoice",
         "invoice__student",
         "invoice__student__user",
+        "invoice__academic_session",
         "invoice__batch",
         "invoice__course",
         "invoice__enrollment",
         "invoice__enrollment__batch",
+        "received_by",
     ).prefetch_related(
         "invoice__enrollment__courses",
         "invoice__batch__courses",
@@ -1725,14 +2172,24 @@ def build_fee_collection_report(request, institute):
             Q(invoice__course=filters["course"])
             | Q(invoice__enrollment__courses=filters["course"])
             | Q(invoice__batch__courses=filters["course"])
+            | Q(
+                invoice__academic_session__enrollments__courses=filters["course"],
+                invoice__academic_session__enrollments__status=StudentEnrollment.Status.ACTIVE,
+            )
         ).distinct()
     if filters["batch"]:
         payments = payments.filter(
             Q(invoice__batch=filters["batch"])
             | Q(invoice__enrollment__batch=filters["batch"])
+            | Q(
+                invoice__academic_session__enrollments__batch=filters["batch"],
+                invoice__academic_session__enrollments__status=StudentEnrollment.Status.ACTIVE,
+            )
         ).distinct()
     if filters["method"]:
         payments = payments.filter(method=filters["method"])
+    if filters["category"]:
+        payments = payments.filter(invoice__category=filters["category"])
     if filters["student"]:
         payments = payments.filter(
             Q(invoice__student__admission_number__icontains=filters["student"])
@@ -1744,16 +2201,192 @@ def build_fee_collection_report(request, institute):
         payments = payments.filter(receipt_number__icontains=filters["receipt_number"])
 
     payment_rows = list(payments.order_by("-paid_on", "-pk"))
+    receipt_lookup_rows = []
+    if filters["receipt_number"]:
+        receipt_lookup = Payment.objects.select_related(
+            "invoice",
+            "invoice__student",
+            "invoice__student__user",
+            "invoice__academic_session",
+            "invoice__batch",
+            "invoice__course",
+            "invoice__enrollment",
+            "invoice__enrollment__batch",
+            "received_by",
+            "voided_by",
+        ).prefetch_related(
+            "invoice__enrollment__courses",
+            "invoice__batch__courses",
+        ).filter(
+            invoice__institute=institute,
+            receipt_number__icontains=filters["receipt_number"],
+        )
+        receipt_lookup = filter_payments_for_academic_year(receipt_lookup, academic_year)
+        if filters["course"]:
+            receipt_lookup = receipt_lookup.filter(
+                Q(invoice__course=filters["course"])
+                | Q(invoice__enrollment__courses=filters["course"])
+                | Q(invoice__batch__courses=filters["course"])
+                | Q(
+                    invoice__academic_session__enrollments__courses=filters["course"],
+                    invoice__academic_session__enrollments__status=StudentEnrollment.Status.ACTIVE,
+                )
+            ).distinct()
+        if filters["batch"]:
+            receipt_lookup = receipt_lookup.filter(
+                Q(invoice__batch=filters["batch"])
+                | Q(invoice__enrollment__batch=filters["batch"])
+                | Q(
+                    invoice__academic_session__enrollments__batch=filters["batch"],
+                    invoice__academic_session__enrollments__status=StudentEnrollment.Status.ACTIVE,
+                )
+            ).distinct()
+        if filters["student"]:
+            receipt_lookup = receipt_lookup.filter(
+                Q(invoice__student__admission_number__icontains=filters["student"])
+                | Q(invoice__student__user__first_name__icontains=filters["student"])
+                | Q(invoice__student__user__last_name__icontains=filters["student"])
+                | Q(invoice__student__user__username__icontains=filters["student"])
+            )
+        if filters["category"]:
+            receipt_lookup = receipt_lookup.filter(invoice__category=filters["category"])
+        receipt_lookup_rows = list(receipt_lookup.order_by("-created_at", "-pk"))
+        for receipt_payment in receipt_lookup_rows:
+            receipt_payment.report_course_label = get_payment_course_label(receipt_payment)
+            receipt_payment.report_batch_label = get_payment_batch_label(receipt_payment)
+
     total_collection = sum((payment.amount for payment in payment_rows), Decimal("0.00"))
-    student_groups = defaultdict(lambda: {"amount": Decimal("0.00"), "count": 0})
-    class_groups = defaultdict(lambda: {"amount": Decimal("0.00"), "count": 0})
-    batch_groups = defaultdict(lambda: {"amount": Decimal("0.00"), "count": 0})
+    last_payment_by_session = {}
+    for payment in payment_rows:
+        session_id = payment.invoice.academic_session_id
+        current = last_payment_by_session.get(session_id)
+        if current is None or (payment.paid_on, payment.pk) > (current.paid_on, current.pk):
+            last_payment_by_session[session_id] = payment
+
+    due_dates = {}
+    due_date_queryset = FeeInvoice.objects.filter(academic_session_id__in=session_ids)
+    if filters["category"]:
+        due_date_queryset = due_date_queryset.filter(category=filters["category"])
+    for row in (
+        due_date_queryset.exclude(status=FeeInvoice.Status.CANCELLED)
+        .values("academic_session_id")
+        .annotate(due_date=Max("due_date"))
+    ):
+        due_dates[row["academic_session_id"]] = row["due_date"]
+
+    student_summary_rows = []
+    class_groups = defaultdict(
+        lambda: {
+            "class_label": "",
+            "batch_label": "",
+            "course_id": None,
+            "batch_id": None,
+            "total": Decimal("0.00"),
+            "paid": Decimal("0.00"),
+            "pending": Decimal("0.00"),
+            "students": 0,
+        }
+    )
+    pending_followup_rows = []
+    today = timezone.localdate()
+    for student_session in student_sessions:
+        summary = fee_summaries.get(
+            student_session.pk,
+            {"total_fee_amount": Decimal("0.00"), "paid_amount": Decimal("0.00"), "due_amount": Decimal("0.00")},
+        )
+        total_amount = summary["total_fee_amount"]
+        paid_amount = min(summary["paid_amount"], total_amount) if total_amount > 0 else summary["paid_amount"]
+        pending_amount = summary["due_amount"]
+        status = fee_status_from_amounts(total_amount, paid_amount, pending_amount)
+        if filters["status"] == "PENDING" and pending_amount <= 0:
+            continue
+        if filters["status"] in {"PAID", "PARTIAL", "UNPAID"} and status != filters["status"]:
+            continue
+        class_label, batch_label, class_key, batch_key, course_id, batch_id = get_session_class_batch_labels(student_session)
+        last_payment = last_payment_by_session.get(student_session.pk)
+        due_date = due_dates.get(student_session.pk)
+        parent_mobile = (
+            student_session.student.father_mobile_number
+            or student_session.student.mother_mobile_number
+            or student_session.student.emergency_contact_number
+        )
+        if not parent_mobile:
+            primary_guardian = next((guardian for guardian in student_session.student.guardians.all() if guardian.is_primary), None)
+            parent_mobile = primary_guardian.phone if primary_guardian else ""
+        row = {
+            "session": student_session,
+            "student": student_session.student,
+            "student_name": student_session.student.user.get_full_name() or student_session.student.user.username,
+            "admission_number": student_session.admission_number,
+            "roll_number": student_session.student.roll_number,
+            "parent_mobile": parent_mobile,
+            "class_label": class_label,
+            "batch_label": batch_label,
+            "class_key": class_key,
+            "batch_key": batch_key,
+            "course_id": course_id,
+            "batch_id": batch_id,
+            "total_amount": total_amount,
+            "paid_amount": paid_amount,
+            "pending_amount": pending_amount,
+            "status": status,
+            "due_date": due_date,
+            "last_payment_date": last_payment.paid_on if last_payment else None,
+            "last_payment_amount": last_payment.amount if last_payment else Decimal("0.00"),
+        }
+        student_summary_rows.append(row)
+        group_key = (course_id or 0, batch_id or 0, class_key, batch_key)
+        class_groups[group_key]["class_label"] = class_key
+        class_groups[group_key]["batch_label"] = batch_key
+        class_groups[group_key]["course_id"] = course_id
+        class_groups[group_key]["batch_id"] = batch_id
+        class_groups[group_key]["total"] += total_amount
+        class_groups[group_key]["paid"] += paid_amount
+        class_groups[group_key]["pending"] += pending_amount
+        class_groups[group_key]["students"] += 1
+        if pending_amount > 0:
+            row["days_pending"] = (today - due_date).days if due_date and due_date < today else 0
+            pending_followup_rows.append(row)
+
+    total_fee_amount = sum((row["total_amount"] for row in student_summary_rows), Decimal("0.00"))
+    total_paid_amount = sum((row["paid_amount"] for row in student_summary_rows), Decimal("0.00"))
+    total_pending_amount = sum((row["pending_amount"] for row in student_summary_rows), Decimal("0.00"))
+    students_with_pending = sum(1 for row in student_summary_rows if row["pending_amount"] > 0)
+    class_summary_rows = [
+        {
+            "label": f"{data['class_label']} / {data['batch_label']}",
+            "class_label": data["class_label"],
+            "batch_label": data["batch_label"],
+            "course_id": data["course_id"],
+            "batch_id": data["batch_id"],
+            "students": data["students"],
+            "total": data["total"],
+            "paid": data["paid"],
+            "pending": data["pending"],
+        }
+        for _key, data in sorted(
+            class_groups.items(),
+            key=lambda item: (-item[1]["pending"], item[1]["class_label"], item[1]["batch_label"]),
+        )
+    ]
+    for row in class_summary_rows:
+        detail_query = request.GET.copy()
+        detail_query["export"] = "student_detail"
+        if row["course_id"]:
+            detail_query["course"] = row["course_id"]
+        else:
+            detail_query.pop("course", None)
+        if row["batch_id"]:
+            detail_query["batch"] = row["batch_id"]
+        else:
+            detail_query.pop("batch", None)
+        row["detail_export_query"] = urlencode(detail_query, doseq=True)
+
     method_groups = defaultdict(lambda: {"amount": Decimal("0.00"), "count": 0})
     date_groups = defaultdict(lambda: {"amount": Decimal("0.00"), "count": 0})
     method_labels = dict(Payment.Method.choices)
 
     for payment in payment_rows:
-        student_label = str(payment.invoice.student)
         class_label = get_payment_course_label(payment)
         batch_label = get_payment_batch_label(payment)
         payment.report_course_label = class_label
@@ -1761,33 +2394,678 @@ def build_fee_collection_report(request, institute):
         method_label = method_labels.get(payment.method, payment.method)
         date_label = payment.paid_on.strftime("%d %b %Y")
         for group, label in (
-            (student_groups, student_label),
-            (class_groups, class_label),
-            (batch_groups, batch_label),
             (method_groups, method_label),
             (date_groups, date_label),
         ):
             group[label]["amount"] += payment.amount
             group[label]["count"] += 1
 
+    monthly_groups = defaultdict(lambda: Decimal("0.00"))
+    for payment in payment_rows:
+        monthly_groups[payment.paid_on.replace(day=1)] += payment.amount
+    max_monthly_collection = max(monthly_groups.values(), default=Decimal("0.00"))
+    monthly_collection_rows = [
+        {
+            "label": month_date.strftime("%b %Y"),
+            "amount": amount,
+            "percent": round((amount / max_monthly_collection) * 100, 1) if max_monthly_collection else 0,
+        }
+        for month_date, amount in sorted(monthly_groups.items())
+    ]
+    max_class_amount = max(
+        [amount for row in class_summary_rows for amount in (row["paid"], row["pending"])],
+        default=Decimal("0.00"),
+    )
+    for row in class_summary_rows:
+        row["paid_percent"] = round((row["paid"] / max_class_amount) * 100, 1) if max_class_amount else 0
+        row["pending_percent"] = round((row["pending"] / max_class_amount) * 100, 1) if max_class_amount else 0
+
+    selected_ledger = student_summary_rows[0] if filters["student"] and len(student_summary_rows) == 1 else None
+    ledger_invoice_rows = []
+    ledger_payment_rows = []
+    if selected_ledger:
+        ledger_invoices = (
+            FeeInvoice.objects.filter(academic_session=selected_ledger["session"])
+            .select_related("category", "batch", "course")
+            .exclude(status=FeeInvoice.Status.CANCELLED)
+        )
+        ledger_payments = Payment.objects.filter(
+            invoice__academic_session=selected_ledger["session"],
+            status=Payment.Status.ACTIVE,
+        ).select_related("invoice", "received_by")
+        if filters["category"]:
+            ledger_invoices = ledger_invoices.filter(category=filters["category"])
+            ledger_payments = ledger_payments.filter(invoice__category=filters["category"])
+        if filters["start_date"]:
+            ledger_invoices = ledger_invoices.filter(due_date__gte=filters["start_date"])
+            ledger_payments = ledger_payments.filter(paid_on__gte=filters["start_date"])
+        if filters["end_date"]:
+            ledger_invoices = ledger_invoices.filter(due_date__lte=filters["end_date"])
+            ledger_payments = ledger_payments.filter(paid_on__lte=filters["end_date"])
+        ledger_invoice_rows = list(ledger_invoices.order_by("due_date", "pk"))
+        ledger_payment_rows = list(ledger_payments.order_by("-paid_on", "-pk"))
+
     query_params = request.GET.copy()
-    query_params["export"] = "csv"
+    query_params["export"] = "excel"
+    ledger_query_params = request.GET.copy()
+    ledger_query_params["export"] = "student_ledger"
+    collections_query_params = request.GET.copy()
+    collections_query_params["export"] = "collections"
     return {
         "filters": filters,
         "total_collection": total_collection,
+        "total_fee_amount": total_fee_amount,
+        "total_paid_amount": total_paid_amount,
+        "total_pending_amount": total_pending_amount,
         "payment_count": len(payment_rows),
-        "student_groups": summarize_grouped_amounts(student_groups),
-        "class_groups": summarize_grouped_amounts(class_groups),
-        "batch_groups": summarize_grouped_amounts(batch_groups),
+        "student_count": len(student_summary_rows),
+        "students_with_pending": students_with_pending,
+        "student_summary_rows": student_summary_rows,
+        "class_summary_rows": class_summary_rows,
+        "pending_followup_rows": sorted(pending_followup_rows, key=lambda row: (-row["pending_amount"], row["class_key"], row["student_name"])),
         "method_groups": summarize_grouped_amounts(method_groups),
         "date_groups": [
             {"label": label, "amount": data["amount"], "count": data["count"]}
             for label, data in date_groups.items()
         ],
+        "monthly_collection_rows": monthly_collection_rows,
+        "selected_ledger": selected_ledger,
+        "ledger_invoice_rows": ledger_invoice_rows,
+        "ledger_payment_rows": ledger_payment_rows,
+        "receipt_lookup_rows": receipt_lookup_rows,
         "payment_rows": payment_rows[:100],
         "export_rows": payment_rows,
         "export_query": urlencode(query_params, doseq=True),
+        "ledger_export_query": urlencode(ledger_query_params, doseq=True),
+        "collections_export_query": urlencode(collections_query_params, doseq=True),
     }
+
+
+def export_fee_report_excel(report, institute):
+    workbook = Workbook()
+    generated_label = timezone.localtime().strftime("%d-%m-%Y %I:%M %p")
+    subtitle = f"{institute.name} | Generated {generated_label}"
+    green_fill = PatternFill("solid", fgColor="DCFCE7")
+    red_fill = PatternFill("solid", fgColor="FEE2E2")
+    blue_fill = PatternFill("solid", fgColor="DBEAFE")
+    amber_fill = PatternFill("solid", fgColor="FEF3C7")
+    dark_font = Font(color="0F172A", bold=True)
+    center = Alignment(horizontal="center", vertical="center")
+    thin = Side(style="thin", color="CBD5E1")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    summary = workbook.active
+    summary.title = "Overview"
+    write_finance_sheet_title(summary, "Fees Report Dashboard", subtitle, 8)
+    filters = report["filters"]
+    filter_text = (
+        f"Session: {filters['academic_year'].name if filters['academic_year'] else 'All'} | "
+        f"From: {filters['start_date_value'] or 'Any'} | "
+        f"To: {filters['end_date_value'] or 'Any'} | "
+        f"Class: {filters['course'].name if filters['course'] else 'All'} | "
+        f"Batch: {filters['batch'].name if filters['batch'] else 'All'} | "
+        f"Status: {filters['status'] or 'All'}"
+    )
+    summary.merge_cells(start_row=4, start_column=1, end_row=4, end_column=8)
+    summary.cell(row=4, column=1, value=filter_text).font = Font(italic=True, color="64748B")
+    cards = [
+        ("Total Fee", float(report["total_fee_amount"]), blue_fill),
+        ("Paid Amount", float(report["total_paid_amount"]), green_fill),
+        ("Pending Amount", float(report["total_pending_amount"]), red_fill),
+        ("Students", report["student_count"], blue_fill),
+        ("Students Pending", report["students_with_pending"], amber_fill),
+        ("Collections", float(report["total_collection"]), green_fill),
+    ]
+    for index, (label, value, fill) in enumerate(cards, start=1):
+        summary.cell(row=6, column=index, value=label).fill = fill
+        summary.cell(row=6, column=index).font = dark_font
+        summary.cell(row=6, column=index).alignment = center
+        summary.cell(row=6, column=index).border = border
+        summary.cell(row=7, column=index, value=value).font = Font(size=13, bold=True, color="0F172A")
+        summary.cell(row=7, column=index).alignment = center
+        summary.cell(row=7, column=index).border = border
+        if isinstance(value, float):
+            summary.cell(row=7, column=index).number_format = '#,##0.00'
+    class_rows = [
+        [row["label"], row["students"], float(row["total"]), float(row["paid"]), float(row["pending"])]
+        for row in report["class_summary_rows"]
+    ]
+    write_finance_table(summary, 10, ["Class / Batch", "Students", "Total Amount", "Paid Amount", "Pending Amount"], class_rows, amount_columns={3, 4, 5})
+    for col, width in enumerate([30, 14, 18, 18, 18, 18, 18, 18], start=1):
+        summary.column_dimensions[get_column_letter(col)].width = width
+
+    student_sheet = workbook.create_sheet("Class Wise Student Summary")
+    write_fee_student_detail_sheet(
+        student_sheet,
+        "Class Wise Student Fee Summary",
+        subtitle,
+        fee_report_filter_text(report),
+        report["student_summary_rows"],
+    )
+
+    collections = workbook.create_sheet("Collections")
+    write_finance_sheet_title(collections, "Fee Collection Details", subtitle, 11)
+    collection_filter_text = fee_report_filter_text(report)
+    if filters["receipt_number"]:
+        collection_filter_text = f"{collection_filter_text} | Receipt: {filters['receipt_number']}"
+    collections.merge_cells(start_row=4, start_column=1, end_row=4, end_column=11)
+    collections.cell(row=4, column=1, value=collection_filter_text).font = Font(italic=True, color="64748B")
+    collection_rows = [
+        [
+            payment.paid_on.strftime("%d-%m-%Y") if payment.paid_on else "",
+            payment.receipt_number or "-",
+            payment.get_status_display(),
+            payment.received_by.get_full_name() or payment.received_by.username if payment.received_by else "",
+            str(payment.invoice.student),
+            get_payment_course_label(payment),
+            get_payment_batch_label(payment),
+            payment.invoice.title,
+            payment.invoice.get_status_display(),
+            payment.get_method_display(),
+            float(payment.amount),
+        ]
+        for payment in report["export_rows"]
+    ]
+    collection_last_row = write_finance_table(
+        collections,
+        6,
+        ["Date", "Receipt", "Status", "Received By", "Student", "Class", "Batch", "Invoice", "Invoice Status", "Mode", "Amount"],
+        collection_rows,
+        amount_columns={11},
+    )
+    collection_total_row = collection_last_row + 1
+    collections.merge_cells(start_row=collection_total_row, start_column=1, end_row=collection_total_row, end_column=10)
+    collections.cell(row=collection_total_row, column=1, value="Collection Total")
+    for column in range(1, 12):
+        cell = collections.cell(row=collection_total_row, column=column)
+        cell.fill = green_fill
+        cell.font = dark_font
+        cell.border = border
+        cell.alignment = center
+    collections.cell(row=collection_total_row, column=1).alignment = Alignment(horizontal="left", vertical="center")
+    collections.cell(row=collection_total_row, column=11, value=float(report["total_collection"]))
+    collections.cell(row=collection_total_row, column=11).number_format = '#,##0.00'
+    for col, width in enumerate([16, 22, 14, 24, 34, 22, 22, 28, 16, 16, 18], start=1):
+        collections.column_dimensions[get_column_letter(col)].width = width
+    collections.freeze_panes = "A7"
+
+    ledger = workbook.create_sheet("Student Ledger")
+    write_finance_sheet_title(ledger, "Student Ledger", subtitle, 8)
+    ledger.merge_cells(start_row=4, start_column=1, end_row=4, end_column=8)
+    ledger.cell(row=4, column=1, value=fee_report_filter_text(report)).font = Font(italic=True, color="64748B")
+    if report["selected_ledger"]:
+        selected = report["selected_ledger"]
+        student_info = [
+            ("Student Name", selected["student_name"]),
+            ("Admission No", selected["admission_number"]),
+            ("Roll No", selected["roll_number"] or "-"),
+            ("Class / Batch", f"{selected['class_label']} / {selected['batch_label']}"),
+            ("Parent Mobile", selected["parent_mobile"] or "-"),
+            ("Status", selected["status"].title()),
+        ]
+        for index, (label, value) in enumerate(student_info, start=1):
+            row = 6 + ((index - 1) // 3)
+            column = 1 + (((index - 1) % 3) * 2)
+            ledger.cell(row=row, column=column, value=label).font = dark_font
+            ledger.cell(row=row, column=column + 1, value=value)
+
+        summary_cards = [
+            ("Total Fees", selected["total_amount"], blue_fill),
+            ("Total Collected", selected["paid_amount"], green_fill),
+            ("Total Pending", selected["pending_amount"], red_fill),
+        ]
+        for index, (label, value, fill) in enumerate(summary_cards, start=1):
+            column = 1 + ((index - 1) * 2)
+            ledger.merge_cells(start_row=9, start_column=column, end_row=9, end_column=column + 1)
+            ledger.merge_cells(start_row=10, start_column=column, end_row=10, end_column=column + 1)
+            ledger.cell(row=9, column=column, value=label).fill = fill
+            ledger.cell(row=9, column=column).font = dark_font
+            ledger.cell(row=9, column=column).alignment = center
+            ledger.cell(row=10, column=column, value=float(value)).font = Font(size=13, bold=True, color="0F172A")
+            ledger.cell(row=10, column=column).alignment = center
+            ledger.cell(row=10, column=column).number_format = '#,##0.00'
+            for row in (9, 10):
+                for cell in ledger[row][column - 1:column + 1]:
+                    cell.border = border
+
+        invoice_rows = [
+            [invoice.due_date.strftime("%d-%m-%Y") if invoice.due_date else "", invoice.title, invoice.category.name if invoice.category_id else "General", float(invoice.amount), invoice.get_status_display()]
+            for invoice in report["ledger_invoice_rows"]
+        ]
+        invoice_last_row = write_finance_table(ledger, 13, ["Due Date", "Invoice", "Category", "Amount", "Status"], invoice_rows, amount_columns={4})
+        invoice_total_row = invoice_last_row + 1
+        ledger.merge_cells(start_row=invoice_total_row, start_column=1, end_row=invoice_total_row, end_column=3)
+        ledger.cell(row=invoice_total_row, column=1, value="Invoice Total")
+        for column in range(1, 6):
+            cell = ledger.cell(row=invoice_total_row, column=column)
+            cell.fill = blue_fill
+            cell.font = dark_font
+            cell.border = border
+            cell.alignment = center
+        ledger.cell(row=invoice_total_row, column=1).alignment = Alignment(horizontal="left", vertical="center")
+        ledger.cell(row=invoice_total_row, column=4, value=float(sum((invoice.amount for invoice in report["ledger_invoice_rows"]), Decimal("0.00"))))
+        ledger.cell(row=invoice_total_row, column=4).number_format = '#,##0.00'
+
+        start_row = invoice_total_row + 3
+        ledger.merge_cells(start_row=start_row - 1, start_column=1, end_row=start_row - 1, end_column=8)
+        ledger.cell(row=start_row - 1, column=1, value="Payment Ledger").fill = PatternFill("solid", fgColor="166534")
+        ledger.cell(row=start_row - 1, column=1).font = Font(color="FFFFFF", bold=True)
+        payment_rows = [
+            [
+                payment.paid_on.strftime("%d-%m-%Y") if payment.paid_on else "",
+                payment.receipt_number or "-",
+                payment.invoice.title,
+                payment.get_method_display(),
+                payment.received_by.get_full_name() or payment.received_by.username if payment.received_by else "",
+                float(payment.amount),
+            ]
+            for payment in report["ledger_payment_rows"]
+        ]
+        payment_last_row = write_finance_table(ledger, start_row, ["Paid Date", "Receipt", "Invoice", "Mode", "Collected By", "Amount"], payment_rows, amount_columns={6})
+        payment_total_row = payment_last_row + 1
+        ledger.merge_cells(start_row=payment_total_row, start_column=1, end_row=payment_total_row, end_column=5)
+        ledger.cell(row=payment_total_row, column=1, value="Payment Total")
+        for column in range(1, 7):
+            cell = ledger.cell(row=payment_total_row, column=column)
+            cell.fill = green_fill
+            cell.font = dark_font
+            cell.border = border
+            cell.alignment = center
+        ledger.cell(row=payment_total_row, column=1).alignment = Alignment(horizontal="left", vertical="center")
+        ledger.cell(row=payment_total_row, column=6, value=float(sum((payment.amount for payment in report["ledger_payment_rows"]), Decimal("0.00"))))
+        ledger.cell(row=payment_total_row, column=6).number_format = '#,##0.00'
+    else:
+        ledger.cell(row=6, column=1, value="Search one student in the dashboard to export a focused ledger.").font = Font(italic=True, color="64748B")
+    for col, width in enumerate([18, 24, 26, 18, 18, 18, 16, 16], start=1):
+        ledger.column_dimensions[get_column_letter(col)].width = width
+    ledger.freeze_panes = "A13"
+
+    for sheet in workbook.worksheets:
+        if not sheet.freeze_panes:
+            sheet.freeze_panes = "A5" if sheet.title != "Overview" else "A10"
+
+    buffer = BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
+    response["Content-Disposition"] = f'attachment; filename="fees_report_dashboard_{stamp}.xlsx"'
+    return response
+
+
+def export_fee_collections_excel(report, institute):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Collections"
+    generated_label = timezone.localtime().strftime("%d-%m-%Y %I:%M %p")
+    subtitle = f"{institute.name} | Generated {generated_label}"
+    write_finance_sheet_title(sheet, "Fee Collection Details", subtitle, 11)
+    filter_text = fee_report_filter_text(report)
+    if report["filters"]["receipt_number"]:
+        filter_text = f"{filter_text} | Receipt: {report['filters']['receipt_number']}"
+    sheet.merge_cells(start_row=4, start_column=1, end_row=4, end_column=11)
+    sheet.cell(row=4, column=1, value=filter_text).font = Font(italic=True, color="64748B")
+    collection_rows = [
+        [
+            payment.paid_on.strftime("%d-%m-%Y") if payment.paid_on else "",
+            payment.receipt_number or "-",
+            payment.get_status_display(),
+            payment.received_by.get_full_name() or payment.received_by.username if payment.received_by else "",
+            str(payment.invoice.student),
+            get_payment_course_label(payment),
+            get_payment_batch_label(payment),
+            payment.invoice.title,
+            payment.invoice.get_status_display(),
+            payment.get_method_display(),
+            float(payment.amount),
+        ]
+        for payment in report["export_rows"]
+    ]
+    last_row = write_finance_table(
+        sheet,
+        6,
+        ["Date", "Receipt", "Status", "Received By", "Student", "Class", "Batch", "Invoice", "Invoice Status", "Mode", "Amount"],
+        collection_rows,
+        amount_columns={11},
+    )
+    total_row = last_row + 1
+    total_fill = PatternFill("solid", fgColor="DCFCE7")
+    total_font = Font(bold=True, color="0F172A")
+    thin = Side(style="thin", color="CBD5E1")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    sheet.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=10)
+    sheet.cell(row=total_row, column=1, value="Collection Total")
+    for column in range(1, 12):
+        cell = sheet.cell(row=total_row, column=column)
+        cell.fill = total_fill
+        cell.font = total_font
+        cell.border = border
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+    sheet.cell(row=total_row, column=1).alignment = Alignment(horizontal="left", vertical="center")
+    sheet.cell(row=total_row, column=11, value=float(report["total_collection"]))
+    sheet.cell(row=total_row, column=11).number_format = '#,##0.00'
+    for col, width in enumerate([16, 22, 14, 24, 34, 22, 22, 28, 16, 16, 18], start=1):
+        sheet.column_dimensions[get_column_letter(col)].width = width
+    sheet.freeze_panes = "A7"
+
+    buffer = BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
+    response["Content-Disposition"] = f'attachment; filename="Fee-Collections-{stamp}.xlsx"'
+    return response
+
+
+def safe_excel_sheet_title(value, fallback="Batch"):
+    title = "".join(character if character not in r'[]:*?/\\' else "-" for character in str(value or fallback)).strip()
+    return (title or fallback)[:31]
+
+
+def safe_excel_filename_part(value, fallback="Batch"):
+    safe_value = "".join(
+        character if character.isalnum() or character in (" ", "-", "_") else "-"
+        for character in str(value or fallback)
+    ).strip()
+    return "-".join(safe_value.split()) or fallback
+
+
+def write_fee_student_detail_sheet(sheet, title, subtitle, filter_text, student_rows):
+    write_finance_sheet_title(sheet, title, subtitle, 11)
+    sheet.merge_cells(start_row=4, start_column=1, end_row=4, end_column=11)
+    sheet.cell(row=4, column=1, value=filter_text).font = Font(italic=True, color="64748B")
+    rows = [
+        [
+            row["class_label"],
+            row["batch_label"],
+            row["admission_number"],
+            row["roll_number"],
+            row["student_name"],
+            row["parent_mobile"],
+            float(row["total_amount"]),
+            float(row["paid_amount"]),
+            float(row["pending_amount"]),
+            row["last_payment_date"].strftime("%d-%m-%Y") if row["last_payment_date"] else "",
+            row["status"].title(),
+        ]
+        for row in student_rows
+    ]
+    last_row = write_finance_table(
+        sheet,
+        6,
+        ["Class", "Batch", "Admission No", "Roll No", "Student Name", "Parent Mobile", "Total Fees", "Total Collected", "Total Pending", "Last Payment", "Status"],
+        rows,
+        amount_columns={7, 8, 9},
+    )
+    total_row = last_row + 1
+    total_fee = sum((row["total_amount"] for row in student_rows), Decimal("0.00"))
+    total_collected = sum((row["paid_amount"] for row in student_rows), Decimal("0.00"))
+    total_pending = sum((row["pending_amount"] for row in student_rows), Decimal("0.00"))
+    thin = Side(style="thin", color="CBD5E1")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    total_fill = PatternFill("solid", fgColor="DCFCE7")
+    total_font = Font(bold=True, color="0F172A")
+    center = Alignment(horizontal="center", vertical="center")
+    left = Alignment(horizontal="left", vertical="center")
+    for column in range(1, 12):
+        cell = sheet.cell(row=total_row, column=column)
+        cell.fill = total_fill
+        cell.font = total_font
+        cell.border = border
+        cell.alignment = center
+    sheet.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=6)
+    sheet.cell(row=total_row, column=1, value="Grand Total")
+    sheet.cell(row=total_row, column=1).fill = total_fill
+    sheet.cell(row=total_row, column=1).font = total_font
+    sheet.cell(row=total_row, column=1).border = border
+    sheet.cell(row=total_row, column=1).alignment = left
+    for column, value in ((7, total_fee), (8, total_collected), (9, total_pending)):
+        cell = sheet.cell(row=total_row, column=column, value=float(value))
+        cell.fill = total_fill
+        cell.font = total_font
+        cell.border = border
+        cell.alignment = center
+        cell.number_format = '#,##0.00'
+    widths = [22, 22, 16, 12, 30, 18, 18, 18, 18, 16, 14]
+    for col, width in enumerate(widths, start=1):
+        sheet.column_dimensions[get_column_letter(col)].width = width
+    sheet.freeze_panes = "A7"
+
+
+def fee_report_filter_text(report):
+    filters = report["filters"]
+    return (
+        f"Session: {filters['academic_year'].name if filters['academic_year'] else 'All'} | "
+        f"From: {filters['start_date_value'] or 'Any'} | "
+        f"To: {filters['end_date_value'] or 'Any'} | "
+        f"Status: {filters['status'] or 'All'}"
+    )
+
+
+def export_fee_student_detail_excel(report, institute):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Student Fee Detail"
+    generated_label = timezone.localtime().strftime("%d-%m-%Y %I:%M %p")
+    subtitle = f"{institute.name} | Generated {generated_label}"
+    filters = report["filters"]
+    title = "Student Wise Fee Detail"
+    if filters["course"] or filters["batch"]:
+        title = f"{filters['course'].name if filters['course'] else 'All Classes'} - {filters['batch'].name if filters['batch'] else 'All Batches'}"
+    write_fee_student_detail_sheet(sheet, title, subtitle, fee_report_filter_text(report), report["student_summary_rows"])
+    buffer = BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
+    filters = report["filters"]
+    batch_name = filters["batch"].name if filters["batch"] else "All Batches"
+    safe_batch_name = safe_excel_filename_part(batch_name)
+    response["Content-Disposition"] = f'attachment; filename="{safe_batch_name}-Student-Fees-Details-{stamp}.xlsx"'
+    return response
+
+
+def export_all_batch_fee_details_excel(report, institute):
+    workbook = Workbook()
+    workbook.remove(workbook.active)
+    generated_label = timezone.localtime().strftime("%d-%m-%Y %I:%M %p")
+    subtitle = f"{institute.name} | Generated {generated_label}"
+    filter_text = fee_report_filter_text(report)
+    used_titles = set()
+    for batch_row in report["class_summary_rows"]:
+        student_rows = [
+            row
+            for row in report["student_summary_rows"]
+            if row["course_id"] == batch_row["course_id"] and row["batch_id"] == batch_row["batch_id"]
+        ]
+        base_title = safe_excel_sheet_title(batch_row["batch_label"])
+        sheet_title = base_title
+        counter = 2
+        while sheet_title in used_titles:
+            suffix = f" {counter}"
+            sheet_title = f"{base_title[:31 - len(suffix)]}{suffix}"
+            counter += 1
+        used_titles.add(sheet_title)
+        sheet = workbook.create_sheet(sheet_title)
+        title = f"{batch_row['class_label']} - {batch_row['batch_label']}"
+        write_fee_student_detail_sheet(sheet, title, subtitle, filter_text, student_rows)
+    if not workbook.worksheets:
+        sheet = workbook.create_sheet("No Data")
+        write_fee_student_detail_sheet(sheet, "No Batch Fee Data", subtitle, filter_text, [])
+
+    buffer = BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
+    response["Content-Disposition"] = f'attachment; filename="All-Batches-Student-Fees-Details-{stamp}.xlsx"'
+    return response
+
+
+def export_fee_student_ledger_excel(report, institute):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Student Ledger"
+    generated_label = timezone.localtime().strftime("%d-%m-%Y %I:%M %p")
+    subtitle = f"{institute.name} | Generated {generated_label}"
+    selected = report["selected_ledger"]
+    title = f"Student Ledger - {selected['student_name']}" if selected else "Student Ledger"
+    write_finance_sheet_title(sheet, title, subtitle, 8)
+
+    thin = Side(style="thin", color="CBD5E1")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    dark_font = Font(color="0F172A", bold=True)
+    muted_font = Font(color="64748B", italic=True)
+    white_font = Font(color="FFFFFF", bold=True)
+    center = Alignment(horizontal="center", vertical="center")
+    left = Alignment(horizontal="left", vertical="center")
+    green_fill = PatternFill("solid", fgColor="DCFCE7")
+    red_fill = PatternFill("solid", fgColor="FEE2E2")
+    blue_fill = PatternFill("solid", fgColor="DBEAFE")
+    header_fill = PatternFill("solid", fgColor="166534")
+
+    filter_text = fee_report_filter_text(report)
+    sheet.merge_cells(start_row=4, start_column=1, end_row=4, end_column=8)
+    sheet.cell(row=4, column=1, value=filter_text).font = muted_font
+
+    if not selected:
+        sheet.merge_cells(start_row=6, start_column=1, end_row=6, end_column=8)
+        sheet.cell(row=6, column=1, value="Search one student in the dashboard to export a focused ledger.").font = muted_font
+    else:
+        student_info = [
+            ("Student Name", selected["student_name"]),
+            ("Admission No", selected["admission_number"]),
+            ("Roll No", selected["roll_number"] or "-"),
+            ("Class / Batch", f"{selected['class_label']} / {selected['batch_label']}"),
+            ("Parent Mobile", selected["parent_mobile"] or "-"),
+            ("Status", selected["status"].title()),
+        ]
+        for index, (label, value) in enumerate(student_info, start=1):
+            row = 6 + ((index - 1) // 3)
+            column = 1 + (((index - 1) % 3) * 2)
+            sheet.cell(row=row, column=column, value=label).font = dark_font
+            sheet.cell(row=row, column=column + 1, value=value)
+            sheet.cell(row=row, column=column).alignment = left
+            sheet.cell(row=row, column=column + 1).alignment = left
+
+        summary_cards = [
+            ("Total Fees", selected["total_amount"], blue_fill),
+            ("Total Collected", selected["paid_amount"], green_fill),
+            ("Total Pending", selected["pending_amount"], red_fill),
+        ]
+        for index, (label, value, fill) in enumerate(summary_cards, start=1):
+            column = 1 + ((index - 1) * 2)
+            sheet.merge_cells(start_row=9, start_column=column, end_row=9, end_column=column + 1)
+            sheet.merge_cells(start_row=10, start_column=column, end_row=10, end_column=column + 1)
+            sheet.cell(row=9, column=column, value=label).fill = fill
+            sheet.cell(row=9, column=column).font = dark_font
+            sheet.cell(row=9, column=column).alignment = center
+            sheet.cell(row=10, column=column, value=float(value)).font = Font(size=13, bold=True, color="0F172A")
+            sheet.cell(row=10, column=column).alignment = center
+            sheet.cell(row=10, column=column).number_format = '#,##0.00'
+            for row in (9, 10):
+                for cell in sheet[row][column - 1:column + 1]:
+                    cell.border = border
+
+        invoice_rows = [
+            [
+                invoice.due_date.strftime("%d-%m-%Y") if invoice.due_date else "",
+                invoice.title,
+                invoice.category.name if invoice.category_id else "General",
+                float(invoice.amount),
+                invoice.get_status_display(),
+            ]
+            for invoice in report["ledger_invoice_rows"]
+        ]
+        invoice_last_row = write_finance_table(
+            sheet,
+            13,
+            ["Due Date", "Invoice", "Category", "Amount", "Status"],
+            invoice_rows,
+            amount_columns={4},
+        )
+        invoice_total_row = invoice_last_row + 1
+        sheet.merge_cells(start_row=invoice_total_row, start_column=1, end_row=invoice_total_row, end_column=3)
+        sheet.cell(row=invoice_total_row, column=1, value="Invoice Total").font = dark_font
+        sheet.cell(row=invoice_total_row, column=1).fill = blue_fill
+        sheet.cell(row=invoice_total_row, column=1).alignment = left
+        sheet.cell(row=invoice_total_row, column=4, value=float(sum((invoice.amount for invoice in report["ledger_invoice_rows"]), Decimal("0.00"))))
+        sheet.cell(row=invoice_total_row, column=4).number_format = '#,##0.00'
+        for column in range(1, 6):
+            cell = sheet.cell(row=invoice_total_row, column=column)
+            cell.fill = blue_fill
+            cell.font = dark_font
+            cell.border = border
+            cell.alignment = center if column != 1 else left
+
+        payment_start_row = invoice_total_row + 3
+        sheet.merge_cells(start_row=payment_start_row - 1, start_column=1, end_row=payment_start_row - 1, end_column=8)
+        sheet.cell(row=payment_start_row - 1, column=1, value="Payment Ledger").fill = header_fill
+        sheet.cell(row=payment_start_row - 1, column=1).font = white_font
+        sheet.cell(row=payment_start_row - 1, column=1).alignment = left
+        payment_rows = [
+            [
+                payment.paid_on.strftime("%d-%m-%Y") if payment.paid_on else "",
+                payment.receipt_number or "-",
+                payment.invoice.title,
+                payment.get_method_display(),
+                payment.received_by.get_full_name() or payment.received_by.username if payment.received_by else "",
+                float(payment.amount),
+            ]
+            for payment in report["ledger_payment_rows"]
+        ]
+        payment_last_row = write_finance_table(
+            sheet,
+            payment_start_row,
+            ["Paid Date", "Receipt", "Invoice", "Mode", "Collected By", "Amount"],
+            payment_rows,
+            amount_columns={6},
+        )
+        payment_total_row = payment_last_row + 1
+        sheet.merge_cells(start_row=payment_total_row, start_column=1, end_row=payment_total_row, end_column=5)
+        sheet.cell(row=payment_total_row, column=1, value="Payment Total").font = dark_font
+        sheet.cell(row=payment_total_row, column=1).fill = green_fill
+        sheet.cell(row=payment_total_row, column=1).alignment = left
+        sheet.cell(row=payment_total_row, column=6, value=float(sum((payment.amount for payment in report["ledger_payment_rows"]), Decimal("0.00"))))
+        sheet.cell(row=payment_total_row, column=6).number_format = '#,##0.00'
+        for column in range(1, 7):
+            cell = sheet.cell(row=payment_total_row, column=column)
+            cell.fill = green_fill
+            cell.font = dark_font
+            cell.border = border
+            cell.alignment = center if column != 1 else left
+
+    for col, width in enumerate([18, 24, 26, 18, 18, 18, 16, 16], start=1):
+        sheet.column_dimensions[get_column_letter(col)].width = width
+    sheet.freeze_panes = "A13"
+
+    buffer = BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
+    filename_name = selected["student_name"] if selected else "Student"
+    filename_admission = selected["admission_number"] if selected else "Ledger"
+    response["Content-Disposition"] = (
+        f'attachment; filename="{safe_excel_filename_part(filename_name)}-'
+        f'{safe_excel_filename_part(filename_admission)}-Student-Ledger-{stamp}.xlsx"'
+    )
+    return response
 
 
 @institute_admin_required
@@ -1798,51 +3076,44 @@ def fee_collection_report(request):
         return redirect("school_dashboard")
 
     report = build_fee_collection_report(request, institute)
-    if request.GET.get("export") == "csv":
-        response = HttpResponse(content_type="text/csv")
-        stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
-        response["Content-Disposition"] = f'attachment; filename="fee_collection_report_{stamp}.csv"'
-        writer = csv.writer(response)
-        writer.writerow(["Fee Collection Report"])
-        writer.writerow(["Institute", institute.name])
-        writer.writerow(["From", report["filters"]["start_date_value"] or "Any"])
-        writer.writerow(["To", report["filters"]["end_date_value"] or "Any"])
-        writer.writerow(["Class", report["filters"]["course"].name if report["filters"]["course"] else "All"])
-        writer.writerow(["Batch", report["filters"]["batch"].name if report["filters"]["batch"] else "All"])
-        writer.writerow(["Payment Method", dict(Payment.Method.choices).get(report["filters"]["method"], "All")])
-        writer.writerow(["Student", report["filters"]["student"] or "All"])
-        writer.writerow(["Receipt Number", report["filters"]["receipt_number"] or "All"])
-        writer.writerow([])
-        writer.writerow(["Total Collection", f"{report['total_collection']:.2f}"])
-        writer.writerow(["Payment Count", report["payment_count"]])
-        writer.writerow([])
-        writer.writerow(["Date", "Receipt", "Student", "Class", "Batch", "Invoice", "Payment Method", "Amount"])
-        for payment in report["export_rows"]:
-            writer.writerow([
-                payment.paid_on,
-                payment.receipt_number,
-                payment.invoice.student,
-                get_payment_course_label(payment),
-                get_payment_batch_label(payment),
-                payment.invoice.title,
-                payment.get_method_display(),
-                f"{payment.amount:.2f}",
-            ])
-        return response
+    if (request.GET.get("export") or "").strip().lower() == "all_batch_details":
+        return export_all_batch_fee_details_excel(report, institute)
+    if (request.GET.get("export") or "").strip().lower() == "student_detail":
+        return export_fee_student_detail_excel(report, institute)
+    if (request.GET.get("export") or "").strip().lower() == "student_ledger":
+        return export_fee_student_ledger_excel(report, institute)
+    if (request.GET.get("export") or "").strip().lower() == "collections":
+        return export_fee_collections_excel(report, institute)
+    if (request.GET.get("export") or "").strip().lower() in {"excel", "xlsx"}:
+        return export_fee_report_excel(report, institute)
 
-    academic_year = get_current_academic_year(request, institute)
+    selected_academic_year = report["filters"]["academic_year"] or get_current_academic_year(request, institute)
     courses = Course.objects.filter(institute=institute, is_active=True)
     batches = Batch.objects.filter(institute=institute, is_active=True)
-    if academic_year:
-        courses = courses.filter(academic_year=academic_year)
-        batches = batches.filter(academic_year=academic_year)
+    categories = FeeCategory.objects.filter(institute=institute, is_active=True)
+    if selected_academic_year:
+        courses = courses.filter(academic_year=selected_academic_year)
+        batches = batches.filter(academic_year=selected_academic_year)
+        categories = categories.filter(academic_year=selected_academic_year)
     context = {
         **report,
         "courses": courses.order_by("name"),
         "batches": batches.order_by("name"),
+        "categories": categories.order_by("name"),
+        "academic_years": AcademicYear.objects.filter(institute=institute).order_by("-start_date", "-pk"),
         "payment_methods": Payment.Method.choices,
+        "all_batches_export_query": urlencode(
+            {**request.GET.dict(), "export": "all_batch_details"},
+            doseq=True,
+        ),
+        "status_options": [
+            ("", "All status"),
+            ("PAID", "Paid"),
+            ("PARTIAL", "Partial"),
+            ("UNPAID", "Unpaid"),
+            ("PENDING", "Pending only"),
+        ],
         "current_institute": institute,
-        "year_options": range(timezone.localdate().year - 5, timezone.localdate().year + 2),
         "month_options": [
             (1, "January"),
             (2, "February"),
@@ -1893,22 +3164,14 @@ def reports_dashboard(request):
             "accent": "green",
             "reports": [
                 {
-                    "title": "Profit & Loss Report",
-                    "description": "Compare fee collection and expenses to show net profit or loss.",
+                    "title": "Finance Report Dashboard",
+                    "description": "Profit/loss, collection vs expense, expense summary and monthly finance trend in one report.",
                     "icon": "bi-graph-up-arrow",
                     "priority": "Core",
                     "url": reverse("institute_admin:profit_loss_report"),
-                    "filters": ["Start date", "End date", "Month", "Year", "Class", "Branch"],
-                    "outputs": ["Total collection", "Total expenses", "Net profit/loss"],
+                    "filters": ["Academic session", "Start date", "End date", "Month", "Class", "Batch"],
+                    "outputs": ["Profit/loss", "Collection vs expense", "Expense summary", "Monthly trend", "Payment mode split"],
                 },
-                {
-                    "title": "Collection vs Expense Summary",
-                    "description": "Monthly operating summary for dashboard and management review.",
-                    "icon": "bi-bar-chart-line",
-                    "priority": "Core",
-                    "filters": ["Date range", "Month", "Year", "Branch"],
-                    "outputs": ["Total income", "Total expenses", "Net balance"],
-                }, 
             ],
         },
         {
@@ -1916,46 +3179,28 @@ def reports_dashboard(request):
             "accent": "indigo",
             "reports": [
                 {
-                    "title": "Fee Collection Report",
-                    "description": "Review daily, monthly and yearly fee payments with payment mode split.",
+                    "title": "Fees Report Dashboard",
+                    "description": "Class-wise student fee summary with total, paid, pending, follow-up, collections and ledger in one report.",
                     "icon": "bi-cash-stack",
                     "priority": "Core",
                     "url": reverse("institute_admin:fee_collection_report"),
-                    "filters": ["Start date", "End date", "Student", "Class", "Batch", "Payment mode"],
-                    "outputs": ["Student-wise collection", "Class-wise collection", "Batch-wise collection", "Cash/UPI/Bank/Card split"],
-                },
-                {
-                    "title": "Due Balance Report",
-                    "description": "Find pending fees by student, class and due period.",
-                    "icon": "bi-hourglass-split",
-                    "priority": "Core",
-                    "filters": ["Due date", "Class", "Batch", "Student", "Old dues", "Current dues"],
-                    "outputs": ["Student-wise pending fees", "Class-wise pending fees", "Old/current due split"],
-                },
-                {
-                    "title": "Student Ledger Report",
-                    "description": "Complete financial history for one student, including invoices and receipts.",
-                    "icon": "bi-journal-text",
-                    "priority": "Core",
-                    "filters": ["Student", "Academic session", "Start date", "End date"],
-                    "outputs": ["Total fees", "Discounts", "Paid amount", "Due amount", "Receipt list"],
-                },
-                {
-                    "title": "Receipt Report",
-                    "description": "Search and audit generated receipts by date, student and payment method.",
-                    "icon": "bi-receipt-cutoff",
-                    "priority": "Standard",
-                    "filters": ["Receipt number", "Student", "Payment method", "Start date", "End date"],
-                    "outputs": ["Receipt number", "Student", "Amount", "Payment method"],
+                    "filters": ["Academic session", "Class", "Batch", "Student", "Status", "Payment mode"],
+                    "outputs": ["Batch-wise fee summary", "Student detail Excel", "Pending amount", "Collections", "Student ledger"],
                 },
             ],
         },
     ]
     saved_report_placeholders = [
         "Generated reports will appear here with name, filters, format, created by and download link.",
-        "Each report can later be stored as PDF, Excel or CSV after generation.",
+        "Each report can later be stored as Excel after generation.",
         "Admins will be able to regenerate the same report using saved filters.",
     ]
+    connected_report_count = sum(
+        1
+        for section in report_sections
+        for report in section["reports"]
+        if report.get("url")
+    )
     return render(
         request,
         "institute_admin/reports_dashboard.html",
@@ -1963,6 +3208,7 @@ def reports_dashboard(request):
             "report_sections": report_sections,
             "saved_report_placeholders": saved_report_placeholders,
             "report_count": sum(len(section["reports"]) for section in report_sections),
+            "connected_report_count": connected_report_count,
         },
     )
 
@@ -2106,12 +3352,22 @@ def admission_session_labels(session):
     class_names = []
     batch_names = []
     for enrollment in session.enrollments.all():
-        if enrollment.batch_id:
+        if enrollment.batch_id and enrollment.batch.institute_id == session.institute_id:
             batch_names.append(enrollment.batch.name)
-            enrollment_courses = list(enrollment.courses.all())
+            enrollment_courses = [
+                course
+                for course in enrollment.courses.all()
+                if course.institute_id == session.institute_id
+                and course.academic_year_id == session.academic_year_id
+            ]
             class_names.extend(course.name for course in enrollment_courses)
             if not enrollment_courses:
-                class_names.extend(course.name for course in enrollment.batch.courses.all())
+                class_names.extend(
+                    course.name
+                    for course in enrollment.batch.courses.all()
+                    if course.institute_id == session.institute_id
+                    and course.academic_year_id == session.academic_year_id
+                )
     student = session.student
     if not class_names:
         class_names = [student.current_class or student.admission_class or "Unassigned"]
@@ -2388,6 +3644,7 @@ INACTIVE_REPORT_BALANCE_CHOICES = [
 def get_inactive_student_filter_state(request, institute):
     start_date_value = (request.GET.get("start_date") or "").strip()
     end_date_value = (request.GET.get("end_date") or "").strip()
+    date_mode = (request.GET.get("date_mode") or "").strip()
     academic_year_param = request.GET.get("academic_year")
     academic_year_id = (academic_year_param or "").strip()
     course_id = (request.GET.get("course") or "").strip()
@@ -2417,6 +3674,19 @@ def get_inactive_student_filter_state(request, institute):
     else:
         selected_academic_year = None
         selected_academic_year_id = "all"
+    if selected_academic_year and date_mode != "session" and (start_date_value or end_date_value):
+        selected_academic_year = None
+        selected_academic_year_id = "all"
+    if selected_academic_year and not start_date_value and not end_date_value:
+        start_date = selected_academic_year.start_date
+        end_date = selected_academic_year.end_date
+        date_mode = "session"
+    elif selected_academic_year and start_date == selected_academic_year.start_date and end_date == selected_academic_year.end_date:
+        date_mode = "session"
+    elif start_date or end_date:
+        date_mode = "custom"
+    else:
+        date_mode = ""
 
     course_queryset = Course.objects.filter(institute=institute, is_active=True)
     batch_queryset = Batch.objects.filter(institute=institute, is_active=True)
@@ -2436,6 +3706,7 @@ def get_inactive_student_filter_state(request, institute):
         "end_date": end_date,
         "start_date_value": start_date.isoformat() if start_date else "",
         "end_date_value": end_date.isoformat() if end_date else "",
+        "date_mode": date_mode,
         "academic_year": selected_academic_year,
         "academic_year_id": selected_academic_year_id,
         "course": course,
@@ -4427,7 +5698,7 @@ def user_delete(request, pk):
     return redirect("institute_admin:user_list")
 
 
-def get_student_session_fee_summaries(session_ids, display_session_ids=None):
+def get_student_session_fee_summaries(session_ids, display_session_ids=None, category=None):
     session_ids = list(session_ids)
     if display_session_ids is None:
         display_session_ids = session_ids
@@ -4454,25 +5725,26 @@ def get_student_session_fee_summaries(session_ids, display_session_ids=None):
         academic_session_id__in=session_ids,
     ).exclude(status=StudentEnrollment.Status.CANCELLED)
 
-    custom_fee_rows = (
-        active_enrollments.filter(custom_fee_amount__isnull=False)
-        .values("academic_session_id")
-        .annotate(total=Sum("custom_fee_amount"))
-    )
-    for row in custom_fee_rows:
-        enrollment_fee_by_session[row["academic_session_id"]] += row["total"] or Decimal("0.00")
-
-    course_fee_rows = (
-        Course.objects.filter(
-            student_enrollments__academic_session_id__in=session_ids,
-            student_enrollments__custom_fee_amount__isnull=True,
+    if category is None:
+        custom_fee_rows = (
+            active_enrollments.filter(custom_fee_amount__isnull=False)
+            .values("academic_session_id")
+            .annotate(total=Sum("custom_fee_amount"))
         )
-        .exclude(student_enrollments__status=StudentEnrollment.Status.CANCELLED)
-        .values("student_enrollments__academic_session_id")
-        .annotate(total=Sum("fee_amount"))
-    )
-    for row in course_fee_rows:
-        enrollment_fee_by_session[row["student_enrollments__academic_session_id"]] += row["total"] or Decimal("0.00")
+        for row in custom_fee_rows:
+            enrollment_fee_by_session[row["academic_session_id"]] += row["total"] or Decimal("0.00")
+
+        course_fee_rows = (
+            Course.objects.filter(
+                student_enrollments__academic_session_id__in=session_ids,
+                student_enrollments__custom_fee_amount__isnull=True,
+            )
+            .exclude(student_enrollments__status=StudentEnrollment.Status.CANCELLED)
+            .values("student_enrollments__academic_session_id")
+            .annotate(total=Sum("fee_amount"))
+        )
+        for row in course_fee_rows:
+            enrollment_fee_by_session[row["student_enrollments__academic_session_id"]] += row["total"] or Decimal("0.00")
 
     enrollment_rows = active_enrollments.filter(academic_session_id__in=display_session_ids).select_related("batch").order_by(
         "academic_session__admission_number",
@@ -4487,6 +5759,8 @@ def get_student_session_fee_summaries(session_ids, display_session_ids=None):
     invoice_queryset = FeeInvoice.objects.filter(
         academic_session_id__in=session_ids,
     ).exclude(status=FeeInvoice.Status.CANCELLED)
+    if category is not None:
+        invoice_queryset = invoice_queryset.filter(category=category)
     invoice_amount_rows = invoice_queryset.values("academic_session_id").annotate(total=Sum("amount"))
     for row in invoice_amount_rows:
         invoiced_amount_by_session[row["academic_session_id"]] = row["total"] or Decimal("0.00")
@@ -4505,9 +5779,10 @@ def get_student_session_fee_summaries(session_ids, display_session_ids=None):
             status=Payment.Status.ACTIVE,
         )
         .exclude(invoice__status=FeeInvoice.Status.CANCELLED)
-        .values("invoice__academic_session_id")
-        .annotate(total=Sum("amount"))
     )
+    if category is not None:
+        payment_rows = payment_rows.filter(invoice__category=category)
+    payment_rows = payment_rows.values("invoice__academic_session_id").annotate(total=Sum("amount"))
     for row in payment_rows:
         paid_amount_by_session[row["invoice__academic_session_id"]] = row["total"] or Decimal("0.00")
 
@@ -4668,9 +5943,10 @@ def student_list(request):
                 "student__user__last_name",
             ),
         )
-        sessions = sessions.filter(
+        search_filter = (
             Q(admission_number__icontains=search_query)
             | Q(student__user__first_name__icontains=search_query)
+            | Q(student__middle_name__icontains=search_query)
             | Q(student__user__last_name__icontains=search_query)
             | Q(student_full_name__icontains=search_query)
             | Q(student_full_name_with_middle__icontains=search_query)
@@ -4679,7 +5955,24 @@ def student_list(request):
             | Q(student__user__profile__phone__icontains=search_query)
             | Q(student__guardians__name__icontains=search_query)
             | Q(student__guardians__phone__icontains=search_query)
-        ).distinct()
+        )
+        name_tokens = [token for token in re.split(r"\s+", search_query) if token]
+        if len(name_tokens) > 1:
+            token_filter = Q()
+            for token in name_tokens:
+                token_filter &= (
+                    Q(admission_number__icontains=token)
+                    | Q(student__user__first_name__icontains=token)
+                    | Q(student__middle_name__icontains=token)
+                    | Q(student__user__last_name__icontains=token)
+                    | Q(student__user__username__icontains=token)
+                    | Q(student__user__email__icontains=token)
+                    | Q(student__user__profile__phone__icontains=token)
+                    | Q(student__guardians__name__icontains=token)
+                    | Q(student__guardians__phone__icontains=token)
+                )
+            search_filter |= token_filter
+        sessions = sessions.filter(search_filter).distinct()
 
     if status_filter == "active":
         sessions = sessions.filter(status=StudentAcademicSession.Status.ACTIVE, student__is_active=True)
@@ -4733,6 +6026,7 @@ def student_list(request):
         "batch_filter": batch_filter,
         "batches": batch_queryset,
         "selected_batch": selected_batch,
+        "academic_year": academic_year,
         "student_export_field_options": STUDENT_EXPORT_FIELD_OPTIONS,
         "student_export_default_fields": STUDENT_EXPORT_DEFAULT_FIELDS,
         "total_students": student_counts["total"],
@@ -7524,15 +8818,42 @@ def enrollment_list(request):
                 "student__user__last_name",
             ),
         )
-        enrollments = enrollments.filter(
-            Q(academic_session__admission_number__icontains=search_query)
-            | Q(student__user__first_name__icontains=search_query)
-            | Q(student__user__last_name__icontains=search_query)
-            | Q(student_full_name__icontains=search_query)
-            | Q(student_full_name_with_middle__icontains=search_query)
-            | Q(batch__name__icontains=search_query)
-            | Q(courses__name__icontains=search_query)
-        ).distinct()
+        search_terms = [search_query]
+        if " - " in search_query:
+            search_terms.extend(term.strip() for term in search_query.split(" - ", 1) if term.strip())
+        search_filter = Q()
+        for term in search_terms:
+            search_filter |= (
+                Q(academic_session__admission_number__icontains=term)
+                | Q(student__user__first_name__icontains=term)
+                | Q(student__user__last_name__icontains=term)
+                | Q(student_full_name__icontains=term)
+                | Q(student_full_name_with_middle__icontains=term)
+                | Q(student__user__username__icontains=term)
+                | Q(student__user__email__icontains=term)
+                | Q(student__user__profile__phone__icontains=term)
+                | Q(student__guardians__name__icontains=term)
+                | Q(student__guardians__phone__icontains=term)
+                | Q(batch__name__icontains=term)
+                | Q(courses__name__icontains=term)
+            )
+        name_tokens = [token for token in re.split(r"\s+", search_query) if token]
+        if len(name_tokens) > 1:
+            token_filter = Q()
+            for token in name_tokens:
+                token_filter &= (
+                    Q(academic_session__admission_number__icontains=token)
+                    | Q(student__user__first_name__icontains=token)
+                    | Q(student__middle_name__icontains=token)
+                    | Q(student__user__last_name__icontains=token)
+                    | Q(student__user__username__icontains=token)
+                    | Q(student__user__email__icontains=token)
+                    | Q(student__user__profile__phone__icontains=token)
+                    | Q(student__guardians__name__icontains=token)
+                    | Q(student__guardians__phone__icontains=token)
+                )
+            search_filter |= token_filter
+        enrollments = enrollments.filter(search_filter).distinct()
 
     if batch_filter:
         enrollments = enrollments.filter(batch_id=batch_filter)

@@ -1110,6 +1110,7 @@
                         value="{{ search_query }}"
                         autocomplete="off"
                         data-autocomplete-url="{% url 'institute_admin:student_autocomplete' %}"
+                        {% if academic_year %}data-academic-year="{{ academic_year.pk }}"{% endif %}
                         data-dashboard-url-template="{% url 'institute_admin:student_dashboard' 0 %}"
                         data-minimum-input-length="2"
                     >
@@ -1775,9 +1776,16 @@
         studentSearchController = new AbortController();
         const url = new URL(studentListSearchInput.dataset.autocompleteUrl, window.location.origin);
         const batchField = studentListFilterForm.querySelector("[name='batch']");
+        const statusField = studentListFilterForm.querySelector("[name='status']");
         url.searchParams.set("q", query);
+        if (studentListSearchInput.dataset.academicYear) {
+            url.searchParams.set("academic_year", studentListSearchInput.dataset.academicYear);
+        }
         if (batchField && batchField.value) {
             url.searchParams.set("batch", batchField.value);
+        }
+        if (statusField && statusField.value) {
+            url.searchParams.set("status", statusField.value);
         }
         showStudentSearchMessage("Searching...");
         fetch(url.toString(), {

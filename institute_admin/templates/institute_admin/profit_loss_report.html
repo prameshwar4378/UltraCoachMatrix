@@ -1,349 +1,975 @@
 {% extends "institute_admin/base.html" %}
 
-{% block title %}Profit & Loss Report{% endblock title %}
+{% block title %}Finance Report Dashboard{% endblock title %}
 
 {% block content %}
 <style>
-    .pl-page {
+    .finance-page {
         --ink: #0f172a;
         --muted: #64748b;
-        --line: #e2e8f0;
-        --panel: #ffffff;
+        --line: rgba(148, 163, 184, 0.28);
+        --panel: rgba(255, 255, 255, 0.92);
         --soft: #f8fafc;
         --green: #16a34a;
+        --green-soft: #dcfce7;
         --red: #dc2626;
+        --red-soft: #fee2e2;
         --blue: #2563eb;
+        --blue-soft: #dbeafe;
+        --amber: #d97706;
+        --amber-soft: #fef3c7;
+        --purple: #7c3aed;
+        --purple-soft: #ede9fe;
+        --cyan: #0891b2;
+        --cyan-soft: #cffafe;
+        --radius-xl: 26px;
+        --radius-lg: 20px;
+        --radius-md: 16px;
+        --shadow-soft: 0 18px 55px rgba(15, 23, 42, 0.09);
+        --shadow-hover: 0 26px 75px rgba(15, 23, 42, 0.14);
         padding: 24px;
-        background: linear-gradient(180deg, #f8fafc 0%, #eef6ff 100%);
+        color: var(--ink);
         min-height: calc(100vh - 120px);
+        background:
+            radial-gradient(circle at 8% 8%, rgba(37, 99, 235, 0.14), transparent 30%),
+            radial-gradient(circle at 92% 4%, rgba(124, 58, 237, 0.15), transparent 28%),
+            radial-gradient(circle at 50% 100%, rgba(8, 145, 178, 0.12), transparent 34%),
+            linear-gradient(180deg, #f8fbff 0%, #eef6ff 48%, #f8fafc 100%);
     }
 
-    .pl-shell {
-        max-width: 1480px;
+    .finance-page * {
+        box-sizing: border-box;
+    }
+
+    .finance-shell {
+        max-width: 1540px;
         margin: 0 auto;
     }
 
-    .pl-header,
-    .pl-filter,
-    .pl-card,
-    .pl-panel {
+    .finance-header,
+    .finance-filter,
+    .finance-card,
+    .finance-panel,
+    .finance-tabs,
+    .chart-panel {
         background: var(--panel);
         border: 1px solid var(--line);
-        border-radius: 8px;
-        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.07);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-soft);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
     }
 
-    .pl-header {
+    .finance-header {
+        position: relative;
+        overflow: hidden;
         display: flex;
         justify-content: space-between;
-        gap: 18px;
+        gap: 20px;
         align-items: center;
-        padding: 22px;
-        margin-bottom: 16px;
+        padding: clamp(20px, 2.2vw, 30px);
+        margin-bottom: 18px;
+        background:
+            linear-gradient(135deg, rgba(255,255,255,0.96), rgba(239,246,255,0.92)),
+            radial-gradient(circle at 90% 0%, rgba(37,99,235,0.16), transparent 34%);
     }
 
-    .pl-back {
+    .finance-header::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+            linear-gradient(rgba(37, 99, 235, .055) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(37, 99, 235, .055) 1px, transparent 1px);
+        background-size: 28px 28px;
+        mask-image: linear-gradient(90deg, #000 0%, transparent 72%);
+    }
+
+    .finance-header > * {
+        position: relative;
+        z-index: 1;
+    }
+
+    .finance-back {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        color: #2563eb;
+        color: var(--blue);
         font-weight: 900;
         text-decoration: none;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(37, 99, 235, 0.09);
+        transition: .22s ease;
     }
 
-    .pl-title {
+    .finance-back:hover {
+        color: #1d4ed8;
+        transform: translateX(-2px);
+        background: rgba(37, 99, 235, 0.14);
+    }
+
+    .finance-title {
         margin: 0;
         color: var(--ink);
-        font-size: clamp(1.55rem, 2.4vw, 2.25rem);
-        font-weight: 900;
-        letter-spacing: 0;
+        font-size: clamp(1.65rem, 2.5vw, 2.55rem);
+        font-weight: 950;
+        letter-spacing: -0.045em;
+        line-height: 1.05;
     }
 
-    .pl-subtitle {
-        margin: 7px 0 0;
+    .finance-subtitle {
+        max-width: 880px;
+        margin: 10px 0 0;
         color: var(--muted);
-        font-weight: 600;
-        line-height: 1.55;
+        font-weight: 700;
+        line-height: 1.6;
     }
 
-    .pl-export {
+    .finance-export,
+    .filter-button,
+    .filter-reset {
+        min-height: 44px;
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 8px;
-        border-radius: 7px;
-        padding: 11px 14px;
-        background: var(--blue);
-        color: #fff;
-        text-decoration: none;
+        border-radius: 14px;
+        padding: 0 16px;
         font-weight: 900;
         white-space: nowrap;
+        text-decoration: none;
+        transition: transform .22s ease, box-shadow .22s ease, background .22s ease;
     }
 
-    .pl-filter {
+    .finance-export {
+        color: #fff;
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
+        box-shadow: 0 14px 32px rgba(37, 99, 235, 0.24);
+    }
+
+    .finance-export:hover,
+    .filter-button:hover,
+    .filter-reset:hover {
+        transform: translateY(-2px);
+        text-decoration: none;
+    }
+
+    .finance-export:hover { color: #fff; }
+
+    .finance-filter {
+        position: relative;
+        z-index: 30;
+        overflow: visible;
         padding: 18px;
-        margin-bottom: 16px;
+        margin-bottom: 18px;
+    }
+
+    .filter-field {
+        position: relative;
+        z-index: 31;
+    }
+
+    .finance-filter:focus-within {
+        z-index: 80;
+    }
+
+    .finance-filter select,
+    .finance-filter input {
+        position: relative;
+        z-index: 32;
+    }
+
+    .select2-container,
+    .select2-dropdown,
+    .select2-container--open {
+        z-index: 12000 !important;
     }
 
     .filter-grid {
         display: grid;
         grid-template-columns: repeat(6, minmax(0, 1fr));
-        gap: 12px;
+        gap: 14px;
         align-items: end;
     }
 
     .filter-field label {
         display: block;
-        margin-bottom: 6px;
+        margin-bottom: 7px;
         color: #334155;
-        font-size: .78rem;
-        font-weight: 900;
+        font-size: .76rem;
+        font-weight: 950;
+        text-transform: uppercase;
+        letter-spacing: .035em;
     }
 
     .filter-field input,
     .filter-field select {
         width: 100%;
-        height: 42px;
-        border: 1px solid #cbd5e1;
-        border-radius: 7px;
-        padding: 0 10px;
+        height: 46px;
+        border: 1px solid rgba(148, 163, 184, 0.55);
+        border-radius: 14px;
+        padding: 0 12px;
         color: var(--ink);
         background: #fff;
-        font-weight: 700;
+        font-weight: 800;
+        outline: none;
+        transition: .2s ease;
+        box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+    }
+
+    .filter-field input:focus,
+    .filter-field select:focus {
+        border-color: rgba(37, 99, 235, 0.75);
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
     }
 
     .filter-actions {
         display: flex;
-        gap: 8px;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
     }
 
     .filter-button {
-        height: 42px;
         border: 0;
-        border-radius: 7px;
-        padding: 0 13px;
-        background: var(--ink);
         color: #fff;
-        font-weight: 900;
-        white-space: nowrap;
+        background: linear-gradient(135deg, #0f172a, #334155);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
     }
 
     .filter-reset {
-        height: 42px;
-        display: inline-flex;
-        align-items: center;
         border: 1px solid var(--line);
-        border-radius: 7px;
-        padding: 0 13px;
         color: #334155;
         background: #fff;
-        text-decoration: none;
-        font-weight: 900;
-        white-space: nowrap;
-    }
-
-    .pl-note {
-        margin: 12px 0 0;
-        color: #475569;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 7px;
-        padding: 10px 12px;
-        font-size: .84rem;
-        font-weight: 700;
     }
 
     .summary-grid {
+        position: relative;
+        z-index: 1;
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 14px;
-        margin-bottom: 16px;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 18px;
     }
 
-    .pl-card {
-        padding: 18px;
+    .finance-card {
+        position: relative;
+        overflow: hidden;
+        padding: 18px 18px 16px;
+        min-height: 156px;
         display: grid;
-        grid-template-columns: 48px minmax(0, 1fr);
-        gap: 13px;
+        grid-template-rows: 46px minmax(74px, auto);
+        align-content: start;
+        gap: 12px;
+        border-radius: var(--radius-lg);
+        transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+
+    .finance-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 5px;
+        background: linear-gradient(90deg, var(--blue), var(--cyan));
+    }
+
+    .finance-card::after {
+        content: "";
+        position: absolute;
+        right: -42px;
+        top: -48px;
+        width: 118px;
+        height: 118px;
+        border-radius: 50%;
+        background: rgba(37, 99, 235, 0.08);
+        pointer-events: none;
+    }
+
+    .finance-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-hover);
+        border-color: rgba(37, 99, 235, 0.22);
+    }
+
+    .finance-card.income::before { background: linear-gradient(90deg, #16a34a, #22c55e); }
+    .finance-card.expense::before,
+    .finance-card.loss::before { background: linear-gradient(90deg, #dc2626, #f97316); }
+    .finance-card.profit::before { background: linear-gradient(90deg, #2563eb, #06b6d4); }
+    .finance-card.ratio::before { background: linear-gradient(90deg, #d97706, #f59e0b); }
+
+    .card-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
         align-items: center;
+        position: relative;
+        z-index: 2;
+        min-height: 46px;
     }
 
     .card-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 8px;
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
         display: grid;
         place-items: center;
         color: #fff;
-        font-size: 1.25rem;
+        font-size: 1.1rem;
+        background: linear-gradient(135deg, #2563eb, #06b6d4);
+        flex: 0 0 auto;
+        box-shadow: 0 12px 26px rgba(37, 99, 235, 0.22);
     }
 
-    .income .card-icon { background: var(--green); }
-    .expense .card-icon { background: var(--red); }
-    .profit .card-icon { background: var(--blue); }
-    .loss .card-icon { background: var(--red); }
+    .income .card-icon { background: linear-gradient(135deg, #16a34a, #22c55e); }
+    .expense .card-icon,
+    .loss .card-icon { background: linear-gradient(135deg, #dc2626, #f97316); }
+    .profit .card-icon { background: linear-gradient(135deg, #2563eb, #06b6d4); }
+    .ratio .card-icon { background: linear-gradient(135deg, #d97706, #f59e0b); }
+
+    .finance-card > div:last-child {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-rows: minmax(30px, auto) minmax(34px, auto);
+        align-content: start;
+        gap: 5px;
+        min-width: 0;
+    }
 
     .card-value {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        min-height: 30px;
         color: var(--ink);
-        font-size: clamp(1.35rem, 2vw, 1.9rem);
-        font-weight: 900;
+        font-size: clamp(1.18rem, 1.45vw, 1.5rem);
+        font-weight: 950;
         line-height: 1.1;
+        overflow-wrap: anywhere;
+        letter-spacing: 0;
     }
 
     .card-label {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: flex-start;
+        min-height: 34px;
         color: var(--muted);
-        font-size: .82rem;
-        font-weight: 900;
+        font-size: .75rem;
+        font-weight: 950;
         text-transform: uppercase;
-        margin-top: 5px;
+        letter-spacing: 0;
+        line-height: 1.35;
+        margin-top: 0;
+        max-width: 100%;
     }
 
-    .pl-layout {
-        display: grid;
-        grid-template-columns: 360px minmax(0, 1fr);
-        gap: 16px;
+    .finance-tabs {
+        position: sticky;
+        top: 76px;
+        z-index: 5;
+        padding: 10px;
+        margin-bottom: 18px;
+        border-radius: var(--radius-lg);
     }
 
-    .pl-panel {
+    .finance-tabs .nav {
+        gap: 8px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 2px;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .finance-tabs .nav-link {
+        position: relative;
         overflow: hidden;
+        border: 0;
+        border-radius: 15px;
+        color: #475569;
+        font-weight: 950;
+        padding: 11px 16px;
+        white-space: nowrap;
+        background: #f8fafc;
+        transition: .22s ease;
+    }
+
+    .finance-tabs .nav-link::before {
+        content: "";
+        position: absolute;
+        inset: auto 12px 6px 12px;
+        height: 3px;
+        border-radius: 999px;
+        background: currentColor;
+        opacity: .18;
+    }
+
+    .finance-tabs .nav-link:nth-child(1) { color: #2563eb; background: var(--blue-soft); }
+    .finance-tabs .nav-link:nth-child(2) { color: #16a34a; background: var(--green-soft); }
+    .finance-tabs .nav-link:nth-child(3) { color: #dc2626; background: var(--red-soft); }
+    .finance-tabs .nav-link:nth-child(4) { color: #7c3aed; background: var(--purple-soft); }
+    .finance-tabs .nav-link:nth-child(5) { color: #0891b2; background: var(--cyan-soft); }
+
+    .finance-tabs .nav-link.active {
+        color: #fff;
+        transform: translateY(-1px);
+        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.16);
+    }
+
+    .finance-tabs .nav-link:nth-child(1).active { background: linear-gradient(135deg, #2563eb, #06b6d4); }
+    .finance-tabs .nav-link:nth-child(2).active { background: linear-gradient(135deg, #16a34a, #22c55e); }
+    .finance-tabs .nav-link:nth-child(3).active { background: linear-gradient(135deg, #dc2626, #f97316); }
+    .finance-tabs .nav-link:nth-child(4).active { background: linear-gradient(135deg, #7c3aed, #2563eb); }
+    .finance-tabs .nav-link:nth-child(5).active { background: linear-gradient(135deg, #0891b2, #2563eb); }
+
+    .tab-pane { outline: 0; }
+
+    .panel-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 18px;
+    }
+
+    .panel-grid.three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .finance-panel {
+        overflow: hidden;
+        border-radius: var(--radius-lg);
     }
 
     .panel-head {
-        padding: 16px 18px;
+        padding: 17px 20px;
         border-bottom: 1px solid var(--line);
         display: flex;
         justify-content: space-between;
-        gap: 12px;
+        gap: 14px;
         align-items: center;
-        background: #f8fafc;
+        background: linear-gradient(135deg, #ffffff, #f8fbff);
     }
 
     .panel-head h2 {
         margin: 0;
         color: var(--ink);
-        font-size: 1rem;
-        font-weight: 900;
+        font-size: 1.02rem;
+        font-weight: 950;
+        letter-spacing: -0.015em;
     }
 
     .panel-head span {
         color: var(--muted);
         font-size: .82rem;
         font-weight: 800;
+        line-height: 1.45;
     }
 
-    .method-list {
+    .insight-list,
+    .breakdown-list,
+    .trend-list {
         display: grid;
-        gap: 10px;
+        gap: 12px;
         padding: 16px;
     }
 
-    .method-row {
+    .insight-row,
+    .breakdown-row,
+    .trend-row {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
+        gap: 13px;
+        align-items: center;
+        padding: 14px;
+        border: 1px solid rgba(226, 232, 240, 0.85);
+        border-radius: 18px;
+        background: linear-gradient(135deg, #ffffff, #f8fafc);
+        transition: .2s ease;
+    }
+
+    .insight-row:hover,
+    .breakdown-row:hover,
+    .trend-row:hover {
+        border-color: rgba(37, 99, 235, 0.24);
+        transform: translateY(-2px);
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.07);
+    }
+
+    .insight-row strong,
+    .breakdown-row strong,
+    .trend-row strong {
+        display: block;
+        color: var(--ink);
+        font-weight: 950;
+        overflow-wrap: anywhere;
+    }
+
+    .insight-row span,
+    .breakdown-row span,
+    .trend-row span {
+        color: var(--muted);
+        font-size: .8rem;
+        font-weight: 750;
+        line-height: 1.5;
+    }
+
+    .amount-positive { color: var(--green); font-weight: 950; }
+    .amount-negative { color: var(--red); font-weight: 950; }
+    .amount-neutral { color: var(--blue); font-weight: 950; }
+
+    .bar-track,
+    .chart-track,
+    .share-track,
+    .net-track {
+        border-radius: 999px;
+        background: #e2e8f0;
+        overflow: hidden;
+        box-shadow: inset 0 1px 2px rgba(15, 23, 42, .08);
+    }
+
+    .bar-track {
+        height: 10px;
+        margin-top: 9px;
+    }
+
+    .bar-fill,
+    .chart-fill,
+    .share-fill,
+    .net-fill {
+        height: 100%;
+        min-width: 3px;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #2563eb, #06b6d4);
+    }
+
+    .bar-fill.green,
+    .chart-fill.green,
+    .share-fill.green,
+    .net-fill.green { background: linear-gradient(90deg, #16a34a, #22c55e); }
+
+    .bar-fill.red,
+    .chart-fill.red,
+    .share-fill.red,
+    .net-fill.red { background: linear-gradient(90deg, #dc2626, #f97316); }
+
+    .bar-fill.amber,
+    .chart-fill.amber,
+    .share-fill.amber { background: linear-gradient(90deg, #d97706, #f59e0b); }
+
+    .chart-dashboard {
+        display: grid;
+        gap: 18px;
+    }
+
+    .chart-hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(320px, .65fr);
+        gap: 18px;
+    }
+
+    .chart-panel {
+        overflow: hidden;
+        border-radius: var(--radius-lg);
+    }
+
+    .chart-body {
+        padding: 18px;
+    }
+
+    .chart-legend {
+        display: flex;
+        flex-wrap: wrap;
         gap: 12px;
+        color: var(--muted);
+        font-size: .78rem;
+        font-weight: 950;
+    }
+
+    .legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+    }
+
+    .legend-dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 999px;
+        background: var(--blue);
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, .12);
+    }
+
+    .legend-dot.green { background: var(--green); box-shadow: 0 0 0 4px rgba(22, 163, 74, .12); }
+    .legend-dot.red { background: var(--red); box-shadow: 0 0 0 4px rgba(220, 38, 38, .12); }
+    .legend-dot.amber { background: var(--amber); box-shadow: 0 0 0 4px rgba(217, 119, 6, .12); }
+
+    .income-expense-chart {
+        display: grid;
+        gap: 17px;
+        padding-top: 4px;
+    }
+
+    .chart-month {
+        display: grid;
+        grid-template-columns: minmax(92px, 125px) minmax(0, 1fr) minmax(118px, auto);
+        gap: 15px;
         align-items: center;
         padding: 12px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
+        border: 1px solid rgba(226, 232, 240, .85);
+        border-radius: 18px;
         background: #fff;
     }
 
-    .method-row strong {
+    .month-label strong {
         display: block;
         color: var(--ink);
-        font-weight: 900;
+        font-weight: 950;
     }
 
-    .method-row span {
+    .month-label span {
         color: var(--muted);
-        font-size: .8rem;
-        font-weight: 700;
+        font-size: .78rem;
+        font-weight: 800;
     }
 
-    .method-row b {
-        color: var(--green);
+    .paired-bars {
+        display: grid;
+        gap: 8px;
+    }
+
+    .paired-line {
+        display: grid;
+        grid-template-columns: 74px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+    }
+
+    .paired-line span {
+        color: #475569;
+        font-size: .76rem;
+        font-weight: 950;
+    }
+
+    .chart-track {
+        height: 14px;
+    }
+
+    .chart-net {
+        text-align: right;
+        font-weight: 950;
+        white-space: nowrap;
+    }
+
+    .share-list,
+    .net-list {
+        display: grid;
+        gap: 13px;
+    }
+
+    .share-row,
+    .net-row {
+        display: grid;
+        gap: 8px;
+        padding: 11px;
+        border-radius: 16px;
+        background: #f8fafc;
+        border: 1px solid rgba(226, 232, 240, .82);
+    }
+
+    .share-meta,
+    .net-meta {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .share-meta strong,
+    .net-meta strong {
+        color: var(--ink);
+        font-weight: 950;
+        overflow-wrap: anywhere;
+    }
+
+    .share-meta span,
+    .net-meta span {
+        color: var(--muted);
+        font-size: .78rem;
         font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .share-track,
+    .net-track {
+        height: 12px;
+    }
+
+    .chart-small-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+    }
+
+    .month-bars {
+        display: grid;
+        grid-template-columns: minmax(92px, .35fr) minmax(0, 1fr) minmax(100px, auto);
+        gap: 14px;
+        align-items: center;
+    }
+
+    .dual-bars {
+        display: grid;
+        gap: 7px;
     }
 
     .table-wrap {
         overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
-    .pl-table {
+    .finance-table {
         width: 100%;
+        min-width: 760px;
         margin: 0;
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 0;
     }
 
-    .pl-table th {
-        padding: 12px 14px;
+    .finance-table th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        padding: 13px 14px;
         color: #334155;
-        background: #f8fafc;
+        background: linear-gradient(180deg, #f8fafc, #eef2ff);
         border-bottom: 1px solid var(--line);
-        font-size: .75rem;
-        font-weight: 900;
+        font-size: .74rem;
+        font-weight: 950;
         text-transform: uppercase;
+        letter-spacing: .035em;
         white-space: nowrap;
     }
 
-    .pl-table td {
-        padding: 13px 14px;
+    .finance-table td {
+        padding: 14px;
         color: #1e293b;
         border-bottom: 1px solid #f1f5f9;
-        font-weight: 650;
+        font-weight: 700;
         vertical-align: middle;
         white-space: nowrap;
+        background: #fff;
     }
 
-    .amount-positive { color: var(--green); font-weight: 900; }
-    .amount-negative { color: var(--red); font-weight: 900; }
+    .finance-table tbody tr:nth-child(even) td {
+        background: #fbfdff;
+    }
+
+    .finance-table tbody tr:hover td {
+        background: #eff6ff;
+    }
+
     .empty-line {
-        padding: 24px;
+        padding: 26px;
         color: var(--muted);
-        font-weight: 700;
+        font-weight: 800;
         text-align: center;
     }
 
+    @media (max-width: 1399px) {
+        .summary-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .filter-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
     @media (max-width: 1199px) {
-        .filter-grid,
-        .pl-layout {
-            grid-template-columns: 1fr 1fr;
+        .panel-grid,
+        .panel-grid.three,
+        .chart-small-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .chart-hero-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 991px) {
+        .finance-header {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .finance-export {
+            width: 100%;
+        }
+
+        .summary-grid,
+        .filter-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .finance-tabs {
+            top: 0;
+            overflow: hidden;
+        }
+
+        .finance-tabs .nav {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            justify-content: flex-start;
+            padding-bottom: 4px;
+        }
+
+        .finance-tabs .nav-link {
+            flex: 0 0 auto;
         }
     }
 
     @media (max-width: 767px) {
-        .pl-page { padding: 14px; }
-        .pl-header,
+        .finance-page {
+            padding: 14px;
+        }
+
+        .finance-header,
+        .finance-filter,
+        .finance-card,
+        .finance-panel,
+        .finance-tabs,
+        .chart-panel {
+            border-radius: 18px;
+        }
+
         .summary-grid,
         .filter-grid,
-        .pl-layout {
+        .panel-grid,
+        .panel-grid.three,
+        .chart-small-grid,
+        .chart-month,
+        .month-bars {
             grid-template-columns: 1fr;
-            display: grid;
         }
-        .pl-header {
-            align-items: start;
+
+        .finance-card {
+            min-height: 152px;
+            grid-template-rows: 44px minmax(72px, auto);
+        }
+
+        .finance-tabs {
+            position: relative;
+            top: auto;
+            z-index: 4;
+            padding: 9px;
+        }
+
+        .finance-tabs .nav {
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            width: 100%;
+            max-width: 100%;
+            gap: 8px;
+            padding-bottom: 5px;
+        }
+
+        .finance-tabs .nav-link {
+            flex: 0 0 auto;
+            min-width: max-content;
+        }
+
+        .panel-head {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .insight-row,
+        .breakdown-row,
+        .trend-row,
+        .share-meta,
+        .net-meta {
+            grid-template-columns: 1fr;
+        }
+
+        .chart-net {
+            text-align: left;
+        }
+
+        .paired-line {
+            grid-template-columns: 64px minmax(0, 1fr);
+        }
+
+        .filter-actions > * {
+            flex: 1 1 160px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .finance-page {
+            padding: 10px;
+        }
+
+        .finance-title {
+            font-size: 1.55rem;
+        }
+
+        .finance-subtitle {
+            font-size: .9rem;
+        }
+
+        .summary-grid {
+            gap: 12px;
+        }
+
+        .finance-card {
+            padding: 16px;
+            min-height: 148px;
+        }
+
+        .card-value {
+            font-size: 1.28rem;
+        }
+
+        .card-label {
+            max-width: 100%;
+        }
+
+        .finance-tabs .nav-link {
+            padding: 10px 13px;
+            font-size: .88rem;
         }
     }
 </style>
 
-<main id="main" class="main pl-page">
-    <div class="pl-shell">
-        <section class="pl-header">
+<main id="main" class="main finance-page">
+    <div class="finance-shell">
+        <section class="finance-header">
             <div>
-                <a class="pl-back" href="{% url 'institute_admin:reports_dashboard' %}">
+                <a class="finance-back" href="{% url 'institute_admin:reports_dashboard' %}">
                     <i class="bi bi-arrow-left"></i> Reports
                 </a>
-                <h1 class="pl-title">Profit & Loss Report</h1>
-                <p class="pl-subtitle">
-                    Total active fee collection minus institute expenses for {{ current_institute.name }}.
+                <h1 class="finance-title">Finance Report Dashboard</h1>
+                <p class="finance-subtitle">
+                    Profit/loss, collection vs expense, expense summary and monthly income trend for {{ current_institute.name }}.
                 </p>
             </div>
-            <a class="pl-export" href="?{{ export_query }}">
-                <i class="bi bi-download"></i> Export CSV
+            <a class="finance-export" href="?{{ export_query }}">
+                <i class="bi bi-file-earmark-excel"></i> Export Excel
             </a>
         </section>
 
-        <form class="pl-filter" method="get">
+        <form class="finance-filter" method="get">
             <div class="filter-grid">
                 <div class="filter-field">
                     <label for="id_start_date">Start Date</label>
@@ -363,11 +989,15 @@
                     </select>
                 </div>
                 <div class="filter-field">
-                    <label for="id_year">Year</label>
-                    <select id="id_year" name="year">
-                        <option value="">Any year</option>
-                        {% for year in year_options %}
-                        <option value="{{ year }}" {% if filters.year == year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
+                    <label for="id_academic_year">Academic Session</label>
+                    <select id="id_academic_year" name="academic_year">
+                        {% for academic_year in academic_years %}
+                        <option value="{{ academic_year.pk }}"
+                                data-start="{{ academic_year.start_date|date:'Y-m-d' }}"
+                                data-end="{{ academic_year.end_date|date:'Y-m-d' }}"
+                                {% if filters.academic_year_id == academic_year.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ academic_year.name }}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
@@ -390,127 +1020,355 @@
                     </select>
                 </div>
             </div>
-            <div class="filter-actions mt-3">
+            <div class="filter-actions">
                 <button class="filter-button" type="submit"><i class="bi bi-funnel"></i> Apply Filter</button>
                 <a class="filter-reset" href="{% url 'institute_admin:profit_loss_report' %}">Reset</a>
-            </div> 
+            </div>
         </form>
 
         <section class="summary-grid">
-            <div class="pl-card income">
-                <div class="card-icon"><i class="bi bi-cash-stack"></i></div>
-                <div>
-                    <div class="card-value">₹{{ collection_total|floatformat:2 }}</div>
-                    <div class="card-label">Total Collection</div>
-                </div>
+            <div class="finance-card income">
+                <div class="card-top"><div class="card-icon"><i class="bi bi-cash-stack"></i></div></div>
+                <div><div class="card-value">Rs. {{ collection_total|floatformat:2 }}</div><div class="card-label">Total Collection</div></div>
             </div>
-            <div class="pl-card expense">
-                <div class="card-icon"><i class="bi bi-wallet2"></i></div>
-                <div>
-                    <div class="card-value">₹{{ expense_total|floatformat:2 }}</div>
-                    <div class="card-label">Total Expenses</div>
-                </div>
+            <div class="finance-card expense">
+                <div class="card-top"><div class="card-icon"><i class="bi bi-wallet2"></i></div></div>
+                <div><div class="card-value">Rs. {{ expense_total|floatformat:2 }}</div><div class="card-label">Total Expenses</div></div>
             </div>
-            <div class="pl-card {% if is_profit %}profit{% else %}loss{% endif %}">
-                <div class="card-icon"><i class="bi {% if is_profit %}bi-graph-up-arrow{% else %}bi-graph-down-arrow{% endif %}"></i></div>
-                <div>
-                    <div class="card-value">₹{{ net_profit|floatformat:2 }}</div>
-                    <div class="card-label">Net {% if is_profit %}Profit{% else %}Loss{% endif %}</div>
-                </div>
+            <div class="finance-card {% if is_profit %}profit{% else %}loss{% endif %}">
+                <div class="card-top"><div class="card-icon"><i class="bi {% if is_profit %}bi-graph-up-arrow{% else %}bi-graph-down-arrow{% endif %}"></i></div></div>
+                <div><div class="card-value">Rs. {{ net_profit|floatformat:2 }}</div><div class="card-label">Net {% if is_profit %}Profit{% else %}Loss{% endif %}</div></div>
+            </div>
+            <div class="finance-card profit">
+                <div class="card-top"><div class="card-icon"><i class="bi bi-percent"></i></div></div>
+                <div><div class="card-value">{{ profit_margin }}%</div><div class="card-label">Profit Margin</div></div>
+            </div>
+            <div class="finance-card ratio">
+                <div class="card-top"><div class="card-icon"><i class="bi bi-speedometer2"></i></div></div>
+                <div><div class="card-value">{{ expense_ratio }}%</div><div class="card-label">Expense Ratio</div></div>
+            </div>
+            <div class="finance-card">
+                <div class="card-top"><div class="card-icon"><i class="bi bi-list-check"></i></div></div>
+                <div><div class="card-value">{{ collection_count }} / {{ expense_count }}</div><div class="card-label">Collection / Expense Entries</div></div>
             </div>
         </section>
 
-        <section class="pl-layout">
-            <div class="pl-panel">
-                <div class="panel-head">
-                    <h2>Payment Mode Split</h2>
-                    <span>{{ collection_count }} payment{{ collection_count|pluralize }}</span>
-                </div>
-                {% if payment_method_rows %}
-                <div class="method-list">
-                    {% for row in payment_method_rows %}
-                    <div class="method-row">
-                        <div>
-                            <strong>{{ row.label }}</strong>
-                            <span>{{ row.count }} payment{{ row.count|pluralize }}</span>
+        <nav class="finance-tabs">
+            <div class="nav nav-pills" id="finance-report-tabs" role="tablist">
+                <button class="nav-link active" id="finance-overview-tab" data-bs-toggle="tab" data-bs-target="#finance-overview" type="button" role="tab" aria-controls="finance-overview" aria-selected="true">Overview</button>
+                <button class="nav-link" id="finance-collections-tab" data-bs-toggle="tab" data-bs-target="#finance-collections" type="button" role="tab" aria-controls="finance-collections" aria-selected="false">Collections</button>
+                <button class="nav-link" id="finance-expenses-tab" data-bs-toggle="tab" data-bs-target="#finance-expenses" type="button" role="tab" aria-controls="finance-expenses" aria-selected="false">Expenses</button>
+                <button class="nav-link" id="finance-profit-tab" data-bs-toggle="tab" data-bs-target="#finance-profit" type="button" role="tab" aria-controls="finance-profit" aria-selected="false">Profit / Loss</button>
+                <button class="nav-link" id="finance-charts-tab" data-bs-toggle="tab" data-bs-target="#finance-charts" type="button" role="tab" aria-controls="finance-charts" aria-selected="false">Charts</button>
+            </div>
+        </nav>
+
+        <div class="tab-content">
+            <section class="tab-pane fade show active" id="finance-overview" role="tabpanel" aria-labelledby="finance-overview-tab">
+                <div class="panel-grid three">
+                    <div class="finance-panel">
+                        <div class="panel-head"><h2>Financial Insights</h2><span>Quick management view</span></div>
+                        <div class="insight-list">
+                            <div class="insight-row"><div><strong>Average Collection</strong><span>Per active payment entry</span></div><b class="amount-positive">Rs. {{ average_collection|floatformat:2 }}</b></div>
+                            <div class="insight-row"><div><strong>Average Expense</strong><span>Per expense entry</span></div><b class="amount-negative">Rs. {{ average_expense|floatformat:2 }}</b></div>
+                            <div class="insight-row"><div><strong>Top Payment Mode</strong><span>{% if top_payment_method %}{{ top_payment_method.count }} payment{{ top_payment_method.count|pluralize }}{% else %}No data{% endif %}</span></div><b class="amount-neutral">{% if top_payment_method %}{{ top_payment_method.label }}{% else %}-{% endif %}</b></div>
+                            <div class="insight-row"><div><strong>Top Expense Head</strong><span>{% if top_expense %}{{ top_expense.count }} entry{{ top_expense.count|pluralize }}{% else %}No data{% endif %}</span></div><b class="amount-negative">{% if top_expense %}Rs. {{ top_expense.amount|floatformat:2 }}{% else %}-{% endif %}</b></div>
                         </div>
-                        <b>₹{{ row.amount|floatformat:2 }}</b>
                     </div>
-                    {% endfor %}
+                    <div class="finance-panel">
+                        <div class="panel-head"><h2>Best Month</h2><span>Highest net balance</span></div>
+                        {% if best_month %}
+                        <div class="insight-list">
+                            <div class="insight-row"><div><strong>{{ best_month.label }}</strong><span>Collection Rs. {{ best_month.collection|floatformat:2 }} | Expense Rs. {{ best_month.expense|floatformat:2 }}</span></div><b class="{% if best_month.is_profit %}amount-positive{% else %}amount-negative{% endif %}">Rs. {{ best_month.net|floatformat:2 }}</b></div>
+                        </div>
+                        {% else %}
+                        <div class="empty-line">No monthly finance data found.</div>
+                        {% endif %}
+                    </div>
+                    <div class="finance-panel">
+                        <div class="panel-head"><h2>Weakest Month</h2><span>Lowest net balance</span></div>
+                        {% if weakest_month %}
+                        <div class="insight-list">
+                            <div class="insight-row"><div><strong>{{ weakest_month.label }}</strong><span>Collection Rs. {{ weakest_month.collection|floatformat:2 }} | Expense Rs. {{ weakest_month.expense|floatformat:2 }}</span></div><b class="{% if weakest_month.is_profit %}amount-positive{% else %}amount-negative{% endif %}">Rs. {{ weakest_month.net|floatformat:2 }}</b></div>
+                        </div>
+                        {% else %}
+                        <div class="empty-line">No monthly finance data found.</div>
+                        {% endif %}
+                    </div>
                 </div>
-                {% else %}
-                <div class="empty-line">No collections found for this filter.</div>
-                {% endif %}
-            </div>
 
-            <div class="pl-panel">
-                <div class="panel-head">
-                    <h2>Recent Collections</h2>
-                    <span>Latest 25</span>
-                </div>
-                <div class="table-wrap">
-                    <table class="pl-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Receipt</th>
-                                <th>Student</th>
-                                <th>Invoice</th>
-                                <th>Mode</th>
-                                <th class="text-end">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for payment in collection_rows %}
-                            <tr>
-                                <td>{{ payment.paid_on|date:"d M Y" }}</td>
-                                <td>{{ payment.receipt_number|default:"-" }}</td>
-                                <td>{{ payment.invoice.student }}</td>
-                                <td>{{ payment.invoice.title }}</td>
-                                <td>{{ payment.get_method_display }}</td>
-                                <td class="text-end amount-positive">₹{{ payment.amount|floatformat:2 }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="6" class="empty-line">No collection rows found.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-
-        <section class="pl-panel mt-3">
-            <div class="panel-head">
-                <h2>Recent Expenses</h2>
-                <span>{{ expense_count }} expense{{ expense_count|pluralize }}</span>
-            </div>
-            <div class="table-wrap">
-                <table class="pl-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Title</th>
-                            <th>Recorded By</th>
-                            <th>Note</th>
-                            <th class="text-end">Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for expense in expense_rows %}
-                        <tr>
-                            <td>{{ expense.spent_on|date:"d M Y" }}</td>
-                            <td>{{ expense.title }}</td>
-                            <td>{% if expense.recorded_by %}{{ expense.recorded_by.get_full_name|default:expense.recorded_by.username }}{% else %}-{% endif %}</td>
-                            <td>{{ expense.note|default:"-" }}</td>
-                            <td class="text-end amount-negative">₹{{ expense.amount|floatformat:2 }}</td>
-                        </tr>
+                <div class="finance-panel">
+                    <div class="panel-head"><h2>Monthly Collection vs Expense Summary</h2><span>{{ monthly_finance_rows|length }} period{{ monthly_finance_rows|length|pluralize }}</span></div>
+                    <div class="trend-list">
+                        {% for row in monthly_finance_rows %}
+                        <div class="trend-row month-bars">
+                            <strong>{{ row.label }}</strong>
+                            <div class="dual-bars">
+                                <span>Collection Rs. {{ row.collection|floatformat:2 }}</span>
+                                <div class="bar-track"><div class="bar-fill green" style="width: {{ row.collection_percent }}%;"></div></div>
+                                <span>Expense Rs. {{ row.expense|floatformat:2 }}</span>
+                                <div class="bar-track"><div class="bar-fill red" style="width: {{ row.expense_percent }}%;"></div></div>
+                            </div>
+                            <b class="{% if row.is_profit %}amount-positive{% else %}amount-negative{% endif %}">Net Rs. {{ row.net|floatformat:2 }}</b>
+                        </div>
                         {% empty %}
-                        <tr><td colspan="5" class="empty-line">No expense rows found.</td></tr>
+                        <div class="empty-line">No monthly summary found for this filter.</div>
                         {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab-pane fade" id="finance-collections" role="tabpanel" aria-labelledby="finance-collections-tab">
+                <div class="panel-grid">
+                    <div class="finance-panel">
+                        <div class="panel-head"><h2>Payment Mode Split</h2><span>{{ collection_count }} payment{{ collection_count|pluralize }}</span></div>
+                        <div class="breakdown-list">
+                            {% for row in payment_method_rows %}
+                            <div class="breakdown-row">
+                                <div><strong>{{ row.label }}</strong><span>{{ row.count }} payment{{ row.count|pluralize }} | {{ row.percent }}%</span><div class="bar-track"><div class="bar-fill green" style="width: {{ row.percent }}%;"></div></div></div>
+                                <b class="amount-positive">Rs. {{ row.amount|floatformat:2 }}</b>
+                            </div>
+                            {% empty %}
+                            <div class="empty-line">No collections found for this filter.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="finance-panel">
+                        <div class="panel-head"><h2>Collection Controls</h2><span>Filter-ready data</span></div>
+                        <div class="insight-list">
+                            <div class="insight-row"><div><strong>Selected Date Range</strong><span>{{ filters.start_date_value|default:"Any" }} to {{ filters.end_date_value|default:"Any" }}</span></div><b>{{ collection_count }}</b></div>
+                            <div class="insight-row"><div><strong>Class Filter</strong><span>{% if filters.course %}{{ filters.course.name }}{% else %}All classes{% endif %}</span></div><b>Active</b></div>
+                            <div class="insight-row"><div><strong>Batch Filter</strong><span>{% if filters.batch %}{{ filters.batch.name }}{% else %}All batches{% endif %}</span></div><b>Active</b></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="finance-panel">
+                    <div class="panel-head"><h2>Collection Details</h2><span>Latest 25 on screen, full data in Excel</span></div>
+                    <div class="table-wrap">
+                        <table class="finance-table">
+                            <thead><tr><th>Date</th><th>Receipt</th><th>Student</th><th>Invoice</th><th>Mode</th><th class="text-end">Amount</th></tr></thead>
+                            <tbody>
+                                {% for payment in collection_rows %}
+                                <tr><td>{{ payment.paid_on|date:"d M Y" }}</td><td>{{ payment.receipt_number|default:"-" }}</td><td>{{ payment.invoice.student }}</td><td>{{ payment.invoice.title }}</td><td>{{ payment.get_method_display }}</td><td class="text-end amount-positive">Rs. {{ payment.amount|floatformat:2 }}</td></tr>
+                                {% empty %}
+                                <tr><td colspan="6" class="empty-line">No collection rows found.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab-pane fade" id="finance-expenses" role="tabpanel" aria-labelledby="finance-expenses-tab">
+                <div class="panel-grid">
+                    <div class="finance-panel">
+                        <div class="panel-head"><h2>Expense Summary</h2><span>{{ expense_summary_rows|length }} expense head{{ expense_summary_rows|length|pluralize }}</span></div>
+                        <div class="breakdown-list">
+                            {% for row in expense_summary_rows %}
+                            <div class="breakdown-row">
+                                <div><strong>{{ row.label }}</strong><span>{{ row.count }} entry{{ row.count|pluralize }} | {{ row.percent }}%</span><div class="bar-track"><div class="bar-fill red" style="width: {{ row.percent }}%;"></div></div></div>
+                                <b class="amount-negative">Rs. {{ row.amount|floatformat:2 }}</b>
+                            </div>
+                            {% empty %}
+                            <div class="empty-line">No expense summary found.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="finance-panel">
+                        <div class="panel-head"><h2>Expense Control</h2><span>Cost visibility</span></div>
+                        <div class="insight-list">
+                            <div class="insight-row"><div><strong>Total Expense Entries</strong><span>Matching selected filters</span></div><b>{{ expense_count }}</b></div>
+                            <div class="insight-row"><div><strong>Average Expense</strong><span>Useful for abnormal-cost checks</span></div><b class="amount-negative">Rs. {{ average_expense|floatformat:2 }}</b></div>
+                            <div class="insight-row"><div><strong>Highest Expense Head</strong><span>{% if top_expense %}{{ top_expense.label }}{% else %}No expense data{% endif %}</span></div><b class="amount-negative">{% if top_expense %}Rs. {{ top_expense.amount|floatformat:2 }}{% else %}-{% endif %}</b></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="finance-panel">
+                    <div class="panel-head"><h2>Expense Details</h2><span>Latest 25 on screen, full data in Excel</span></div>
+                    <div class="table-wrap">
+                        <table class="finance-table">
+                            <thead><tr><th>Date</th><th>Title</th><th>Recorded By</th><th>Note</th><th class="text-end">Amount</th></tr></thead>
+                            <tbody>
+                                {% for expense in expense_rows %}
+                                <tr><td>{{ expense.spent_on|date:"d M Y" }}</td><td>{{ expense.title }}</td><td>{% if expense.recorded_by %}{{ expense.recorded_by.get_full_name|default:expense.recorded_by.username }}{% else %}-{% endif %}</td><td>{{ expense.note|default:"-" }}</td><td class="text-end amount-negative">Rs. {{ expense.amount|floatformat:2 }}</td></tr>
+                                {% empty %}
+                                <tr><td colspan="5" class="empty-line">No expense rows found.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab-pane fade" id="finance-profit" role="tabpanel" aria-labelledby="finance-profit-tab">
+                <div class="finance-panel">
+                    <div class="panel-head"><h2>Daily Profit / Loss Movement</h2><span>Latest 60 active dates</span></div>
+                    <div class="table-wrap">
+                        <table class="finance-table">
+                            <thead><tr><th>Date</th><th class="text-end">Collection</th><th class="text-end">Expense</th><th class="text-end">Net</th><th>Activity</th></tr></thead>
+                            <tbody>
+                                {% for row in daily_activity_rows %}
+                                <tr><td>{{ row.date|date:"d M Y" }}</td><td class="text-end amount-positive">Rs. {{ row.collection|floatformat:2 }}</td><td class="text-end amount-negative">Rs. {{ row.expense|floatformat:2 }}</td><td class="text-end {% if row.is_profit %}amount-positive{% else %}amount-negative{% endif %}">Rs. {{ row.net|floatformat:2 }}</td><td>{{ row.collection_count }} payment{{ row.collection_count|pluralize }}, {{ row.expense_count }} expense{{ row.expense_count|pluralize }}</td></tr>
+                                {% empty %}
+                                <tr><td colspan="5" class="empty-line">No daily finance movement found.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab-pane fade" id="finance-charts" role="tabpanel" aria-labelledby="finance-charts-tab">
+                <div class="chart-dashboard">
+                    <div class="chart-hero-grid">
+                        <div class="chart-panel">
+                            <div class="panel-head">
+                                <div>
+                                    <h2>Income vs Expense by Month</h2>
+                                    <span>Compare collection strength and spending pressure in the same period</span>
+                                </div>
+                                <div class="chart-legend">
+                                    <span class="legend-item"><i class="legend-dot green"></i> Income</span>
+                                    <span class="legend-item"><i class="legend-dot red"></i> Expense</span>
+                                </div>
+                            </div>
+                            <div class="chart-body">
+                                <div class="income-expense-chart">
+                                    {% for row in monthly_finance_rows %}
+                                    <div class="chart-month">
+                                        <div class="month-label">
+                                            <strong>{{ row.label }}</strong>
+                                            <span>{% if row.is_profit %}Profit month{% else %}Loss month{% endif %}</span>
+                                        </div>
+                                        <div class="paired-bars">
+                                            <div class="paired-line">
+                                                <span>Income</span>
+                                                <div class="chart-track"><div class="chart-fill green" style="width: {{ row.collection_percent }}%;"></div></div>
+                                            </div>
+                                            <div class="paired-line">
+                                                <span>Expense</span>
+                                                <div class="chart-track"><div class="chart-fill red" style="width: {{ row.expense_percent }}%;"></div></div>
+                                            </div>
+                                        </div>
+                                        <div class="chart-net {% if row.is_profit %}amount-positive{% else %}amount-negative{% endif %}">
+                                            Rs. {{ row.net|floatformat:2 }}
+                                        </div>
+                                    </div>
+                                    {% empty %}
+                                    <div class="empty-line">No monthly chart data found.</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-panel">
+                            <div class="panel-head">
+                                <h2>Payment Mode Share</h2>
+                                <span>Collection channel quality</span>
+                            </div>
+                            <div class="chart-body">
+                                <div class="share-list">
+                                    {% for row in payment_method_rows %}
+                                    <div class="share-row">
+                                        <div class="share-meta">
+                                            <strong>{{ row.label }}</strong>
+                                            <span>{{ row.percent }}% | Rs. {{ row.amount|floatformat:2 }}</span>
+                                        </div>
+                                        <div class="share-track"><div class="share-fill green" style="width: {{ row.percent }}%;"></div></div>
+                                    </div>
+                                    {% empty %}
+                                    <div class="empty-line">No payment split found.</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-small-grid">
+                        <div class="chart-panel">
+                            <div class="panel-head">
+                                <h2>Net Profit Movement</h2>
+                                <span>Positive and negative months</span>
+                            </div>
+                            <div class="chart-body">
+                                <div class="net-list">
+                                    {% for row in monthly_finance_rows %}
+                                    <div class="net-row">
+                                        <div class="net-meta">
+                                            <strong>{{ row.label }}</strong>
+                                            <span class="{% if row.is_profit %}amount-positive{% else %}amount-negative{% endif %}">Rs. {{ row.net|floatformat:2 }}</span>
+                                        </div>
+                                        <div class="net-track"><div class="net-fill {% if row.is_profit %}green{% else %}red{% endif %}" style="width: {{ row.net_percent }}%;"></div></div>
+                                    </div>
+                                    {% empty %}
+                                    <div class="empty-line">No net trend found.</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-panel">
+                            <div class="panel-head">
+                                <h2>Expense Concentration</h2>
+                                <span>Highest cost heads</span>
+                            </div>
+                            <div class="chart-body">
+                                <div class="share-list">
+                                    {% for row in expense_summary_rows %}
+                                    <div class="share-row">
+                                        <div class="share-meta">
+                                            <strong>{{ row.label }}</strong>
+                                            <span>{{ row.percent }}% | Rs. {{ row.amount|floatformat:2 }}</span>
+                                        </div>
+                                        <div class="share-track"><div class="share-fill amber" style="width: {{ row.percent }}%;"></div></div>
+                                    </div>
+                                    {% empty %}
+                                    <div class="empty-line">No expense chart data found.</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chart-panel">
+                            <div class="panel-head">
+                                <h2>Daily Net Movement</h2>
+                                <span>Recent activity pulse</span>
+                            </div>
+                            <div class="chart-body">
+                                <div class="net-list">
+                                    {% for row in daily_activity_rows|slice:":8" %}
+                                    <div class="net-row">
+                                        <div class="net-meta">
+                                            <strong>{{ row.date|date:"d M" }}</strong>
+                                            <span class="{% if row.is_profit %}amount-positive{% else %}amount-negative{% endif %}">Rs. {{ row.net|floatformat:2 }}</span>
+                                        </div>
+                                        <div class="net-track"><div class="net-fill {% if row.is_profit %}green{% else %}red{% endif %}" style="width: {{ row.net_percent }}%;"></div></div>
+                                    </div>
+                                    {% empty %}
+                                    <div class="empty-line">No daily movement found.</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
     </div>
 </main>
+<script>
+    (function () {
+        const sessionSelect = document.getElementById("id_academic_year");
+        const startInput = document.getElementById("id_start_date");
+        const endInput = document.getElementById("id_end_date");
+        if (!sessionSelect || !startInput || !endInput) {
+            return;
+        }
+        sessionSelect.addEventListener("change", function () {
+            const selected = sessionSelect.options[sessionSelect.selectedIndex];
+            startInput.value = selected.dataset.start || "";
+            endInput.value = selected.dataset.end || "";
+        });
+    })();
+</script>
 {% endblock content %}

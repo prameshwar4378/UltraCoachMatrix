@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Prefetch, Q, Sum
+from django.urls import reverse_lazy
 from django.utils import timezone
 
 from accountant.models import Expense, FeeCategory, FeeInvoice, Payment, PaymentActivity
@@ -26,7 +27,7 @@ from teacher.models import Homework, HomeworkAttachment, TeacherProfile
 from .models import AcademicYear, Batch, Course, InstitutePrintTemplate, Lead, Notice, PrintDocumentType, Subject, SupportTicket, Visitor
 
 
-STUDENT_AUTOCOMPLETE_URL = "/institute/students/autocomplete/"
+STUDENT_AUTOCOMPLETE_URL = reverse_lazy("institute_admin:student_autocomplete")
 
 
 def ajax_student_widget(*, multiple=False):
@@ -2461,6 +2462,7 @@ class StudentEnrollmentForm(forms.ModelForm):
         self.institute = institute
         self.academic_year = academic_year
         super().__init__(*args, **kwargs)
+        session_label_map = {}
 
         if institute:
             student_ids = selected_student_ids(self, "student")
@@ -2471,6 +2473,19 @@ class StudentEnrollmentForm(forms.ModelForm):
             )
             if academic_year:
                 students = students.filter(academic_sessions__academic_year=academic_year)
+                session_label_map = {
+                    session.student_id: (
+                        f"{session.admission_number} - "
+                        f"{session.student.user.get_full_name() or session.student.user.username}"
+                    )
+                    for session in StudentAcademicSession.objects.filter(
+                        institute=institute,
+                        academic_year=academic_year,
+                        student_id__in=student_ids,
+                    )
+                    .exclude(status=StudentAcademicSession.Status.CANCELLED)
+                    .select_related("student", "student__user")
+                }
             self.fields["student"].queryset = students.select_related("user").distinct()
             batches = Batch.objects.filter(institute=institute, is_active=True).prefetch_related("courses")
             courses = Course.objects.filter(institute=institute, is_active=True)
@@ -2485,7 +2500,7 @@ class StudentEnrollmentForm(forms.ModelForm):
             self.fields["courses"].queryset = Course.objects.none()
 
         self.fields["courses"].required = True
-        self.fields["student"].label_from_instance = lambda student: str(student)
+        self.fields["student"].label_from_instance = lambda student: session_label_map.get(student.pk, str(student))
         self.fields["batch"].label_from_instance = lambda batch: f"{batch.name} ({batch.total_course_fee})"
         self.fields["custom_fee_amount"].widget.attrs.setdefault("min", "0")
         self.fields["custom_fee_amount"].widget.attrs.setdefault("step", "0.01")

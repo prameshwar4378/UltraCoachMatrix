@@ -1,347 +1,836 @@
 {% extends "institute_admin/base.html" %}
 
-{% block title %}Fee Collection Report{% endblock title %}
+{% block title %}Fees Report Dashboard{% endblock title %}
 
 {% block content %}
 <style>
-    .fc-page {
+    .fees-page {
         --ink: #0f172a;
         --muted: #64748b;
-        --line: #e2e8f0;
-        --panel: #ffffff;
-        --soft: #f8fafc;
+        --line: rgba(148, 163, 184, 0.28);
+        --panel: rgba(255, 255, 255, 0.92);
         --green: #16a34a;
+        --red: #dc2626;
         --blue: #2563eb;
         --indigo: #4f46e5;
-        padding: 24px;
-        background: linear-gradient(180deg, #f8fafc 0%, #eef6ff 100%);
+        --cyan: #0891b2;
+        --amber: #d97706;
+        --green-soft: #dcfce7;
+        --red-soft: #fee2e2;
+        --blue-soft: #dbeafe;
+        --indigo-soft: #e0e7ff;
+        --cyan-soft: #cffafe;
+        --amber-soft: #fef3c7;
+        --radius-xl: 26px;
+        --radius-lg: 20px;
+        --shadow-soft: 0 18px 55px rgba(15, 23, 42, 0.09);
+        --shadow-hover: 0 26px 75px rgba(15, 23, 42, 0.14);
         min-height: calc(100vh - 120px);
+        padding: 24px;
+        color: var(--ink);
+        background:
+            radial-gradient(circle at 8% 8%, rgba(79, 70, 229, 0.14), transparent 30%),
+            radial-gradient(circle at 92% 4%, rgba(8, 145, 178, 0.14), transparent 28%),
+            linear-gradient(180deg, #f8fbff 0%, #eef6ff 48%, #f8fafc 100%);
     }
 
-    .fc-shell {
-        max-width: 1480px;
-        margin: 0 auto;
-    }
+    .fees-page * { box-sizing: border-box; }
+    .fees-shell { max-width: 1540px; margin: 0 auto; }
 
-    .fc-header,
-    .fc-filter,
-    .fc-card,
-    .fc-panel {
+    .fees-header,
+    .fees-filter,
+    .fees-card,
+    .fees-panel,
+    .fees-tabs,
+    .chart-panel {
         background: var(--panel);
         border: 1px solid var(--line);
-        border-radius: 8px;
-        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.07);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-soft);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
     }
 
-    .fc-header {
+    .fees-header {
+        position: relative;
+        overflow: hidden;
         display: flex;
         justify-content: space-between;
-        gap: 18px;
+        gap: 20px;
         align-items: center;
-        padding: 22px;
-        margin-bottom: 16px;
+        padding: clamp(20px, 2.2vw, 30px);
+        margin-bottom: 18px;
+        background:
+            linear-gradient(135deg, rgba(255,255,255,0.96), rgba(238,242,255,0.92)),
+            radial-gradient(circle at 90% 0%, rgba(79,70,229,0.16), transparent 34%);
     }
 
-    .fc-back {
+    .fees-header::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+            linear-gradient(rgba(79, 70, 229, .055) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(79, 70, 229, .055) 1px, transparent 1px);
+        background-size: 28px 28px;
+        mask-image: linear-gradient(90deg, #000 0%, transparent 72%);
+    }
+
+    .fees-header > * { position: relative; z-index: 1; }
+
+    .fees-back {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        color: var(--blue);
+        color: var(--indigo);
         font-weight: 900;
         text-decoration: none;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(79, 70, 229, 0.09);
+        transition: .22s ease;
     }
 
-    .fc-title {
+    .fees-back:hover {
+        color: #3730a3;
+        transform: translateX(-2px);
+        background: rgba(79, 70, 229, 0.14);
+    }
+
+    .fees-title {
         margin: 0;
         color: var(--ink);
-        font-size: clamp(1.55rem, 2.4vw, 2.25rem);
-        font-weight: 900;
+        font-size: clamp(1.65rem, 2.5vw, 2.55rem);
+        font-weight: 950;
         letter-spacing: 0;
+        line-height: 1.05;
     }
 
-    .fc-subtitle {
-        margin: 7px 0 0;
+    .fees-subtitle {
+        max-width: 920px;
+        margin: 10px 0 0;
         color: var(--muted);
-        font-weight: 600;
-        line-height: 1.55;
+        font-weight: 700;
+        line-height: 1.6;
     }
 
-    .fc-export {
+    .fees-export,
+    .filter-button,
+    .filter-reset {
+        min-height: 44px;
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 8px;
-        border-radius: 7px;
-        padding: 11px 14px;
-        background: var(--blue);
-        color: #fff;
-        text-decoration: none;
+        border-radius: 14px;
+        padding: 0 16px;
         font-weight: 900;
         white-space: nowrap;
+        text-decoration: none;
+        transition: transform .22s ease, box-shadow .22s ease, background .22s ease;
     }
 
-    .fc-filter {
-        padding: 18px;
-        margin-bottom: 16px;
+    .fees-export {
+        color: #fff;
+        background: linear-gradient(135deg, #2563eb, #4f46e5);
+        box-shadow: 0 14px 32px rgba(79, 70, 229, 0.24);
     }
+
+    .fees-export:hover,
+    .filter-button:hover,
+    .filter-reset:hover {
+        transform: translateY(-2px);
+        text-decoration: none;
+    }
+
+    .fees-export:hover { color: #fff; }
+
+    .fees-filter {
+        position: relative;
+        z-index: 30;
+        overflow: visible;
+        padding: 18px;
+        margin-bottom: 18px;
+    }
+
+    .fees-filter:focus-within { z-index: 80; }
 
     .filter-grid {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 14px;
         align-items: end;
+    }
+
+    .filter-field {
+        position: relative;
+        z-index: 31;
+    }
+
+    .filter-field:focus-within {
+        z-index: 15000;
     }
 
     .filter-field label {
         display: block;
-        margin-bottom: 6px;
+        margin-bottom: 7px;
         color: #334155;
-        font-size: .78rem;
-        font-weight: 900;
+        font-size: .76rem;
+        font-weight: 950;
+        text-transform: uppercase;
+        letter-spacing: .035em;
     }
 
     .filter-field input,
     .filter-field select {
+        position: relative;
+        z-index: 32;
         width: 100%;
-        height: 42px;
-        border: 1px solid #cbd5e1;
-        border-radius: 7px;
-        padding: 0 10px;
+        height: 46px;
+        border: 1px solid rgba(148, 163, 184, 0.55);
+        border-radius: 14px;
+        padding: 0 12px;
         color: var(--ink);
         background: #fff;
-        font-weight: 700;
+        font-weight: 800;
+        outline: none;
+        transition: .2s ease;
+        box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+    }
+
+    .filter-field input:focus,
+    .filter-field select:focus {
+        border-color: rgba(79, 70, 229, 0.75);
+        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12);
+    }
+
+    .fee-student-suggest {
+        position: relative;
+    }
+
+    .fee-student-suggest__results {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        right: 0;
+        z-index: 13000;
+        display: none;
+        max-height: 280px;
+        overflow-y: auto;
+        padding: 7px;
+        border: 1px solid rgba(148, 163, 184, .42);
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 22px 55px rgba(15, 23, 42, .16);
+    }
+
+    .fee-student-suggest__results.is-open {
+        display: grid;
+        gap: 6px;
+    }
+
+    .fee-student-suggest__option,
+    .fee-student-suggest__message {
+        width: 100%;
+        border: 0;
+        border-radius: 12px;
+        padding: 10px 11px;
+        text-align: left;
+        background: #f8fafc;
+    }
+
+    .fee-student-suggest__option {
+        cursor: pointer;
+        transition: .18s ease;
+    }
+
+    .fee-student-suggest__option:hover,
+    .fee-student-suggest__option:focus {
+        background: #eef2ff;
+        outline: none;
+    }
+
+    .fee-student-suggest__option strong,
+    .fee-student-suggest__option small {
+        display: block;
+    }
+
+    .fee-student-suggest__option strong {
+        color: var(--ink);
+        font-size: .86rem;
+        font-weight: 950;
+        line-height: 1.35;
+    }
+
+    .fee-student-suggest__option small,
+    .fee-student-suggest__message {
+        color: var(--muted);
+        font-size: .78rem;
+        font-weight: 750;
+        line-height: 1.45;
+    }
+
+    .select2-container,
+    .select2-dropdown,
+    .select2-container--open { z-index: 12000 !important; }
+
+    .fees-filter .choices {
+        position: relative;
+        z-index: 32;
+        margin-bottom: 0;
+    }
+
+    .fees-filter .choices.is-open {
+        z-index: 15000;
+    }
+
+    .fees-filter .choices__inner {
+        position: relative;
+        z-index: 2;
+        min-height: 46px;
+        border: 1px solid rgba(148, 163, 184, 0.55);
+        border-radius: 0;
+        background: #fff;
+        padding: 7px 12px;
+        color: var(--ink);
+        font-weight: 800;
+    }
+
+    .fees-filter .choices__list--dropdown,
+    .fees-filter .choices__list[aria-expanded] {
+        z-index: 15001;
+        border-color: rgba(148, 163, 184, .42);
+        box-shadow: 0 22px 55px rgba(15, 23, 42, .16);
     }
 
     .filter-actions {
         display: flex;
-        gap: 8px;
-    }
-
-    .filter-button,
-    .filter-reset {
-        height: 42px;
-        border-radius: 7px;
-        padding: 0 13px;
-        font-weight: 900;
-        white-space: nowrap;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
     }
 
     .filter-button {
         border: 0;
-        background: var(--ink);
         color: #fff;
+        background: linear-gradient(135deg, #0f172a, #334155);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
     }
 
     .filter-reset {
-        display: inline-flex;
-        align-items: center;
         border: 1px solid var(--line);
         color: #334155;
         background: #fff;
-        text-decoration: none;
     }
 
     .summary-grid {
+        position: relative;
+        z-index: 1;
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 14px;
-        margin-bottom: 16px;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 18px;
     }
 
-    .fc-card {
-        padding: 18px;
+    .fees-card {
+        position: relative;
+        overflow: hidden;
+        padding: 18px 18px 16px;
+        min-height: 156px;
         display: grid;
-        grid-template-columns: 48px minmax(0, 1fr);
-        gap: 13px;
+        grid-template-rows: 46px minmax(74px, auto);
+        align-content: start;
+        gap: 12px;
+        border-radius: var(--radius-lg);
+        transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+
+    .fees-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 5px;
+        background: linear-gradient(90deg, var(--blue), var(--cyan));
+    }
+
+    .fees-card::after {
+        content: "";
+        position: absolute;
+        right: -42px;
+        top: -48px;
+        width: 118px;
+        height: 118px;
+        border-radius: 50%;
+        background: rgba(79, 70, 229, 0.08);
+        pointer-events: none;
+    }
+
+    .fees-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-hover);
+        border-color: rgba(79, 70, 229, 0.22);
+    }
+
+    .fees-card.total::before { background: linear-gradient(90deg, #2563eb, #06b6d4); }
+    .fees-card.paid::before { background: linear-gradient(90deg, #16a34a, #22c55e); }
+    .fees-card.pending::before { background: linear-gradient(90deg, #dc2626, #f97316); }
+    .fees-card.students::before { background: linear-gradient(90deg, #4f46e5, #2563eb); }
+    .fees-card.followup::before { background: linear-gradient(90deg, #d97706, #f59e0b); }
+
+    .card-top {
+        display: flex;
+        gap: 10px;
         align-items: center;
+        position: relative;
+        z-index: 2;
+        min-height: 46px;
     }
 
     .card-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 8px;
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
         display: grid;
         place-items: center;
         color: #fff;
-        font-size: 1.25rem;
-        background: var(--indigo);
+        font-size: 1.1rem;
+        background: linear-gradient(135deg, #2563eb, #06b6d4);
+        flex: 0 0 auto;
+        box-shadow: 0 12px 26px rgba(37, 99, 235, 0.22);
     }
 
-    .total .card-icon { background: var(--green); }
-    .students .card-icon { background: var(--blue); }
-    .classes .card-icon { background: #0891b2; }
-    .batches .card-icon { background: var(--indigo); }
+    .paid .card-icon { background: linear-gradient(135deg, #16a34a, #22c55e); }
+    .pending .card-icon { background: linear-gradient(135deg, #dc2626, #f97316); }
+    .students .card-icon { background: linear-gradient(135deg, #4f46e5, #2563eb); }
+    .followup .card-icon { background: linear-gradient(135deg, #d97706, #f59e0b); }
+
+    .fees-card > div:last-child {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-rows: minmax(30px, auto) minmax(34px, auto);
+        align-content: start;
+        gap: 5px;
+        min-width: 0;
+    }
 
     .card-value {
+        display: flex;
+        align-items: center;
+        min-height: 30px;
         color: var(--ink);
-        font-size: clamp(1.25rem, 2vw, 1.8rem);
-        font-weight: 900;
+        font-size: clamp(1.18rem, 1.45vw, 1.5rem);
+        font-weight: 950;
         line-height: 1.1;
+        overflow-wrap: anywhere;
+        letter-spacing: 0;
     }
 
     .card-label {
+        display: flex;
+        align-items: flex-start;
+        min-height: 34px;
         color: var(--muted);
-        font-size: .82rem;
-        font-weight: 900;
+        font-size: .75rem;
+        font-weight: 950;
         text-transform: uppercase;
-        margin-top: 5px;
+        letter-spacing: 0;
+        line-height: 1.35;
     }
 
-    .fc-breakdown-grid {
+    .fees-tabs {
+        position: sticky;
+        top: 76px;
+        z-index: 5;
+        padding: 10px;
+        margin-bottom: 18px;
+        border-radius: var(--radius-lg);
+    }
+
+    .fees-tabs .nav {
+        gap: 8px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 2px;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .fees-tabs .nav-link {
+        position: relative;
+        overflow: hidden;
+        border: 0;
+        border-radius: 15px;
+        color: #475569;
+        font-weight: 950;
+        padding: 11px 16px;
+        white-space: nowrap;
+        background: #f8fafc;
+        transition: .22s ease;
+        flex: 0 0 auto;
+    }
+
+    .fees-tabs .nav-link:nth-child(1) { color: #2563eb; background: var(--blue-soft); }
+    .fees-tabs .nav-link:nth-child(2) { color: #4f46e5; background: var(--indigo-soft); }
+    .fees-tabs .nav-link:nth-child(3) { color: #dc2626; background: var(--red-soft); }
+    .fees-tabs .nav-link:nth-child(4) { color: #16a34a; background: var(--green-soft); }
+    .fees-tabs .nav-link:nth-child(5) { color: #0891b2; background: var(--cyan-soft); }
+    .fees-tabs .nav-link:nth-child(6) { color: #d97706; background: var(--amber-soft); }
+
+    .fees-tabs .nav-link.active {
+        color: #fff;
+        transform: translateY(-1px);
+        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.16);
+    }
+
+    .fees-tabs .nav-link:nth-child(1).active { background: linear-gradient(135deg, #2563eb, #06b6d4); }
+    .fees-tabs .nav-link:nth-child(2).active { background: linear-gradient(135deg, #4f46e5, #2563eb); }
+    .fees-tabs .nav-link:nth-child(3).active { background: linear-gradient(135deg, #dc2626, #f97316); }
+    .fees-tabs .nav-link:nth-child(4).active { background: linear-gradient(135deg, #16a34a, #22c55e); }
+    .fees-tabs .nav-link:nth-child(5).active { background: linear-gradient(135deg, #0891b2, #2563eb); }
+    .fees-tabs .nav-link:nth-child(6).active { background: linear-gradient(135deg, #d97706, #f59e0b); }
+
+    .panel-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
-        margin-bottom: 16px;
+        gap: 18px;
+        margin-bottom: 18px;
     }
 
-    .fc-panel {
+    .panel-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+    .fees-panel,
+    .chart-panel {
         overflow: hidden;
+        border-radius: var(--radius-lg);
     }
 
     .panel-head {
-        padding: 16px 18px;
+        padding: 17px 20px;
         border-bottom: 1px solid var(--line);
         display: flex;
         justify-content: space-between;
-        gap: 12px;
+        gap: 14px;
         align-items: center;
-        background: var(--soft);
+        background: linear-gradient(135deg, #ffffff, #f8fbff);
     }
 
     .panel-head h2 {
         margin: 0;
         color: var(--ink);
-        font-size: 1rem;
-        font-weight: 900;
+        font-size: 1.02rem;
+        font-weight: 950;
+        letter-spacing: 0;
     }
 
     .panel-head span {
         color: var(--muted);
         font-size: .82rem;
         font-weight: 800;
+        line-height: 1.45;
     }
 
-    .breakdown-list {
+    .summary-list,
+    .chart-list {
         display: grid;
-        gap: 9px;
-        padding: 15px;
-        max-height: 360px;
-        overflow: auto;
+        gap: 12px;
+        padding: 16px;
     }
 
-    .breakdown-row {
+    .summary-row,
+    .chart-row {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
-        gap: 12px;
+        gap: 13px;
         align-items: center;
-        padding: 11px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: #fff;
+        padding: 14px;
+        border: 1px solid rgba(226, 232, 240, 0.85);
+        border-radius: 18px;
+        background: linear-gradient(135deg, #ffffff, #f8fafc);
     }
 
-    .breakdown-row strong {
+    .summary-row strong,
+    .chart-row strong {
         display: block;
         color: var(--ink);
-        font-weight: 900;
+        font-weight: 950;
         overflow-wrap: anywhere;
     }
 
-    .breakdown-row span {
+    .summary-row span,
+    .chart-row span {
         color: var(--muted);
         font-size: .8rem;
-        font-weight: 700;
+        font-weight: 750;
+        line-height: 1.5;
     }
 
-    .breakdown-row b {
-        color: var(--green);
-        font-weight: 900;
-        white-space: nowrap;
+    .amount-positive { color: var(--green); font-weight: 950; }
+    .amount-negative { color: var(--red); font-weight: 950; }
+    .amount-neutral { color: var(--blue); font-weight: 950; }
+
+    .bar-track {
+        height: 12px;
+        margin-top: 9px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        overflow: hidden;
+        box-shadow: inset 0 1px 2px rgba(15, 23, 42, .08);
     }
+
+    .bar-fill {
+        height: 100%;
+        min-width: 3px;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #2563eb, #06b6d4);
+    }
+
+    .bar-fill.green { background: linear-gradient(90deg, #16a34a, #22c55e); }
+    .bar-fill.red { background: linear-gradient(90deg, #dc2626, #f97316); }
 
     .table-wrap {
         overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
-    .fc-table {
+    .fees-table {
         width: 100%;
+        min-width: 980px;
         margin: 0;
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 0;
     }
 
-    .fc-table th {
-        padding: 12px 14px;
+    .fees-table th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        padding: 13px 14px;
         color: #334155;
-        background: var(--soft);
+        background: linear-gradient(180deg, #f8fafc, #eef2ff);
         border-bottom: 1px solid var(--line);
-        font-size: .75rem;
-        font-weight: 900;
+        font-size: .74rem;
+        font-weight: 950;
         text-transform: uppercase;
+        letter-spacing: .035em;
         white-space: nowrap;
     }
 
-    .fc-table td {
-        padding: 13px 14px;
+    .fees-table td {
+        padding: 14px;
         color: #1e293b;
         border-bottom: 1px solid #f1f5f9;
-        font-weight: 650;
+        font-weight: 700;
         vertical-align: middle;
+        white-space: nowrap;
+        background: #fff;
+    }
+
+    .fees-table tbody tr:nth-child(even) td { background: #fbfdff; }
+    .fees-table tbody tr:hover td { background: #eff6ff; }
+
+    .status-pill {
+        display: inline-flex;
+        min-width: 78px;
+        justify-content: center;
+        padding: 6px 9px;
+        border-radius: 999px;
+        font-size: .72rem;
+        font-weight: 950;
+        text-transform: uppercase;
+        background: #f1f5f9;
+        color: #334155;
+    }
+
+    .detail-export {
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border: 0;
+        border-radius: 12px;
+        padding: 0 14px;
+        color: #fff;
+        background: linear-gradient(135deg, #16a34a, #22c55e);
+        font-size: .8rem;
+        font-weight: 950;
+        text-decoration: none;
+        box-shadow: 0 12px 24px rgba(22, 163, 74, .22);
         white-space: nowrap;
     }
 
-    .amount-positive {
-        color: var(--green);
-        font-weight: 900;
+    .detail-export i {
+        font-size: 1rem;
+        line-height: 1;
     }
 
+    .detail-export:hover {
+        color: #fff;
+        text-decoration: none;
+        transform: translateY(-1px);
+    }
+
+    .all-batches-export {
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border-radius: 12px;
+        padding: 0 14px;
+        color: #fff;
+        background: linear-gradient(135deg, #15803d, #22c55e);
+        font-size: .82rem;
+        font-weight: 950;
+        text-decoration: none;
+        box-shadow: 0 12px 24px rgba(22, 163, 74, .22);
+        white-space: nowrap;
+    }
+
+    .all-batches-export:hover {
+        color: #fff;
+        text-decoration: none;
+        transform: translateY(-1px);
+    }
+
+    .ledger-head-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .status-paid { background: var(--green-soft); color: #15803d; }
+    .status-partial { background: var(--amber-soft); color: #b45309; }
+    .status-unpaid { background: var(--red-soft); color: #b91c1c; }
+
     .empty-line {
-        padding: 24px;
+        padding: 26px;
         color: var(--muted);
-        font-weight: 700;
+        font-weight: 800;
         text-align: center;
     }
 
-    @media (max-width: 1199px) {
-        .filter-grid,
+    @media (max-width: 1399px) {
+        .summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 991px) {
+        .fees-header {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .fees-export { width: 100%; }
+
         .summary-grid,
-        .fc-breakdown-grid {
-            grid-template-columns: 1fr 1fr;
+        .filter-grid,
+        .panel-grid,
+        .panel-grid.three {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .fees-tabs {
+            top: 0;
+            overflow: hidden;
         }
     }
 
     @media (max-width: 767px) {
-        .fc-page { padding: 14px; }
-        .fc-header,
-        .filter-grid,
+        .fees-page { padding: 14px; }
+
+        .fees-header,
+        .fees-filter,
+        .fees-card,
+        .fees-panel,
+        .fees-tabs,
+        .chart-panel {
+            border-radius: 18px;
+        }
+
         .summary-grid,
-        .fc-breakdown-grid {
+        .filter-grid,
+        .panel-grid,
+        .panel-grid.three {
             grid-template-columns: 1fr;
-            display: grid;
         }
-        .fc-header {
-            align-items: start;
+
+        .fees-card {
+            min-height: 152px;
+            grid-template-rows: 44px minmax(72px, auto);
         }
+
+        .fees-tabs {
+            position: relative;
+            top: auto;
+            z-index: 4;
+            padding: 9px;
+        }
+
+        .fees-tabs .nav {
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            width: 100%;
+            max-width: 100%;
+            gap: 8px;
+            padding-bottom: 5px;
+        }
+
+        .fees-tabs .nav-link {
+            flex: 0 0 auto;
+            min-width: max-content;
+        }
+
+        .panel-head {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .summary-row,
+        .chart-row {
+            grid-template-columns: 1fr;
+        }
+
+        .filter-actions > * { flex: 1 1 160px; }
+    }
+
+    @media (max-width: 480px) {
+        .fees-page { padding: 10px; }
+        .fees-title { font-size: 1.55rem; }
+        .fees-subtitle { font-size: .9rem; }
+        .summary-grid { gap: 12px; }
+        .fees-card { padding: 16px; min-height: 148px; }
+        .card-value { font-size: 1.28rem; }
+        .fees-tabs .nav-link { padding: 10px 13px; font-size: .88rem; }
     }
 </style>
 
-<main id="main" class="main fc-page">
-    <div class="fc-shell">
-        <section class="fc-header">
+<main id="main" class="main fees-page">
+    <div class="fees-shell">
+        <section class="fees-header">
             <div>
-                <a class="fc-back" href="{% url 'institute_admin:reports_dashboard' %}">
+                <a class="fees-back" href="{% url 'institute_admin:reports_dashboard' %}">
                     <i class="bi bi-arrow-left"></i> Reports
                 </a>
-                <h1 class="fc-title">Fee Collection Report</h1>
-                <p class="fc-subtitle">
-                    Daily, monthly and yearly fee collections with student, class, batch and payment mode breakdowns.
+                <h1 class="fees-title">Fees Report Dashboard</h1>
+                <p class="fees-subtitle">
+                    Class-wise student fee summary, pending follow-up, collections and student ledger for {{ current_institute.name }}.
                 </p>
             </div>
-            <a class="fc-export" href="?{{ export_query }}">
-                <i class="bi bi-download"></i> Export CSV
+            <a class="fees-export" href="?{{ export_query }}">
+                <i class="bi bi-file-earmark-excel"></i> Export Excel
             </a>
         </section>
 
-        <form class="fc-filter" method="get">
+        <form class="fees-filter" method="get">
             <div class="filter-grid">
                 <div class="filter-field">
                     <label for="id_start_date">Start Date</label>
@@ -361,21 +850,17 @@
                     </select>
                 </div>
                 <div class="filter-field">
-                    <label for="id_year">Year</label>
-                    <select id="id_year" name="year">
-                        <option value="">Any year</option>
-                        {% for year in year_options %}
-                        <option value="{{ year }}" {% if filters.year == year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
+                    <label for="id_academic_year">Academic Session</label>
+                    <select id="id_academic_year" name="academic_year">
+                        {% for academic_year in academic_years %}
+                        <option value="{{ academic_year.pk }}"
+                                data-start="{{ academic_year.start_date|date:'Y-m-d' }}"
+                                data-end="{{ academic_year.end_date|date:'Y-m-d' }}"
+                                {% if filters.academic_year_id == academic_year.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ academic_year.name }}
+                        </option>
                         {% endfor %}
                     </select>
-                </div>
-                <div class="filter-field">
-                    <label for="id_student">Student</label>
-                    <input id="id_student" type="search" name="student" value="{{ filters.student }}" placeholder="Name, admission no, username">
-                </div>
-                <div class="filter-field">
-                    <label for="id_receipt_number">Receipt Number</label>
-                    <input id="id_receipt_number" type="search" name="receipt_number" value="{{ filters.receipt_number }}" placeholder="Receipt no">
                 </div>
                 <div class="filter-field">
                     <label for="id_course">Class</label>
@@ -396,6 +881,37 @@
                     </select>
                 </div>
                 <div class="filter-field">
+                    <label for="id_student">Student</label>
+                    <div class="fee-student-suggest">
+                        <input id="id_student"
+                               type="search"
+                               name="student"
+                               value="{{ filters.student }}"
+                               placeholder="Name, admission no, mobile"
+                               autocomplete="off"
+                               data-autocomplete-url="{% url 'institute_admin:student_autocomplete' %}"
+                               data-minimum-input-length="2">
+                        <div class="fee-student-suggest__results" id="feeStudentSuggestions" role="listbox" aria-label="Student suggestions"></div>
+                    </div>
+                </div>
+                <div class="filter-field">
+                    <label for="id_category">Fee Category</label>
+                    <select id="id_category" name="category">
+                        <option value="">All categories</option>
+                        {% for category in categories %}
+                        <option value="{{ category.pk }}" {% if filters.category_id == category.pk|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="id_status">Status</label>
+                    <select id="id_status" name="status">
+                        {% for value, label in status_options %}
+                        <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
                     <label for="id_method">Payment Mode</label>
                     <select id="id_method" name="method">
                         <option value="">All modes</option>
@@ -404,177 +920,450 @@
                         {% endfor %}
                     </select>
                 </div>
+                <div class="filter-field">
+                    <label for="id_receipt_number">Receipt Number</label>
+                    <input id="id_receipt_number" type="search" name="receipt_number" value="{{ filters.receipt_number }}" placeholder="Receipt no">
+                </div>
             </div>
-            <div class="filter-actions mt-3">
+            <div class="filter-actions">
                 <button class="filter-button" type="submit"><i class="bi bi-funnel"></i> Apply Filter</button>
                 <a class="filter-reset" href="{% url 'institute_admin:fee_collection_report' %}">Reset</a>
             </div>
         </form>
 
         <section class="summary-grid">
-            <div class="fc-card total">
-                <div class="card-icon"><i class="bi bi-cash-stack"></i></div>
-                <div>
-                    <div class="card-value">₹{{ total_collection|floatformat:2 }}</div>
-                    <div class="card-label">Total Collection</div>
-                </div>
+            <div class="fees-card total">
+                <div class="card-top"><div class="card-icon"><i class="bi bi-journal-check"></i></div></div>
+                <div><div class="card-value">Rs. {{ total_fee_amount|floatformat:2 }}</div><div class="card-label">Total Fee Amount</div></div>
             </div>
-            <div class="fc-card students">
-                <div class="card-icon"><i class="bi bi-person-vcard"></i></div>
-                <div>
-                    <div class="card-value">{{ student_groups|length }}</div>
-                    <div class="card-label">Students</div>
-                </div>
+            <div class="fees-card paid">
+                <div class="card-top"><div class="card-icon"><i class="bi bi-cash-stack"></i></div></div>
+                <div><div class="card-value">Rs. {{ total_paid_amount|floatformat:2 }}</div><div class="card-label">Paid Amount</div></div>
             </div>
-            <div class="fc-card classes">
-                <div class="card-icon"><i class="bi bi-journals"></i></div>
-                <div>
-                    <div class="card-value">{{ class_groups|length }}</div>
-                    <div class="card-label">Classes</div>
-                </div>
+            <div class="fees-card pending">
+                <div class="card-top"><div class="card-icon"><i class="bi bi-hourglass-split"></i></div></div>
+                <div><div class="card-value">Rs. {{ total_pending_amount|floatformat:2 }}</div><div class="card-label">Pending Amount</div></div>
             </div>
-            <div class="fc-card batches">
-                <div class="card-icon"><i class="bi bi-layers"></i></div>
-                <div>
-                    <div class="card-value">{{ payment_count }}</div>
-                    <div class="card-label">Payments</div>
-                </div>
+            <div class="fees-card students">
+                <div class="card-top"><div class="card-icon"><i class="bi bi-people"></i></div></div>
+                <div><div class="card-value">{{ student_count }}</div><div class="card-label">Students In Report</div></div>
+            </div>
+            <div class="fees-card followup">
+                <div class="card-top"><div class="card-icon"><i class="bi bi-telephone-outbound"></i></div></div>
+                <div><div class="card-value">{{ students_with_pending }}</div><div class="card-label">Students For Follow-up</div></div>
+            </div>
+            <div class="fees-card paid">
+                <div class="card-top"><div class="card-icon"><i class="bi bi-receipt"></i></div></div>
+                <div><div class="card-value">{{ payment_count }}</div><div class="card-label">Collection Entries</div></div>
             </div>
         </section>
 
-        <section class="fc-breakdown-grid">
-            <div class="fc-panel">
-                <div class="panel-head">
-                    <h2>Payment Mode Wise</h2>
-                    <span>Cash / UPI / Bank / Card</span>
-                </div>
-                <div class="breakdown-list">
-                    {% for row in method_groups %}
-                    <div class="breakdown-row">
-                        <div><strong>{{ row.label }}</strong><span>{{ row.count }} payment{{ row.count|pluralize }}</span></div>
-                        <b>₹{{ row.amount|floatformat:2 }}</b>
+        <nav class="fees-tabs">
+            <div class="nav nav-pills" id="fees-report-tabs" role="tablist">
+                <button class="nav-link active" id="fees-overview-tab" data-bs-toggle="tab" data-bs-target="#fees-overview" type="button" role="tab" aria-controls="fees-overview" aria-selected="true">Overview</button>
+                <button class="nav-link" id="fees-class-tab" data-bs-toggle="tab" data-bs-target="#fees-class" type="button" role="tab" aria-controls="fees-class" aria-selected="false">Class Wise Summary</button>
+                <button class="nav-link" id="fees-collections-tab" data-bs-toggle="tab" data-bs-target="#fees-collections" type="button" role="tab" aria-controls="fees-collections" aria-selected="false">Collections</button>
+                <button class="nav-link" id="fees-ledger-tab" data-bs-toggle="tab" data-bs-target="#fees-ledger" type="button" role="tab" aria-controls="fees-ledger" aria-selected="false">Student Ledger</button>
+                <button class="nav-link" id="fees-charts-tab" data-bs-toggle="tab" data-bs-target="#fees-charts" type="button" role="tab" aria-controls="fees-charts" aria-selected="false">Charts</button>
+            </div>
+        </nav>
+
+        <div class="tab-content">
+            <section class="tab-pane fade show active" id="fees-overview" role="tabpanel" aria-labelledby="fees-overview-tab">
+                {% if filters.receipt_number %}
+                <div class="fees-panel mb-3">
+                    <div class="panel-head">
+                        <h2>Receipt Review</h2>
+                        <span>{{ receipt_lookup_rows|length }} matching receipt{{ receipt_lookup_rows|length|pluralize }}</span>
                     </div>
-                    {% empty %}
-                    <div class="empty-line">No payment modes found.</div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="fc-panel">
-                <div class="panel-head">
-                    <h2>Date Wise Collection</h2>
-                    <span>Daily breakdown</span>
-                </div>
-                <div class="breakdown-list">
-                    {% for row in date_groups %}
-                    <div class="breakdown-row">
-                        <div><strong>{{ row.label }}</strong><span>{{ row.count }} payment{{ row.count|pluralize }}</span></div>
-                        <b>₹{{ row.amount|floatformat:2 }}</b>
-                    </div>
-                    {% empty %}
-                    <div class="empty-line">No date-wise collection found.</div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="fc-panel">
-                <div class="panel-head">
-                    <h2>Class Wise Collection</h2>
-                    <span>{{ class_groups|length }} class{{ class_groups|length|pluralize:"es" }}</span>
-                </div>
-                <div class="breakdown-list">
-                    {% for row in class_groups %}
-                    <div class="breakdown-row">
-                        <div><strong>{{ row.label }}</strong><span>{{ row.count }} payment{{ row.count|pluralize }}</span></div>
-                        <b>₹{{ row.amount|floatformat:2 }}</b>
-                    </div>
-                    {% empty %}
-                    <div class="empty-line">No class-wise collection found.</div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="fc-panel">
-                <div class="panel-head">
-                    <h2>Batch Wise Collection</h2>
-                    <span>{{ batch_groups|length }} batch{{ batch_groups|length|pluralize:"es" }}</span>
-                </div>
-                <div class="breakdown-list">
-                    {% for row in batch_groups %}
-                    <div class="breakdown-row">
-                        <div><strong>{{ row.label }}</strong><span>{{ row.count }} payment{{ row.count|pluralize }}</span></div>
-                        <b>₹{{ row.amount|floatformat:2 }}</b>
-                    </div>
-                    {% empty %}
-                    <div class="empty-line">No batch-wise collection found.</div>
-                    {% endfor %}
-                </div>
-            </div>
-        </section>
-
-        <section class="fc-panel">
-            <div class="panel-head">
-                <h2>Student Wise Collection</h2>
-                <span>{{ student_groups|length }} student{{ student_groups|length|pluralize }}</span>
-            </div>
-            <div class="breakdown-list">
-                {% for row in student_groups %}
-                <div class="breakdown-row">
-                    <div><strong>{{ row.label }}</strong><span>{{ row.count }} payment{{ row.count|pluralize }}</span></div>
-                    <b>₹{{ row.amount|floatformat:2 }}</b>
-                </div>
-                {% empty %}
-                <div class="empty-line">No student-wise collection found.</div>
-                {% endfor %}
-            </div>
-        </section>
-
-        <section class="fc-panel mt-3">
-            <div class="panel-head">
-                <h2>Collection Details</h2>
-                <span>Latest 100 payments</span>
-            </div>
-            <div class="table-wrap">
-                <table class="fc-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Receipt</th>
-                            <th>Student</th>
-                            <th>Class</th>
-                            <th>Batch</th>
-                            <th>Invoice</th>
-                            <th>Mode</th>
-                            <th class="text-end">Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for payment in payment_rows %}
-                        <tr>
-                            <td>{{ payment.paid_on|date:"d M Y" }}</td>
-                            <td>
-                                {% if payment.receipt_number %}
-                                <a href="{% url 'institute_admin:payment_receipt' payment.pk %}" class="fw-bold text-decoration-none">
-                                    {{ payment.receipt_number }}
-                                </a>
-                                {% else %}
-                                -
+                    <div class="table-wrap">
+                        <table class="fees-table">
+                            <thead>
+                                <tr><th>Receipt</th><th>Status</th><th>Received Date</th><th>Received By</th><th>Student</th><th>Class</th><th>Batch</th><th>Invoice</th><th>Invoice Status</th><th>Mode</th><th class="text-end">Amount</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in receipt_lookup_rows %}
+                                <tr>
+                                    <td>
+                                        {% if payment.status == "ACTIVE" %}
+                                        <a href="{% url 'institute_admin:payment_receipt' payment.pk %}" class="fw-bold text-decoration-none">{{ payment.receipt_number|default:"-" }}</a>
+                                        {% else %}
+                                        <span class="fw-bold">{{ payment.receipt_number|default:"-" }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="status-pill {% if payment.status == 'ACTIVE' %}status-paid{% else %}status-unpaid{% endif %}">
+                                            {{ payment.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ payment.paid_on|date:"d M Y" }}</td>
+                                    <td>{% if payment.received_by %}{{ payment.received_by.get_full_name|default:payment.received_by.username }}{% else %}-{% endif %}</td>
+                                    <td>{{ payment.invoice.student }}</td>
+                                    <td>{{ payment.report_course_label }}</td>
+                                    <td>{{ payment.report_batch_label }}</td>
+                                    <td>{{ payment.invoice.title }}</td>
+                                    <td>{{ payment.invoice.get_status_display }}</td>
+                                    <td>{{ payment.get_method_display }}</td>
+                                    <td class="text-end {% if payment.status == 'ACTIVE' %}amount-positive{% else %}amount-negative{% endif %}">Rs. {{ payment.amount|floatformat:2 }}</td>
+                                </tr>
+                                {% if payment.status != "ACTIVE" %}
+                                <tr>
+                                    <td colspan="11" class="text-muted fw-bold">
+                                        Voided by {% if payment.voided_by %}{{ payment.voided_by.get_full_name|default:payment.voided_by.username }}{% else %}-{% endif %}
+                                        {% if payment.voided_at %} on {{ payment.voided_at|date:"d M Y h:i A" }}{% endif %}
+                                        {% if payment.void_reason %} | Reason: {{ payment.void_reason }}{% endif %}
+                                    </td>
+                                </tr>
                                 {% endif %}
-                            </td>
-                            <td>{{ payment.invoice.student }}</td>
-                            <td>{{ payment.report_course_label }}</td>
-                            <td>{{ payment.report_batch_label }}</td>
-                            <td>{{ payment.invoice.title }}</td>
-                            <td>{{ payment.get_method_display }}</td>
-                            <td class="text-end amount-positive">₹{{ payment.amount|floatformat:2 }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr><td colspan="8" class="empty-line">No collection rows found.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                                {% empty %}
+                                <tr><td colspan="11" class="empty-line">No receipt found for this number in the selected institute/session.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="panel-grid">
+                    <div class="fees-panel">
+                        <div class="panel-head"><h2>Class / Batch Summary</h2><span>{{ class_summary_rows|length }} group{{ class_summary_rows|length|pluralize }}</span></div>
+                        <div class="summary-list">
+                            {% for row in class_summary_rows|slice:":8" %}
+                            <div class="summary-row">
+                                <div>
+                                    <strong>{{ row.label }}</strong>
+                                    <span>{{ row.students }} student{{ row.students|pluralize }} | Total Rs. {{ row.total|floatformat:2 }}</span>
+                                    <div class="bar-track"><div class="bar-fill green" style="width: {{ row.paid_percent }}%;"></div></div>
+                                    <div class="bar-track"><div class="bar-fill red" style="width: {{ row.pending_percent }}%;"></div></div>
+                                </div>
+                                <b class="amount-negative">Rs. {{ row.pending|floatformat:2 }}</b>
+                            </div>
+                            {% empty %}
+                            <div class="empty-line">No class-wise fee data found.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="fees-panel">
+                        <div class="panel-head"><h2>Highest Pending Batches</h2><span>Batch-wise pending focus</span></div>
+                        <div class="summary-list">
+                            {% for row in class_summary_rows|slice:":8" %}
+                            <div class="summary-row">
+                                <div><strong>{{ row.class_label }}</strong><span>{{ row.batch_label }} | {{ row.students }} student{{ row.students|pluralize }}</span></div>
+                                <b class="amount-negative">Rs. {{ row.pending|floatformat:2 }}</b>
+                            </div>
+                            {% empty %}
+                            <div class="empty-line">No batch pending data found.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab-pane fade" id="fees-class" role="tabpanel" aria-labelledby="fees-class-tab">
+                <div class="fees-panel">
+                    <div class="panel-head">
+                        <h2>Batch Wise Fee Summary</h2>
+                        <a class="all-batches-export" href="?{{ all_batches_export_query }}">
+                            <i class="bi bi-file-earmark-excel"></i> Download All Batches Report
+                        </a>
+                        <span>{{ class_summary_rows|length }} batch{{ class_summary_rows|length|pluralize:"es" }}</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="fees-table">
+                            <thead>
+                                <tr><th>Class</th><th>Division / Batch</th><th class="text-end">Students</th><th class="text-end">Total Fees</th><th class="text-end">Total Collected</th><th class="text-end">Total Pending</th><th>Analysis</th><th class="text-end">Detail</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for row in class_summary_rows %}
+                                <tr>
+                                    <td>{{ row.class_label }}</td>
+                                    <td>{{ row.batch_label }}</td>
+                                    <td class="text-end">{{ row.students }}</td>
+                                    <td class="text-end amount-neutral">Rs. {{ row.total|floatformat:2 }}</td>
+                                    <td class="text-end amount-positive">Rs. {{ row.paid|floatformat:2 }}</td>
+                                    <td class="text-end amount-negative">Rs. {{ row.pending|floatformat:2 }}</td>
+                                    <td>
+                                        <div class="bar-track"><div class="bar-fill green" style="width: {{ row.paid_percent }}%;"></div></div>
+                                        <div class="bar-track"><div class="bar-fill red" style="width: {{ row.pending_percent }}%;"></div></div>
+                                    </td>
+                                    <td class="text-end">
+                                        <a class="detail-export" href="?{{ row.detail_export_query }}">
+                                            <i class="bi bi-file-earmark-excel"></i> Excel
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="8" class="empty-line">No batch fee rows found.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab-pane fade" id="fees-collections" role="tabpanel" aria-labelledby="fees-collections-tab">
+                <div class="fees-panel">
+                    <div class="panel-head">
+                        <h2>Collection Details</h2>
+                        <div class="ledger-head-actions">
+                            <span>{% if filters.receipt_number %}Active collection entries matching receipt search{% else %}Latest 100 payments on screen, full data in Excel{% endif %}</span>
+                            <a class="all-batches-export" href="?{{ collections_export_query }}">
+                                <i class="bi bi-file-earmark-excel"></i> Download Collections Excel
+                            </a>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="fees-table">
+                            <thead>
+                                <tr><th>Date</th><th>Receipt</th><th>Status</th><th>Received By</th><th>Student</th><th>Class</th><th>Batch</th><th>Invoice</th><th>Mode</th><th class="text-end">Amount</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in payment_rows %}
+                                <tr>
+                                    <td>{{ payment.paid_on|date:"d M Y" }}</td>
+                                    <td>
+                                        {% if payment.receipt_number %}
+                                        <a href="{% url 'institute_admin:payment_receipt' payment.pk %}" class="fw-bold text-decoration-none">{{ payment.receipt_number }}</a>
+                                        {% else %}-{% endif %}
+                                    </td>
+                                    <td><span class="status-pill status-paid">{{ payment.get_status_display }}</span></td>
+                                    <td>{% if payment.received_by %}{{ payment.received_by.get_full_name|default:payment.received_by.username }}{% else %}-{% endif %}</td>
+                                    <td>{{ payment.invoice.student }}</td>
+                                    <td>{{ payment.report_course_label }}</td>
+                                    <td>{{ payment.report_batch_label }}</td>
+                                    <td>{{ payment.invoice.title }}</td>
+                                    <td>{{ payment.get_method_display }}</td>
+                                    <td class="text-end amount-positive">Rs. {{ payment.amount|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="10" class="empty-line">No collection rows found.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab-pane fade" id="fees-ledger" role="tabpanel" aria-labelledby="fees-ledger-tab">
+                {% if selected_ledger %}
+                <div class="panel-grid">
+                    <div class="fees-panel">
+                        <div class="panel-head">
+                            <h2>{{ selected_ledger.student_name }}</h2>
+                            <div class="ledger-head-actions">
+                                <span>{{ selected_ledger.admission_number }}</span>
+                                <a class="all-batches-export" href="?{{ ledger_export_query }}">
+                                    <i class="bi bi-file-earmark-excel"></i> Download Ledger Excel
+                                </a>
+                            </div>
+                        </div>
+                        <div class="summary-list">
+                            <div class="summary-row"><div><strong>Total Fee</strong><span>{{ selected_ledger.class_label }} | {{ selected_ledger.batch_label }}</span></div><b class="amount-neutral">Rs. {{ selected_ledger.total_amount|floatformat:2 }}</b></div>
+                            <div class="summary-row"><div><strong>Paid Amount</strong><span>Received amount</span></div><b class="amount-positive">Rs. {{ selected_ledger.paid_amount|floatformat:2 }}</b></div>
+                            <div class="summary-row"><div><strong>Pending Amount</strong><span>Balance for follow-up</span></div><b class="amount-negative">Rs. {{ selected_ledger.pending_amount|floatformat:2 }}</b></div>
+                        </div>
+                    </div>
+                    <div class="fees-panel">
+                        <div class="panel-head"><h2>Ledger Payments</h2><span>{{ ledger_payment_rows|length }} payment{{ ledger_payment_rows|length|pluralize }}</span></div>
+                        <div class="summary-list">
+                            {% for payment in ledger_payment_rows %}
+                            <div class="summary-row"><div><strong>{{ payment.receipt_number|default:"Receipt" }}</strong><span>{{ payment.paid_on|date:"d M Y" }} | {{ payment.get_method_display }}</span></div><b class="amount-positive">Rs. {{ payment.amount|floatformat:2 }}</b></div>
+                            {% empty %}
+                            <div class="empty-line">No ledger payments found.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="fees-panel">
+                    <div class="panel-head"><h2>Ledger Invoices</h2><span>{{ ledger_invoice_rows|length }} invoice{{ ledger_invoice_rows|length|pluralize }}</span></div>
+                    <div class="table-wrap">
+                        <table class="fees-table">
+                            <thead><tr><th>Due Date</th><th>Invoice</th><th>Category</th><th class="text-end">Amount</th><th>Status</th></tr></thead>
+                            <tbody>
+                                {% for invoice in ledger_invoice_rows %}
+                                <tr><td>{{ invoice.due_date|date:"d M Y" }}</td><td>{{ invoice.title }}</td><td>{% if invoice.category %}{{ invoice.category.name }}{% else %}General{% endif %}</td><td class="text-end amount-neutral">Rs. {{ invoice.amount|floatformat:2 }}</td><td>{{ invoice.get_status_display }}</td></tr>
+                                {% empty %}
+                                <tr><td colspan="5" class="empty-line">No ledger invoice rows found.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% else %}
+                <div class="fees-panel">
+                    <div class="empty-line">Search for one student using the Student filter to view a focused ledger.</div>
+                </div>
+                {% endif %}
+            </section>
+
+            <section class="tab-pane fade" id="fees-charts" role="tabpanel" aria-labelledby="fees-charts-tab">
+                <div class="panel-grid">
+                    <div class="chart-panel">
+                        <div class="panel-head"><h2>Class-wise Paid vs Pending</h2><span>Follow-up priority by class/batch</span></div>
+                        <div class="chart-list">
+                            {% for row in class_summary_rows %}
+                            <div class="chart-row">
+                                <div>
+                                    <strong>{{ row.label }}</strong>
+                                    <span>Paid Rs. {{ row.paid|floatformat:2 }} | Pending Rs. {{ row.pending|floatformat:2 }}</span>
+                                    <div class="bar-track"><div class="bar-fill green" style="width: {{ row.paid_percent }}%;"></div></div>
+                                    <div class="bar-track"><div class="bar-fill red" style="width: {{ row.pending_percent }}%;"></div></div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="empty-line">No class chart data found.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="chart-panel">
+                        <div class="panel-head"><h2>Monthly Collection</h2><span>Collection cash flow</span></div>
+                        <div class="chart-list">
+                            {% for row in monthly_collection_rows %}
+                            <div class="chart-row">
+                                <div>
+                                    <strong>{{ row.label }}</strong>
+                                    <span>Rs. {{ row.amount|floatformat:2 }}</span>
+                                    <div class="bar-track"><div class="bar-fill green" style="width: {{ row.percent }}%;"></div></div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="empty-line">No monthly collection chart data found.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
     </div>
 </main>
+<script>
+    (function () {
+        const sessionSelect = document.getElementById("id_academic_year");
+        const startInput = document.getElementById("id_start_date");
+        const endInput = document.getElementById("id_end_date");
+        if (!sessionSelect || !startInput || !endInput) {
+            return;
+        }
+        sessionSelect.addEventListener("change", function () {
+            const selected = sessionSelect.options[sessionSelect.selectedIndex];
+            startInput.value = selected.dataset.start || "";
+            endInput.value = selected.dataset.end || "";
+        });
+    })();
+</script>
+<script>
+    (function () {
+        const input = document.getElementById("id_student");
+        const results = document.getElementById("feeStudentSuggestions");
+        const form = input ? input.closest("form") : null;
+        let controller = null;
+        let timer = null;
+
+        if (!input || !results || !form) {
+            return;
+        }
+
+        function closeResults() {
+            results.classList.remove("is-open");
+        }
+
+        function showMessage(message) {
+            results.innerHTML = "";
+            const item = document.createElement("div");
+            item.className = "fee-student-suggest__message";
+            item.textContent = message;
+            results.appendChild(item);
+            results.classList.add("is-open");
+        }
+
+        function addFilter(url, name) {
+            const field = form.querySelector("[name='" + name + "']");
+            if (field && field.value) {
+                url.searchParams.set(name, field.value);
+            }
+        }
+
+        function selectStudent(student) {
+            input.value = student.admission_number || student.name || student.text || "";
+            closeResults();
+            input.focus();
+        }
+
+        function renderResults(items) {
+            results.innerHTML = "";
+            if (!items.length) {
+                showMessage("No matching students found.");
+                return;
+            }
+            items.forEach(function (student) {
+                const button = document.createElement("button");
+                const title = document.createElement("strong");
+                const meta = document.createElement("small");
+                button.type = "button";
+                button.className = "fee-student-suggest__option";
+                button.setAttribute("role", "option");
+                title.textContent = student.text || student.name || "Student";
+                meta.textContent = student.meta || "";
+                button.appendChild(title);
+                button.appendChild(meta);
+                button.addEventListener("click", function () {
+                    selectStudent(student);
+                });
+                results.appendChild(button);
+            });
+            results.classList.add("is-open");
+        }
+
+        function searchStudents() {
+            const query = input.value.trim();
+            const minimumLength = Number(input.dataset.minimumInputLength || 2);
+            if (query.length < minimumLength) {
+                closeResults();
+                return;
+            }
+            if (controller) {
+                controller.abort();
+            }
+            controller = new AbortController();
+            const url = new URL(input.dataset.autocompleteUrl, window.location.origin);
+            url.searchParams.set("q", query);
+            addFilter(url, "academic_year");
+            addFilter(url, "course");
+            addFilter(url, "batch");
+            showMessage("Searching...");
+            fetch(url.toString(), {
+                headers: {"Accept": "application/json"},
+                signal: controller.signal
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error("Student search failed.");
+                    }
+                    return response.json();
+                })
+                .then(function (payload) {
+                    renderResults(payload.results || []);
+                })
+                .catch(function (error) {
+                    if (error.name !== "AbortError") {
+                        showMessage("Unable to load students.");
+                    }
+                });
+        }
+
+        input.addEventListener("input", function () {
+            clearTimeout(timer);
+            timer = setTimeout(searchStudents, 250);
+        });
+        input.addEventListener("focus", function () {
+            if (input.value.trim().length >= Number(input.dataset.minimumInputLength || 2)) {
+                searchStudents();
+            }
+        });
+        document.addEventListener("click", function (event) {
+            if (!event.target.closest(".fee-student-suggest")) {
+                closeResults();
+            }
+        });
+    })();
+</script>
 {% endblock content %}
