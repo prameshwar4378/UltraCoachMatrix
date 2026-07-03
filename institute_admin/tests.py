@@ -8,7 +8,7 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.sessions.models import Session
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError, connection, transaction
@@ -19,7 +19,7 @@ from django.urls import reverse
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
-from accountant.models import Expense, ExpenseDocument, FeeCategory, FeeInvoice, Payment
+from accountant.models import Expense, ExpenseActivity, ExpenseBin, ExpenseDocument, FeeCategory, FeeInvoice, Payment
 from student_parent.models import (
     GuardianProfile,
     StudentAcademicSession,
@@ -1840,6 +1840,15 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertContains(response, "2027 Repair")
         self.assertNotContains(response, "2026 Repair")
 
+    def test_expense_list_links_to_expense_bin(self):
+        self.select_year(self.year_2026)
+
+        response = self.client.get(reverse("institute_admin:expense_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("institute_admin:expense_bin_list"))
+        self.assertContains(response, "Expense Bin")
+
     def test_expense_export_can_include_media_links(self):
         self.select_year(self.year_2026)
         expense = Expense.objects.create(
@@ -1868,6 +1877,177 @@ class AcademicSessionIsolationTests(TestCase):
             "http://testserver/media/expenses/receipts/receipt-one.pdf",
             export_text,
         )
+
+    def test_expense_create_records_activity(self):
+        self.select_year(self.year_2026)
+
+        response = self.client.post(
+            reverse("institute_admin:expense_create"),
+            {
+                "title": "Audit Repair",
+                "amount": "125.00",
+                "spent_on": "2026-07-01",
+                "note": "Created from audit test",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        expense = Expense.objects.get(title="Audit Repair")
+        activity = ExpenseActivity.objects.get(expense=expense)
+        self.assertEqual(activity.action, ExpenseActivity.Action.CREATED)
+        self.assertEqual(activity.performed_by, self.admin_user)
+        self.assertEqual(activity.institute, self.institute)
+        self.assertEqual(activity.academic_year, self.year_2026)
+        self.assertEqual(activity.new_amount, Decimal("125.00"))
+        self.assertEqual(activity.snapshot["new"]["title"], "Audit Repair")
+
+    def test_expense_update_records_old_and_new_activity(self):
+        self.select_year(self.year_2026)
+        expense = Expense.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            title="Old Audit Expense",
+            amount=Decimal("125.00"),
+            spent_on=date(2026, 7, 1),
+            recorded_by=self.admin_user,
+            note="Old note",
+        )
+
+        response = self.client.post(
+            reverse("institute_admin:expense_update", args=[expense.pk]),
+            {
+                "title": "Updated Audit Expense",
+                "amount": "175.00",
+                "spent_on": "2026-07-02",
+                "note": "Updated note",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        activity = ExpenseActivity.objects.get(expense=expense)
+        self.assertEqual(activity.action, ExpenseActivity.Action.UPDATED)
+        self.assertEqual(activity.old_title, "Old Audit Expense")
+        self.assertEqual(activity.new_title, "Updated Audit Expense")
+        self.assertEqual(activity.old_amount, Decimal("125.00"))
+        self.assertEqual(activity.new_amount, Decimal("175.00"))
+        self.assertEqual(activity.snapshot["old"]["note"], "Old note")
+        self.assertEqual(activity.snapshot["new"]["note"], "Updated note")
+
+    def test_expense_delete_records_activity_bin_snapshot(self):
+        self.select_year(self.year_2026)
+        expense = Expense.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            title="Deleted Audit Expense",
+            amount=Decimal("225.00"),
+            spent_on=date(2026, 7, 3),
+            recorded_by=self.admin_user,
+            note="Delete note",
+        )
+        expense_pk = expense.pk
+
+        response = self.client.post(reverse("institute_admin:expense_delete", args=[expense.pk]))
+
+        self.assertRedirects(response, reverse("institute_admin:expense_list"))
+        self.assertFalse(Expense.objects.filter(pk=expense_pk).exists())
+        expense_bin = ExpenseBin.objects.get(original_expense_id=expense_pk)
+        self.assertEqual(expense_bin.title, "Deleted Audit Expense")
+        self.assertEqual(expense_bin.amount, Decimal("225.00"))
+        self.assertEqual(expense_bin.recorded_by, self.admin_user)
+        self.assertEqual(expense_bin.deleted_by, self.admin_user)
+        self.assertEqual(expense_bin.academic_year, self.year_2026)
+        self.assertEqual(expense_bin.snapshot["title"], "Deleted Audit Expense")
+        self.assertEqual(expense_bin.snapshot["recorded_by"]["username"], self.admin_user.username)
+        activity = ExpenseActivity.objects.get(action=ExpenseActivity.Action.DELETED)
+        self.assertIsNone(activity.expense)
+        self.assertEqual(activity.expense_bin, expense_bin)
+        self.assertEqual(activity.old_title, "Deleted Audit Expense")
+        self.assertEqual(activity.old_amount, Decimal("225.00"))
+        self.assertEqual(activity.snapshot["old"]["title"], "Deleted Audit Expense")
+        self.assertEqual(activity.snapshot["old"]["amount"], "225.00")
+        self.assertEqual(activity.snapshot["old"]["recorded_by"]["username"], self.admin_user.username)
+        self.assertEqual(activity.snapshot["old"]["academic_year"]["name"], self.year_2026.name)
+
+    def test_expense_bin_permanent_delete_is_institute_admin_only(self):
+        accountant_user = User.objects.create_user(username="expense-bin-accountant", password="pass12345")
+        UserProfile.objects.create(
+            user=accountant_user,
+            institute=self.institute,
+            role=UserProfile.Role.ACCOUNTANT,
+        )
+        expense_bin = ExpenseBin.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            original_expense_id=9999,
+            title="Bin Protected Expense",
+            amount=Decimal("325.00"),
+            spent_on=date(2026, 7, 4),
+            recorded_by=self.admin_user,
+            deleted_by=self.admin_user,
+            snapshot={"title": "Bin Protected Expense"},
+        )
+
+        with self.assertRaises(PermissionDenied):
+            expense_bin.delete_permanently(accountant_user)
+        self.assertTrue(ExpenseBin.objects.filter(pk=expense_bin.pk).exists())
+
+        expense_bin.delete_permanently(self.admin_user)
+        self.assertFalse(ExpenseBin.objects.filter(pk=expense_bin.pk).exists())
+
+    def test_expense_bin_page_lists_deleted_records(self):
+        self.select_year(self.year_2026)
+        ExpenseBin.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            original_expense_id=1234,
+            title="Listed Bin Expense",
+            amount=Decimal("425.00"),
+            spent_on=date(2026, 7, 5),
+            recorded_by=self.admin_user,
+            deleted_by=self.admin_user,
+            snapshot={"title": "Listed Bin Expense"},
+        )
+
+        response = self.client.get(reverse("institute_admin:expense_bin_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Listed Bin Expense")
+        self.assertContains(response, "Original Expense #1234")
+        self.assertContains(response, reverse("institute_admin:expense_list"))
+
+    def test_expense_bin_record_delete_view_is_institute_admin_only(self):
+        self.select_year(self.year_2026)
+        accountant_user = User.objects.create_user(username="expense-bin-view-accountant", password="pass12345")
+        UserProfile.objects.create(
+            user=accountant_user,
+            institute=self.institute,
+            role=UserProfile.Role.ACCOUNTANT,
+        )
+        expense_bin = ExpenseBin.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            original_expense_id=5678,
+            title="Direct Delete Bin Expense",
+            amount=Decimal("525.00"),
+            spent_on=date(2026, 7, 6),
+            recorded_by=self.admin_user,
+            deleted_by=self.admin_user,
+            snapshot={"title": "Direct Delete Bin Expense"},
+        )
+
+        self.client.force_login(accountant_user)
+        session = self.client.session
+        session["academic_year_id"] = self.year_2026.pk
+        session.save()
+        denied_response = self.client.post(reverse("institute_admin:expense_bin_delete", args=[expense_bin.pk]))
+        self.assertEqual(denied_response.status_code, 403)
+        self.assertTrue(ExpenseBin.objects.filter(pk=expense_bin.pk).exists())
+
+        self.client.force_login(self.admin_user)
+        self.select_year(self.year_2026)
+        deleted_response = self.client.post(reverse("institute_admin:expense_bin_delete", args=[expense_bin.pk]))
+        self.assertRedirects(deleted_response, reverse("institute_admin:expense_bin_list"))
+        self.assertFalse(ExpenseBin.objects.filter(pk=expense_bin.pk).exists())
 
     def test_lead_list_uses_selected_academic_session(self):
         Lead.objects.create(

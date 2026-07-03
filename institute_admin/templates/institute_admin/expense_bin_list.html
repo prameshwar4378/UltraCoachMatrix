@@ -1,0 +1,220 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Expense Bin{% endblock title %}
+
+{% block content %}
+<style>
+    .expense-bin-page {
+        --primary: #2563eb;
+        --danger: #dc2626;
+        --surface: #ffffff;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 32%);
+    }
+    .page-toolbar,
+    .filter-panel,
+    .table-card {
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 22px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+    .page-toolbar {
+        padding: 28px;
+        margin-bottom: 22px;
+    }
+    .page-title {
+        font-weight: 900;
+        color: var(--text);
+        margin: 0;
+    }
+    .page-subtitle {
+        color: var(--muted);
+        margin: 8px 0 0;
+    }
+    .btn-gradient {
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
+        color: #fff;
+        border: 0;
+        border-radius: 14px;
+        padding: 11px 18px;
+        font-weight: 800;
+    }
+    .filter-panel {
+        padding: 22px;
+        margin-bottom: 22px;
+    }
+    .table-card {
+        overflow: hidden;
+    }
+    .table-header {
+        padding: 20px 22px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .table-modern {
+        margin: 0;
+    }
+    .table-modern thead th {
+        background: #f8fafc;
+        color: #475569;
+        border-bottom: 1px solid var(--border);
+        padding: 15px 18px;
+        font-size: .74rem;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+    .table-modern tbody td {
+        padding: 16px 18px;
+        vertical-align: middle;
+        border-bottom: 1px solid #eef2f7;
+    }
+    .badge-soft {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: .76rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+    .badge-danger-soft {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    .empty-state {
+        padding: 60px 20px;
+        text-align: center;
+        color: var(--muted);
+    }
+    .empty-state i {
+        font-size: 3rem;
+        color: #94a3b8;
+        margin-bottom: 12px;
+    }
+</style>
+
+<main id="main" class="main expense-bin-page">
+    <div class="pagetitle">
+        <h1>Expense Bin</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'institute_admin:dashboard' %}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'institute_admin:expense_list' %}">Expenses</a></li>
+                <li class="breadcrumb-item active">Expense Bin</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="page-toolbar d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="page-title">Deleted Expense Records</h2>
+            <p class="page-subtitle">Deleted expenses stay here for tracking. Only Institute Admin can delete bin records permanently.</p>
+        </div>
+        <a href="{% url 'institute_admin:expense_list' %}" class="btn btn-gradient">
+            <i class="bi bi-arrow-left"></i> Back to Expenses
+        </a>
+    </div>
+
+    <div class="filter-panel">
+        <form method="get" class="row g-3">
+            <div class="col-lg-10 col-md-9">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" value="{{ search_query }}" class="form-control" placeholder="Search deleted expense, note, recorded by, or deleted by">
+            </div>
+            <div class="col-lg-2 col-md-3 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-gradient w-100">
+                    <i class="bi bi-search"></i> Filter
+                </button>
+                <a href="{% url 'institute_admin:expense_bin_list' %}" class="btn btn-light border">
+                    <i class="bi bi-x-circle"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-card">
+        <div class="table-header">
+            <h5 class="mb-0"><i class="bi bi-archive me-1"></i> Bin Records</h5>
+            <span class="text-muted small">Deleted expense snapshots</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-modern align-middle">
+                <thead>
+                    <tr>
+                        <th>Expense</th>
+                        <th>Amount</th>
+                        <th>Spent Date</th>
+                        <th>Recorded By</th>
+                        <th>Deleted By</th>
+                        <th>Deleted At</th>
+                        {% if can_delete_bin_records %}<th class="text-end">Action</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in bin_records %}
+                        <tr>
+                            <td>
+                                <strong>{{ record.title }}</strong>
+                                <div class="small text-muted">Original Expense #{{ record.original_expense_id }}</div>
+                                {% if record.note %}<div class="small text-muted">{{ record.note|truncatechars:80 }}</div>{% endif %}
+                            </td>
+                            <td>
+                                <span class="badge-soft badge-danger-soft">
+                                    <i class="bi bi-currency-rupee"></i> {{ record.amount|floatformat:2 }}
+                                </span>
+                            </td>
+                            <td>{{ record.spent_on|date:"d M Y" }}</td>
+                            <td>
+                                {% if record.recorded_by %}
+                                    {{ record.recorded_by.get_full_name|default:record.recorded_by.username }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.deleted_by %}
+                                    {{ record.deleted_by.get_full_name|default:record.deleted_by.username }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>{{ record.deleted_at|date:"d M Y, h:i A" }}</td>
+                            {% if can_delete_bin_records %}
+                                <td class="text-end">
+                                    <form method="post" action="{% url 'institute_admin:expense_bin_delete' record.pk %}" class="m-0" onsubmit="return confirm('Delete this expense bin record permanently?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-trash3"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="{% if can_delete_bin_records %}7{% else %}6{% endif %}">
+                                <div class="empty-state">
+                                    <i class="bi bi-archive"></i>
+                                    <h5>No Deleted Expenses</h5>
+                                    <p>Deleted expense records will be stored here.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% include "includes/pagination.html" %}
+    </div>
+</main>
+{% endblock content %}

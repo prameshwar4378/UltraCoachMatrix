@@ -11,7 +11,11 @@ def academic_year_context(request):
     if not request.user.is_authenticated:
         return {}
     profile = getattr(request.user, "profile", None)
-    allowed_roles = {UserProfile.Role.INSTITUTE_ADMIN, UserProfile.Role.TEACHER}
+    allowed_roles = {
+        UserProfile.Role.INSTITUTE_ADMIN,
+        UserProfile.Role.TEACHER,
+        UserProfile.Role.ACCOUNTANT,
+    }
     if not profile or profile.role not in allowed_roles or not profile.institute_id:
         return {}
 

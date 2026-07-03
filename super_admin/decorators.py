@@ -26,6 +26,9 @@ def role_required(*roles, allow_superuser=False):
     return decorator
 
 
-institute_admin_required = role_required(UserProfile.Role.INSTITUTE_ADMIN)
+institute_admin_required = role_required(
+    UserProfile.Role.INSTITUTE_ADMIN,
+    UserProfile.Role.ACCOUNTANT,
+)
 teacher_required = role_required(UserProfile.Role.TEACHER)
 student_parent_required = role_required(UserProfile.Role.STUDENT_PARENT)

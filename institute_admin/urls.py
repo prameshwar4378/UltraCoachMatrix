@@ -49,10 +49,12 @@ urlpatterns = [
     path("leads/<int:pk>/delete/", views.lead_delete, name="lead_delete"),
     path("leads/<int:pk>/convert/", views.lead_convert, name="lead_convert"),
     path("expenses/", views.expense_list, name="expense_list"),
+    path("expenses/bin/", views.expense_bin_list, name="expense_bin_list"),
     path("expenses/export/", views.expense_export, name="expense_export"),
     path("expenses/create/", views.expense_create, name="expense_create"),
     path("expenses/<int:pk>/edit/", views.expense_update, name="expense_update"),
     path("expenses/<int:pk>/delete/", views.expense_delete, name="expense_delete"),
+    path("expenses/bin/<int:pk>/delete/", views.expense_bin_delete, name="expense_bin_delete"),
     path(
         "expenses/documents/<int:pk>/delete/",
         views.expense_document_delete,

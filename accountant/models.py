@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -327,6 +327,126 @@ class Expense(models.Model):
             )
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class ExpenseBin(models.Model):
+    institute = models.ForeignKey(
+        "super_admin.Institute",
+        on_delete=models.CASCADE,
+        related_name="expense_bin_records",
+    )
+    academic_year = models.ForeignKey(
+        "institute_admin.AcademicYear",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="expense_bin_records",
+    )
+    original_expense_id = models.PositiveIntegerField()
+    title = models.CharField(max_length=160)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    spent_on = models.DateField()
+    recorded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="recorded_deleted_expenses",
+    )
+    deleted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deleted_expenses",
+    )
+    deleted_at = models.DateTimeField(auto_now_add=True)
+    note = models.CharField(max_length=255, blank=True)
+    snapshot = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-deleted_at"]
+        indexes = [
+            models.Index(fields=["institute", "academic_year", "-deleted_at"], name="expbin_inst_year_time_idx"),
+            models.Index(fields=["original_expense_id"], name="expbin_original_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.amount}"
+
+    def can_be_deleted_by(self, user):
+        profile = getattr(user, "profile", None)
+        return bool(profile and profile.role == "INSTITUTE_ADMIN" and profile.institute_id == self.institute_id)
+
+    def delete_permanently(self, user):
+        if not self.can_be_deleted_by(user):
+            raise PermissionDenied("Only institute admins can delete expense bin records.")
+        return super().delete()
+
+
+class ExpenseActivity(models.Model):
+    class Action(models.TextChoices):
+        CREATED = "CREATED", "Created"
+        UPDATED = "UPDATED", "Updated"
+        DELETED = "DELETED", "Deleted"
+
+    expense = models.ForeignKey(
+        Expense,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activities",
+    )
+    expense_bin = models.ForeignKey(
+        ExpenseBin,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activities",
+    )
+    institute = models.ForeignKey(
+        "super_admin.Institute",
+        on_delete=models.CASCADE,
+        related_name="expense_activities",
+    )
+    academic_year = models.ForeignKey(
+        "institute_admin.AcademicYear",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="expense_activities",
+    )
+    action = models.CharField(max_length=20, choices=Action.choices)
+    performed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="expense_activities",
+    )
+    performed_at = models.DateTimeField(auto_now_add=True)
+    old_title = models.CharField(max_length=160, blank=True)
+    new_title = models.CharField(max_length=160, blank=True)
+    old_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    new_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    old_spent_on = models.DateField(null=True, blank=True)
+    new_spent_on = models.DateField(null=True, blank=True)
+    old_note = models.CharField(max_length=255, blank=True)
+    new_note = models.CharField(max_length=255, blank=True)
+    snapshot = models.JSONField(default=dict, blank=True)
+    note = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["-performed_at"]
+        indexes = [
+            models.Index(fields=["expense", "-performed_at"], name="expact_expense_time_idx"),
+            models.Index(fields=["institute", "academic_year", "-performed_at"], name="expact_inst_year_time_idx"),
+            models.Index(fields=["action", "-performed_at"], name="expact_action_time_idx"),
+        ]
+
+    def __str__(self):
+        title = self.new_title or self.old_title or self.snapshot.get("title") or "Expense"
+        return f"{title} - {self.get_action_display()}"
 
 
 class ExpenseDocument(models.Model):

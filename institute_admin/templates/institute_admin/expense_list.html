@@ -805,6 +805,10 @@
         </div>
 
         <div class="toolbar-actions">
+            <a href="{% url 'institute_admin:expense_bin_list' %}" class="btn btn-export">
+                <i class="bi bi-archive"></i> Expense Bin
+            </a>
+
             <button type="button" class="btn btn-export" data-bs-toggle="modal" data-bs-target="#expenseExportModal">
                 <i class="bi bi-download"></i> Export
             </button>

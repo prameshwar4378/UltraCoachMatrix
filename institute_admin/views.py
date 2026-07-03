@@ -33,7 +33,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from accountant.models import Expense, ExpenseDocument, FeeCategory, FeeInvoice, Payment, PaymentActivity
+from accountant.models import Expense, ExpenseActivity, ExpenseBin, ExpenseDocument, FeeCategory, FeeInvoice, Payment, PaymentActivity
 from accountant.fee_receipts import render_payment_receipt_html
 from student_parent.models import (
     GuardianProfile,
@@ -414,19 +414,27 @@ def print_template_set_library(request, pk):
 
 def get_current_institute(request):
     profile = getattr(request.user, "profile", None)
+    allowed_roles = {
+        UserProfile.Role.INSTITUTE_ADMIN,
+        UserProfile.Role.ACCOUNTANT,
+    }
     if (
         not profile
-        or profile.role != UserProfile.Role.INSTITUTE_ADMIN
+        or profile.role not in allowed_roles
         or not profile.institute_id
     ):
-        raise PermissionDenied("Only institute admins can access this page.")
+        raise PermissionDenied("Only institute admins and accountants can access this page.")
     return profile.institute
 
 
 @login_required
 def student_autocomplete(request):
     profile = getattr(request.user, "profile", None)
-    allowed_roles = {UserProfile.Role.INSTITUTE_ADMIN, UserProfile.Role.TEACHER}
+    allowed_roles = {
+        UserProfile.Role.INSTITUTE_ADMIN,
+        UserProfile.Role.TEACHER,
+        UserProfile.Role.ACCOUNTANT,
+    }
     if not profile or profile.role not in allowed_roles or not profile.institute_id:
         return JsonResponse({"detail": "You are not allowed to search students."}, status=403)
 
@@ -1223,6 +1231,68 @@ def save_expense_documents(expense, uploaded_files):
             ExpenseDocument.objects.create(expense=expense, file=uploaded_file)
 
 
+def expense_activity_snapshot(expense):
+    recorded_by = expense.recorded_by
+    academic_year = expense.academic_year
+    return {
+        "id": expense.pk,
+        "title": expense.title,
+        "amount": str(expense.amount),
+        "spent_on": expense.spent_on.isoformat() if expense.spent_on else None,
+        "note": expense.note,
+        "recorded_by": {
+            "id": recorded_by.pk if recorded_by else None,
+            "username": recorded_by.username if recorded_by else "",
+            "name": recorded_by.get_full_name() if recorded_by else "",
+        },
+        "academic_year": {
+            "id": academic_year.pk if academic_year else None,
+            "name": academic_year.name if academic_year else "",
+        },
+    }
+
+
+def create_expense_bin_record(expense, deleted_by, snapshot):
+    return ExpenseBin.objects.create(
+        institute=expense.institute,
+        academic_year=expense.academic_year,
+        original_expense_id=expense.pk,
+        title=expense.title,
+        amount=expense.amount,
+        spent_on=expense.spent_on,
+        recorded_by=expense.recorded_by,
+        deleted_by=deleted_by,
+        note=expense.note,
+        snapshot=snapshot,
+    )
+
+
+def record_expense_activity(expense, action, performed_by, *, old_snapshot=None, expense_bin=None, note=""):
+    new_snapshot = expense_activity_snapshot(expense)
+    old_snapshot = old_snapshot or {}
+    ExpenseActivity.objects.create(
+        expense=expense,
+        expense_bin=expense_bin,
+        institute=expense.institute,
+        academic_year=expense.academic_year,
+        action=action,
+        performed_by=performed_by,
+        old_title=old_snapshot.get("title", ""),
+        new_title=new_snapshot.get("title", ""),
+        old_amount=old_snapshot.get("amount"),
+        new_amount=expense.amount,
+        old_spent_on=old_snapshot.get("spent_on"),
+        new_spent_on=expense.spent_on,
+        old_note=old_snapshot.get("note", ""),
+        new_note=expense.note,
+        snapshot={
+            "old": old_snapshot,
+            "new": new_snapshot,
+        },
+        note=note,
+    )
+
+
 def filter_payments_for_academic_year(queryset, academic_year):
     if not academic_year:
         return queryset
@@ -1291,6 +1361,52 @@ def expense_list(request):
 
 
 @institute_admin_required
+def expense_bin_list(request):
+    institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
+    bin_records = ExpenseBin.objects.select_related(
+        "recorded_by",
+        "deleted_by",
+        "academic_year",
+    ).filter(institute=institute)
+    if academic_year:
+        bin_records = bin_records.filter(academic_year=academic_year)
+
+    search_query = request.GET.get("search", "").strip()
+    if search_query:
+        bin_records = bin_records.filter(
+            Q(title__icontains=search_query)
+            | Q(note__icontains=search_query)
+            | Q(recorded_by__username__icontains=search_query)
+            | Q(recorded_by__first_name__icontains=search_query)
+            | Q(recorded_by__last_name__icontains=search_query)
+            | Q(deleted_by__username__icontains=search_query)
+            | Q(deleted_by__first_name__icontains=search_query)
+            | Q(deleted_by__last_name__icontains=search_query)
+        )
+
+    page_obj, paginator, pagination_query = paginate_queryset(request, bin_records, per_page=20)
+    profile = getattr(request.user, "profile", None)
+    return render(
+        request,
+        "institute_admin/expense_bin_list.html",
+        {
+            "bin_records": page_obj.object_list,
+            "page_obj": page_obj,
+            "paginator": paginator,
+            "pagination_query": pagination_query,
+            "pagination_label": "deleted expenses",
+            "search_query": search_query,
+            "can_delete_bin_records": bool(
+                profile
+                and profile.role == UserProfile.Role.INSTITUTE_ADMIN
+                and profile.institute_id == institute.pk
+            ),
+        },
+    )
+
+
+@institute_admin_required
 def expense_export(request):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
@@ -1346,6 +1462,12 @@ def expense_create(request):
             expense.recorded_by = request.user
             expense.save()
             save_expense_documents(expense, form.cleaned_data.get("files"))
+            record_expense_activity(
+                expense,
+                ExpenseActivity.Action.CREATED,
+                request.user,
+                note="Expense created.",
+            )
             messages.success(request, "Expense created successfully.")
             return close_popup_response()
     else:
@@ -1369,6 +1491,7 @@ def expense_update(request, pk):
         academic_year=academic_year,
     )
     if request.method == "POST":
+        old_snapshot = expense_activity_snapshot(expense)
         form = ExpenseForm(
             request.POST,
             request.FILES,
@@ -1379,6 +1502,13 @@ def expense_update(request, pk):
         if form.is_valid():
             expense = form.save()
             save_expense_documents(expense, form.cleaned_data.get("files"))
+            record_expense_activity(
+                expense,
+                ExpenseActivity.Action.UPDATED,
+                request.user,
+                old_snapshot=old_snapshot,
+                note="Expense updated.",
+            )
             messages.success(request, "Expense updated successfully.")
             return close_popup_response()
     else:
@@ -1402,9 +1532,34 @@ def expense_delete(request, pk):
     institute = get_current_institute(request)
     academic_year = get_current_academic_year(request, institute)
     expense = get_object_or_404(Expense, pk=pk, institute=institute, academic_year=academic_year)
+    old_snapshot = expense_activity_snapshot(expense)
+    expense_bin = create_expense_bin_record(expense, request.user, old_snapshot)
+    record_expense_activity(
+        expense,
+        ExpenseActivity.Action.DELETED,
+        request.user,
+        old_snapshot=old_snapshot,
+        expense_bin=expense_bin,
+        note="Expense moved to activity bin.",
+    )
     expense.delete()
     messages.success(request, "Expense deleted successfully.")
     return redirect("institute_admin:expense_list")
+
+
+@institute_admin_required
+@require_POST
+def expense_bin_delete(request, pk):
+    institute = get_current_institute(request)
+    academic_year = get_current_academic_year(request, institute)
+    bin_record = get_object_or_404(ExpenseBin, pk=pk, institute=institute)
+    if academic_year:
+        bin_record = get_object_or_404(ExpenseBin, pk=pk, institute=institute, academic_year=academic_year)
+    if not bin_record.can_be_deleted_by(request.user):
+        raise PermissionDenied("Only institute admins can delete expense bin records.")
+    bin_record.delete_permanently(request.user)
+    messages.success(request, "Expense bin record deleted permanently.")
+    return redirect("institute_admin:expense_bin_list")
 
 
 @institute_admin_required
