@@ -403,30 +403,6 @@
         font-weight: 900;
     }
 
-    .risk-pill {
-        display: inline-flex;
-        align-items: center;
-        border-radius: 999px;
-        padding: 6px 10px;
-        background: #f8fafc;
-        color: #334155;
-        border: 1px solid #e2e8f0;
-        font-size: .76rem;
-        font-weight: 900;
-    }
-
-    .risk-pill.high {
-        background: #fef2f2;
-        color: #991b1b;
-        border-color: #fecaca;
-    }
-
-    .risk-pill.follow {
-        background: #fffbeb;
-        color: #92400e;
-        border-color: #fcd34d;
-    }
-
     .action-text {
         max-width: 260px;
         color: #334155;
@@ -530,11 +506,11 @@
             <input id="id_date_mode" type="hidden" name="date_mode" value="{{ filters.date_mode }}">
             <div class="filter-grid">
                 <div class="filter-field">
-                    <label for="id_start_date">Start Date</label>
+                    <label for="id_start_date">Left / Inactive From</label>
                     <input id="id_start_date" type="date" name="start_date" value="{{ filters.start_date_value }}">
                 </div>
                 <div class="filter-field">
-                    <label for="id_end_date">End Date</label>
+                    <label for="id_end_date">Left / Inactive To</label>
                     <input id="id_end_date" type="date" name="end_date" value="{{ filters.end_date_value }}">
                 </div>
                 <div class="filter-field">
@@ -630,8 +606,8 @@
             <div class="isr-card overdue">
                 <div class="card-icon"><i class="bi bi-exclamation-triangle"></i></div>
                 <div>
-                    <div class="card-value">{{ high_risk_count }}</div>
-                    <div class="card-label">High Risk Cases</div>
+                    <div class="card-value">{{ overdue_count }}</div>
+                    <div class="card-label">Overdue Cases</div>
                 </div>
             </div>
             <div class="isr-card clear">
@@ -813,14 +789,13 @@
                 <table class="isr-table">
                     <thead>
                         <tr>
-                            <th>Event Date</th>
+                            <th>Left / Inactive Date</th>
                             <th>Admission No.</th>
                             <th>Student</th>
                             <th>Class</th>
                             <th>Batch</th>
                             <th>Status</th>
                             <th>Reason</th>
-                            <th>Risk</th>
                             <th>Recommended Action</th>
                             <th class="text-end">Pending</th>
                             <th>Oldest Due</th>
@@ -844,11 +819,6 @@
                             <td>{{ row.batch_label }}</td>
                             <td><span class="status-pill">{{ row.status_label }}</span></td>
                             <td>{{ row.reason }}</td>
-                            <td>
-                                <span class="risk-pill {% if row.risk_label == 'High Risk' %}high{% elif row.risk_label == 'Fee Follow-up' %}follow{% endif %}">
-                                    {{ row.risk_label }}
-                                </span>
-                            </td>
                             <td><div class="action-text">{{ row.action_label }}</div></td>
                             <td class="text-end {% if row.pending_amount > 0 %}due-amount{% else %}clear-amount{% endif %}">
                                 ₹{{ row.pending_amount|floatformat:2 }}
@@ -857,7 +827,7 @@
                             <td>{{ row.phone|default:"-" }}</td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="12" class="empty-line">No inactive or left students match the selected filters.</td></tr>
+                        <tr><td colspan="11" class="empty-line">No inactive or left students match the selected filters.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

@@ -124,6 +124,7 @@ from .models import (
     BackgroundJob,
     Batch,
     Course,
+    GeneratedReport,
     InstituteGlobalPrintTemplate,
     InstitutePrintTemplate,
     Lead,
@@ -439,7 +440,6 @@ def student_autocomplete(request):
 
     sessions = StudentAcademicSession.objects.filter(
         institute=profile.institute,
-        student__is_active=True,
     ).select_related("student", "student__user", "student__user__profile")
     if academic_year_id:
         sessions = sessions.filter(academic_year_id=academic_year_id)
@@ -1878,6 +1878,13 @@ def profit_loss_report(request):
     if (request.GET.get("export") or "").strip().lower() in {"excel", "xlsx"}:
         return export_finance_report_excel(report, institute)
 
+    record_generated_report(
+        request,
+        institute,
+        GeneratedReport.ReportType.PROFIT_LOSS,
+        "Finance Report Dashboard",
+    )
+
     academic_year = get_current_academic_year(request, institute)
     selected_academic_year = report["filters"]["academic_year"] or academic_year
     courses = Course.objects.filter(institute=institute, is_active=True)
@@ -3087,6 +3094,13 @@ def fee_collection_report(request):
     if (request.GET.get("export") or "").strip().lower() in {"excel", "xlsx"}:
         return export_fee_report_excel(report, institute)
 
+    record_generated_report(
+        request,
+        institute,
+        GeneratedReport.ReportType.FEE_COLLECTION,
+        "Fees Report Dashboard",
+    )
+
     selected_academic_year = report["filters"]["academic_year"] or get_current_academic_year(request, institute)
     courses = Course.objects.filter(institute=institute, is_active=True)
     batches = Batch.objects.filter(institute=institute, is_active=True)
@@ -3132,8 +3146,92 @@ def fee_collection_report(request):
     return render(request, "institute_admin/fee_collection_report.html", context)
 
 
+REPORT_URL_NAMES = {
+    GeneratedReport.ReportType.STUDENT_ADMISSION: "student_admission_report",
+    GeneratedReport.ReportType.INACTIVE_STUDENTS: "inactive_students_report",
+    GeneratedReport.ReportType.PROFIT_LOSS: "profit_loss_report",
+    GeneratedReport.ReportType.FEE_COLLECTION: "fee_collection_report",
+}
+
+REPORT_CRITERIA_LABELS = {
+    "academic_year": "Session",
+    "start_date": "From",
+    "end_date": "To",
+    "month": "Month",
+    "course": "Class",
+    "batch": "Batch",
+    "student": "Student",
+    "category": "Fee category",
+    "status": "Status",
+    "method": "Payment mode",
+    "receipt_number": "Receipt",
+    "search": "Search",
+    "student_status": "Student status",
+    "gender": "Gender",
+    "balance": "Balance",
+}
+
+
+def filtered_report_querydict(request):
+    query_params = request.GET.copy()
+    for ignored_key in ["export", "page"]:
+        if ignored_key in query_params:
+            del query_params[ignored_key]
+    return query_params
+
+
+def record_generated_report(request, institute, report_type, title):
+    query_params = filtered_report_querydict(request)
+    query_string = query_params.urlencode()
+    criteria = {key: query_params.getlist(key) for key in query_params.keys()}
+    user = request.user if request.user.is_authenticated else None
+    generated_report, created = GeneratedReport.objects.get_or_create(
+        institute=institute,
+        created_by=user,
+        report_type=report_type,
+        query_string=query_string,
+        defaults={
+            "title": title,
+            "criteria": criteria,
+        },
+    )
+    if not created:
+        generated_report.title = title
+        generated_report.criteria = criteria
+        generated_report.generation_count = F("generation_count") + 1
+        generated_report.save(update_fields=["title", "criteria", "generation_count", "last_generated_at"])
+
+
+def build_generated_report_item(generated_report):
+    url_name = REPORT_URL_NAMES.get(generated_report.report_type)
+    base_url = reverse(f"institute_admin:{url_name}") if url_name else ""
+    query_string = generated_report.query_string
+    open_url = f"{base_url}?{query_string}" if query_string else base_url
+    export_query = f"{query_string}&export=excel" if query_string else "export=excel"
+    criteria_items = []
+    for key, values in generated_report.criteria.items():
+        clean_values = [str(value).strip() for value in values if str(value).strip()]
+        if not clean_values:
+            continue
+        label = REPORT_CRITERIA_LABELS.get(key, key.replace("_", " ").title())
+        criteria_items.append(f"{label}: {', '.join(clean_values)}")
+    return {
+        "title": generated_report.title,
+        "criteria_summary": criteria_items[:4] or ["Default criteria"],
+        "extra_criteria_count": max(len(criteria_items) - 4, 0),
+        "generated_by": generated_report.created_by.get_full_name() or generated_report.created_by.username
+        if generated_report.created_by_id
+        else "System",
+        "last_generated_at": generated_report.last_generated_at,
+        "generation_count": generated_report.generation_count,
+        "open_url": open_url,
+        "export_url": f"{base_url}?{export_query}" if base_url else "",
+    }
+
+
 @institute_admin_required
 def reports_dashboard(request):
+    institute = get_current_institute(request)
     report_sections = [
         {
             "group": "Students",
@@ -3155,7 +3253,7 @@ def reports_dashboard(request):
                     "priority": "Standard",
                     "url": reverse("institute_admin:inactive_students_report"),
                     "filters": ["Start date", "End date", "Class", "Batch", "Status"],
-                    "outputs": ["Student", "Reason", "Leaving date", "Pending balance"],
+                    "outputs": ["Student", "Reason", "Left / inactive date", "Pending balance"],
                 },
             ],
         },
@@ -3190,10 +3288,11 @@ def reports_dashboard(request):
             ],
         },
     ]
-    saved_report_placeholders = [
-        "Generated reports will appear here with name, filters, format, created by and download link.",
-        "Each report can later be stored as Excel after generation.",
-        "Admins will be able to regenerate the same report using saved filters.",
+    generated_reports = [
+        build_generated_report_item(generated_report)
+        for generated_report in GeneratedReport.objects.filter(institute=institute)
+        .select_related("created_by")
+        .order_by("-last_generated_at")[:10]
     ]
     connected_report_count = sum(
         1
@@ -3206,7 +3305,7 @@ def reports_dashboard(request):
         "institute_admin/reports_dashboard.html",
         {
             "report_sections": report_sections,
-            "saved_report_placeholders": saved_report_placeholders,
+            "generated_reports": generated_reports,
             "report_count": sum(len(section["reports"]) for section in report_sections),
             "connected_report_count": connected_report_count,
         },
@@ -3600,6 +3699,13 @@ def student_admission_report(request):
     if export_format in {"excel", "xlsx"}:
         return export_student_admission_excel(report, institute)
 
+    record_generated_report(
+        request,
+        institute,
+        GeneratedReport.ReportType.STUDENT_ADMISSION,
+        "Student Admission Report",
+    )
+
     filters = report["filters"]
     academic_years = AcademicYear.objects.filter(institute=institute).order_by("-start_date", "-pk")
     courses = Course.objects.filter(institute=institute, is_active=True)
@@ -3851,14 +3957,6 @@ def inactive_balance_bucket(amount):
     return "Above 5,000"
 
 
-def inactive_student_risk_label(pending_amount, overdue_invoice_count):
-    if overdue_invoice_count and pending_amount > 0:
-        return "High Risk"
-    if pending_amount > 0:
-        return "Fee Follow-up"
-    return "Clear"
-
-
 def inactive_student_action_label(pending_amount, overdue_invoice_count):
     if overdue_invoice_count and pending_amount > 0:
         return "Call and settle overdue balance"
@@ -3892,7 +3990,6 @@ def build_inactive_students_report(request, institute):
     total_pending = Decimal("0.00")
     overdue_count = 0
     clear_count = 0
-    high_risk_count = 0
     pending_students_count = 0
 
     for session in sessions:
@@ -3915,7 +4012,6 @@ def build_inactive_students_report(request, institute):
         reason = student.reason_for_leaving or status_label
         month_label = event_date.strftime("%b %Y") if event_date else "No Date"
         balance_bucket = inactive_balance_bucket(pending_amount)
-        risk_label = inactive_student_risk_label(pending_amount, overdue_invoice_count)
         action_label = inactive_student_action_label(pending_amount, overdue_invoice_count)
         row = {
             "session": session,
@@ -3930,15 +4026,12 @@ def build_inactive_students_report(request, institute):
             "overdue_invoice_count": overdue_invoice_count,
             "oldest_due_date": oldest_due_date,
             "phone": getattr(profile, "phone", ""),
-            "risk_label": risk_label,
             "action_label": action_label,
         }
         rows.append(row)
         total_pending += pending_amount
         if overdue_invoice_count:
             overdue_count += 1
-        if risk_label == "High Risk":
-            high_risk_count += 1
         if pending_amount > 0:
             pending_students_count += 1
         if pending_amount <= 0:
@@ -3975,7 +4068,6 @@ def build_inactive_students_report(request, institute):
         "average_pending": average_pending,
         "overdue_count": overdue_count,
         "clear_count": clear_count,
-        "high_risk_count": high_risk_count,
         "pending_students_count": pending_students_count,
         "top_due_rows": top_due_rows,
         "reason_groups": summarize_count_groups(reason_groups),
@@ -4025,10 +4117,9 @@ def export_inactive_students_csv(report, institute):
     writer.writerow(["Pending Balance", f"{report['total_pending']:.2f}"])
     writer.writerow(["Average Pending", f"{report['average_pending']:.2f}"])
     writer.writerow(["Overdue Cases", report["overdue_count"]])
-    writer.writerow(["High Risk Cases", report["high_risk_count"]])
     writer.writerow(["Clear Accounts", report["clear_count"]])
     writer.writerow([])
-    writer.writerow(["Event Date", "Admission No.", "Student", "Phone", "Class", "Batch", "Session", "Status", "Reason", "Pending Balance", "Pending Invoices", "Oldest Due Date", "Risk", "Recommended Action"])
+    writer.writerow(["Left / Inactive Date", "Admission No.", "Student", "Phone", "Class", "Batch", "Session", "Status", "Reason", "Pending Balance", "Pending Invoices", "Oldest Due Date", "Recommended Action"])
     for row in report["rows"]:
         student = row["student"]
         writer.writerow([
@@ -4044,7 +4135,6 @@ def export_inactive_students_csv(report, institute):
             f"{row['pending_amount']:.2f}",
             row["pending_count"],
             row["oldest_due_date"].strftime("%Y-%m-%d") if row["oldest_due_date"] else "",
-            row["risk_label"],
             row["action_label"],
         ])
     return response
@@ -4061,7 +4151,7 @@ def export_inactive_students_excel(report, institute):
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     center = Alignment(horizontal="center", vertical="center")
     left = Alignment(horizontal="left", vertical="center")
-    columns = ["Event Date", "Admission No.", "Student", "Phone", "Class", "Batch", "Session", "Status", "Reason", "Pending Balance", "Pending Invoices", "Oldest Due Date", "Risk", "Recommended Action"]
+    columns = ["Left / Inactive Date", "Admission No.", "Student", "Phone", "Class", "Batch", "Session", "Status", "Reason", "Pending Balance", "Pending Invoices", "Oldest Due Date", "Recommended Action"]
     sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(columns))
     title_cell = sheet.cell(row=1, column=1, value="Inactive / Left Students Report")
     title_cell.font = Font(size=18, bold=True, color="FFFFFF")
@@ -4078,7 +4168,6 @@ def export_inactive_students_excel(report, institute):
         ("Pending Balance", float(report["total_pending"])),
         ("Average Pending", float(report["average_pending"])),
         ("Overdue Cases", report["overdue_count"]),
-        ("High Risk Cases", report["high_risk_count"]),
         ("Clear Accounts", report["clear_count"]),
     ]
     for index, (label, value) in enumerate(summary, start=1):
@@ -4111,14 +4200,13 @@ def export_inactive_students_excel(report, institute):
             float(row["pending_amount"]),
             row["pending_count"],
             row["oldest_due_date"].strftime("%d-%m-%Y") if row["oldest_due_date"] else "",
-            row["risk_label"],
             row["action_label"],
         ]
         for col_index, value in enumerate(values, start=1):
             cell = sheet.cell(row=row_index, column=col_index, value=value)
             cell.border = border
             cell.alignment = left if col_index in (3, 5, 6, 9) else center
-    widths = [16, 20, 28, 16, 26, 24, 16, 18, 34, 18, 18, 16, 16, 30]
+    widths = [20, 20, 28, 16, 26, 24, 16, 18, 34, 18, 18, 16, 30]
     for index, width in enumerate(widths, start=1):
         sheet.column_dimensions[get_column_letter(index)].width = width
     sheet.freeze_panes = "A10"
@@ -4147,6 +4235,14 @@ def inactive_students_report(request):
         return export_inactive_students_csv(report, institute)
     if export_format in {"excel", "xlsx"}:
         return export_inactive_students_excel(report, institute)
+
+    record_generated_report(
+        request,
+        institute,
+        GeneratedReport.ReportType.INACTIVE_STUDENTS,
+        "Inactive / Left Students Report",
+    )
+
     filters = report["filters"]
     academic_years = AcademicYear.objects.filter(institute=institute).order_by("-start_date", "-pk")
     courses = Course.objects.filter(institute=institute, is_active=True)

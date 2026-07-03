@@ -42,6 +42,7 @@ from .forms import (
     PaymentUpdateForm,
     ReceiveFeeForm,
     StudentForm,
+    StudentTransferCertificateForm,
     build_student_username,
     get_student_admission_prefix,
 )
@@ -2138,6 +2139,22 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertIn("AUTO-2026-0024 - Auto Student 24", result_texts)
         self.assertNotIn("AUTO-2027-0024 - Auto Student 24", result_texts)
 
+    def test_student_list_autocomplete_includes_inactive_students(self):
+        self.select_year(self.year_2026)
+        self.student.is_active = False
+        self.student.save(update_fields=["is_active"])
+        self.session_2026.status = StudentAcademicSession.Status.LEFT
+        self.session_2026.save(update_fields=["status"])
+
+        autocomplete_response = self.client.get(
+            reverse("institute_admin:student_autocomplete"),
+            {"q": "SMIS-2026-27-0001", "academic_year": self.year_2026.pk},
+        )
+
+        self.assertEqual(autocomplete_response.status_code, 200)
+        result_texts = [result["text"] for result in autocomplete_response.json()["results"]]
+        self.assertIn("SMIS-2026-27-0001 - Student One", result_texts)
+
     def test_enrollment_list_search_matches_full_student_name(self):
         self.student_user.first_name = "Rameshwar"
         self.student_user.last_name = "Pawar"
@@ -3762,6 +3779,20 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertIn("Inactive / Left Students Report", values)
         self.assertIn("SMIS-2026-27-0001", values)
         self.assertIn(750, values)
+
+    def test_tc_form_defaults_use_school_prefix_and_selected_session_class(self):
+        self.student.current_class = ""
+        self.student.admission_class = "Old Admission Class"
+        self.student.save(update_fields=["current_class", "admission_class"])
+
+        form = StudentTransferCertificateForm(
+            student=self.student,
+            academic_session=self.session_2027,
+            generated_by=self.admin_user,
+        )
+
+        self.assertRegex(form.initial["tc_number"], r"^S-TC-\d{4}-\d{4}$")
+        self.assertEqual(form.initial["last_class_attended"], "Science")
 
     def test_bonafide_snapshot_uses_selected_session_batch_when_profile_class_is_blank(self):
         self.institute.institute_type = Institute.InstituteType.SCHOOL

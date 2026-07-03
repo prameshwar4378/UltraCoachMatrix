@@ -2029,20 +2029,15 @@ class StudentTransferCertificateForm(forms.Form):
         initial = kwargs.pop("initial", {})
         if student and academic_session:
             today = timezone.localdate()
-            sequence = StudentTransferCertificate.objects.filter(
-                institute=student.institute,
-                generated_at__year=today.year,
-            ).count() + 1
-            default_tc_number = f"TC-{today:%Y}-{sequence:04d}"
             initial.update(
                 {
-                    "tc_number": default_tc_number,
+                    "tc_number": self.build_default_tc_number(today),
                     "issue_date": student.tc_issue_date or today,
                     "leaving_date": student.date_of_leaving_school or today,
                     "reason_for_leaving": student.reason_for_leaving,
                     "conduct": student.conduct or "Good",
                     "result": student.result,
-                    "last_class_attended": student.current_class or student.admission_class,
+                    "last_class_attended": self.get_last_class_attended(),
                 }
             )
         kwargs["initial"] = initial
@@ -2055,6 +2050,46 @@ class StudentTransferCertificateForm(forms.Form):
             else:
                 css_class = "form-control"
             field.widget.attrs.setdefault("class", css_class)
+
+    def get_school_tc_prefix(self):
+        institute_name = getattr(getattr(self.student, "institute", None), "name", "") or ""
+        match = re.search(r"[A-Za-z0-9]", institute_name)
+        return match.group(0).upper() if match else "S"
+
+    def build_default_tc_number(self, today):
+        prefix = self.get_school_tc_prefix()
+        sequence = StudentTransferCertificate.objects.filter(
+            institute=self.student.institute,
+            generated_at__year=today.year,
+        ).count() + 1
+        while True:
+            tc_number = f"{prefix}-TC-{today:%Y}-{sequence:04d}"
+            exists = StudentTransferCertificate.objects.filter(
+                institute=self.student.institute,
+                tc_number__iexact=tc_number,
+            ).exists()
+            if not exists:
+                return tc_number
+            sequence += 1
+
+    def get_last_class_attended(self):
+        session = self.academic_session
+        student = self.student
+        class_names = []
+        batch_names = []
+        if session:
+            enrollments = session.enrollments.select_related("batch").prefetch_related("courses")
+            for enrollment in enrollments:
+                for course in enrollment.courses.all():
+                    if course.name and course.name not in class_names:
+                        class_names.append(course.name)
+                if enrollment.batch_id and enrollment.batch.name not in batch_names:
+                    batch_names.append(enrollment.batch.name)
+        if class_names:
+            return ", ".join(class_names)
+        if batch_names:
+            return ", ".join(batch_names)
+        return student.current_class or student.admission_class
 
     def clean(self):
         cleaned_data = super().clean()

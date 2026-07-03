@@ -3,6 +3,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <title>Admission Form - {{ student_session.admission_number }}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -14,7 +17,7 @@ body {
     margin: 0;
     background: #e5e7eb;
     color: #111827;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: "Inter", Arial, Helvetica, sans-serif;
     font-size: 11px;
 }
 
@@ -58,24 +61,53 @@ body {
 }
 
 .header {
+    position: relative;
     display: grid;
-    grid-template-columns: 24mm 1fr 32mm;
-    gap: 10px;
+    grid-template-columns: 25mm 1fr 31mm;
+    gap: 12px;
     align-items: center;
-    border-bottom: 2px solid #111827;
-    padding-bottom: 8px;
+    min-height: 43mm;
+    padding: 10px 12px 11px;
+    border: 1.4px solid #c8d3e1;
+    border-radius: 16px;
+    background:
+        linear-gradient(135deg, rgba(248, 250, 252, .98) 0%, rgba(255, 255, 255, .98) 48%, rgba(239, 246, 255, .92) 100%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.75), 0 8px 18px rgba(15, 23, 42, .08);
+    overflow: hidden;
+}
+
+.header::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 6px;
+    background: linear-gradient(90deg, #0f172a, #2563eb, #0f766e);
+}
+
+.header::after {
+    content: "";
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(37, 99, 235, .42), transparent);
 }
 
 .logo {
-    width: 22mm;
-    height: 22mm;
+    width: 23mm;
+    height: 23mm;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 9px;
-    font-weight: 700;
+    justify-self: center;
+    font-size: 8px;
+    font-weight: 800;
     color: #64748b;
     overflow: hidden;
+    filter: drop-shadow(0 6px 8px rgba(15, 23, 42, .18));
 }
 
 .logo img,
@@ -87,24 +119,52 @@ body {
 
 .school-name {
     text-align: center;
+    font-family: "Cinzel", Georgia, serif;
     font-size: 22px;
-    font-weight: 900;
+    font-weight: 800;
     text-transform: uppercase;
-    line-height: 1.1;
+    line-height: 1.08;
+    letter-spacing: .045em;
+    color: #172554;
+    text-wrap: balance;
 }
 
 .school-meta {
     text-align: center;
-    margin-top: 4px;
+    max-width: 118mm;
+    margin: 6px auto 0;
     color: #475569;
-    font-size: 10px;
-    line-height: 1.35;
+    font-size: 8.9px;
+    line-height: 1.45;
+    font-weight: 500;
+}
+
+.school-contact-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 5px;
+    color: #1e3a8a;
+    font-size: 8.6px;
+    font-weight: 700;
+}
+
+.school-contact-row span {
+    white-space: nowrap;
+    padding: 2px 7px;
+    border: 1px solid #dbeafe;
+    border-radius: 999px;
+    background: rgba(239, 246, 255, .78);
 }
 
 .photo {
-    width: 30mm;
-    height: 36mm;
-    border: 1.4px solid #111827;
+    width: 28mm;
+    height: 34mm;
+    justify-self: end;
+    border: 1.2px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 2px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -113,6 +173,8 @@ body {
     font-size: 9px;
     font-weight: 700;
     overflow: hidden;
+    background: #fff;
+    box-shadow: 0 6px 14px rgba(15, 23, 42, .12);
 }
 
 .title-box {
@@ -165,7 +227,7 @@ body {
     font-size: 8.5px;
     text-transform: uppercase;
     color: #475569;
-    font-weight: 900;
+    font-weight: 700;
     letter-spacing: .04em;
 }
 
@@ -239,7 +301,13 @@ th {
     font-size: 8.5px;
     color: #334155;
     text-transform: uppercase;
-    font-weight: 900;
+    font-weight: 700;
+}
+
+td a {
+    color: #1e3a8a;
+    font-weight: 800;
+    text-decoration: none;
 }
 
 .signature-area {
@@ -304,9 +372,11 @@ th {
         <div>
             <div class="school-name">{{ student.institute.name }}</div>
             <div class="school-meta">
-                {{ student.institute.address|default:"" }}<br>
-                Phone: {{ student.institute.phone|default:"" }} |
-                Email: {{ student.institute.email|default:"" }}
+                {{ student.institute.address|default:"" }}
+                <div class="school-contact-row">
+                    {% if student.institute.phone %}<span>Phone: {{ student.institute.phone }}</span>{% endif %}
+                    {% if student.institute.email %}<span>Email: {{ student.institute.email }}</span>{% endif %}
+                </div>
             </div>
         </div>
 
@@ -475,7 +545,7 @@ th {
     </section>
 
     <section class="section">
-        <div class="section-title">Documents Record</div>
+        <div class="section-title">Document Downloads</div>
         <table>
             <thead>
                 <tr>
@@ -483,8 +553,7 @@ th {
                     <th>Saved Title</th>
                     <th>Type</th>
                     <th>Status</th>
-                    <th>Uploaded On</th>
-                    <th>Note</th>
+                    <th>Download</th>
                 </tr>
             </thead>
             <tbody>
@@ -494,11 +563,16 @@ th {
                     <td>{% if row.document %}{{ row.document.title }}{% endif %}</td>
                     <td>{{ row.type_display }}</td>
                     <td>{{ row.status }}</td>
-                    <td>{% if row.document %}{{ row.document.uploaded_at }}{% endif %}</td>
-                    <td>{% if row.document %}{{ row.document.note }}{% endif %}</td>
+                    <td>
+                        {% if row.document and row.document.file %}
+                            <a href="{{ row.document.file.url }}" target="_blank" rel="noopener">Download Document</a>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
                 </tr>
                 {% empty %}
-                <tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+                <tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
                 {% endfor %}
             </tbody>
         </table>

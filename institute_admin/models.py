@@ -123,6 +123,45 @@ class BackgroundJob(models.Model):
         return f"{self.get_job_type_display()} - {self.get_status_display()}"
 
 
+class GeneratedReport(models.Model):
+    class ReportType(models.TextChoices):
+        STUDENT_ADMISSION = "student_admission", "Student Admission Report"
+        INACTIVE_STUDENTS = "inactive_students", "Inactive / Left Students Report"
+        PROFIT_LOSS = "profit_loss", "Finance Report Dashboard"
+        FEE_COLLECTION = "fee_collection", "Fees Report Dashboard"
+
+    institute = models.ForeignKey(
+        "super_admin.Institute",
+        on_delete=models.CASCADE,
+        related_name="generated_reports",
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="generated_reports",
+        null=True,
+        blank=True,
+    )
+    report_type = models.CharField(max_length=40, choices=ReportType.choices)
+    title = models.CharField(max_length=120)
+    criteria = models.JSONField(default=dict, blank=True)
+    query_string = models.CharField(max_length=1000, blank=True)
+    generation_count = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_generated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-last_generated_at"]
+        unique_together = ["institute", "created_by", "report_type", "query_string"]
+        indexes = [
+            models.Index(fields=["institute", "-last_generated_at"], name="genrep_inst_last_idx"),
+            models.Index(fields=["institute", "report_type"], name="genrep_inst_type_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.institute}"
+
+
 class Course(models.Model):
     institute = models.ForeignKey(
         "super_admin.Institute",

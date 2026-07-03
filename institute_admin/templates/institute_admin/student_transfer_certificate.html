@@ -9,7 +9,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-@page { size: A4; margin: 8mm; }
+@page { size: A4; margin: 0; }
 
 * { box-sizing: border-box; }
 
@@ -18,7 +18,8 @@ body {
     background: #e5e7eb;
     color: #111827;
     font-family: 'Poppins', sans-serif;
-    font-size: 12px;
+    font-size: 11px;
+    line-height: 1.42;
 }
 
 .toolbar {
@@ -48,24 +49,26 @@ body {
 
 .sheet {
     width: 210mm;
-    min-height: 297mm;
+    height: 297mm;
     margin: 0 auto 18px;
     background: #fff;
-    padding: 8mm;
+    padding: 6mm;
     box-shadow: 0 18px 45px rgba(15, 23, 42, .18);
+    overflow: hidden;
 }
 
 .certificate {
-    min-height: 281mm;
-    border: 2px solid #111827;
-    padding: 8mm 9mm;
+    height: 285mm;
+    border: 1.5px solid #111827;
+    padding: 5mm 6mm;
     position: relative;
+    overflow: hidden;
 }
 
 .certificate::before {
     content: "";
     position: absolute;
-    inset: 4mm;
+    inset: 2.5mm;
     border: 1px solid #64748b;
     pointer-events: none;
 }
@@ -81,7 +84,7 @@ body {
     gap: 10px;
     align-items: center;
     padding-bottom: 8px;
-    border-bottom: 2px double #111827;
+    border-bottom: 1.5px double #111827;
 }
 
 .logo {
@@ -91,7 +94,7 @@ body {
     align-items: center;
     justify-content: center;
     color: #64748b;
-    font-size: 9px;
+    font-size: 8.5px;
     font-weight: 700;
     overflow: hidden;
     border: 1px solid #cbd5e1;
@@ -108,9 +111,9 @@ body {
     margin: 0;
     text-align: center;
     text-transform: uppercase;
-    font-size: 23px;
-    line-height: 1.08;
-    font-weight: 900;
+    font-size: 21px;
+    line-height: 1.12;
+    font-weight: 850;
     letter-spacing: .3px;
 }
 
@@ -118,24 +121,24 @@ body {
     margin-top: 4px;
     text-align: center;
     color: #334155;
-    line-height: 1.35;
-    font-size: 11px;
+    line-height: 1.38;
+    font-size: 10px;
     font-family:'Poppins',sans-serif;
 }
 
 .title-wrap {
     text-align: center;
-    margin: 10px 0 8px;
+    margin: 9px 0 8px;
 }
 
 .title {
     display: inline-block;
-    padding: 5px 28px;
-    border-top: 2px solid #111827;
-    border-bottom: 2px solid #111827;
+    padding: 4px 28px;
+    border-top: 1.5px solid #111827;
+    border-bottom: 1.5px solid #111827;
     text-transform: uppercase;
-    font-size: 18px;
-    font-weight: 900;
+    font-size: 17px;
+    font-weight: 850;
     letter-spacing: 1px;
 }
 
@@ -143,27 +146,27 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     gap: 9px;
-    margin: 10px 0;
+    margin: 9px 0;
     font-family:'Poppins',sans-serif; 
 }
 
 .meta-item {
-    border-bottom: 1.5px solid #111827;
+    border-bottom: 1px solid #111827;
     padding: 3px 0 5px;
 }
 
 .meta-label {
-    font-size: 9px;
+    font-size: 8.5px;
     text-transform: uppercase;
     color: #475569;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: .04em;
 }
 
 .meta-value {
     margin-top: 2px;
-    font-size: 12px;
-    font-weight: 800;
+    font-size: 11px;
+    font-weight: 700;
     color: #111827;
 }
 
@@ -178,13 +181,13 @@ body {
 .photo {
     width: 27mm;
     height: 32mm;
-    border: 1.5px solid #111827;
+    border: 1px solid #111827;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #64748b;
-    font-size: 9px;
-    font-weight: 700;
+    font-size: 8.5px;
+    font-weight: 650;
     overflow: hidden;
     font-family:'Poppins',sans-serif; 
 }
@@ -196,14 +199,14 @@ body {
 }
 
 .section-title {
-    margin: 11px 0 6px;
+    margin: 10px 0 5px;
     padding-bottom: 3px;
-    border-bottom: 1.5px solid #111827;
+    border-bottom: 1px solid #111827;
     font-family:'Poppins',sans-serif; 
-    font-size: 11px;
+    font-size: 10px;
     text-transform: uppercase;
     letter-spacing: .08em;
-    font-weight: 900;
+    font-weight: 800;
     color: #1e3a8a;
 }
 
@@ -213,15 +216,16 @@ body {
 }
 
 .info-table td {
-    padding: 5px 4px;
+    padding: 4.2px 4px;
     vertical-align: top;
     border-bottom: 1px dotted #94a3b8;
+    line-height: 1.38;
 }
 
 .info-table .label {
     width: 36%;
     font-family:'Poppins',sans-serif; 
-    font-weight: 800;
+    font-weight: 650;
     color: #334155;
 }
 
@@ -239,33 +243,34 @@ body {
 
 .note {
     margin-top: 10px;
-    line-height: 1.6;
+    line-height: 1.55;
     text-align: justify;
-    font-size: 12.5px;
+    font-size: 10.8px;
 }
 
 .declaration {
-    margin-top: 10px;
-    padding: 9px 10px;
+    margin-top: 9px;
+    padding: 8px 10px;
     background: #f8fafc;
-    border-left: 4px solid #1e3a8a;
+    border-left: 3px solid #1e3a8a;
     font-family:'Poppins',sans-serif; 
     line-height: 1.45;
     color: #334155;
+    font-size: 10px;
 }
 
 .signatures {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-top: 22mm;
+    gap: 14px;
+    margin-top: 28mm;
 }
 
 .signature {
-    border-top: 1.5px solid #111827;
+    border-top: 1px solid #111827;
     padding-top: 6px;
     text-align: center;
-    font-weight: 900;
+    font-weight: 800;
     font-family:'Poppins',sans-serif; 
 }
 
@@ -273,7 +278,7 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
-    margin-top: 11px;
+    margin-top: 9px;
     color: #475569;
     font-size: 9px;
     font-family:'Poppins',sans-serif; 
@@ -285,15 +290,16 @@ body {
     .toolbar { display: none; }
 
     .sheet {
-        width: auto;
-        min-height: auto;
+        width: 210mm;
+        height: 297mm;
         margin: 0;
-        padding: 0;
+        padding: 6mm;
         box-shadow: none;
+        overflow: hidden;
     }
 
     .certificate {
-        min-height: 281mm;
+        height: 285mm;
         page-break-inside: avoid;
     }
 }
@@ -428,14 +434,6 @@ body {
                     <td class="value">{{ snapshot.admission_class|default:student.admission_class|default:"-" }}</td>
                 </tr>
                 <tr>
-                    <td class="label">Current Class</td>
-                    <td class="value">{{ snapshot.current_class|default:student.current_class|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Batch / Division</td>
-                    <td class="value">{{ snapshot.batches|default:student.division|default:"-" }}</td>
-                </tr>
-                <tr>
                     <td class="label">Medium</td>
                     <td class="value">{{ snapshot.medium|default:student.medium|default:"-" }}</td>
                 </tr>
@@ -488,10 +486,6 @@ body {
             <td class="value">{{ tc.leaving_date|default:"-" }}</td>
         </tr>
         <tr>
-            <td class="label">Fees Cleared</td>
-            <td class="value">{% if tc.fees_cleared %}Yes{% else %}No{% endif %}</td>
-        </tr>
-        <tr>
             <td class="label">Conduct</td>
             <td class="value">{{ tc.conduct|default:"-" }}</td>
         </tr>
@@ -515,14 +509,14 @@ body {
     </div>
 
     <div class="signatures">
-        <div class="signature">Class Teacher</div>
         <div class="signature">Office Clerk</div>
-        <div class="signature">Principal / Head Master</div>
+        <div class="signature" style="border:white;"> </div>
+        <div class="signature">Principal</div>
     </div>
 
     <div class="footer">
-        <div>Generated by: {{ tc.generated_by.get_full_name|default:tc.generated_by.username|default:"-" }}</div>
-        <div style="text-align:right;">Generated at: {{ tc.generated_at|default:"-" }}</div>
+        <div> </div>
+        <!-- <div style="text-align:right;">Generated at: {{ tc.generated_at|default:"-" }}</div> -->
     </div>
 
 </div>

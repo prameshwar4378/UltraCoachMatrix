@@ -455,34 +455,149 @@
 
     .saved-list {
         display: grid;
-        gap: 11px;
+        gap: 13px;
+        max-height: 760px;
+        overflow-y: auto;
+        padding-right: 2px;
     }
 
     .saved-item {
+        position: relative;
         display: grid;
-        grid-template-columns: 36px minmax(0, 1fr);
-        gap: 11px;
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 12px;
         align-items: start;
-        padding: 12px;
-        border-radius: 17px;
-        background: linear-gradient(135deg, #f8fafc, #ffffff);
-        border: 1px solid #e2e8f0;
+        padding: 14px;
+        border-radius: 16px;
+        background:
+            linear-gradient(180deg, rgba(37, 99, 235, .045), rgba(255, 255, 255, 0) 42%),
+            #ffffff;
+        border: 1px solid #dbe3ef;
+        box-shadow: 0 14px 32px rgba(15, 23, 42, .07);
+        overflow: hidden;
     }
 
-    .saved-item i {
-        width: 36px;
-        height: 36px;
+    .saved-item::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 4px;
+        background: linear-gradient(180deg, #2563eb, #7c3aed);
+        opacity: .86;
+    }
+
+    .saved-item > i {
+        width: 34px;
+        height: 34px;
         display: grid;
         place-items: center;
-        border-radius: 13px;
-        background: linear-gradient(135deg, #e0e7ff, #e0f2fe);
-        color: #3730a3;
+        border-radius: 11px;
+        background: #eef4ff;
+        color: #1d4ed8;
+        box-shadow: inset 0 0 0 1px rgba(37, 99, 235, .1);
     }
 
-    .saved-item span {
+    .saved-body {
+        min-width: 0;
+    }
+
+    .saved-title {
+        margin: 0;
+        color: #0f172a;
+        font-size: .9rem;
+        line-height: 1.32;
+        font-weight: 950;
+    }
+
+    .saved-meta,
+    .saved-criteria {
         color: #475569;
-        font-size: .82rem;
+        font-size: .76rem;
         line-height: 1.45;
+        font-weight: 750;
+    }
+
+    .saved-meta {
+        margin-top: 5px;
+        color: #64748b;
+        font-size: .74rem;
+    }
+
+    .saved-criteria {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 9px;
+    }
+
+    .saved-criteria span {
+        max-width: 100%;
+        border-radius: 999px;
+        background: #f1f5ff;
+        border: 1px solid #e0e7ff;
+        color: #29338f;
+        padding: 5px 8px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 850;
+    }
+
+    .saved-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 13px;
+    }
+
+    .saved-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-height: 38px;
+        border-radius: 11px;
+        background: #f8fafc;
+        border: 1px solid #dbe3ef;
+        color: #334155;
+        text-decoration: none;
+        font-size: .78rem;
+        font-weight: 950;
+        transition: .2s ease;
+    }
+
+    .saved-action i {
+        width: auto;
+        height: auto;
+        display: inline-flex;
+        place-items: initial;
+        border-radius: 0;
+        background: transparent;
+        color: inherit;
+        box-shadow: none;
+        font-size: .9rem;
+    }
+
+    .saved-action:hover {
+        background: #eef2ff;
+        color: #1e293b;
+        transform: translateY(-1px);
+    }
+
+    .saved-action.primary {
+        border: 0;
+        background: linear-gradient(135deg, #312e81, #2563eb);
+        color: #fff;
+    }
+
+    .saved-empty {
+        border: 1px dashed #cbd5e1;
+        border-radius: 17px;
+        padding: 16px;
+        color: #64748b;
+        background: #f8fafc;
+        font-size: .84rem;
+        line-height: 1.55;
         font-weight: 750;
     }
 
@@ -735,45 +850,43 @@
             </div>
 
             <aside class="side-stack">
-                <section class="filter-panel">
-                    <h2 class="panel-title">Smart Filter Builder</h2>
-                    <p class="panel-copy">
-                        Common filter layout for report type, date range, class, batch, student and export format.
-                    </p>
-
-                    <div class="mock-form">
-                        <div class="mock-field">
-                            <label>Report</label>
-                            <div class="mock-control">Select report type</div>
-                        </div>
-
-                        <div class="mock-field">
-                            <label>Date Range</label>
-                            <div class="mock-control">Start date - End date</div>
-                        </div>
-
-                        <div class="mock-field">
-                            <label>Class / Batch / Student</label>
-                            <div class="mock-control">All records</div>
-                        </div>
-
-                        <div class="format-row">
-                            <div class="format-pill">Excel</div>
-                        </div>
-                    </div>
-                </section>
-
                 <section class="saved-panel">
                     <h2 class="panel-title">Generated Reports</h2>
                     <p class="panel-copy">
-                        Saved report history will appear here after report generation is implemented.
+                        Latest 10 generated report criteria are saved here. Open a report to review live data, or export Excel using the same filters.
                     </p>
 
                     <div class="saved-list">
-                        {% for item in saved_report_placeholders %}
+                        {% for item in generated_reports %}
                         <div class="saved-item">
-                            <i class="bi bi-archive"></i>
-                            <span>{{ item }}</span>
+                            <i class="bi bi-clock-history"></i>
+                            <div class="saved-body">
+                                <h3 class="saved-title">{{ item.title }}</h3>
+                                <div class="saved-meta">
+                                    {{ item.last_generated_at|date:"d M Y, h:i A" }} by {{ item.generated_by }}
+                                    {% if item.generation_count > 1 %} - {{ item.generation_count }} runs{% endif %}
+                                </div>
+                                <div class="saved-criteria">
+                                    {% for criteria in item.criteria_summary %}
+                                    <span title="{{ criteria }}">{{ criteria }}</span>
+                                    {% endfor %}
+                                    {% if item.extra_criteria_count %}
+                                    <span>+{{ item.extra_criteria_count }} more</span>
+                                    {% endif %}
+                                </div>
+                                <div class="saved-actions">
+                                    <a href="{{ item.open_url }}" class="saved-action primary">
+                                        <i class="bi bi-box-arrow-up-right"></i> Open
+                                    </a>
+                                    <a href="{{ item.export_url }}" class="saved-action">
+                                        <i class="bi bi-file-earmark-excel"></i> Excel
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="saved-empty">
+                            No generated reports yet. Open any report from the cards, apply filters, and it will appear here for quick regeneration.
                         </div>
                         {% endfor %}
                     </div>
