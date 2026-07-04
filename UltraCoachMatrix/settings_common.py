@@ -203,9 +203,10 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+DEFAULT_FIREBASE_CREDENTIALS_FILE = "/home/ultracoachmatrix/.secrets/firebase-service-account.json"
 FIREBASE_CREDENTIALS_FILE = os.environ.get(
     "FIREBASE_CREDENTIALS_FILE",
-    os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", ""),
+    os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", DEFAULT_FIREBASE_CREDENTIALS_FILE),
 )
 FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "")
 PUSH_NOTIFICATIONS_ENABLED = os.environ.get("PUSH_NOTIFICATIONS_ENABLED", "true").lower() in {"1", "true", "yes"}
@@ -291,5 +292,5 @@ BACKGROUND_JOB_SYNC_FEE_FALLBACK = os.environ.get(
 ).lower() in {"1", "true", "yes"}
 BACKGROUND_JOB_SYNC_NOTICE_FALLBACK = os.environ.get(
     "BACKGROUND_JOB_SYNC_NOTICE_FALLBACK",
-    "false",
+    "true",
 ).lower() in {"1", "true", "yes"}

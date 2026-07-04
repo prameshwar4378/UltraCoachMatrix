@@ -4,14 +4,58 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
+from django.db.models import Avg
 from django.http import FileResponse, Http404
 from django.shortcuts import redirect, render
+from django.urls import reverse
 
-from .models import ContactEnquiry
+from .models import ContactEnquiry, WebsiteFeedback
 
 
 def index(request):
-    return render(request, "index.html")
+    if request.method == "POST" and request.POST.get("form_type") == "website_feedback":
+        name = request.POST.get("name", "").strip()
+        institute = request.POST.get("institute", "").strip()
+        rating = request.POST.get("rating", "").strip()
+        feedback = request.POST.get("feedback", "").strip()
+
+        if not name or not rating or not feedback:
+            messages.error(request, "Please add your name, star rating and feedback.")
+            return redirect(f"{reverse('index')}#reviews")
+
+        try:
+            rating_value = int(rating)
+        except ValueError:
+            rating_value = 0
+
+        if rating_value < 1 or rating_value > 5:
+            messages.error(request, "Please select a rating between 1 and 5 stars.")
+            return redirect(f"{reverse('index')}#reviews")
+
+        WebsiteFeedback.objects.create(
+            name=name,
+            institute=institute,
+            rating=rating_value,
+            feedback=feedback,
+        )
+
+        messages.success(request, "Thank you. Your feedback has been added.")
+        return redirect(f"{reverse('index')}#reviews")
+
+    visible_feedback = WebsiteFeedback.objects.filter(is_visible=True)
+    recent_feedback = visible_feedback[:12]
+    feedback_count = visible_feedback.count()
+    average_rating = visible_feedback.aggregate(avg_rating=Avg("rating"))["avg_rating"] or 0
+
+    return render(
+        request,
+        "index.html",
+        {
+            "recent_feedback": recent_feedback,
+            "feedback_count": feedback_count,
+            "average_rating": average_rating,
+        },
+    )
 
 
 def download_android_app(request):

@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 class ContactEnquiry(models.Model):
     ENQUIRY_TYPE_CHOICES = (
@@ -42,3 +43,30 @@ class ContactEnquiry(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.school}"
+
+
+class WebsiteFeedback(models.Model):
+    name = models.CharField(max_length=120)
+    institute = models.CharField("School or institute", max_length=180, blank=True)
+    rating = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    feedback = models.TextField(max_length=1000)
+    is_visible = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Website feedback"
+        verbose_name_plural = "Website feedback"
+
+    def __str__(self):
+        return f"{self.name} - {self.rating} stars"
+
+    @property
+    def filled_star_range(self):
+        return range(self.rating)
+
+    @property
+    def empty_star_range(self):
+        return range(5 - self.rating)

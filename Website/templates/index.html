@@ -213,6 +213,29 @@
   </div>
 </section>
 
+<div class="modal fade um-feedback-modal" id="feedbackDetailModal" tabindex="-1" aria-labelledby="feedbackDetailModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <button type="button" class="um-feedback-modal-close" data-bs-dismiss="modal" aria-label="Close">
+        <i class="bi bi-x-lg"></i>
+      </button>
+
+      <div class="modal-body">
+        <div class="um-feedback-modal-head">
+          <span class="um-feedback-modal-avatar" data-modal-avatar></span>
+          <div>
+            <h3 id="feedbackDetailModalLabel" data-modal-name></h3>
+            <small data-modal-institute></small>
+          </div>
+        </div>
+
+        <div class="um-feedback-modal-stars" data-modal-stars></div>
+        <p class="um-feedback-modal-text" data-modal-text></p>
+      </div>
+    </div>
+  </div>
+</div>
+
 <style>
 html,
 body{
@@ -1253,6 +1276,8 @@ if(heroVisual){
 
 
 
+
+
  
 <section class="um-problem-solution">
   <div class="um-ps-container">
@@ -2024,9 +2049,7 @@ if(heroVisual){
   color:#071527;
 }
 
-@keyframes umNodeFloat{
-  50%{margin-top:-14px}
-}
+ 
 
 .f1{left:7%;top:8%;animation-delay:-.2s}
 .f2{left:40%;top:3%;animation-delay:-.8s}
@@ -3658,5 +3681,1115 @@ if(heroVisual){
 
 
 
+
+
+<section class="um-feedback-section" id="reviews">
+  <div class="um-feedback-grid-bg"></div>
+
+  <div class="um-feedback-container">
+    <div class="um-feedback-heading">
+      <span class="hero-badge">
+        <i class="bi bi-chat-square-heart-fill"></i> Reviews & Feedback
+      </span>
+
+      <h2>
+        What Institutes
+        <span>Say About Us</span>
+      </h2>
+
+      <p>
+        Share your experience with UltraCoachMatrix and see the latest feedback from coaching institutes using the platform.
+      </p>
+    </div>
+
+    <div class="um-feedback-layout">
+      <div class="um-feedback-left-stack">
+        <div class="um-feedback-showcase" data-feedback-slider>
+          <div class="um-feedback-toolbar">
+            <div>
+              <h3>Recent Feedback</h3>
+              <p>Latest visible reviews rotate automatically.</p>
+            </div>
+            {% if recent_feedback %}
+              <div class="um-feedback-controls">
+                <button type="button" class="um-feedback-nav" data-feedback-prev aria-label="Previous feedback">
+                  <i class="bi bi-chevron-left"></i>
+                </button>
+                <button type="button" class="um-feedback-nav" data-feedback-next aria-label="Next feedback">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
+              </div>
+            {% endif %}
+          </div>
+
+          {% if recent_feedback %}
+            <div class="um-feedback-window">
+              <div class="um-feedback-track" data-feedback-track>
+                {% for item in recent_feedback %}
+                  <article class="um-feedback-card" data-feedback-card>
+                    <div class="um-feedback-card-top">
+                      <span class="um-feedback-avatar">
+                        {{ item.name|first|upper }}
+                      </span>
+                      <div>
+                        <h3>{{ item.name }}</h3>
+                        {% if item.institute %}
+                          <small>{{ item.institute }}</small>
+                        {% else %}
+                          <small>UltraCoachMatrix user</small>
+                        {% endif %}
+                      </div>
+                    </div>
+
+                    <div class="um-feedback-stars" aria-label="{{ item.rating }} out of 5 stars">
+                      {% for star in item.filled_star_range %}
+                        <i class="bi bi-star-fill"></i>
+                      {% endfor %}
+                      {% for star in item.empty_star_range %}
+                        <i class="bi bi-star"></i>
+                      {% endfor %}
+                    </div>
+
+                    <p class="um-feedback-text" data-feedback-text>{{ item.feedback }}</p>
+                    <button type="button" class="um-feedback-read-more" data-feedback-read>
+                      Read more
+                    </button>
+                  </article>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="um-feedback-dots" data-feedback-dots aria-label="Feedback slider pages"></div>
+          {% else %}
+            <article class="um-feedback-empty">
+              <i class="bi bi-stars"></i>
+              <h3>No feedback yet</h3>
+              <p>Be the first to review UltraCoachMatrix and help other institutes understand the experience.</p>
+            </article>
+          {% endif %}
+        </div>
+
+        <div class="um-feedback-insights">
+          <div class="um-feedback-summary">
+            <div>
+              <strong>{{ feedback_count|default:0 }}</strong>
+              <span>Total Reviews</span>
+            </div>
+            <div>
+              <strong>{{ average_rating|floatformat:1|default:"0.0" }}</strong>
+              <span>Average Rating</span>
+            </div>
+            <div>
+              <strong>{{ recent_feedback|length }}</strong>
+              <span>Latest Shown</span>
+            </div>
+          </div>
+
+          <div class="um-feedback-insight-copy">
+            <i class="bi bi-patch-check-fill"></i>
+            <div>
+              <h3>Trusted By Growing Institutes</h3>
+              <p>Only visible reviews are shown here, while every submission stays manageable from the admin panel.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="um-feedback-form-wrap">
+        <form class="um-feedback-form" method="post" action="{% url 'index' %}#reviews">
+          {% csrf_token %}
+          <input type="hidden" name="form_type" value="website_feedback">
+
+          <div class="um-feedback-form-head">
+            <i class="bi bi-pencil-square"></i>
+            <div>
+              <h3>Give Your Feedback</h3>
+              <p>Your latest feedback will appear on the website.</p>
+            </div>
+          </div>
+
+          {% if messages %}
+            <div class="um-feedback-messages">
+              {% for message in messages %}
+                <div class="um-feedback-alert {{ message.tags }}">
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <label for="feedback-name">Your Name</label>
+          <input id="feedback-name" type="text" name="name" placeholder="Enter your name" maxlength="120" required>
+
+          <label for="feedback-institute">Institute Name</label>
+          <input id="feedback-institute" type="text" name="institute" placeholder="School or coaching name" maxlength="180">
+
+          <label>Star Rating</label>
+          <div class="um-rating-picker" aria-label="Select star rating">
+            <input type="radio" id="rating-5" name="rating" value="5" required>
+            <label for="rating-5" title="5 stars"><i class="bi bi-star-fill"></i></label>
+
+            <input type="radio" id="rating-4" name="rating" value="4">
+            <label for="rating-4" title="4 stars"><i class="bi bi-star-fill"></i></label>
+
+            <input type="radio" id="rating-3" name="rating" value="3">
+            <label for="rating-3" title="3 stars"><i class="bi bi-star-fill"></i></label>
+
+            <input type="radio" id="rating-2" name="rating" value="2">
+            <label for="rating-2" title="2 stars"><i class="bi bi-star-fill"></i></label>
+
+            <input type="radio" id="rating-1" name="rating" value="1">
+            <label for="rating-1" title="1 star"><i class="bi bi-star-fill"></i></label>
+          </div>
+
+          <label for="feedback-message">Feedback</label>
+          <textarea id="feedback-message" name="feedback" rows="5" maxlength="1000" placeholder="Write your experience" required></textarea>
+
+          <button type="submit">
+            Submit Feedback
+            <i class="bi bi-arrow-right"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+.um-feedback-section{
+  position:relative;
+  padding:84px 28px 72px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 15% 18%,rgba(24,216,255,.16),transparent 30%),
+    radial-gradient(circle at 86% 28%,rgba(244,185,66,.12),transparent 26%),
+    linear-gradient(180deg,rgba(255,255,255,.05),rgba(239,247,255,.55));
+}
+
+.um-feedback-grid-bg{
+  position:absolute;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(18,60,122,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(18,60,122,.045) 1px,transparent 1px);
+  background-size:54px 54px;
+  mask-image:radial-gradient(circle at center,#000 26%,transparent 78%);
+}
+
+.um-feedback-container{
+  position:relative;
+  z-index:2;
+  width:100%;
+  max-width:1180px;
+  margin:auto;
+}
+
+.um-feedback-heading{
+  max-width:760px;
+  margin:0 auto 34px;
+  text-align:center;
+}
+
+.um-feedback-heading h2{
+  margin:22px 0 16px;
+  color:var(--dark);
+  font-size:56px;
+  line-height:1.04;
+  font-weight:950;
+}
+
+.um-feedback-heading h2 span{
+  display:block;
+  background:linear-gradient(135deg,var(--primary),var(--secondary),#18d8ff);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+.um-feedback-heading p{
+  max-width:690px;
+  margin:auto;
+  color:var(--muted);
+  font-size:17px;
+  line-height:1.8;
+  font-weight:550;
+}
+
+.um-feedback-summary{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin:0;
+}
+
+.um-feedback-summary div{
+  padding:16px 10px;
+  border-radius:20px;
+  text-align:center;
+  background:rgba(255,255,255,.9);
+  border:1px solid rgba(18,60,122,.07);
+  box-shadow:0 14px 36px rgba(18,60,122,.08);
+  backdrop-filter:blur(16px);
+}
+
+.um-feedback-summary strong{
+  display:block;
+  color:var(--primary);
+  font-size:30px;
+  line-height:1;
+  font-weight:950;
+}
+
+.um-feedback-summary span{
+  display:block;
+  margin-top:8px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+
+.um-feedback-layout{
+  display:grid;
+  grid-template-columns:minmax(0,1.18fr) minmax(360px,.82fr);
+  gap:24px;
+  align-items:stretch;
+}
+
+.um-feedback-left-stack{
+  min-width:0;
+  height:100%;
+  display:grid;
+  grid-template-rows:minmax(0,1fr) minmax(0,1fr);
+  gap:18px;
+}
+
+.um-feedback-showcase{
+  min-width:0;
+  min-height:0;
+  padding:20px 22px;
+  border-radius:34px;
+  background:rgba(255,255,255,.58);
+  border:1px solid rgba(255,255,255,.88);
+  box-shadow:0 28px 78px rgba(18,60,122,.1);
+  backdrop-filter:blur(18px);
+  display:flex;
+  flex-direction:column;
+}
+
+.um-feedback-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  margin-bottom:12px;
+}
+
+.um-feedback-toolbar h3{
+  margin:0;
+  color:var(--primary);
+  font-size:22px;
+  font-weight:950;
+}
+
+.um-feedback-toolbar p{
+  margin:5px 0 0;
+  color:var(--muted);
+  font-size:13px;
+  font-weight:750;
+}
+
+.um-feedback-controls{
+  display:flex;
+  gap:10px;
+}
+
+.um-feedback-nav{
+  width:42px;
+  height:42px;
+  border:0;
+  border-radius:17px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+  box-shadow:0 14px 34px rgba(18,60,122,.2);
+  transition:.25s var(--ease);
+}
+
+.um-feedback-nav:hover{
+  transform:translateY(-3px);
+}
+
+.um-feedback-window{
+  min-height:0;
+  overflow:hidden;
+  border-radius:26px;
+  padding:2px;
+  flex:1;
+}
+
+.um-feedback-track{
+  display:flex;
+  gap:18px;
+  transition:transform .55s var(--ease);
+  will-change:transform;
+}
+
+.um-feedback-card,
+.um-feedback-empty,
+.um-feedback-form{
+  background:rgba(255,255,255,.82);
+  border:1px solid rgba(255,255,255,.94);
+  box-shadow:0 28px 76px rgba(18,60,122,.12);
+  backdrop-filter:blur(18px);
+}
+
+.um-feedback-card{
+  flex:0 0 calc((100% - 18px) / 2);
+  height:190px;
+  padding:18px;
+  border-radius:22px;
+  display:flex;
+  flex-direction:column;
+}
+
+.um-feedback-card-top{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.um-feedback-avatar{
+  width:42px;
+  height:42px;
+  min-width:42px;
+  display:grid;
+  place-items:center;
+  border-radius:18px;
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  font-size:20px;
+  font-weight:950;
+}
+
+.um-feedback-card h3{
+  margin:0;
+  color:var(--primary);
+  font-size:15px;
+  font-weight:950;
+}
+
+.um-feedback-card small{
+  display:block;
+  margin-top:4px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+}
+
+.um-feedback-stars{
+  display:flex;
+  gap:4px;
+  margin:13px 0 10px;
+  color:var(--accent);
+  font-size:16px;
+}
+
+.um-feedback-text,
+.um-feedback-empty p{
+  margin:0;
+  color:var(--text);
+  font-size:13px;
+  line-height:1.65;
+  font-weight:600;
+}
+
+.um-feedback-text{
+  display:-webkit-box;
+  -webkit-line-clamp:3;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+
+.um-feedback-card.expanded .um-feedback-text{
+  display:block;
+  max-height:74px;
+  overflow:auto;
+  padding-right:4px;
+}
+
+.um-feedback-read-more{
+  width:max-content;
+  margin-top:auto;
+  padding:7px 0 0;
+  border:0;
+  color:var(--secondary);
+  background:transparent;
+  font-size:13px;
+  font-weight:950;
+  cursor:pointer;
+}
+
+.um-feedback-read-more:hover{
+  color:var(--primary);
+}
+
+.um-feedback-read-more.is-hidden{
+  display:none;
+}
+
+.um-feedback-dots{
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  margin-top:12px;
+}
+
+.um-feedback-dot{
+  width:9px;
+  height:9px;
+  border:0;
+  border-radius:999px;
+  background:rgba(18,60,122,.2);
+  transition:.25s ease;
+}
+
+.um-feedback-dot.active{
+  width:28px;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+}
+
+.um-feedback-insights{
+  min-height:0;
+  padding:20px 22px;
+  border-radius:34px;
+  background:linear-gradient(135deg,rgba(255,255,255,.86),rgba(239,247,255,.74));
+  border:1px solid rgba(255,255,255,.9);
+  box-shadow:0 28px 78px rgba(18,60,122,.1);
+  backdrop-filter:blur(18px);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:16px;
+}
+
+.um-feedback-insight-copy{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:16px;
+  border-radius:22px;
+  background:rgba(18,60,122,.06);
+}
+
+.um-feedback-insight-copy i{
+  width:48px;
+  height:48px;
+  min-width:48px;
+  display:grid;
+  place-items:center;
+  border-radius:17px;
+  color:#fff;
+  background:linear-gradient(135deg,var(--primary),var(--secondary),#18d8ff);
+  font-size:22px;
+}
+
+.um-feedback-insight-copy h3{
+  margin:0;
+  color:var(--primary);
+  font-size:17px;
+  font-weight:950;
+}
+
+.um-feedback-insight-copy p{
+  margin:5px 0 0;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.55;
+  font-weight:750;
+}
+
+.um-feedback-empty{
+  grid-column:1 / -1;
+  min-height:260px;
+  display:grid;
+  place-items:center;
+  text-align:center;
+  padding:34px;
+  border-radius:30px;
+}
+
+.um-feedback-empty i{
+  width:64px;
+  height:64px;
+  display:grid;
+  place-items:center;
+  margin-bottom:10px;
+  border-radius:24px;
+  color:#fff;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+  font-size:28px;
+}
+
+.um-feedback-empty h3{
+  margin:0 0 8px;
+  color:var(--primary);
+  font-size:24px;
+  font-weight:950;
+}
+
+.um-feedback-form{
+  position:relative;
+  top:auto;
+  height:100%;
+  padding:24px;
+  border-radius:28px;
+}
+
+.um-feedback-form-wrap{
+  height:100%;
+}
+
+.um-feedback-form-head{
+  display:flex;
+  gap:14px;
+  align-items:center;
+  margin-bottom:22px;
+}
+
+.um-feedback-form-head i{
+  width:54px;
+  height:54px;
+  min-width:54px;
+  display:grid;
+  place-items:center;
+  border-radius:19px;
+  color:#fff;
+  background:linear-gradient(135deg,var(--primary),var(--secondary),#18d8ff);
+  font-size:22px;
+}
+
+.um-feedback-form h3{
+  margin:0;
+  color:var(--primary);
+  font-size:24px;
+  font-weight:950;
+}
+
+.um-feedback-form p{
+  margin:5px 0 0;
+  color:var(--muted);
+  font-size:13px;
+  font-weight:700;
+}
+
+.um-feedback-messages{
+  display:grid;
+  gap:10px;
+  margin-bottom:16px;
+}
+
+.um-feedback-alert{
+  padding:12px 14px;
+  border-radius:16px;
+  color:var(--primary);
+  background:#eff6ff;
+  font-size:13px;
+  font-weight:850;
+}
+
+.um-feedback-alert.success{
+  color:#166534;
+  background:#dcfce7;
+}
+
+.um-feedback-alert.error{
+  color:#991b1b;
+  background:#fee2e2;
+}
+
+.um-feedback-form label{
+  display:block;
+  margin:15px 0 8px;
+  color:var(--primary);
+  font-size:13px;
+  font-weight:950;
+}
+
+.um-feedback-form input,
+.um-feedback-form textarea{
+  width:100%;
+  border:1px solid rgba(18,60,122,.12);
+  outline:0;
+  border-radius:16px;
+  padding:13px 15px;
+  color:var(--text);
+  background:rgba(255,255,255,.9);
+  font-size:14px;
+  font-weight:650;
+  transition:.25s ease;
+}
+
+.um-feedback-form textarea{
+  resize:vertical;
+  min-height:116px;
+}
+
+.um-feedback-form input:focus,
+.um-feedback-form textarea:focus{
+  border-color:rgba(29,101,193,.55);
+  box-shadow:0 0 0 4px rgba(29,101,193,.1);
+}
+
+.um-rating-picker{
+  display:flex;
+  flex-direction:row-reverse;
+  justify-content:flex-end;
+  gap:7px;
+  padding:8px 0 4px;
+}
+
+.um-rating-picker input{
+  position:absolute;
+  opacity:0;
+  pointer-events:none;
+}
+
+.um-rating-picker label{
+  margin:0;
+  cursor:pointer;
+  color:#cbd5e1;
+  font-size:30px;
+  line-height:1;
+  transition:.2s ease;
+}
+
+.um-rating-picker label:hover,
+.um-rating-picker label:hover ~ label,
+.um-rating-picker input:checked ~ label{
+  color:var(--accent);
+  transform:translateY(-2px);
+}
+
+.um-feedback-form button{
+  width:100%;
+  min-height:52px;
+  margin-top:18px;
+  border:0;
+  border-radius:20px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  font-size:15px;
+  font-weight:950;
+  box-shadow:0 18px 42px rgba(244,185,66,.28);
+  transition:.3s var(--ease);
+}
+
+.um-feedback-form button:hover{
+  transform:translateY(-4px);
+}
+
+.um-feedback-modal .modal-content{
+  border:1px solid rgba(255,255,255,.92);
+  border-radius:30px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 12% 12%,rgba(24,216,255,.16),transparent 28%),
+    linear-gradient(135deg,#ffffff,#f4f9ff);
+  box-shadow:0 38px 110px rgba(7,21,39,.24);
+}
+
+.um-feedback-modal .modal-body{
+  position:relative;
+  padding:34px;
+}
+
+.um-feedback-modal-close{
+  position:absolute;
+  top:18px;
+  right:18px;
+  z-index:3;
+  width:42px;
+  height:42px;
+  border:0;
+  border-radius:15px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+  box-shadow:0 14px 34px rgba(18,60,122,.18);
+}
+
+.um-feedback-modal-head{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  padding-right:54px;
+}
+
+.um-feedback-modal-avatar{
+  width:58px;
+  height:58px;
+  min-width:58px;
+  display:grid;
+  place-items:center;
+  border-radius:20px;
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  font-size:22px;
+  font-weight:950;
+}
+
+.um-feedback-modal-head h3{
+  margin:0;
+  color:var(--primary);
+  font-size:26px;
+  line-height:1.15;
+  font-weight:950;
+}
+
+.um-feedback-modal-head small{
+  display:block;
+  margin-top:5px;
+  color:var(--muted);
+  font-size:13px;
+  font-weight:850;
+}
+
+.um-feedback-modal-stars{
+  display:flex;
+  gap:5px;
+  margin:22px 0 18px;
+  color:var(--accent);
+  font-size:21px;
+}
+
+.um-feedback-modal-text{
+  max-height:52vh;
+  overflow:auto;
+  margin:0;
+  padding:22px;
+  border-radius:22px;
+  color:var(--text);
+  background:rgba(255,255,255,.78);
+  border:1px solid rgba(18,60,122,.08);
+  font-size:15px;
+  line-height:1.85;
+  font-weight:650;
+  white-space:pre-wrap;
+}
+
+@media(max-width:991px){
+  .um-feedback-section{
+    padding:72px 18px 64px;
+  }
+
+  .um-feedback-heading h2{
+    font-size:42px;
+  }
+
+  .um-feedback-summary{
+    max-width:100%;
+  }
+
+  .um-feedback-layout{
+    grid-template-columns:1fr;
+  }
+
+  .um-feedback-left-stack{
+    height:auto;
+    grid-template-rows:auto auto;
+  }
+
+  .um-feedback-form,
+  .um-feedback-form-wrap{
+    height:auto;
+  }
+}
+
+@media(max-width:575px){
+  .um-feedback-section{
+    padding:62px 14px 54px;
+  }
+
+  .um-feedback-heading h2{
+    font-size:34px;
+  }
+
+  .um-feedback-summary{
+    grid-template-columns:1fr;
+  }
+
+  .um-feedback-showcase{
+    padding:20px;
+    border-radius:28px;
+  }
+
+  .um-feedback-toolbar{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .um-feedback-controls{
+    width:100%;
+    justify-content:flex-end;
+  }
+
+  .um-feedback-card,
+  .um-feedback-form{
+    padding:24px 20px;
+    border-radius:28px;
+  }
+
+  .um-feedback-card{
+    flex-basis:100%;
+  }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function(){
+  const slider = document.querySelector("[data-feedback-slider]");
+  if(!slider) return;
+
+  const track = slider.querySelector("[data-feedback-track]");
+  const originalCards = Array.from(slider.querySelectorAll("[data-feedback-card]"));
+  const prev = slider.querySelector("[data-feedback-prev]");
+  const next = slider.querySelector("[data-feedback-next]");
+  const dotsWrap = slider.querySelector("[data-feedback-dots]");
+  const modalEl = document.getElementById("feedbackDetailModal");
+  const modalName = modalEl?.querySelector("[data-modal-name]");
+  const modalInstitute = modalEl?.querySelector("[data-modal-institute]");
+  const modalAvatar = modalEl?.querySelector("[data-modal-avatar]");
+  const modalStars = modalEl?.querySelector("[data-modal-stars]");
+  const modalText = modalEl?.querySelector("[data-modal-text]");
+  const feedbackModal = modalEl && window.bootstrap ? new bootstrap.Modal(modalEl) : null;
+
+  let index = 0;
+  let timer = null;
+  let visibleCount = 1;
+  let allCards = originalCards;
+  let isModalOpen = false;
+
+  function getVisibleCount(){
+    return window.matchMedia("(max-width:575px)").matches ? 1 : 2;
+  }
+
+  function rebuildClones(){
+    if(!track || !originalCards.length) return;
+    visibleCount = getVisibleCount();
+    track.querySelectorAll("[data-feedback-clone]").forEach(clone=>clone.remove());
+
+    originalCards.slice(0,visibleCount).forEach(card=>{
+      const clone = card.cloneNode(true);
+      clone.setAttribute("data-feedback-clone","true");
+      clone.setAttribute("aria-hidden","true");
+      track.appendChild(clone);
+    });
+
+    allCards = Array.from(track.querySelectorAll("[data-feedback-card]"));
+    refreshReadMoreButtons();
+  }
+
+  function cardStep(){
+    if(allCards.length < 2) return 0;
+    const first = allCards[0].getBoundingClientRect();
+    const second = allCards[1].getBoundingClientRect();
+    return second.left - first.left || first.width;
+  }
+
+  function setTransition(enabled){
+    if(track){
+      track.style.transition = enabled ? "transform .55s cubic-bezier(.22,1,.36,1)" : "none";
+    }
+  }
+
+  function updateDots(){
+    if(!dotsWrap) return;
+    const activeIndex = index >= originalCards.length ? 0 : index;
+    dotsWrap.querySelectorAll(".um-feedback-dot").forEach((dot,dotIndex)=>{
+      dot.classList.toggle("active",dotIndex === activeIndex);
+    });
+  }
+
+  function updateSlider(animate=true){
+    if(!track || !originalCards.length) return;
+    setTransition(animate);
+    track.style.transform = `translateX(${-index * cardStep()}px)`;
+    updateDots();
+  }
+
+  function resetIfClone(){
+    if(index >= originalCards.length){
+      index = 0;
+      updateSlider(false);
+      requestAnimationFrame(()=>setTransition(true));
+    }
+  }
+
+  function goTo(nextIndex){
+    if(!originalCards.length) return;
+    if(nextIndex < 0){
+      index = Math.max(originalCards.length - 1,0);
+      updateSlider(false);
+      requestAnimationFrame(()=>{
+        index = Math.max(originalCards.length - 2,0);
+        updateSlider(true);
+      });
+      return;
+    }
+
+    index = nextIndex;
+    updateSlider(true);
+  }
+
+  function startAuto(){
+    if(originalCards.length < 2 || isModalOpen) return;
+    stopAuto();
+    timer = setInterval(()=>goTo(index + 1),4500);
+  }
+
+  function stopAuto(){
+    if(timer){
+      clearInterval(timer);
+      timer = null;
+    }
+  }
+
+  if(dotsWrap && originalCards.length){
+    dotsWrap.innerHTML = originalCards.map((card,cardIndex)=>`
+      <button type="button" class="um-feedback-dot" aria-label="Show feedback ${cardIndex + 1}"></button>
+    `).join("");
+
+    dotsWrap.querySelectorAll(".um-feedback-dot").forEach((dot,dotIndex)=>{
+      dot.addEventListener("click",()=>{
+        goTo(dotIndex);
+        startAuto();
+      });
+    });
+  }
+
+  if(prev){
+    prev.addEventListener("click",()=>{
+      goTo(index - 1);
+      startAuto();
+    });
+  }
+
+  if(next){
+    next.addEventListener("click",()=>{
+      goTo(index + 1);
+      startAuto();
+    });
+  }
+
+  slider.addEventListener("mouseenter",stopAuto);
+  slider.addEventListener("mouseleave",startAuto);
+  slider.addEventListener("focusin",stopAuto);
+  slider.addEventListener("focusout",startAuto);
+  track?.addEventListener("transitionend",resetIfClone);
+  window.addEventListener("resize",()=>{
+    rebuildClones();
+    if(index >= originalCards.length) index = 0;
+    updateSlider(false);
+    requestAnimationFrame(()=>setTransition(true));
+  });
+
+  function refreshReadMoreButtons(){
+    allCards.forEach(card=>{
+      const text = card.querySelector("[data-feedback-text]");
+      const button = card.querySelector("[data-feedback-read]");
+      if(!text || !button) return;
+
+      card.classList.remove("expanded");
+      button.textContent = "Read more";
+      button.classList.remove("is-hidden");
+
+      requestAnimationFrame(()=>{
+        if(text.scrollHeight <= text.clientHeight + 4){
+          button.classList.add("is-hidden");
+        }
+      });
+    });
+  }
+
+  function cardRating(card){
+    const label = card.querySelector(".um-feedback-stars")?.getAttribute("aria-label") || "";
+    const rating = parseInt(label,10);
+    if(Number.isNaN(rating)) return 0;
+    return Math.max(0,Math.min(rating,5));
+  }
+
+  function showFeedbackModal(card){
+    if(!modalEl || !modalName || !modalInstitute || !modalAvatar || !modalStars || !modalText) return;
+
+    const name = card.querySelector(".um-feedback-card-top h3")?.textContent.trim() || "Feedback";
+    const institute = card.querySelector(".um-feedback-card-top small")?.textContent.trim() || "UltraCoachMatrix user";
+    const text = card.querySelector("[data-feedback-text]")?.textContent.trim() || "";
+    const rating = cardRating(card);
+
+    modalName.textContent = name;
+    modalInstitute.textContent = institute;
+    modalAvatar.textContent = name.charAt(0).toUpperCase();
+    modalText.textContent = text;
+    modalStars.innerHTML = "";
+
+    for(let star = 1; star <= 5; star += 1){
+      const icon = document.createElement("i");
+      icon.className = star <= rating ? "bi bi-star-fill" : "bi bi-star";
+      modalStars.appendChild(icon);
+    }
+
+    isModalOpen = true;
+    stopAuto();
+
+    if(feedbackModal){
+      feedbackModal.show();
+    }else{
+      modalEl.classList.add("show");
+      modalEl.style.display = "block";
+      modalEl.removeAttribute("aria-hidden");
+    }
+  }
+
+  track?.addEventListener("click",event=>{
+    const button = event.target.closest("[data-feedback-read]");
+    if(!button || !track.contains(button)) return;
+
+    const card = button.closest("[data-feedback-card]");
+    if(!card) return;
+
+    showFeedbackModal(card);
+  });
+
+  modalEl?.addEventListener("hidden.bs.modal",()=>{
+    isModalOpen = false;
+    startAuto();
+  });
+
+  originalCards.forEach(card=>{
+    const text = card.querySelector("[data-feedback-text]");
+    const button = card.querySelector("[data-feedback-read]");
+    if(!text || !button) return;
+
+    requestAnimationFrame(()=>{
+      if(text.scrollHeight <= text.clientHeight + 4){
+        button.classList.add("is-hidden");
+      }
+    });
+  });
+
+  rebuildClones();
+  updateSlider(false);
+  requestAnimationFrame(()=>setTransition(true));
+  startAuto();
+})();
+</script>
 
 {% endblock content %}

@@ -1,9 +1,14 @@
 from datetime import timedelta
+from datetime import date
+from decimal import Decimal
 from unittest.mock import patch
 
+from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
+from accountant.models import FeeCategory, FeeInvoice, Payment
+from student_parent.models import StudentAcademicSession, StudentProfile
 from .background_jobs import (
     dispatch_background_job,
     enqueue_background_job,
@@ -13,7 +18,7 @@ from .background_jobs import (
     redispatch_pending_background_jobs,
     run_background_job,
 )
-from .models import BackgroundJob, Notice
+from .models import AcademicYear, BackgroundJob, Notice
 from super_admin.models import Institute
 
 
@@ -70,8 +75,64 @@ class CeleryBackgroundJobTests(TestCase):
         self.assertTrue(dispatched)
         run_job.assert_called_once_with(job.pk)
 
-    @override_settings(BACKGROUND_JOB_SYNC_NOTICE_FALLBACK=True)
-    def test_broker_failure_processes_notice_notification_synchronously(self):
+    def test_active_payment_creation_queues_fee_notification_once(self):
+        user = User.objects.create_user(username="fee-student")
+        student = StudentProfile.objects.create(
+            institute=self.institute,
+            user=user,
+            admission_number="FEE-001",
+        )
+        academic_year = AcademicYear.objects.create(
+            institute=self.institute,
+            name="2026-27",
+            start_date=date(2026, 4, 1),
+            end_date=date(2027, 3, 31),
+        )
+        academic_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=student,
+            academic_year=academic_year,
+            admission_number="FEE-001",
+        )
+        category = FeeCategory.objects.create(
+            institute=self.institute,
+            academic_year=academic_year,
+            name="Tuition",
+            default_amount=Decimal("1000.00"),
+        )
+        invoice = FeeInvoice.objects.create(
+            institute=self.institute,
+            student=student,
+            academic_session=academic_session,
+            category=category,
+            title="Term fees",
+            amount=Decimal("1000.00"),
+            due_date=date(2026, 6, 30),
+        )
+
+        with (
+            patch("institute_admin.background_jobs.dispatch_background_job") as dispatch,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            payment = Payment.objects.create(
+                invoice=invoice,
+                amount=Decimal("500.00"),
+                paid_on=date(2026, 5, 1),
+                receipt_number="RCP-FEE-001",
+            )
+            from student_parent.notifications import enqueue_fee_paid_notification
+
+            existing_job = enqueue_fee_paid_notification(payment)
+
+        jobs = BackgroundJob.objects.filter(
+            job_type=BackgroundJob.JobType.FEE_NOTIFICATION,
+            payload__payment_id=payment.pk,
+        )
+        self.assertEqual(jobs.count(), 1)
+        self.assertEqual(existing_job.pk, jobs.get().pk)
+        dispatch.assert_called_once_with(jobs.get().pk)
+
+    def test_broker_failure_processes_notice_notification_synchronously_by_default(self):
         job = BackgroundJob.objects.create(
             job_type=BackgroundJob.JobType.NOTICE_NOTIFICATION
         )

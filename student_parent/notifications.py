@@ -66,9 +66,54 @@ def firebase_configuration_status():
     project_id = getattr(settings, "FIREBASE_PROJECT_ID", "") or ""
     try:
         with credentials_path.open(encoding="utf-8") as handle:
-            project_id = project_id or json.load(handle).get("project_id", "")
-    except (OSError, json.JSONDecodeError):
-        pass
+            credential_data = json.load(handle)
+    except OSError:
+        return {
+            "ready": False,
+            "enabled": True,
+            "firebase_admin_installed": True,
+            "credentials_file": str(credentials_path),
+            "detail": "Firebase credentials file could not be read.",
+        }
+    except json.JSONDecodeError:
+        return {
+            "ready": False,
+            "enabled": True,
+            "firebase_admin_installed": True,
+            "credentials_file": str(credentials_path),
+            "detail": "Firebase credentials file is not valid JSON.",
+        }
+
+    project_id = project_id or credential_data.get("project_id", "")
+    private_key = str(credential_data.get("private_key") or "")
+    client_email = str(credential_data.get("client_email") or "")
+    if credential_data.get("type") != "service_account":
+        return {
+            "ready": False,
+            "enabled": True,
+            "firebase_admin_installed": True,
+            "credentials_file": str(credentials_path),
+            "project_id": project_id,
+            "detail": "Firebase credentials file must be a service-account JSON file.",
+        }
+    if not client_email:
+        return {
+            "ready": False,
+            "enabled": True,
+            "firebase_admin_installed": True,
+            "credentials_file": str(credentials_path),
+            "project_id": project_id,
+            "detail": "Firebase credentials file is missing client_email.",
+        }
+    if "BEGIN PRIVATE KEY" not in private_key or "END PRIVATE KEY" not in private_key:
+        return {
+            "ready": False,
+            "enabled": True,
+            "firebase_admin_installed": True,
+            "credentials_file": str(credentials_path),
+            "project_id": project_id,
+            "detail": "Firebase credentials file is missing a valid private_key.",
+        }
 
     return {
         "ready": True,
@@ -494,6 +539,12 @@ def enqueue_fee_paid_notification(payment):
         "invoice",
         "invoice__academic_session",
     ).get(pk=payment_id)
+    existing_job = BackgroundJob.objects.filter(
+        job_type=BackgroundJob.JobType.FEE_NOTIFICATION,
+        payload__payment_id=payment_id,
+    ).first()
+    if existing_job:
+        return existing_job
     return enqueue_background_job(
         BackgroundJob.JobType.FEE_NOTIFICATION,
         institute=payment_record.invoice.institute,

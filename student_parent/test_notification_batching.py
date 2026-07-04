@@ -1,15 +1,17 @@
 import json
+import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from institute_admin.models import Notice
 from super_admin.models import Institute
 
 from .models import PushNotification, StudentProfile, UserDevice
-from .notifications import FIREBASE_MULTICAST_LIMIT, notify_notice_published
+from .notifications import FIREBASE_MULTICAST_LIMIT, firebase_configuration_status, notify_notice_published
 
 
 class FakeMessaging:
@@ -168,6 +170,30 @@ class NoticeNotificationBatchingTests(TestCase):
         self.assertEqual(
             record.error_message,
             "Firebase credentials are unavailable.",
+        )
+
+    def test_redacted_firebase_credentials_are_reported_as_not_ready(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            credentials_path = Path(temp_dir) / "firebase-service-account.json"
+            credentials_path.write_text(
+                json.dumps(
+                    {
+                        "type": "service_account",
+                        "project_id": "push-notification-ucm-producti",
+                        "client_email": "firebase-adminsdk@example.iam.gserviceaccount.com",
+                        "private_key": "PRIVATE_KEY_HIDDEN",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with override_settings(FIREBASE_CREDENTIALS_FILE=str(credentials_path)):
+                status = firebase_configuration_status()
+
+        self.assertFalse(status["ready"])
+        self.assertEqual(status["project_id"], "push-notification-ucm-producti")
+        self.assertEqual(
+            status["detail"],
+            "Firebase credentials file is missing a valid private_key.",
         )
 
     def test_long_notice_uses_bounded_firebase_preview(self):

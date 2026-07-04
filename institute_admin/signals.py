@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models.signals import m2m_changed, post_delete, post_save
 from django.dispatch import receiver
 
@@ -73,6 +74,19 @@ def invalidate_payment_dashboard(sender, instance, **kwargs):
     ).filter(pk=instance.invoice_id).first()
     if invoice:
         invalidate_dashboard_summary(invoice.institute_id, invoice.academic_session.academic_year_id)
+
+
+@receiver(post_save, sender=Payment)
+def enqueue_payment_push_notification(sender, instance, created, **kwargs):
+    if not created or instance.status != Payment.Status.ACTIVE:
+        return
+
+    def _enqueue():
+        from student_parent.notifications import enqueue_fee_paid_notification
+
+        enqueue_fee_paid_notification(instance.pk)
+
+    transaction.on_commit(_enqueue)
 
 
 @receiver([post_save, post_delete], sender=Attendance)
