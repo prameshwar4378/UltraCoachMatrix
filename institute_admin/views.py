@@ -81,6 +81,7 @@ from .forms import (
     generate_student_admission_number,
     generate_student_login_credentials,
     get_academic_year_label,
+    get_institute_initials,
     get_last_student_admission_sequence,
     get_or_create_academic_year,
     get_student_admission_prefix,
@@ -166,6 +167,15 @@ def close_popup_response(receipt_url=None):
         </script>
         """.replace("__RECEIPT_SCRIPT__", receipt_script)
     )
+
+
+def build_payment_receipt_number(payment):
+    invoice = payment.invoice
+    institute = invoice.institute or invoice.student.institute
+    academic_year = invoice.academic_session.academic_year if invoice.academic_session_id else None
+    institute_prefix = get_institute_initials(institute)
+    year_label = academic_year.name if academic_year else payment.paid_on.strftime("%Y")
+    return f"{institute_prefix}-{year_label}-{payment.pk:05d}"
 
 
 def render_print_document(request, document_type, default_template_name, context):
@@ -8248,7 +8258,7 @@ def student_receive_fee(request, pk):
                         note=form.cleaned_data["note"],
                     )
                     if not payment.receipt_number:
-                        payment.receipt_number = f"RCP-{payment.paid_on:%Y%m%d}-{payment.pk:05d}"
+                        payment.receipt_number = build_payment_receipt_number(payment)
                         payment.save(update_fields=["receipt_number"])
                     PaymentActivity.objects.create(
                         payment=payment,
@@ -9485,13 +9495,14 @@ def notice_create(request):
     if request.method == "POST":
         form = NoticeForm(request.POST, institute=institute, academic_year=academic_year)
         if form.is_valid():
-            notice = form.save(commit=False)
-            notice.institute = institute
-            notice.academic_year = academic_year
-            notice.created_by = request.user
-            notice.save()
-            form.save_m2m()
-            transaction.on_commit(lambda notice_id=notice.pk: enqueue_notice_published_notification(notice_id))
+            with transaction.atomic():
+                notice = form.save(commit=False)
+                notice.institute = institute
+                notice.academic_year = academic_year
+                notice.created_by = request.user
+                notice.save()
+                form.save_m2m()
+                transaction.on_commit(lambda notice_id=notice.pk: enqueue_notice_published_notification(notice_id))
             messages.success(request, "Notice created successfully.")
             return close_popup_response()
     else:

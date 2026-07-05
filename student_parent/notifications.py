@@ -363,6 +363,7 @@ def _notice_multicast_message(messaging, notice, tokens):
         "priority_label": notice.get_priority_display(),
         **_institute_payload(notice.institute),
     }
+    payload = {key: str(value) for key, value in payload.items() if value is not None}
     return messaging.MulticastMessage(
         tokens=tokens,
         notification=messaging.Notification(

@@ -2684,6 +2684,12 @@ class ReceiveFeeForm(forms.Form):
                 css_class = "form-control"
             field.widget.attrs.setdefault("class", css_class)
 
+    def clean_receipt_number(self):
+        receipt_number = (self.cleaned_data.get("receipt_number") or "").strip()
+        if receipt_number and Payment.objects.filter(receipt_number__iexact=receipt_number).exists():
+            raise ValidationError("This receipt number is already used.")
+        return receipt_number
+
     def clean(self):
         cleaned_data = super().clean()
         existing_invoice = None
@@ -2867,6 +2873,16 @@ class PaymentUpdateForm(forms.Form):
             else:
                 css_class = "form-control"
             field.widget.attrs.setdefault("class", css_class)
+
+    def clean_receipt_number(self):
+        receipt_number = (self.cleaned_data.get("receipt_number") or "").strip()
+        if receipt_number:
+            queryset = Payment.objects.filter(receipt_number__iexact=receipt_number)
+            if self.payment:
+                queryset = queryset.exclude(pk=self.payment.pk)
+            if queryset.exists():
+                raise ValidationError("This receipt number is already used.")
+        return receipt_number
 
     def clean(self):
         cleaned_data = super().clean()

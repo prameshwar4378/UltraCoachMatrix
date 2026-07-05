@@ -22,6 +22,7 @@ from openpyxl import Workbook, load_workbook
 from accountant.models import Expense, ExpenseActivity, ExpenseBin, ExpenseDocument, FeeCategory, FeeInvoice, Payment
 from student_parent.models import (
     GuardianProfile,
+    PushNotification,
     StudentAcademicSession,
     StudentBonafideCertificate,
     StudentEnrollment,
@@ -3741,6 +3742,68 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertEqual(new_job.payload["notification_version"], 2)
         dispatch.assert_called_once_with(new_job.pk)
 
+    @override_settings(
+        BACKGROUND_JOB_ASYNC_NOTIFICATIONS=False,
+        BACKGROUND_JOB_SYNC_NOTIFICATIONS=True,
+    )
+    def test_notice_create_push_uses_saved_target_students(self):
+        self.select_year(self.year_2026)
+        other_user = User.objects.create_user(
+            username="other-student",
+            password="pass12345",
+            first_name="Other",
+        )
+        UserProfile.objects.create(
+            user=other_user,
+            institute=self.institute,
+            role=UserProfile.Role.STUDENT_PARENT,
+            phone="9222222222",
+        )
+        other_student = StudentProfile.objects.create(
+            institute=self.institute,
+            user=other_user,
+            academic_year=None,
+            admission_number="LEGACY-0002",
+            is_active=True,
+        )
+        StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=other_student,
+            academic_year=self.year_2026,
+            admission_number="SMIS-2026-27-0002",
+            joined_on=date(2026, 4, 5),
+            status=StudentAcademicSession.Status.ACTIVE,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("institute_admin:notice_create"),
+                {
+                    "title": "Targeted notice",
+                    "message": "Only one selected student should receive this.",
+                    "audience": Notice.Audience.STUDENTS_PARENTS,
+                    "category": Notice.Category.GENERAL,
+                    "priority": Notice.Priority.NORMAL,
+                    "target_batches": [],
+                    "target_courses": [],
+                    "target_students": [self.student.pk],
+                    "publish_at": "",
+                    "expires_at": "",
+                    "is_published": "on",
+                    "push_to_app": "on",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        notice = Notice.objects.get(title="Targeted notice")
+        self.assertEqual(list(notice.target_students.all()), [self.student])
+        notifications = PushNotification.objects.filter(
+            notification_type=PushNotification.NotificationType.NOTICE,
+            data__notice_id=str(notice.pk),
+        )
+        self.assertEqual(notifications.count(), 1)
+        self.assertEqual(notifications.get().user, self.student.user)
+
     def test_student_dashboard_context_is_limited_to_selected_session(self):
         self.select_year(self.year_2026)
         response = self.client.get(reverse("institute_admin:student_dashboard", args=[self.student.pk]))
@@ -4414,6 +4477,8 @@ class AcademicSessionIsolationTests(TestCase):
             for payment in Payment.objects.filter(invoice=self.invoice_2026, status=Payment.Status.ACTIVE)
         )
         self.assertEqual(active_paid, Decimal("550.00"))
+        payment = Payment.objects.filter(invoice=self.invoice_2026).latest("pk")
+        self.assertRegex(payment.receipt_number, r"^SMIS-2026-27-\d{5}$")
 
     def test_payment_correction_rejects_overpayment(self):
         form = PaymentUpdateForm(

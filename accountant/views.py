@@ -176,12 +176,24 @@ def _active_fee_session(student, request):
 def _student_payload(student, request=None):
     session = _active_fee_session(student, request) if request is not None else None
     admission_number = session.admission_number if session else student.admission_number
+    institute_logo_url = ""
+    if student.institute.logo:
+        try:
+            institute_logo_url = student.institute.logo.url
+            if request is not None:
+                institute_logo_url = request.build_absolute_uri(institute_logo_url)
+        except ValueError:
+            institute_logo_url = ""
     payload = {
         "id": student.pk,
         "admission_number": admission_number,
         "name": student.user.get_full_name() or student.user.username,
         "username": student.user.username,
-        "institute": {"id": student.institute_id, "name": student.institute.name},
+        "institute": {
+            "id": student.institute_id,
+            "name": student.institute.name,
+            "logo_url": institute_logo_url,
+        },
     }
     if session:
         payload["academic_session"] = {
