@@ -233,7 +233,7 @@ EMAIL_BASE_URL = os.environ.get(
 )
 STUDENT_APP_DOWNLOAD_URL = os.environ.get("STUDENT_APP_DOWNLOAD_URL", "")
 STUDENT_APP_APK_PATH = os.environ.get("STUDENT_APP_APK_PATH") or str(
-    BASE_DIR / "static" / "apk" / "Ultra Coach Matrix.apk"
+    BASE_DIR / "static" / "apk" / "UltraCoachMatrix.apk"
 )
 EMAIL_NOTIFICATIONS_RUN_SYNC = os.environ.get(
     "EMAIL_NOTIFICATIONS_RUN_SYNC",
