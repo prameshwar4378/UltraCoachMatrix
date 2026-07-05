@@ -59,7 +59,12 @@ def index(request):
 
 
 def download_android_app(request):
-    apk_path = Path(settings.STUDENT_APP_APK_PATH)
+    configured_path = Path(settings.STUDENT_APP_APK_PATH)
+    apk_path = configured_path
+    if not apk_path.is_file():
+        fallback_path = Path(settings.BASE_DIR) / "static" / "apk" / "UltraCoachMatrix.apk"
+        if fallback_path.is_file():
+            apk_path = fallback_path
     if not apk_path.is_file():
         raise Http404("The Android application is not available.")
     return FileResponse(
