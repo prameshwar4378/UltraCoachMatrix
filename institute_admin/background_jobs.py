@@ -21,8 +21,29 @@ def enqueue_background_job(job_type, *, institute=None, academic_year=None, crea
         payload=payload or {},
         input_file=input_file,
     )
-    transaction.on_commit(lambda job_id=job.pk: dispatch_background_job(job_id))
+    transaction.on_commit(lambda job_id=job.pk: process_enqueued_background_job(job_id))
     return job
+
+
+def process_enqueued_background_job(job_id):
+    job = BackgroundJob.objects.filter(pk=job_id).only("job_type").first()
+    if job and _should_run_synchronously(job.job_type):
+        try:
+            run_background_job(job_id)
+        except Exception:
+            logger.exception("Could not process notification job %s synchronously.", job_id)
+            return False
+        return True
+    return dispatch_background_job(job_id)
+
+
+def _should_run_synchronously(job_type):
+    if not getattr(settings, "BACKGROUND_JOB_SYNC_NOTIFICATIONS", True):
+        return False
+    return job_type in {
+        BackgroundJob.JobType.FEE_NOTIFICATION,
+        BackgroundJob.JobType.NOTICE_NOTIFICATION,
+    }
 
 
 def enqueue_due_notice_notifications(*, limit=100, notice_ids=None):

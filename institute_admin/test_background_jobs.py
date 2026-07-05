@@ -1,5 +1,5 @@
-from datetime import timedelta
 from datetime import date
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -8,7 +8,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from accountant.models import FeeCategory, FeeInvoice, Payment
-from student_parent.models import StudentAcademicSession, StudentProfile
+from student_parent.models import PushNotification, StudentAcademicSession, StudentProfile
 from .background_jobs import (
     dispatch_background_job,
     enqueue_background_job,
@@ -29,7 +29,8 @@ class CeleryBackgroundJobTests(TestCase):
             code="scheduled-notice",
         )
 
-    def test_enqueue_dispatches_only_after_transaction_commit(self):
+    @override_settings(BACKGROUND_JOB_SYNC_NOTIFICATIONS=False)
+    def test_enqueue_dispatches_only_after_transaction_commit_when_sync_is_disabled(self):
         with patch(
             "institute_admin.background_jobs.dispatch_background_job"
         ) as dispatch:
@@ -110,10 +111,7 @@ class CeleryBackgroundJobTests(TestCase):
             due_date=date(2026, 6, 30),
         )
 
-        with (
-            patch("institute_admin.background_jobs.dispatch_background_job") as dispatch,
-            self.captureOnCommitCallbacks(execute=True),
-        ):
+        with self.captureOnCommitCallbacks(execute=True):
             payment = Payment.objects.create(
                 invoice=invoice,
                 amount=Decimal("500.00"),
@@ -129,8 +127,42 @@ class CeleryBackgroundJobTests(TestCase):
             payload__payment_id=payment.pk,
         )
         self.assertEqual(jobs.count(), 1)
-        self.assertEqual(existing_job.pk, jobs.get().pk)
-        dispatch.assert_called_once_with(jobs.get().pk)
+        job = jobs.get()
+        self.assertEqual(existing_job.pk, job.pk)
+        job.refresh_from_db()
+        self.assertEqual(job.status, BackgroundJob.Status.COMPLETED)
+        notification = PushNotification.objects.get(user=user)
+        self.assertEqual(notification.notification_type, PushNotification.NotificationType.FEE_PAID)
+        self.assertEqual(notification.status, PushNotification.Status.SKIPPED)
+
+    def test_published_notice_creation_processes_push_notification(self):
+        user = User.objects.create_user(username="notice-student")
+        StudentProfile.objects.create(
+            institute=self.institute,
+            user=user,
+            admission_number="NOTICE-001",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            notice = Notice.objects.create(
+                institute=self.institute,
+                title="Immediate notice",
+                message="This notice should notify students.",
+                is_published=True,
+                push_to_app=True,
+            )
+
+        jobs = BackgroundJob.objects.filter(
+            job_type=BackgroundJob.JobType.NOTICE_NOTIFICATION,
+            payload__notice_id=notice.pk,
+        )
+        self.assertEqual(jobs.count(), 1)
+        job = jobs.get()
+        self.assertEqual(job.status, BackgroundJob.Status.COMPLETED)
+        self.assertEqual(job.result["notification_count"], 1)
+        notification = PushNotification.objects.get(user=user)
+        self.assertEqual(notification.notification_type, PushNotification.NotificationType.NOTICE)
+        self.assertEqual(notification.status, PushNotification.Status.SKIPPED)
 
     def test_broker_failure_processes_notice_notification_synchronously_by_default(self):
         job = BackgroundJob.objects.create(
@@ -241,12 +273,7 @@ class CeleryBackgroundJobTests(TestCase):
         Notice.objects.filter(pk=notice.pk).update(
             publish_at=timezone.now() - timedelta(seconds=1)
         )
-        with (
-            patch(
-                "institute_admin.background_jobs.dispatch_background_job"
-            ) as dispatch,
-            self.captureOnCommitCallbacks(execute=True),
-        ):
+        with self.captureOnCommitCallbacks(execute=True):
             jobs = enqueue_due_notice_notifications()
 
         self.assertEqual(len(jobs), 1)
@@ -255,7 +282,8 @@ class CeleryBackgroundJobTests(TestCase):
             jobs[0].payload["notification_version"],
             notice.push_notification_version,
         )
-        dispatch.assert_called_once_with(jobs[0].pk)
+        jobs[0].refresh_from_db()
+        self.assertEqual(jobs[0].status, BackgroundJob.Status.COMPLETED)
         notice.refresh_from_db()
         self.assertIsNotNone(notice.push_notification_queued_at)
         self.assertEqual(enqueue_due_notice_notifications(), [])

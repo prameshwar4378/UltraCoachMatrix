@@ -89,6 +89,19 @@ def enqueue_payment_push_notification(sender, instance, created, **kwargs):
     transaction.on_commit(_enqueue)
 
 
+@receiver(post_save, sender=Notice)
+def enqueue_created_notice_push_notification(sender, instance, created, **kwargs):
+    if not created or not instance.is_published or not instance.push_to_app:
+        return
+
+    def _enqueue():
+        from student_parent.notifications import enqueue_notice_published_notification
+
+        enqueue_notice_published_notification(instance.pk)
+
+    transaction.on_commit(_enqueue)
+
+
 @receiver([post_save, post_delete], sender=Attendance)
 def invalidate_attendance_dashboard(sender, instance, **kwargs):
     invalidate_session(instance.academic_session)
