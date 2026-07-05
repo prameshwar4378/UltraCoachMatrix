@@ -5,7 +5,7 @@ from . import views
 urlpatterns = [
     path("", views.index, name="index"),
     path(
-        "download/ultra-coach-matrix.apk",
+        "download/UltraCoachMatrix.apk",
         views.download_android_app,
         name="apk_download",
     ),
