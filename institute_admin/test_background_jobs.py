@@ -29,7 +29,10 @@ class CeleryBackgroundJobTests(TestCase):
             code="scheduled-notice",
         )
 
-    @override_settings(BACKGROUND_JOB_SYNC_NOTIFICATIONS=False)
+    @override_settings(
+        BACKGROUND_JOB_ASYNC_NOTIFICATIONS=False,
+        BACKGROUND_JOB_SYNC_NOTIFICATIONS=False,
+    )
     def test_enqueue_dispatches_only_after_transaction_commit_when_sync_is_disabled(self):
         with patch(
             "institute_admin.background_jobs.dispatch_background_job"
@@ -76,6 +79,24 @@ class CeleryBackgroundJobTests(TestCase):
         self.assertTrue(dispatched)
         run_job.assert_called_once_with(job.pk)
 
+    def test_notification_enqueue_starts_background_thread_by_default(self):
+        with (
+            patch("institute_admin.background_jobs.threading.Thread") as thread_class,
+            patch("institute_admin.background_jobs.dispatch_background_job") as dispatch,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            job = enqueue_background_job(BackgroundJob.JobType.FEE_NOTIFICATION)
+
+        thread_class.assert_called_once()
+        thread_class.return_value.start.assert_called_once()
+        dispatch.assert_not_called()
+        job.refresh_from_db()
+        self.assertEqual(job.status, BackgroundJob.Status.PENDING)
+
+    @override_settings(
+        BACKGROUND_JOB_ASYNC_NOTIFICATIONS=False,
+        BACKGROUND_JOB_SYNC_NOTIFICATIONS=True,
+    )
     def test_active_payment_creation_queues_fee_notification_once(self):
         user = User.objects.create_user(username="fee-student")
         student = StudentProfile.objects.create(
@@ -135,6 +156,10 @@ class CeleryBackgroundJobTests(TestCase):
         self.assertEqual(notification.notification_type, PushNotification.NotificationType.FEE_PAID)
         self.assertEqual(notification.status, PushNotification.Status.SKIPPED)
 
+    @override_settings(
+        BACKGROUND_JOB_ASYNC_NOTIFICATIONS=False,
+        BACKGROUND_JOB_SYNC_NOTIFICATIONS=True,
+    )
     def test_published_notice_creation_processes_push_notification(self):
         user = User.objects.create_user(username="notice-student")
         StudentProfile.objects.create(
@@ -253,6 +278,10 @@ class CeleryBackgroundJobTests(TestCase):
         self.assertEqual(redispatched_ids, [job.pk])
         dispatch.assert_called_once_with(job.pk)
 
+    @override_settings(
+        BACKGROUND_JOB_ASYNC_NOTIFICATIONS=False,
+        BACKGROUND_JOB_SYNC_NOTIFICATIONS=True,
+    )
     def test_future_notice_is_queued_once_when_publish_time_arrives(self):
         notice = Notice.objects.create(
             institute=self.institute,

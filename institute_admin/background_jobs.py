@@ -1,7 +1,9 @@
 import logging
+import threading
 from datetime import timedelta
 
 from django.conf import settings
+from django.db import close_old_connections
 from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
@@ -27,6 +29,15 @@ def enqueue_background_job(job_type, *, institute=None, academic_year=None, crea
 
 def process_enqueued_background_job(job_id):
     job = BackgroundJob.objects.filter(pk=job_id).only("job_type").first()
+    if job and _should_run_asynchronously(job.job_type):
+        thread = threading.Thread(
+            target=_run_background_job_in_thread,
+            args=(job_id,),
+            name=f"ucm-bgjob-{job_id}",
+            daemon=True,
+        )
+        thread.start()
+        return True
     if job and _should_run_synchronously(job.job_type):
         try:
             run_background_job(job_id)
@@ -35,6 +46,25 @@ def process_enqueued_background_job(job_id):
             return False
         return True
     return dispatch_background_job(job_id)
+
+
+def _run_background_job_in_thread(job_id):
+    close_old_connections()
+    try:
+        run_background_job(job_id)
+    except Exception:
+        logger.exception("Could not process notification job %s asynchronously.", job_id)
+    finally:
+        close_old_connections()
+
+
+def _should_run_asynchronously(job_type):
+    if not getattr(settings, "BACKGROUND_JOB_ASYNC_NOTIFICATIONS", True):
+        return False
+    return job_type in {
+        BackgroundJob.JobType.FEE_NOTIFICATION,
+        BackgroundJob.JobType.NOTICE_NOTIFICATION,
+    }
 
 
 def _should_run_synchronously(job_type):
