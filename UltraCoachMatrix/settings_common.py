@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     "corsheaders",
+    "rest_framework",
     'super_admin',
     'institute_admin',
     'teacher',
@@ -64,6 +65,21 @@ INSTALLED_APPS = [
     'student_parent',
     'Website',
 ]
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "teacher.api.authentication.MobileBearerAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "teacher.api.pagination.TeacherMobilePagination",
+    "PAGE_SIZE": 50,
+    "EXCEPTION_HANDLER": "teacher.api.exceptions.teacher_mobile_exception_handler",
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

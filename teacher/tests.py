@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 from io import BytesIO
 from unittest.mock import patch
@@ -11,9 +12,1196 @@ from openpyxl import Workbook, load_workbook
 
 from institute_admin.models import AcademicYear, Batch, Course, Notice, NoticeRead, Subject
 from student_parent.models import StudentAcademicSession, StudentEnrollment, StudentProfile
+from super_admin.mobile_auth import create_access_token
 from super_admin.models import Institute, UserProfile
 from teacher.forms import TeacherExamForm, TeacherHomeworkForm
 from teacher.models import Attendance, Exam, ExamAttempt, ExamAttemptUpload, ExamQuestion, ExamQuestionAttempt, ExamQuestionOption, ExamResult, Homework
+
+
+class TeacherMobileReadApiTests(TestCase):
+    def setUp(self):
+        self.institute = Institute.objects.create(name="Mobile Institute", code="mobile")
+        self.year = AcademicYear.objects.create(
+            institute=self.institute,
+            name="2026-27",
+            start_date="2026-04-01",
+            end_date="2027-03-31",
+        )
+        self.teacher_user = User.objects.create_user(username="mobile-teacher", password="pass")
+        UserProfile.objects.create(
+            user=self.teacher_user,
+            institute=self.institute,
+            role=UserProfile.Role.TEACHER,
+        )
+        self.student_user = User.objects.create_user(
+            username="mobile-student",
+            password="pass",
+            first_name="Mobile",
+            last_name="Student",
+        )
+        UserProfile.objects.create(
+            user=self.student_user,
+            institute=self.institute,
+            role=UserProfile.Role.STUDENT_PARENT,
+        )
+        self.student = StudentProfile.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            user=self.student_user,
+            admission_number="M001",
+        )
+        self.session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_year=self.year,
+            admission_number="M001",
+        )
+        self.course = Course.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            name="Science",
+        )
+        self.subject = Subject.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            name="Physics",
+        )
+        self.batch = Batch.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            name="Assigned Batch",
+        )
+        self.batch.courses.add(self.course)
+        self.batch.teachers.add(self.teacher_user)
+        enrollment = StudentEnrollment.objects.create(
+            student=self.student,
+            academic_session=self.session,
+            batch=self.batch,
+        )
+        enrollment.courses.add(self.course)
+
+        self.unassigned_batch = Batch.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            name="Private Batch",
+        )
+        self.unassigned_batch.courses.add(self.course)
+        self.unassigned_homework = Homework.objects.create(
+            batch=self.unassigned_batch,
+            course=self.course,
+            subject=self.subject,
+            title="Private Homework",
+            created_by=self.teacher_user,
+        )
+        self.unassigned_exam = Exam.objects.create(
+            academic_year=self.year,
+            batch=self.unassigned_batch,
+            course=self.course,
+            subject=self.subject,
+            title="Private Exam",
+            exam_date="2026-07-02",
+            is_published=True,
+        )
+
+        self.homework = Homework.objects.create(
+            batch=self.batch,
+            course=self.course,
+            subject=self.subject,
+            title="Assigned Homework",
+            due_date="2026-06-20",
+            created_by=self.teacher_user,
+        )
+        self.attendance = Attendance.objects.create(
+            student=self.student,
+            academic_session=self.session,
+            batch=self.batch,
+            date=timezone.localdate(),
+            status=Attendance.Status.PRESENT,
+            marked_by=self.teacher_user,
+        )
+        self.notice = Notice.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            title="Assigned Notice",
+            message="Visible",
+            audience=Notice.Audience.TEACHERS,
+            push_to_app=True,
+        )
+        self.notice.target_batches.add(self.batch)
+        self.hidden_notice = Notice.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            title="Hidden Notice",
+            message="Hidden",
+            audience=Notice.Audience.TEACHERS,
+            push_to_app=True,
+        )
+        self.hidden_notice.target_batches.add(self.unassigned_batch)
+        self.exam = Exam.objects.create(
+            academic_year=self.year,
+            batch=self.batch,
+            course=self.course,
+            subject=self.subject,
+            title="Assigned Exam",
+            exam_date="2026-07-01",
+            is_published=True,
+        )
+        self.question = ExamQuestion.objects.create(
+            exam=self.exam,
+            text="2 + 2?",
+            marks=2,
+            order=1,
+        )
+        ExamQuestionOption.objects.create(question=self.question, text="4", is_correct=True, order=1)
+        self.attempt = ExamAttempt.objects.create(
+            exam=self.exam,
+            academic_session=self.session,
+            student=self.student,
+            submitted_at=timezone.now(),
+            score=2,
+            total_marks=2,
+            correct_count=1,
+        )
+
+    def auth_headers(self, user=None):
+        return {"HTTP_AUTHORIZATION": f"Bearer {create_access_token(user or self.teacher_user)}"}
+
+    def get_json(self, path):
+        response = self.client.get(path, **self.auth_headers())
+        self.assertEqual(response.status_code, 200, response.content)
+        return response.json()
+
+    def post_json(self, path, payload=None):
+        return self.client.post(
+            path,
+            data=json.dumps(payload or {}),
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+    def put_json(self, path, payload=None):
+        return self.client.put(
+            path,
+            data=json.dumps(payload or {}),
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+    def patch_json(self, path, payload=None):
+        return self.client.patch(
+            path,
+            data=json.dumps(payload or {}),
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+
+    def result_titles(self, payload, key="title"):
+        return [item[key] for item in payload["results"]]
+
+    def test_phase_2_dashboard_returns_real_teacher_data(self):
+        payload = self.get_json("/api/mobile/teacher/dashboard/")
+
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["batch_count"], 1)
+        self.assertEqual(payload["student_count"], 1)
+        self.assertEqual(payload["homework_count"], 1)
+        self.assertEqual(payload["exam_count"], 1)
+        self.assertEqual(payload["today_attendance_count"], 1)
+        self.assertEqual(payload["submitted_attempt_count"], 1)
+        self.assertEqual(payload["pending_submission_count"], 0)
+        self.assertEqual(payload["assigned_batches"][0]["name"], "Assigned Batch")
+        self.assertEqual(payload["recent_homework"][0]["title"], "Assigned Homework")
+        self.assertEqual(payload["recent_exams"][0]["title"], "Assigned Exam")
+        self.assertEqual(payload["recent_results"][0]["exam_title"], "Assigned Exam")
+
+    def test_dashboard_reports_pending_submissions(self):
+        self.attempt.submitted_at = None
+        self.attempt.save(update_fields=["submitted_at"])
+
+        payload = self.get_json("/api/mobile/teacher/dashboard/")
+
+        self.assertEqual(payload["submitted_attempt_count"], 0)
+        self.assertEqual(payload["pending_submission_count"], 1)
+        self.assertEqual(payload["recent_results"], [])
+
+    def test_phase_2_classes_and_students_are_teacher_scoped(self):
+        classes = self.get_json("/api/mobile/teacher/classes/")
+        students = self.get_json(f"/api/mobile/teacher/classes/{self.batch.pk}/students/")
+
+        self.assertEqual(self.result_titles(classes, key="name"), ["Assigned Batch"])
+        self.assertEqual(students["results"][0]["name"], "Mobile Student")
+        self.assertEqual(
+            self.client.get(
+                f"/api/mobile/teacher/classes/{self.unassigned_batch.pk}/students/",
+                **self.auth_headers(),
+            ).status_code,
+            404,
+        )
+
+    def test_phase_2_attendance_assignments_notices_are_teacher_scoped(self):
+        attendance = self.get_json("/api/mobile/teacher/attendance/")
+        assignments = self.get_json("/api/mobile/teacher/assignments/")
+        notices = self.get_json("/api/mobile/teacher/notices/")
+
+        self.assertEqual(attendance["total"], 1)
+        self.assertEqual(attendance["rows"][0]["student_name"], "Mobile Student")
+        self.assertEqual(self.result_titles(assignments), ["Assigned Homework"])
+        self.assertNotIn("Private Homework", self.result_titles(assignments))
+        self.assertEqual(self.result_titles(notices), ["Assigned Notice"])
+        self.assertNotIn("Hidden Notice", self.result_titles(notices))
+
+    def test_phase_2_exams_questions_submissions_results_are_teacher_scoped(self):
+        exams = self.get_json("/api/mobile/teacher/exams/")
+        questions = self.get_json("/api/mobile/teacher/questions/")
+        submissions = self.get_json("/api/mobile/teacher/submissions/")
+        results = self.get_json("/api/mobile/teacher/results/")
+
+        self.assertEqual(self.result_titles(exams), ["Assigned Exam"])
+        self.assertNotIn("Private Exam", self.result_titles(exams))
+        self.assertEqual(questions["results"][0]["exam_title"], "Assigned Exam")
+        self.assertEqual(submissions["results"][0]["exam_title"], "Assigned Exam")
+        self.assertEqual(results["results"][0]["student_name"], "Mobile Student")
+
+    def test_phase_2_read_apis_require_teacher_bearer_token(self):
+        student_response = self.client.get(
+            "/api/mobile/teacher/dashboard/",
+            **self.auth_headers(self.student_user),
+        )
+        anonymous_response = self.client.get("/api/mobile/teacher/dashboard/")
+
+        self.assertEqual(student_response.status_code, 403)
+        self.assertFalse(student_response.json()["success"])
+        self.assertEqual(anonymous_response.status_code, 401)
+        self.assertFalse(anonymous_response.json()["success"])
+
+    def test_phase_2_paginated_endpoints_expose_meta(self):
+        payload = self.get_json("/api/mobile/teacher/classes/?page_size=1")
+
+        self.assertEqual(payload["meta"]["page_size"], 1)
+        self.assertEqual(payload["meta"]["count"], 1)
+
+    def test_class_students_support_search_and_pagination(self):
+        self.student.roll_number = "03"
+        self.student.save(update_fields=["roll_number"])
+        alpha_student, _ = self._create_extra_student("alpha-student", "Alpha", "Learner", "M101")
+        beta_student, _ = self._create_extra_student("beta-student", "Beta", "Learner", "M102")
+        alpha_student.roll_number = "01"
+        beta_student.roll_number = "02"
+        alpha_student.save(update_fields=["roll_number"])
+        beta_student.save(update_fields=["roll_number"])
+
+        page = self.get_json(f"/api/mobile/teacher/classes/{self.batch.pk}/students/?page_size=3")
+        self.assertEqual(page["meta"]["page_size"], 3)
+        self.assertEqual(page["meta"]["count"], 3)
+        self.assertEqual([row["roll_number"] for row in page["results"]], ["01", "02", "03"])
+
+        search = self.get_json(f"/api/mobile/teacher/classes/{self.batch.pk}/students/?search=Beta")
+        self.assertEqual(search["meta"]["count"], 1)
+        self.assertEqual(search["results"][0]["admission_number"], "M102")
+
+    def test_classes_students_and_student_detail_support_filters_and_summary(self):
+        classes = self.get_json(f"/api/mobile/teacher/classes/?search=Assigned&page_size=1&course_id={self.course.pk}")
+        self.assertEqual(classes["meta"]["page_size"], 1)
+        self.assertEqual(classes["meta"]["count"], 1)
+        self.assertEqual(classes["results"][0]["id"], self.batch.pk)
+
+        students = self.get_json(
+            f"/api/mobile/teacher/classes/{self.batch.pk}/students/?course_id={self.course.pk}&search=M001"
+        )
+        self.assertEqual(students["meta"]["count"], 1)
+        self.assertEqual(students["results"][0]["id"], self.session.pk)
+
+        detail = self.get_json(f"/api/mobile/teacher/classes/{self.batch.pk}/students/{self.session.pk}/")
+        self.assertEqual(detail["id"], self.session.pk)
+        self.assertEqual(detail["summary"]["attendance_total"], 1)
+        self.assertEqual(detail["summary"]["homework_count"], 1)
+        self.assertEqual(detail["summary"]["exam_count"], 1)
+
+        private = self.client.get(
+            f"/api/mobile/teacher/classes/{self.unassigned_batch.pk}/students/{self.session.pk}/",
+            **self.auth_headers(),
+        )
+        self.assertEqual(private.status_code, 404)
+
+    def test_attendance_supports_search_status_and_pagination(self):
+        self.student.roll_number = "03"
+        self.student.save(update_fields=["roll_number"])
+        alpha_student, alpha_session = self._create_extra_student("alpha-att", "Alpha", "Present", "M201")
+        beta_student, beta_session = self._create_extra_student("beta-att", "Beta", "Absent", "M202")
+        alpha_student.roll_number = "01"
+        beta_student.roll_number = "02"
+        alpha_student.save(update_fields=["roll_number"])
+        beta_student.save(update_fields=["roll_number"])
+        Attendance.objects.create(
+            student=alpha_student,
+            academic_session=alpha_session,
+            batch=self.batch,
+            date=timezone.localdate(),
+            status=Attendance.Status.PRESENT,
+            marked_by=self.teacher_user,
+        )
+        Attendance.objects.create(
+            student=beta_student,
+            academic_session=beta_session,
+            batch=self.batch,
+            date=timezone.localdate(),
+            status=Attendance.Status.ABSENT,
+            marked_by=self.teacher_user,
+        )
+
+        page = self.get_json("/api/mobile/teacher/attendance/?page_size=3")
+        self.assertEqual(page["meta"]["page_size"], 3)
+        self.assertEqual(page["meta"]["count"], 3)
+        self.assertEqual([row["roll_number"] for row in page["rows"]], ["01", "02", "03"])
+
+        absent = self.get_json("/api/mobile/teacher/attendance/?status=ABSENT")
+        self.assertEqual(absent["total"], 1)
+        self.assertEqual(absent["rows"][0]["student_name"], "Beta Absent")
+
+        search = self.get_json("/api/mobile/teacher/attendance/?search=M201")
+        self.assertEqual(search["meta"]["count"], 1)
+        self.assertEqual(search["rows"][0]["student_name"], "Alpha Present")
+
+    def test_reports_return_summaries_and_export_hooks(self):
+        self.attendance.date = "2026-07-10"
+        self.attendance.status = Attendance.Status.ABSENT
+        self.attendance.save(update_fields=["date", "status"])
+        self.student.roll_number = "02"
+        self.student.save(update_fields=["roll_number"])
+        no_attempt_student, _ = self._create_extra_student("no-attempt", "No", "Attempt", "M000")
+        no_attempt_student.roll_number = "01"
+        no_attempt_student.save(update_fields=["roll_number"])
+
+        attendance = self.get_json(
+            f"/api/mobile/teacher/reports/attendance/?class_id={self.batch.pk}&date_from=2026-07-01&date_to=2026-07-31"
+        )
+        self.assertEqual(attendance["report_type"], "attendance")
+        self.assertEqual(attendance["summary"]["total"], 1)
+        self.assertEqual(attendance["summary"]["absent"], 1)
+        self.assertEqual(attendance["class_summaries"][0]["class_name"], "Assigned Batch")
+        self.assertIn("format=pdf", attendance["export_hooks"]["pdf"]["url"])
+        self.assertTrue(attendance["export_hooks"]["excel"]["requires_auth"])
+
+        results = self.get_json(
+            f"/api/mobile/teacher/reports/results/?class_id={self.batch.pk}&exam_id={self.exam.pk}&date_from=2026-07-01&date_to=2026-07-31"
+        )
+        self.assertEqual(results["report_type"], "results")
+        self.assertEqual(results["summary"]["total"], 2)
+        self.assertEqual(results["summary"]["submitted"], 1)
+        self.assertEqual(results["summary"]["not_attempted"], 1)
+        self.assertEqual(results["class_summaries"][0]["average_percentage"], 100)
+        self.assertEqual(results["student_summaries"][0]["student_name"], "No Attempt")
+        self.assertEqual(results["student_summaries"][0]["roll_number"], "01")
+        self.assertEqual(results["student_summaries"][0]["status"], "not_attempted")
+        self.assertEqual(results["student_summaries"][0]["attempted_questions"], 0)
+        self.assertEqual(results["student_summaries"][0]["unattempted_questions"], 1)
+        self.assertEqual(results["student_summaries"][0]["percentage"], 0)
+        self.assertEqual(results["student_summaries"][1]["student_name"], "Mobile Student")
+        self.assertEqual(results["student_summaries"][1]["attempted_questions"], 1)
+        self.assertEqual(results["student_summaries"][1]["unattempted_questions"], 0)
+        self.assertEqual(results["student_summaries"][1]["correct_count"], 1)
+        self.assertEqual(results["student_summaries"][1]["wrong_count"], 0)
+        self.assertEqual(results["student_summaries"][1]["percentage"], 100)
+        self.assertIn("format=excel", results["export_hooks"]["excel"]["url"])
+
+        attendance_pdf = self.client.get(
+            "/api/mobile/teacher/reports/attendance/",
+            {"class_id": self.batch.pk, "date_from": "2026-07-01", "date_to": "2026-07-31", "format": "pdf"},
+            **self.auth_headers(),
+        )
+        self.assertEqual(attendance_pdf.status_code, 200)
+        self.assertEqual(attendance_pdf["Content-Type"], "application/pdf")
+        self.assertIn(b"Teacher Attendance Report", attendance_pdf.content)
+
+        results_excel = self.client.get(
+            "/api/mobile/teacher/reports/results/",
+            {"class_id": self.batch.pk, "exam_id": self.exam.pk, "date_from": "2026-07-01", "date_to": "2026-07-31", "format": "excel"},
+            **self.auth_headers(),
+        )
+        self.assertEqual(results_excel.status_code, 200)
+        self.assertIn("spreadsheetml.sheet", results_excel["Content-Type"])
+        workbook = load_workbook(BytesIO(results_excel.content))
+        self.assertIn("Student Summary", workbook.sheetnames)
+        sheet = workbook["Student Summary"]
+        self.assertEqual(sheet["A1"].value, "Roll Number")
+        self.assertEqual(sheet["J1"].value, "Percentage")
+        self.assertEqual(sheet["A2"].value, "01")
+        self.assertEqual(sheet["C2"].value, "No Attempt")
+        self.assertEqual(sheet["F2"].value, 0)
+        self.assertEqual(sheet["G2"].value, 1)
+        self.assertEqual(sheet["J2"].value, 0)
+        self.assertEqual(sheet["A3"].value, "02")
+        self.assertEqual(sheet["C3"].value, "Mobile Student")
+        self.assertEqual(sheet["F3"].value, 1)
+        self.assertEqual(sheet["G3"].value, 0)
+        self.assertEqual(sheet["J3"].value, 100)
+
+    def test_phase_3_attendance_post_creates_and_updates_rows(self):
+        Attendance.objects.filter(pk=self.attendance.pk).delete()
+        response = self.post_json(
+            "/api/mobile/teacher/attendance/",
+            {
+                "class_id": self.batch.pk,
+                "date": "2026-07-10",
+                "rows": [
+                    {
+                        "academic_session_id": self.session.pk,
+                        "status": Attendance.Status.ABSENT,
+                        "note": "Sick",
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        record = Attendance.objects.get(batch=self.batch, academic_session=self.session, date="2026-07-10")
+        self.assertEqual(record.status, Attendance.Status.ABSENT)
+        self.assertEqual(record.note, "Sick")
+
+        response = self.post_json(
+            "/api/mobile/teacher/attendance/",
+            {
+                "class_id": self.batch.pk,
+                "date": "2026-07-10",
+                "rows": [
+                    {
+                        "academic_session_id": self.session.pk,
+                        "status": Attendance.Status.PRESENT,
+                        "note": "",
+                    }
+                ],
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        record.refresh_from_db()
+        self.assertEqual(record.status, Attendance.Status.PRESENT)
+        self.assertEqual(Attendance.objects.filter(batch=self.batch, academic_session=self.session, date="2026-07-10").count(), 1)
+
+        missing_status = self.post_json(
+            "/api/mobile/teacher/attendance/",
+            {
+                "class_id": self.batch.pk,
+                "date": "2026-07-10",
+                "rows": [{"academic_session_id": self.session.pk}],
+            },
+        )
+        self.assertEqual(missing_status.status_code, 400)
+
+    def _create_extra_student(self, username, first_name, last_name, admission_number):
+        user = User.objects.create_user(
+            username=username,
+            password="pass",
+            first_name=first_name,
+            last_name=last_name,
+        )
+        UserProfile.objects.create(
+            user=user,
+            institute=self.institute,
+            role=UserProfile.Role.STUDENT_PARENT,
+        )
+        student = StudentProfile.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            user=user,
+            admission_number=admission_number,
+        )
+        session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=student,
+            academic_year=self.year,
+            admission_number=admission_number,
+        )
+        enrollment = StudentEnrollment.objects.create(
+            student=student,
+            academic_session=session,
+            batch=self.batch,
+        )
+        enrollment.courses.add(self.course)
+        return student, session
+
+    def test_phase_3_assignment_crud_is_teacher_scoped(self):
+        create_response = self.post_json(
+            "/api/mobile/teacher/assignments/",
+            {
+                "batch_id": self.batch.pk,
+                "course_id": self.course.pk,
+                "subject_id": self.subject.pk,
+                "title": "API Homework",
+                "instructions": "Solve page 10",
+                "due_date": "2026-08-01",
+            },
+        )
+        self.assertEqual(create_response.status_code, 201, create_response.content)
+        homework = Homework.objects.get(title="API Homework")
+
+        put_response = self.put_json(
+            f"/api/mobile/teacher/assignments/{homework.pk}/",
+            {"title": "API Homework Updated", "instructions": "Updated", "due_date": "2026-08-02"},
+        )
+        self.assertEqual(put_response.status_code, 200, put_response.content)
+        homework.refresh_from_db()
+        self.assertEqual(homework.title, "API Homework Updated")
+
+        patch_response = self.patch_json(
+            f"/api/mobile/teacher/assignments/{homework.pk}/",
+            {"instructions": "Patch update"},
+        )
+        self.assertEqual(patch_response.status_code, 200, patch_response.content)
+        homework.refresh_from_db()
+        self.assertEqual(homework.instructions, "Patch update")
+
+        self.assertEqual(
+            self.put_json(f"/api/mobile/teacher/assignments/{self.unassigned_homework.pk}/", {"title": "Nope"}).status_code,
+            404,
+        )
+        delete_response = self.client.delete(f"/api/mobile/teacher/assignments/{homework.pk}/", **self.auth_headers())
+        self.assertEqual(delete_response.status_code, 200, delete_response.content)
+        self.assertFalse(Homework.objects.filter(pk=homework.pk).exists())
+
+        upload_response = self.client.post(
+            "/api/mobile/teacher/assignments/",
+            {
+                "class_id": self.batch.pk,
+                "course_id": self.course.pk,
+                "subject_id": self.subject.pk,
+                "title": "Photo Homework",
+                "instructions": "See attached photo",
+                "due_date": "2026-08-03",
+                "files": [
+                    SimpleUploadedFile("homework.png", b"image-bytes", content_type="image/png"),
+                ],
+            },
+            **self.auth_headers(),
+        )
+        self.assertEqual(upload_response.status_code, 201, upload_response.content)
+        uploaded_homework = Homework.objects.get(title="Photo Homework")
+        self.assertEqual(uploaded_homework.attachments.count(), 1)
+        self.assertEqual(upload_response.json()["assignment"]["attachment_count"], 1)
+        self.assertEqual(len(upload_response.json()["assignment"]["attachments"]), 1)
+        attachment_id = uploaded_homework.attachments.first().pk
+        remove_response = self.patch_json(
+            f"/api/mobile/teacher/assignments/{uploaded_homework.pk}/",
+            {"remove_attachment_ids": [attachment_id]},
+        )
+        self.assertEqual(remove_response.status_code, 200, remove_response.content)
+        self.assertEqual(uploaded_homework.attachments.count(), 0)
+        self.assertEqual(remove_response.json()["assignment"]["attachment_count"], 0)
+
+    def test_assignments_support_pagination_search_and_filters(self):
+        overdue = Homework.objects.create(
+            batch=self.batch,
+            course=self.course,
+            subject=self.subject,
+            title="Old Algebra Sheet",
+            due_date=timezone.localdate() - timedelta(days=2),
+            created_by=self.teacher_user,
+        )
+        Homework.objects.create(
+            batch=self.batch,
+            course=self.course,
+            subject=self.subject,
+            title="Upcoming Physics Sheet",
+            due_date=timezone.localdate() + timedelta(days=3),
+            created_by=self.teacher_user,
+        )
+        today_homework = Homework.objects.create(
+            batch=self.batch,
+            course=self.course,
+            subject=self.subject,
+            title="Today Worksheet",
+            due_date=timezone.localdate(),
+            created_by=self.teacher_user,
+        )
+
+        page = self.get_json("/api/mobile/teacher/assignments/?page_size=1")
+        self.assertEqual(page["meta"]["page_size"], 1)
+        self.assertEqual(page["meta"]["count"], 1)
+        self.assertEqual(len(page["results"]), 1)
+        self.assertEqual(page["results"][0]["id"], today_homework.pk)
+
+        ranged = self.get_json(
+            "/api/mobile/teacher/assignments/?page_size=1&due_from=2026-01-01&due_to=2026-12-31"
+        )
+        self.assertGreaterEqual(ranged["meta"]["count"], 3)
+
+        search = self.get_json("/api/mobile/teacher/assignments/?search=Algebra")
+        self.assertEqual(search["meta"]["count"], 1)
+        self.assertEqual(search["results"][0]["id"], overdue.pk)
+
+        filtered = self.get_json(
+            f"/api/mobile/teacher/assignments/?class_id={self.batch.pk}&subject_id={self.subject.pk}&status=overdue&search=Algebra"
+        )
+        self.assertEqual(filtered["meta"]["count"], 1)
+        self.assertEqual(filtered["results"][0]["title"], "Old Algebra Sheet")
+
+    def test_assignment_update_restricts_unassigned_class(self):
+        response = self.patch_json(
+            f"/api/mobile/teacher/assignments/{self.homework.pk}/",
+            {"class_id": self.unassigned_batch.pk, "title": "Moved"},
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.homework.refresh_from_db()
+        self.assertEqual(self.homework.batch_id, self.batch.pk)
+
+    def test_phase_3_exam_crud_and_publish_are_teacher_scoped(self):
+        create_response = self.post_json(
+            "/api/mobile/teacher/exams/",
+            {
+                "batch_id": self.batch.pk,
+                "course_id": self.course.pk,
+                "subject_id": self.subject.pk,
+                "title": "API Exam",
+                "exam_date": "2026-08-10",
+                "duration_minutes": 45,
+                "instructions": "No books",
+            },
+        )
+        self.assertEqual(create_response.status_code, 201, create_response.content)
+        exam = Exam.objects.get(title="API Exam")
+        self.assertFalse(exam.is_published)
+
+        put_response = self.put_json(
+            f"/api/mobile/teacher/exams/{exam.pk}/",
+            {
+                "title": "API Exam Updated",
+                "exam_date": "2026-08-11",
+                "duration_minutes": 50,
+                "is_published": False,
+            },
+        )
+        self.assertEqual(put_response.status_code, 200, put_response.content)
+        exam.refresh_from_db()
+        self.assertEqual(exam.title, "API Exam Updated")
+
+        publish_response = self.post_json(f"/api/mobile/teacher/exams/{exam.pk}/publish/")
+        self.assertEqual(publish_response.status_code, 200, publish_response.content)
+        exam.refresh_from_db()
+        self.assertTrue(exam.is_published)
+        self.assertEqual(
+            self.post_json(f"/api/mobile/teacher/exams/{self.unassigned_exam.pk}/publish/").status_code,
+            404,
+        )
+
+        delete_response = self.client.delete(f"/api/mobile/teacher/exams/{exam.pk}/", **self.auth_headers())
+        self.assertEqual(delete_response.status_code, 200, delete_response.content)
+        self.assertFalse(Exam.objects.filter(pk=exam.pk).exists())
+
+    def test_exams_support_pagination_search_filters_and_summary(self):
+        draft = Exam.objects.create(
+            academic_year=self.year,
+            batch=self.batch,
+            course=self.course,
+            subject=self.subject,
+            title="Draft Algebra Test",
+            exam_date=timezone.localdate() + timedelta(days=5),
+            is_published=False,
+        )
+        ExamQuestion.objects.create(exam=draft, text="Q1", marks=5, order=1)
+        ExamAttempt.objects.create(
+            exam=draft,
+            academic_session=self.session,
+            student=self.student,
+            submitted_at=timezone.now(),
+            score=5,
+            total_marks=5,
+        )
+        Exam.objects.create(
+            academic_year=self.year,
+            batch=self.batch,
+            course=self.course,
+            subject=self.subject,
+            title="Published Biology Test",
+            exam_date=timezone.localdate() + timedelta(days=2),
+            is_published=True,
+        )
+
+        page = self.get_json("/api/mobile/teacher/exams/?page_size=1")
+        self.assertEqual(page["meta"]["page_size"], 1)
+        self.assertGreaterEqual(page["meta"]["count"], 3)
+        self.assertEqual(len(page["results"]), 1)
+
+        filtered = self.get_json(
+            f"/api/mobile/teacher/exams/?status=draft&search=Algebra&class_id={self.batch.pk}"
+        )
+        self.assertEqual(filtered["meta"]["count"], 1)
+        self.assertEqual(filtered["results"][0]["id"], draft.pk)
+        self.assertEqual(filtered["results"][0]["question_count"], 1)
+        self.assertEqual(filtered["results"][0]["submission_count"], 1)
+        self.assertEqual(filtered["results"][0]["result_count"], 1)
+
+    def test_exam_update_restricts_unassigned_class(self):
+        response = self.patch_json(
+            f"/api/mobile/teacher/exams/{self.exam.pk}/",
+            {"batch_id": self.unassigned_batch.pk, "title": "Moved Exam"},
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.exam.refresh_from_db()
+        self.assertEqual(self.exam.batch_id, self.batch.pk)
+
+    def test_phase_3_question_crud_resyncs_exam_marks(self):
+        create_response = self.post_json(
+            "/api/mobile/teacher/questions/",
+            {
+                "exam_id": self.exam.pk,
+                "text": "Capital of India?",
+                "marks": 3,
+                "options": [
+                    {"text": "Delhi", "is_correct": True},
+                    {"text": "Mumbai", "is_correct": False},
+                    {"text": "Pune", "is_correct": False},
+                    {"text": "Chennai", "is_correct": False},
+                ],
+            },
+        )
+        self.assertEqual(create_response.status_code, 201, create_response.content)
+        question = ExamQuestion.objects.get(text="Capital of India?")
+        self.assertEqual(question.options.count(), 4)
+        self.exam.refresh_from_db()
+        self.assertEqual(self.exam.total_marks, 5)
+
+        patch_response = self.patch_json(
+            f"/api/mobile/teacher/questions/{question.pk}/",
+            {
+                "marks": 4,
+                "options": [
+                    {"text": "New Delhi", "is_correct": True},
+                    {"text": "Mumbai", "is_correct": False},
+                    {"text": "Pune", "is_correct": False},
+                    {"text": "Chennai", "is_correct": False},
+                ],
+            },
+        )
+        self.assertEqual(patch_response.status_code, 200, patch_response.content)
+        question.refresh_from_db()
+        self.assertEqual(question.marks, 4)
+        self.exam.refresh_from_db()
+        self.assertEqual(self.exam.total_marks, 6)
+
+        self.assertEqual(
+            self.post_json(
+                "/api/mobile/teacher/questions/",
+                {
+                    "exam_id": self.unassigned_exam.pk,
+                    "text": "Hidden?",
+                    "marks": 1,
+                    "options": [
+                        {"text": "A", "is_correct": True},
+                        {"text": "B"},
+                        {"text": "C"},
+                        {"text": "D"},
+                    ],
+                },
+            ).status_code,
+            404,
+        )
+        delete_response = self.client.delete(f"/api/mobile/teacher/questions/{question.pk}/", **self.auth_headers())
+        self.assertEqual(delete_response.status_code, 200, delete_response.content)
+        self.assertFalse(ExamQuestion.objects.filter(pk=question.pk).exists())
+
+    def test_questions_support_pagination_search_filter_and_validation(self):
+        algebra = ExamQuestion.objects.create(exam=self.exam, text="Algebra MCQ", marks=2, order=2)
+        for index, text in enumerate(["A", "B", "C", "D"], start=1):
+            ExamQuestionOption.objects.create(
+                question=algebra,
+                text=text,
+                is_correct=index == 1,
+                order=index,
+            )
+        other_exam = Exam.objects.create(
+            academic_year=self.year,
+            batch=self.batch,
+            course=self.course,
+            subject=self.subject,
+            title="Other Exam",
+            exam_date="2026-09-01",
+        )
+        ExamQuestion.objects.create(exam=other_exam, text="Other Question", marks=1, order=1)
+
+        page = self.get_json(f"/api/mobile/teacher/questions/?exam_id={self.exam.pk}&page_size=1")
+        self.assertEqual(page["meta"]["page_size"], 1)
+        self.assertGreaterEqual(page["meta"]["count"], 2)
+        self.assertEqual(len(page["results"]), 1)
+        self.assertEqual(page["results"][0]["question_type"], "MCQ")
+
+        search = self.get_json(f"/api/mobile/teacher/questions/?exam_id={self.exam.pk}&search=Algebra")
+        self.assertEqual(search["meta"]["count"], 1)
+        self.assertEqual(search["results"][0]["id"], algebra.pk)
+
+        invalid = self.post_json(
+            "/api/mobile/teacher/questions/",
+            {
+                "exam_id": self.exam.pk,
+                "text": "",
+                "marks": 1,
+                "options": [{"text": "Only one", "is_correct": True}],
+            },
+        )
+        self.assertEqual(invalid.status_code, 400)
+
+    def test_questions_support_mobile_image_upload_and_remove(self):
+        response = self.client.post(
+            "/api/mobile/teacher/questions/",
+            data={
+                "exam_id": self.exam.pk,
+                "text": "",
+                "marks": 3,
+                "order": 4,
+                "options": json.dumps(
+                    [
+                        {"text": "A", "is_correct": True, "order": 1},
+                        {"text": "B", "is_correct": False, "order": 2},
+                        {"text": "C", "is_correct": False, "order": 3},
+                        {"text": "D", "is_correct": False, "order": 4},
+                    ]
+                ),
+                "image": SimpleUploadedFile("question.png", b"fake-image", content_type="image/png"),
+            },
+            **self.auth_headers(),
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        payload = response.json()["question"]
+        self.assertEqual(payload["text"], "")
+        self.assertTrue(payload["image_url"])
+        question = ExamQuestion.objects.get(pk=payload["id"])
+        self.assertTrue(question.image)
+
+        remove_response = self.patch_json(
+            f"/api/mobile/teacher/questions/{question.pk}/",
+            {"text": "Text only now", "remove_image": True},
+        )
+        self.assertEqual(remove_response.status_code, 200, remove_response.content)
+        question.refresh_from_db()
+        self.assertEqual(question.text, "Text only now")
+        self.assertFalse(question.image)
+
+    def test_phase_3_submission_and_result_actions(self):
+        pending_attempt = self.attempt
+        pending_attempt.submitted_at = None
+        pending_attempt.save(update_fields=["submitted_at"])
+        force_response = self.post_json(f"/api/mobile/teacher/submissions/{pending_attempt.pk}/force-submit/")
+        self.assertEqual(force_response.status_code, 200, force_response.content)
+        pending_attempt.refresh_from_db()
+        self.assertIsNotNone(pending_attempt.submitted_at)
+        self.assertTrue(ExamResult.objects.filter(exam=self.exam, student=self.student).exists())
+
+        hide_response = self.post_json(f"/api/mobile/teacher/results/{self.exam.pk}/hide/")
+        self.assertEqual(hide_response.status_code, 200, hide_response.content)
+        self.exam.refresh_from_db()
+        self.assertFalse(self.exam.show_result_after_submit)
+
+        with (
+            patch("teacher.api.views.notify_exam_results_declared") as notify_results,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            publish_response = self.post_json(f"/api/mobile/teacher/results/{self.exam.pk}/publish/")
+        self.assertEqual(publish_response.status_code, 200, publish_response.content)
+        self.exam.refresh_from_db()
+        self.assertTrue(self.exam.show_result_after_submit)
+        notify_results.assert_called_once_with(self.exam.pk)
+
+        reset_response = self.post_json(f"/api/mobile/teacher/submissions/{pending_attempt.pk}/reset/")
+        self.assertEqual(reset_response.status_code, 200, reset_response.content)
+        self.assertFalse(ExamAttempt.objects.filter(pk=pending_attempt.pk).exists())
+
+    def test_submissions_and_results_support_filters_pagination_and_summary(self):
+        extra_student, extra_session = self._create_extra_student(
+            "attempt-student",
+            "Attempt",
+            "Student",
+            "M301",
+        )
+        self.student.roll_number = "02"
+        extra_student.roll_number = "03"
+        self.student.save(update_fields=["roll_number"])
+        extra_student.save(update_fields=["roll_number"])
+        in_progress = ExamAttempt.objects.create(
+            exam=self.exam,
+            academic_session=extra_session,
+            student=extra_student,
+            score=0,
+            total_marks=2,
+        )
+        first_student, first_session = self._create_extra_student(
+            "first-result-student",
+            "First",
+            "Result",
+            "M300",
+        )
+        first_student.roll_number = "01"
+        first_student.save(update_fields=["roll_number"])
+        first_attempt = ExamAttempt.objects.create(
+            exam=self.exam,
+            academic_session=first_session,
+            student=first_student,
+            submitted_at=timezone.now(),
+            score=1,
+            total_marks=2,
+            correct_count=1,
+        )
+
+        submissions = self.get_json(
+            f"/api/mobile/teacher/submissions/?exam_id={self.exam.pk}&class_id={self.batch.pk}&status=in_progress&page_size=1"
+        )
+        self.assertEqual(submissions["meta"]["page_size"], 1)
+        self.assertEqual(submissions["summary"]["in_progress"], 1)
+        self.assertEqual(submissions["results"][0]["id"], in_progress.pk)
+
+        results = self.get_json(
+            f"/api/mobile/teacher/results/?exam_id={self.exam.pk}&status=submitted&page_size=5"
+        )
+        self.assertEqual(results["summary"]["submitted"], 2)
+        self.assertEqual(results["summary"]["not_attempted"], 1)
+        self.assertEqual([row["roll_number"] for row in results["results"]], ["01", "02"])
+        self.assertEqual(results["results"][0]["id"], first_attempt.pk)
+        self.assertGreaterEqual(results["summary"]["average_percentage"], 0)
+
+        search = self.get_json(
+            "/api/mobile/teacher/results/?search=02"
+        )
+        self.assertEqual(search["summary"]["submitted"], 1)
+        self.assertEqual(search["results"][0]["id"], self.attempt.pk)
+
+    def test_phase_3_notice_read_and_message_post(self):
+        read_response = self.post_json(f"/api/mobile/teacher/notices/{self.notice.pk}/read/")
+        self.assertEqual(read_response.status_code, 200, read_response.content)
+        self.assertTrue(NoticeRead.objects.filter(notice=self.notice, user=self.teacher_user).exists())
+        self.assertEqual(
+            self.post_json(f"/api/mobile/teacher/notices/{self.hidden_notice.pk}/read/").status_code,
+            404,
+        )
+
+        message_response = self.post_json(
+            "/api/mobile/teacher/messages/",
+            {"batch_id": self.batch.pk, "subject": "Hello", "message": "Class update"},
+        )
+        self.assertEqual(message_response.status_code, 202, message_response.content)
+        self.assertEqual(message_response.json()["message"]["message"], "Class update")
+
+    def test_notices_support_pagination_filters_and_search(self):
+        NoticeRead.objects.get_or_create(notice=self.notice, user=self.teacher_user)
+        urgent = Notice.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            title="Urgent Exam Notice",
+            message="Exam tomorrow",
+            audience=Notice.Audience.TEACHERS,
+            category=Notice.Category.EXAM,
+            priority=Notice.Priority.URGENT,
+            push_to_app=True,
+        )
+        urgent.target_batches.add(self.batch)
+
+        page = self.get_json("/api/mobile/teacher/notices/?page_size=1")
+        self.assertEqual(page["meta"]["page_size"], 1)
+        self.assertGreaterEqual(page["meta"]["count"], 2)
+
+        unread = self.get_json("/api/mobile/teacher/notices/?read=unread&category=EXAM&priority=URGENT&search=Exam")
+        self.assertEqual(unread["meta"]["count"], 1)
+        self.assertEqual(unread["results"][0]["id"], urgent.pk)
+        self.assertFalse(unread["results"][0]["is_read"])
+
+    def test_message_restricts_unassigned_student_recipient(self):
+        unassigned_student, session = self._create_extra_student(
+            "message-private-student",
+            "Message",
+            "Private",
+            "M401",
+        )
+        StudentEnrollment.objects.filter(student=unassigned_student, batch=self.batch).delete()
+        StudentEnrollment.objects.create(
+            student=unassigned_student,
+            academic_session=session,
+            batch=self.unassigned_batch,
+        )
+
+        response = self.post_json(
+            "/api/mobile/teacher/messages/",
+            {"recipient_id": unassigned_student.pk, "subject": "Hi", "message": "Private"},
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_phase_4_attendance_cannot_mark_unassigned_students(self):
+        unassigned_user = User.objects.create_user(username="phase4-private-student", password="pass")
+        UserProfile.objects.create(
+            user=unassigned_user,
+            institute=self.institute,
+            role=UserProfile.Role.STUDENT_PARENT,
+        )
+        unassigned_student = StudentProfile.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            user=unassigned_user,
+            admission_number="P401",
+        )
+        unassigned_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=unassigned_student,
+            academic_year=self.year,
+            admission_number="P401",
+        )
+        StudentEnrollment.objects.create(
+            student=unassigned_student,
+            academic_session=unassigned_session,
+            batch=self.unassigned_batch,
+        )
+
+        response = self.post_json(
+            "/api/mobile/teacher/attendance/",
+            {
+                "class_id": self.batch.pk,
+                "date": "2026-09-01",
+                "rows": [
+                    {
+                        "academic_session_id": unassigned_session.pk,
+                        "status": Attendance.Status.ABSENT,
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["saved_count"], 0)
+        self.assertEqual(response.json()["skipped_count"], 1)
+        self.assertFalse(
+            Attendance.objects.filter(
+                academic_session=unassigned_session,
+                date="2026-09-01",
+            ).exists()
+        )
+
+    def test_phase_4_cannot_use_other_institute_course_or_subject(self):
+        other_institute = Institute.objects.create(name="Other API Institute", code="other-api")
+        other_year = AcademicYear.objects.create(
+            institute=other_institute,
+            name="2026-27",
+            start_date="2026-04-01",
+            end_date="2027-03-31",
+        )
+        other_course = Course.objects.create(
+            institute=other_institute,
+            academic_year=other_year,
+            name="Private Course",
+        )
+        other_subject = Subject.objects.create(
+            institute=other_institute,
+            academic_year=other_year,
+            name="Private Subject",
+        )
+
+        homework_response = self.post_json(
+            "/api/mobile/teacher/assignments/",
+            {
+                "batch_id": self.batch.pk,
+                "course_id": other_course.pk,
+                "subject_id": self.subject.pk,
+                "title": "Cross Institute Homework",
+            },
+        )
+        exam_response = self.post_json(
+            "/api/mobile/teacher/exams/",
+            {
+                "batch_id": self.batch.pk,
+                "course_id": self.course.pk,
+                "subject_id": other_subject.pk,
+                "title": "Cross Institute Exam",
+                "exam_date": "2026-09-10",
+                "duration_minutes": 30,
+            },
+        )
+
+        self.assertEqual(homework_response.status_code, 400)
+        self.assertEqual(exam_response.status_code, 400)
+        self.assertFalse(Homework.objects.filter(title="Cross Institute Homework").exists())
+        self.assertFalse(Exam.objects.filter(title="Cross Institute Exam").exists())
+
+    def test_phase_4_unassigned_mutations_are_blocked(self):
+        unassigned_attempt = ExamAttempt.objects.create(
+            exam=self.unassigned_exam,
+            academic_session=self.session,
+            student=self.student,
+            submitted_at=timezone.now(),
+            score=1,
+            total_marks=1,
+        )
+
+        blocked_requests = [
+            self.patch_json(f"/api/mobile/teacher/exams/{self.unassigned_exam.pk}/", {"title": "No"}),
+            self.client.delete(f"/api/mobile/teacher/exams/{self.unassigned_exam.pk}/", **self.auth_headers()),
+            self.post_json(f"/api/mobile/teacher/results/{self.unassigned_exam.pk}/publish/"),
+            self.post_json(f"/api/mobile/teacher/results/{self.unassigned_exam.pk}/hide/"),
+            self.post_json(f"/api/mobile/teacher/submissions/{unassigned_attempt.pk}/force-submit/"),
+            self.post_json(f"/api/mobile/teacher/submissions/{unassigned_attempt.pk}/reset/"),
+            self.post_json(
+                "/api/mobile/teacher/messages/",
+                {"batch_id": self.unassigned_batch.pk, "message": "No access"},
+            ),
+        ]
+
+        for response in blocked_requests:
+            with self.subTest(response=response.content):
+                self.assertEqual(response.status_code, 404)
+
+    def test_phase_6_invalid_payloads_return_400(self):
+        invalid_attendance = self.post_json(
+            "/api/mobile/teacher/attendance/",
+            {"class_id": self.batch.pk, "date": "2026-09-01", "rows": []},
+        )
+        invalid_assignment = self.post_json(
+            "/api/mobile/teacher/assignments/",
+            {"title": "Missing class"},
+        )
+        invalid_exam = self.post_json(
+            "/api/mobile/teacher/exams/",
+            {"batch_id": self.batch.pk, "title": "Missing date"},
+        )
+        invalid_question = self.post_json(
+            "/api/mobile/teacher/questions/",
+            {
+                "exam_id": self.exam.pk,
+                "text": "Invalid options",
+                "marks": 1,
+                "options": [{"text": "Only one", "is_correct": True}],
+            },
+        )
+        invalid_message = self.post_json("/api/mobile/teacher/messages/", {"subject": "No body"})
+
+        for response in [
+            invalid_attendance,
+            invalid_assignment,
+            invalid_exam,
+            invalid_question,
+            invalid_message,
+        ]:
+            with self.subTest(response=response.content):
+                self.assertEqual(response.status_code, 400)
+                self.assertFalse(response.json()["success"])
+
+    def test_teacher_mobile_password_change_updates_password(self):
+        response = self.post_json(
+            "/api/mobile/auth/password/",
+            {
+                "current_password": "pass",
+                "new_password": "NewTeacherPass123!",
+                "confirm_password": "NewTeacherPass123!",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.teacher_user.refresh_from_db()
+        self.assertTrue(self.teacher_user.check_password("NewTeacherPass123!"))
+
+        invalid = self.post_json(
+            "/api/mobile/auth/password/",
+            {
+                "current_password": "pass",
+                "new_password": "AnotherTeacherPass123!",
+                "confirm_password": "AnotherTeacherPass123!",
+            },
+        )
+        self.assertEqual(invalid.status_code, 400)
 
 
 class ExamYearScopeTests(TestCase):

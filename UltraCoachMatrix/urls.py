@@ -52,6 +52,7 @@ urlpatterns = [
         student_parent_views.mobile_homework_document_download,
         name='mobile_homework_document_download',
     ),
+    path('api/mobile/teacher/', include('teacher.api.urls')),
     path('dashboard/', super_admin_views.role_home, name='school_dashboard'),
     path(
         'institute/profile/',

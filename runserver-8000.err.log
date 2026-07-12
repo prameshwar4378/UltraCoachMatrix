@@ -1,0 +1,9 @@
+Watching for file changes with StatReloader
+Method Not Allowed (GET): /api/mobile/auth/login/
+[12/Jul/2026 10:01:49] "GET /api/mobile/auth/login/ HTTP/1.1" 405 0
+[12/Jul/2026 10:01:49,045] - Broken pipe from ('10.89.14.150', 63336)
+Unauthorized: /api/mobile/teacher/dashboard/
+[12/Jul/2026 10:01:50] "GET /api/mobile/teacher/dashboard/ HTTP/1.1" 401 74
+[12/Jul/2026 10:01:50,321] - Broken pipe from ('10.89.14.150', 63341)
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\UltraCoachMatrix\settings_common.py changed, reloading.
+Watching for file changes with StatReloader

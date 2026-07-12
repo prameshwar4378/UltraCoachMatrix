@@ -1515,6 +1515,68 @@
                 </table>
             </div>
         </div>
+
+        <div class="content-panel" style="--panel-color: var(--orange); --panel-soft: #fff7ed;">
+            <div class="panel-header">
+                <div class="panel-title-wrap">
+                    <div class="panel-icon"><i class="bi bi-clock-history"></i></div>
+                    <div>
+                        <div class="section-title-row"><h5 class="panel-title">Other Session Pending Fees</h5></div>
+                        <div class="panel-subtitle">Previous or other academic session dues for this student</div>
+                    </div>
+                </div>
+            </div>
+            {% if other_session_fee_sections %}
+                {% for fee_section in other_session_fee_sections %}
+                    <div class="content-panel-body" {% if not forloop.last %}style="border-bottom:1px solid var(--line);"{% endif %}>
+                        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+                            <div>
+                                <strong>{{ fee_section.session.academic_year.name|default:"Academic Session" }}</strong>
+                                <div class="small text-muted">Admission No: {{ fee_section.session.admission_number }}</div>
+                            </div>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <span class="badge-soft badge-danger-soft">Due: {{ fee_section.total_due_amount }}</span>
+                                <span class="badge-soft badge-success-soft">Paid: {{ fee_section.total_paid_amount }}</span>
+                                <span class="badge-soft badge-info-soft">Total: {{ fee_section.total_fee_amount }}</span>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-modern align-middle">
+                                <thead><tr><th>Invoice</th><th>Category</th><th>Amount</th><th>Paid</th><th>Due</th><th>Status</th></tr></thead>
+                                <tbody>
+                                    {% for row in fee_section.rows %}
+                                    <tr>
+                                        <td data-label="Invoice">
+                                            <strong>{{ row.title }}</strong><br>
+                                            <small class="text-muted">Due: {{ row.due_date|default:"-" }}</small>
+                                            {% if row.adjusted_credit %}
+                                                <br><small class="text-success">Includes adjusted credit: {{ row.adjusted_credit }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td data-label="Category">{{ row.category }}</td>
+                                        <td data-label="Amount">{{ row.amount }}</td>
+                                        <td data-label="Paid">{{ row.paid_amount }}</td>
+                                        <td data-label="Due">{{ row.due_amount }}</td>
+                                        <td data-label="Status">
+                                            {% if row.status == "PAID" %}
+                                                <span class="badge-soft badge-success-soft">Paid</span>
+                                            {% elif row.status == "PARTIAL" %}
+                                                <span class="badge-soft badge-warning-soft">Partial</span>
+                                            {% else %}
+                                                <span class="badge-soft badge-danger-soft">Unpaid</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">No pending fees found in other academic sessions.</div>
+            {% endif %}
+        </div>
     </div>
 
     <div class="tab-pane" data-tab-pane="payment">

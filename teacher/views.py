@@ -1,3 +1,4 @@
+import json
 from datetime import date, timedelta
 from decimal import Decimal
 from io import BytesIO
@@ -5,13 +6,13 @@ from io import BytesIO
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Q, Sum
-from django.http import HttpResponse
+from django.db.models import Case, Count, IntegerField, Q, Sum, Value, When
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -22,6 +23,7 @@ from institute_admin.attendance_service import bulk_save_attendance
 from institute_admin.models import Batch, Course, Notice, NoticeRead, Subject
 from student_parent.models import StudentAcademicSession, StudentEnrollment
 from student_parent.notifications import notify_exam_results_declared
+from super_admin.mobile_auth import bearer_user
 from super_admin.decorators import teacher_required
 from .forms import ExamQuestionForm, ExamQuestionOptionFormSet, TeacherExamForm, TeacherHomeworkForm
 from .models import (
@@ -68,6 +70,18 @@ def teacher_selected_academic_year(request):
     profile = getattr(request.user, "profile", None)
     if not profile or not profile.institute_id:
         return None
+    requested_year_id = (
+        getattr(request, "query_params", {}).get("academic_year_id")
+        if hasattr(request, "query_params")
+        else request.GET.get("academic_year_id")
+    )
+    if requested_year_id:
+        year = profile.institute.academic_years.filter(
+            pk=requested_year_id,
+            is_active=True,
+        ).first()
+        if year:
+            return year
     year_id = request.session.get("academic_year_id")
     if year_id:
         year = profile.institute.academic_years.filter(pk=year_id, is_active=True).first()
@@ -103,7 +117,14 @@ def teacher_students_for_batches(batches):
         )
         .select_related("student", "student__user")
         .distinct()
-        .order_by("admission_number", "student__user__first_name", "student__user__username")
+        .annotate(
+            roll_missing=Case(
+                When(student__roll_number="", then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
+            )
+        )
+        .order_by("roll_missing", "student__roll_number", "admission_number", "student__user__first_name", "student__user__username")
     )
 
 
@@ -1646,3 +1667,433 @@ def results_export(request):
         extension = "xlsx"
     response["Content-Disposition"] = f'attachment; filename="teacher_exam_results_{stamp}.{extension}"'
     return response
+
+
+def _mobile_teacher_request(request):
+    user = bearer_user(request)
+    profile = getattr(user, "profile", None)
+    if not user or not profile or profile.role != "TEACHER":
+        return None, JsonResponse({"detail": "Invalid teacher access token."}, status=401)
+    request.user = user
+    return user, None
+
+
+def _json_body(request):
+    try:
+        return json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return None
+
+
+def _date_value(value, default=None):
+    if not value:
+        return default
+    return parse_date(str(value)) or default
+
+
+def _date_json(value):
+    return value.isoformat() if value else ""
+
+
+def _datetime_json(value):
+    return timezone.localtime(value).isoformat() if value else ""
+
+
+def _student_name(student):
+    return student.user.get_full_name() or student.user.username
+
+
+def _batch_payload(batch, active_students=None):
+    return {
+        "id": batch.pk,
+        "name": batch.name,
+        "active_students": active_students if active_students is not None else getattr(batch, "active_students", 0),
+        "course_total": getattr(batch, "course_total", None) if getattr(batch, "course_total", None) is not None else batch.courses.count(),
+        "courses": [{"id": course.pk, "name": course.name} for course in batch.courses.all()],
+    }
+
+
+def _homework_payload(homework):
+    return {
+        "id": homework.pk,
+        "title": homework.title,
+        "instructions": homework.instructions,
+        "batch_id": homework.batch_id,
+        "batch_name": homework.batch.name if homework.batch_id else "",
+        "course_id": homework.course_id,
+        "course_name": homework.course.name if homework.course_id else "",
+        "subject_id": homework.subject_id,
+        "subject_name": homework.subject.name if homework.subject_id else "",
+        "due_date": _date_json(homework.due_date),
+        "created_at": _datetime_json(homework.created_at),
+        "attachment_count": homework.attachments.count() if hasattr(homework, "attachments") else 0,
+    }
+
+
+def _exam_payload(exam):
+    return {
+        "id": exam.pk,
+        "title": exam.title,
+        "batch_id": exam.batch_id,
+        "batch_name": exam.batch.name if exam.batch_id else "",
+        "course_id": exam.course_id,
+        "course_name": exam.course.name if exam.course_id else "",
+        "subject_id": exam.subject_id,
+        "subject_name": exam.subject.name if exam.subject_id else "",
+        "exam_date": _date_json(exam.exam_date),
+        "total_marks": exam.total_marks,
+        "duration_minutes": exam.duration_minutes,
+        "is_published": exam.is_published,
+        "show_result_after_submit": exam.show_result_after_submit,
+    }
+
+
+def _notice_payload(notice, read_ids):
+    return {
+        "id": notice.pk,
+        "title": notice.title,
+        "message": notice.message,
+        "category": notice.category,
+        "priority": notice.priority,
+        "is_read": notice.pk in read_ids,
+        "created_at": _datetime_json(notice.created_at),
+        "publish_at": _datetime_json(notice.publish_at),
+        "expires_at": _datetime_json(notice.expires_at),
+    }
+
+
+def _attempt_payload(attempt):
+    percentage = teacher_attempt_percentage(attempt)
+    student_name = _student_name(attempt.student)
+    return {
+        "id": attempt.pk,
+        "exam_id": attempt.exam_id,
+        "exam_title": attempt.exam.title,
+        "student_id": attempt.student_id,
+        "student_name": student_name,
+        "admission_number": attempt.academic_session.admission_number,
+        "score": float(attempt.score),
+        "total_marks": float(attempt.total_marks),
+        "percentage": float(percentage),
+        "correct_count": attempt.correct_count,
+        "wrong_count": attempt.wrong_count,
+        "unattempted_count": attempt.unattempted_count,
+        "submitted_at": _datetime_json(attempt.submitted_at),
+        "status": "submitted" if attempt.is_submitted else "in_progress",
+    }
+
+
+def _teacher_exam_queryset_for_user(request):
+    return Exam.objects.filter(batch__in=teacher_batches(request)).select_related("batch", "course", "subject")
+
+
+@require_http_methods(["GET"])
+def mobile_teacher_dashboard(request):
+    _user, error = _mobile_teacher_request(request)
+    if error:
+        return error
+    batches = teacher_batches(request)
+    today = date.today()
+    week_end = today + timedelta(days=7)
+    students_qs = teacher_students_for_batches(batches)
+    homework_qs = Homework.objects.filter(batch__in=batches)
+    exam_qs = Exam.objects.filter(batch__in=batches)
+    today_attendance = Attendance.objects.filter(batch__in=batches, date=today)
+    present_today = today_attendance.filter(status=Attendance.Status.PRESENT).count()
+    attendance_marked_count = today_attendance.count()
+    assigned_batches = batches.annotate(
+        active_students=Count(
+            "enrollments",
+            filter=Q(
+                enrollments__status=StudentEnrollment.Status.ACTIVE,
+                enrollments__academic_session__status=StudentAcademicSession.Status.ACTIVE,
+                enrollments__student__is_active=True,
+            ),
+            distinct=True,
+        ),
+        course_total=Count("courses", distinct=True),
+    ).prefetch_related("courses").order_by("name")
+    return JsonResponse(
+        {
+            "batch_count": batches.count(),
+            "student_count": students_qs.count(),
+            "homework_count": homework_qs.count(),
+            "exam_count": exam_qs.count(),
+            "today_attendance_count": attendance_marked_count,
+            "present_today": present_today,
+            "absent_today": today_attendance.filter(status=Attendance.Status.ABSENT).count(),
+            "late_today": today_attendance.filter(status=Attendance.Status.LATE).count(),
+            "attendance_rate": round((present_today / attendance_marked_count) * 100, 1) if attendance_marked_count else 0,
+            "open_homework_count": homework_qs.filter(Q(due_date__isnull=True) | Q(due_date__gte=today)).count(),
+            "due_soon_homework_count": homework_qs.filter(due_date__range=(today, week_end)).count(),
+            "overdue_homework_count": homework_qs.filter(due_date__lt=today).count(),
+            "published_exam_count": exam_qs.filter(is_published=True).count(),
+            "draft_exam_count": exam_qs.filter(is_published=False).count(),
+            "upcoming_exam_count": exam_qs.filter(exam_date__gte=today).count(),
+            "submitted_attempt_count": ExamAttempt.objects.filter(exam__in=exam_qs, submitted_at__isnull=False).count(),
+            "result_count": ExamAttempt.objects.filter(exam__in=exam_qs, submitted_at__isnull=False).count(),
+            "assigned_batches": [_batch_payload(batch) for batch in assigned_batches],
+            "recent_homework": [_homework_payload(item) for item in homework_qs.select_related("batch", "subject", "course").prefetch_related("attachments")[:6]],
+            "recent_exams": [_exam_payload(item) for item in exam_qs.select_related("batch", "subject", "course").order_by("exam_date")[:6]],
+            "recent_results": [_attempt_payload(item) for item in ExamAttempt.objects.filter(exam__in=exam_qs, submitted_at__isnull=False).select_related("exam", "student", "student__user", "academic_session").order_by("-submitted_at")[:6]],
+        }
+    )
+
+
+@require_http_methods(["GET"])
+def mobile_teacher_classes(request):
+    _user, error = _mobile_teacher_request(request)
+    if error:
+        return error
+    batches = teacher_batches(request).annotate(
+        active_students=Count(
+            "enrollments",
+            filter=Q(enrollments__status=StudentEnrollment.Status.ACTIVE),
+            distinct=True,
+        ),
+        course_total=Count("courses", distinct=True),
+    ).prefetch_related("courses").order_by("name")
+    return JsonResponse({"results": [_batch_payload(batch) for batch in batches]})
+
+
+@require_http_methods(["GET"])
+def mobile_teacher_class_students(request, batch_id):
+    _user, error = _mobile_teacher_request(request)
+    if error:
+        return error
+    batch = teacher_batches(request).filter(pk=batch_id).first()
+    if not batch:
+        return JsonResponse({"detail": "Class not found."}, status=404)
+    sessions = teacher_students_for_batches(teacher_batches(request).filter(pk=batch.pk))
+    return JsonResponse(
+        {
+            "results": [
+                {
+                    "id": session.pk,
+                    "student_id": session.student_id,
+                    "name": _student_name(session.student),
+                    "admission_number": session.admission_number,
+                    "batch_id": batch.pk,
+                    "batch_name": batch.name,
+                }
+                for session in sessions
+            ]
+        }
+    )
+
+
+@require_http_methods(["GET", "POST"])
+def mobile_teacher_attendance(request):
+    _user, error = _mobile_teacher_request(request)
+    if error:
+        return error
+    batches = teacher_batches(request)
+    if request.method == "POST":
+        payload = _json_body(request)
+        if payload is None:
+            return JsonResponse({"detail": "Invalid JSON body."}, status=400)
+        batch = batches.filter(pk=payload.get("class_id") or payload.get("batch_id")).first()
+        attendance_date = _date_value(payload.get("date"), date.today())
+        if not batch:
+            return JsonResponse({"detail": "Class is required."}, status=400)
+        sessions = {
+            session.pk: session
+            for session in teacher_students_for_batches(batches.filter(pk=batch.pk))
+        }
+        saved = 0
+        for row in payload.get("rows", []):
+            session = sessions.get(int(row.get("academic_session_id") or row.get("student_id") or 0))
+            status = row.get("status") or Attendance.Status.PRESENT
+            if not session or status not in Attendance.Status.values:
+                continue
+            Attendance.objects.update_or_create(
+                academic_session=session,
+                batch=batch,
+                date=attendance_date,
+                defaults={
+                    "student": session.student,
+                    "status": status,
+                    "note": row.get("note", ""),
+                    "marked_by": request.user,
+                },
+            )
+            saved += 1
+        return JsonResponse({"detail": "Attendance saved.", "saved_count": saved})
+
+    selected_date = _date_value(request.GET.get("date"), date.today())
+    batch_id = request.GET.get("class_id") or request.GET.get("batch_id")
+    records = Attendance.objects.filter(batch__in=batches, date=selected_date).select_related("academic_session", "student", "student__user", "batch")
+    if batch_id:
+        records = records.filter(batch_id=batch_id)
+    status = request.GET.get("status", "")
+    if status in Attendance.Status.values:
+        records = records.filter(status=status)
+    counts = records.aggregate(
+        total=Count("pk"),
+        present=Count("pk", filter=Q(status=Attendance.Status.PRESENT)),
+        absent=Count("pk", filter=Q(status=Attendance.Status.ABSENT)),
+        late=Count("pk", filter=Q(status=Attendance.Status.LATE)),
+    )
+    total = counts["total"]
+    return JsonResponse(
+        {
+            "total": total,
+            "present": counts["present"],
+            "absent": counts["absent"],
+            "late": counts["late"],
+            "rate": round((counts["present"] / total) * 100, 1) if total else 0,
+            "rows": [
+                {
+                    "id": record.pk,
+                    "academic_session_id": record.academic_session_id,
+                    "student_id": record.student_id,
+                    "student_name": _student_name(record.student),
+                    "batch_id": record.batch_id,
+                    "batch_name": record.batch.name,
+                    "date": _date_json(record.date),
+                    "status": record.status,
+                    "note": record.note,
+                }
+                for record in records.order_by("batch__name", "academic_session__admission_number")[:200]
+            ],
+        }
+    )
+
+
+@require_http_methods(["GET", "POST"])
+def mobile_teacher_assignments(request):
+    _user, error = _mobile_teacher_request(request)
+    if error:
+        return error
+    batches = teacher_batches(request)
+    if request.method == "POST":
+        payload = _json_body(request)
+        if payload is None:
+            return JsonResponse({"detail": "Invalid JSON body."}, status=400)
+        batch = batches.filter(pk=payload.get("batch_id") or payload.get("class_id")).first()
+        if not batch:
+            return JsonResponse({"detail": "Class is required."}, status=400)
+        homework = Homework.objects.create(
+            batch=batch,
+            course_id=payload.get("course_id") or None,
+            subject_id=payload.get("subject_id") or None,
+            title=payload.get("title", "").strip() or "Homework",
+            instructions=payload.get("instructions", "").strip(),
+            due_date=_date_value(payload.get("due_date")),
+            created_by=request.user,
+        )
+        return JsonResponse({"detail": "Homework created.", "assignment": _homework_payload(homework)}, status=201)
+    homework = Homework.objects.filter(batch__in=batches).select_related("batch", "course", "subject").prefetch_related("attachments")
+    return JsonResponse({"results": [_homework_payload(item) for item in homework[:100]]})
+
+
+@require_http_methods(["PUT", "DELETE"])
+def mobile_teacher_assignment_detail(request, assignment_id):
+    _user, error = _mobile_teacher_request(request)
+    if error:
+        return error
+    homework = Homework.objects.filter(batch__in=teacher_batches(request), pk=assignment_id).first()
+    if not homework:
+        return JsonResponse({"detail": "Homework not found."}, status=404)
+    if request.method == "DELETE":
+        homework.delete()
+        return JsonResponse({"detail": "Homework deleted."})
+    payload = _json_body(request)
+    if payload is None:
+        return JsonResponse({"detail": "Invalid JSON body."}, status=400)
+    if "title" in payload:
+        homework.title = payload.get("title", "").strip() or homework.title
+    if "instructions" in payload:
+        homework.instructions = payload.get("instructions", "").strip()
+    if "due_date" in payload:
+        homework.due_date = _date_value(payload.get("due_date"))
+    homework.save()
+    return JsonResponse({"detail": "Homework updated.", "assignment": _homework_payload(homework)})
+
+
+@require_http_methods(["GET"])
+def mobile_teacher_notices(request):
+    _user, error = _mobile_teacher_request(request)
+    if error:
+        return error
+    profile = request.user.profile
+    now = timezone.now()
+    notices = Notice.objects.filter(
+        institute=profile.institute,
+        is_published=True,
+    ).filter(
+        Q(audience=Notice.Audience.EVERYONE) | Q(audience=Notice.Audience.TEACHERS)
+    ).filter(
+        Q(publish_at__isnull=True) | Q(publish_at__lte=now),
+        Q(expires_at__isnull=True) | Q(expires_at__gte=now),
+    )
+    read_ids = set(NoticeRead.objects.filter(user=request.user, notice__in=notices).values_list("notice_id", flat=True))
+    return JsonResponse({"results": [_notice_payload(notice, read_ids) for notice in notices[:100]]})
+
+
+@require_http_methods(["POST"])
+def mobile_teacher_messages(request):
+    _user, error = _mobile_teacher_request(request)
+    if error:
+        return error
+    payload = _json_body(request)
+    if payload is None:
+        return JsonResponse({"detail": "Invalid JSON body."}, status=400)
+    return JsonResponse({"detail": "Message accepted.", "message": payload}, status=202)
+
+
+@require_http_methods(["GET"])
+def mobile_teacher_exams(request):
+    _user, error = _mobile_teacher_request(request)
+    if error:
+        return error
+    exams = _teacher_exam_queryset_for_user(request).order_by("-exam_date")
+    return JsonResponse({"results": [_exam_payload(exam) for exam in exams[:100]]})
+
+
+@require_http_methods(["GET"])
+def mobile_teacher_questions(request):
+    _user, error = _mobile_teacher_request(request)
+    if error:
+        return error
+    questions = ExamQuestion.objects.filter(exam__in=_teacher_exam_queryset_for_user(request)).select_related("exam").prefetch_related("options").order_by("exam__title", "order")[:200]
+    return JsonResponse(
+        {
+            "results": [
+                {
+                    "id": question.pk,
+                    "exam_id": question.exam_id,
+                    "exam_title": question.exam.title,
+                    "text": question.text,
+                    "marks": question.marks,
+                    "order": question.order,
+                    "options": [
+                        {"id": option.pk, "text": option.text, "is_correct": option.is_correct, "order": option.order}
+                        for option in question.options.all()
+                    ],
+                }
+                for question in questions
+            ]
+        }
+    )
+
+
+@require_http_methods(["GET"])
+def mobile_teacher_submissions(request):
+    _user, error = _mobile_teacher_request(request)
+    if error:
+        return error
+    attempts = ExamAttempt.objects.filter(exam__in=_teacher_exam_queryset_for_user(request)).select_related("exam", "student", "student__user", "academic_session").order_by("-started_at")[:200]
+    return JsonResponse({"results": [_attempt_payload(attempt) for attempt in attempts]})
+
+
+@require_http_methods(["GET"])
+def mobile_teacher_results(request):
+    _user, error = _mobile_teacher_request(request)
+    if error:
+        return error
+    attempts = ExamAttempt.objects.filter(
+        exam__in=_teacher_exam_queryset_for_user(request),
+        submitted_at__isnull=False,
+    ).select_related("exam", "student", "student__user", "academic_session").order_by("-submitted_at")[:200]
+    return JsonResponse({"results": [_attempt_payload(attempt) for attempt in attempts]})

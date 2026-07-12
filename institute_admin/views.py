@@ -17,7 +17,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db import IntegrityError, connection, transaction
-from django.db.models import Avg, Case, Count, DecimalField, ExpressionWrapper, F, IntegerField, Max, OuterRef, Prefetch, Q, Subquery, Sum, Value, When
+from django.db.models import Avg, Case, Count, DecimalField, ExpressionWrapper, F, IntegerField, Max, Min, OuterRef, Prefetch, Q, Subquery, Sum, Value, When
 from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Coalesce, Concat
 from django.shortcuts import get_object_or_404, redirect, render
@@ -6178,6 +6178,50 @@ def student_list(request):
     search_query = request.GET.get("search", "").strip()
     status_filter = request.GET.get("status", "").strip()
     batch_filter = request.GET.get("batch", "").strip()
+    order_filter = request.GET.get("order_by", "admission_number").strip()
+    per_page_filter = request.GET.get("per_page", "20").strip()
+    student_list_order_options = [
+        ("admission_number", "Admission No"),
+        ("student_name", "Student Name"),
+        ("student_id", "Student ID"),
+        ("roll_number", "Roll No"),
+        ("pen_no", "PEN No"),
+        ("udise_number", "UDISE No"),
+        ("appar_id", "Apar ID"),
+        ("gr_number", "GR Number"),
+        ("parent_name", "Parent Name"),
+        ("enrollments", "Enrollments"),
+        ("total_fees", "Total Fees"),
+        ("paid_amount", "Paid Amount"),
+        ("due_amount", "Due Amount"),
+        ("status", "Status"),
+        ("joined_on_newest", "Joined Date Newest"),
+        ("joined_on_oldest", "Joined Date Oldest"),
+    ]
+    student_list_order_map = {
+        "admission_number": ("admission_number", "student__user__first_name", "student__user__last_name", "pk"),
+        "student_name": ("student__user__first_name", "student__user__last_name", "admission_number", "pk"),
+        "student_id": ("student_id", "pk"),
+        "roll_number": ("student__roll_number", "admission_number", "pk"),
+        "pen_no": ("student__pen_no", "admission_number", "pk"),
+        "udise_number": ("student__udise_number", "admission_number", "pk"),
+        "appar_id": ("student__appar_id", "admission_number", "pk"),
+        "gr_number": ("student__gr_number_udise", "admission_number", "pk"),
+        "parent_name": ("primary_guardian_name", "admission_number", "pk"),
+        "status": ("status", "admission_number", "pk"),
+        "joined_on_newest": ("-joined_on", "admission_number", "pk"),
+        "joined_on_oldest": ("joined_on", "admission_number", "pk"),
+    }
+    financial_order_fields = {"enrollments", "total_fees", "paid_amount", "due_amount"}
+    if order_filter not in student_list_order_map and order_filter not in financial_order_fields:
+        order_filter = "admission_number"
+    student_list_page_size_options = [20, 50, 100, 200]
+    try:
+        per_page = int(per_page_filter)
+    except (TypeError, ValueError):
+        per_page = 20
+    if per_page not in student_list_page_size_options:
+        per_page = 20
     batch_queryset = Batch.objects.filter(institute=institute, is_active=True) if institute else Batch.objects.none()
     if academic_year:
         batch_queryset = batch_queryset.filter(academic_year=academic_year)
@@ -6240,17 +6284,58 @@ def student_list(request):
     elif status_filter == "inactive":
         sessions = sessions.exclude(status=StudentAcademicSession.Status.ACTIVE, student__is_active=True)
 
-    paginator = Paginator(sessions, 20)
-    page_obj = paginator.get_page(request.GET.get("page"))
-    sessions_page = list(
-        page_obj.object_list.prefetch_related(
-            "student__guardians",
-        )
-    )
-    page_session_ids = [session.pk for session in sessions_page]
-    fee_summaries = get_student_session_fee_summaries(page_session_ids)
+    filtered_sessions = sessions
+    filtered_session_ids = filtered_sessions.order_by().values("pk")
+    financial_totals = get_student_list_financial_totals(filtered_sessions)
 
-    filtered_session_ids = sessions.order_by().values("pk")
+    if order_filter in financial_order_fields:
+        sessions_page_source = list(filtered_sessions.prefetch_related("student__guardians"))
+        all_session_ids = [session.pk for session in sessions_page_source]
+        all_fee_summaries = get_student_session_fee_summaries(all_session_ids)
+        for session in sessions_page_source:
+            summary = all_fee_summaries.get(session.pk, {})
+            session.total_fee_amount = summary.get("total_fee_amount", Decimal("0.00"))
+            session.paid_amount = summary.get("paid_amount", Decimal("0.00"))
+            session.due_amount = summary.get("due_amount", Decimal("0.00"))
+            session.display_enrollments = summary.get("display_enrollments", [])
+            session.display_enrollment_count = summary.get("display_enrollment_count", 0)
+        financial_sort_accessors = {
+            "enrollments": lambda session: session.display_enrollment_count,
+            "total_fees": lambda session: session.total_fee_amount,
+            "paid_amount": lambda session: session.paid_amount,
+            "due_amount": lambda session: session.due_amount,
+        }
+        sessions_page_source.sort(
+            key=lambda session: (
+                financial_sort_accessors[order_filter](session),
+                session.admission_number or "",
+                session.pk,
+            )
+        )
+        paginator = Paginator(sessions_page_source, per_page)
+        page_obj = paginator.get_page(request.GET.get("page"))
+        sessions_page = list(page_obj.object_list)
+    else:
+        if order_filter == "parent_name":
+            sessions = sessions.annotate(primary_guardian_name=Min("student__guardians__name"))
+
+        sessions = sessions.order_by(*student_list_order_map[order_filter]).distinct()
+        paginator = Paginator(sessions, per_page)
+        page_obj = paginator.get_page(request.GET.get("page"))
+        sessions_page = list(
+            page_obj.object_list.prefetch_related(
+                "student__guardians",
+            )
+        )
+        page_session_ids = [session.pk for session in sessions_page]
+        fee_summaries = get_student_session_fee_summaries(page_session_ids)
+        for session in sessions_page:
+            summary = fee_summaries.get(session.pk, {})
+            session.total_fee_amount = summary.get("total_fee_amount", Decimal("0.00"))
+            session.paid_amount = summary.get("paid_amount", Decimal("0.00"))
+            session.due_amount = summary.get("due_amount", Decimal("0.00"))
+            session.display_enrollments = summary.get("display_enrollments", [])
+            session.display_enrollment_count = summary.get("display_enrollment_count", 0)
     student_counts = StudentAcademicSession.objects.filter(
         pk__in=Subquery(filtered_session_ids),
     ).aggregate(
@@ -6263,18 +6348,9 @@ def student_list(request):
     total_enrollments = StudentEnrollment.objects.filter(
         academic_session_id__in=Subquery(filtered_session_ids),
     ).count()
-    financial_totals = get_student_list_financial_totals(sessions)
     query_params = request.GET.copy()
     query_params.pop("page", None)
     pagination_query = query_params.urlencode()
-
-    for session in sessions_page:
-        summary = fee_summaries.get(session.pk, {})
-        session.total_fee_amount = summary.get("total_fee_amount", Decimal("0.00"))
-        session.paid_amount = summary.get("paid_amount", Decimal("0.00"))
-        session.due_amount = summary.get("due_amount", Decimal("0.00"))
-        session.display_enrollments = summary.get("display_enrollments", [])
-        session.display_enrollment_count = summary.get("display_enrollment_count", 0)
 
     context = {
         "students": sessions_page,
@@ -6285,6 +6361,10 @@ def student_list(request):
         "search_query": search_query,
         "status_filter": status_filter,
         "batch_filter": batch_filter,
+        "order_filter": order_filter,
+        "per_page": per_page,
+        "student_list_order_options": student_list_order_options,
+        "student_list_page_size_options": student_list_page_size_options,
         "batches": batch_queryset,
         "selected_batch": selected_batch,
         "academic_year": academic_year,
@@ -7769,6 +7849,30 @@ def student_dashboard(request, pk):
     if total_due_amount < 0:
         total_due_amount = Decimal("0.00")
 
+    other_session_fee_sections = []
+    other_sessions = (
+        StudentAcademicSession.objects.filter(
+            student=student,
+            institute=student_session.institute,
+        )
+        .exclude(pk=student_session.pk)
+        .select_related("academic_year")
+        .order_by("-academic_year__start_date", "-pk")
+    )
+    for other_session in other_sessions:
+        other_summary = build_student_dashboard_fee_rows(student, other_session)
+        pending_rows = [row for row in other_summary["invoice_rows"] if row["due_amount"] > 0]
+        if pending_rows:
+            other_session_fee_sections.append(
+                {
+                    "session": other_session,
+                    "rows": pending_rows,
+                    "total_fee_amount": other_summary["total_fee_amount"],
+                    "total_paid_amount": other_summary["total_paid_amount"],
+                    "total_due_amount": sum((row["due_amount"] for row in pending_rows), Decimal("0.00")),
+                }
+            )
+
     attendance_queryset = Attendance.objects.filter(student=student, academic_session=student_session)
     attendance_total = attendance_queryset.count()
     present_count = attendance_queryset.filter(status=Attendance.Status.PRESENT).count()
@@ -7786,6 +7890,7 @@ def student_dashboard(request, pk):
         "primary_guardian": student.guardians.filter(is_primary=True).first() or student.guardians.first(),
         "enrollments": enrollments,
         "invoice_rows": invoice_rows,
+        "other_session_fee_sections": other_session_fee_sections,
         "payments": payments,
         "transfer_certificates": transfer_certificates,
         "bonafide_certificates": bonafide_certificates,
@@ -7818,6 +7923,127 @@ def student_dashboard(request, pk):
         "attendance_percentage": attendance_percentage,
     }
     return render(request, "institute_admin/student_dashboard.html", context)
+
+
+def build_student_dashboard_fee_rows(student, student_session):
+    enrollments = student_session.enrollments.select_related("batch").prefetch_related("courses").order_by("-enrolled_on", "-pk")
+    fee_enrollments = enrollments.exclude(status=StudentEnrollment.Status.CANCELLED)
+    invoices = (
+        FeeInvoice.objects.filter(student=student, academic_session=student_session)
+        .select_related("category", "batch", "enrollment")
+        .prefetch_related("payments")
+        .order_by("-created_at", "-pk")
+    )
+    invoice_rows = []
+    invoiced_amount = Decimal("0.00")
+    additional_fee_amount = Decimal("0.00")
+    raw_paid_amount = Decimal("0.00")
+    service_rows = []
+    excess_credit = Decimal("0.00")
+    additional_groups = {}
+
+    for invoice in invoices:
+        paid_amount = sum(payment.amount for payment in invoice.payments.filter(status=Payment.Status.ACTIVE))
+        if invoice.status != FeeInvoice.Status.CANCELLED:
+            invoiced_amount += invoice.amount
+            if not invoice.enrollment_id:
+                additional_fee_amount += invoice.amount
+            raw_paid_amount += paid_amount
+            if not invoice.enrollment_id:
+                group_key = f"category-{invoice.category_id}" if invoice.category_id else f"invoice-{invoice.pk}"
+                if group_key not in additional_groups:
+                    additional_groups[group_key] = {
+                        "title": invoice.category.name if invoice.category_id else invoice.title,
+                        "category": invoice.category.name if invoice.category_id else "General",
+                        "amount": Decimal("0.00"),
+                        "actual_paid": Decimal("0.00"),
+                        "due_date": invoice.due_date,
+                        "adjusted_credit": Decimal("0.00"),
+                    }
+                additional_groups[group_key]["amount"] += invoice.amount
+                additional_groups[group_key]["actual_paid"] += paid_amount
+                if invoice.due_date and invoice.due_date > additional_groups[group_key]["due_date"]:
+                    additional_groups[group_key]["due_date"] = invoice.due_date
+
+    for enrollment in fee_enrollments:
+        enrollment_paid = (
+            Payment.objects.filter(
+                invoice__student=student,
+                invoice__academic_session=student_session,
+                invoice__enrollment=enrollment,
+                status=Payment.Status.ACTIVE,
+            ).aggregate(total=Sum("amount"))["total"]
+            or Decimal("0.00")
+        )
+        display_paid = min(enrollment_paid, enrollment.total_course_fee)
+        if enrollment_paid > enrollment.total_course_fee:
+            excess_credit += enrollment_paid - enrollment.total_course_fee
+        service_rows.append(
+            {
+                "title": f"{enrollment.batch.name} Fee",
+                "category": "Enrollment",
+                "amount": enrollment.total_course_fee,
+                "paid_amount": display_paid,
+                "actual_paid": enrollment_paid,
+                "due_amount": enrollment.total_course_fee - display_paid,
+                "due_date": enrollment.enrolled_on,
+                "status": "PAID" if display_paid >= enrollment.total_course_fee else "PARTIAL" if display_paid > 0 else "UNPAID",
+                "adjusted_credit": Decimal("0.00"),
+            }
+        )
+
+    for group in additional_groups.values():
+        display_paid = min(group["actual_paid"], group["amount"])
+        if group["actual_paid"] > group["amount"]:
+            excess_credit += group["actual_paid"] - group["amount"]
+        service_rows.append(
+            {
+                "title": group["title"],
+                "category": group["category"],
+                "amount": group["amount"],
+                "paid_amount": display_paid,
+                "actual_paid": group["actual_paid"],
+                "due_amount": group["amount"] - display_paid,
+                "due_date": group["due_date"],
+                "status": "PAID" if display_paid >= group["amount"] else "PARTIAL" if display_paid > 0 else "UNPAID",
+                "adjusted_credit": Decimal("0.00"),
+            }
+        )
+
+    for row in service_rows:
+        if excess_credit <= 0:
+            break
+        if row["due_amount"] <= 0:
+            continue
+        credit = min(row["due_amount"], excess_credit)
+        row["paid_amount"] += credit
+        row["due_amount"] -= credit
+        row["adjusted_credit"] += credit
+        excess_credit -= credit
+
+    for row in service_rows:
+        if row["due_amount"] <= 0:
+            row["due_amount"] = Decimal("0.00")
+            row["status"] = "PAID"
+        elif row["paid_amount"] > 0:
+            row["status"] = "PARTIAL"
+        else:
+            row["status"] = "UNPAID"
+        invoice_rows.append(row)
+
+    enrollment_fee_amount = sum(enrollment.total_course_fee for enrollment in fee_enrollments)
+    total_fee_amount = enrollment_fee_amount + additional_fee_amount if enrollment_fee_amount > 0 else invoiced_amount
+    total_paid_amount = min(raw_paid_amount, total_fee_amount)
+    total_due_amount = total_fee_amount - total_paid_amount
+    if total_due_amount < 0:
+        total_due_amount = Decimal("0.00")
+
+    return {
+        "invoice_rows": invoice_rows,
+        "total_fee_amount": total_fee_amount,
+        "total_paid_amount": total_paid_amount,
+        "total_due_amount": total_due_amount,
+    }
 
 
 def build_student_document_rows(documents):

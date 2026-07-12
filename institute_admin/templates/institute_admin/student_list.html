@@ -450,6 +450,95 @@
         letter-spacing: -0.02em;
     }
 
+    .column-picker-toggle {
+        border: 1px solid #ccfbf1;
+        background: #f0fdfa;
+        color: var(--primary-dark);
+        border-radius: 12px;
+        padding: 9px 12px;
+        font-weight: 900;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .column-picker-toggle:hover,
+    .column-picker-toggle:focus {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 22px rgba(15, 118, 110, .12);
+    }
+
+    .column-picker-title {
+        color: var(--text);
+        font-size: .82rem;
+        font-weight: 950;
+        margin-bottom: 8px;
+    }
+
+    .column-field-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .column-option {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 46px;
+        padding: 10px 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        background: #ffffff;
+        color: #1e293b;
+        font-weight: 800;
+        cursor: pointer;
+    }
+
+    .column-option:hover {
+        background: #f0fdfa;
+    }
+
+    .column-option:has(input:checked) {
+        background: #f0fdfa;
+        border-color: #5eead4;
+    }
+
+    .column-option input {
+        width: 17px;
+        height: 17px;
+        accent-color: var(--primary);
+    }
+
+    .column-picker-actions {
+        display: flex;
+        gap: 8px;
+        padding-top: 10px;
+        margin-top: 8px;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .column-picker-action {
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #334155;
+        border-radius: 10px;
+        padding: 7px 10px;
+        font-size: .78rem;
+        font-weight: 900;
+    }
+
+    .column-picker-action:hover {
+        border-color: #5eead4;
+        color: var(--primary-dark);
+        background: #f0fdfa;
+    }
+
+    .student-column-hidden {
+        display: none !important;
+    }
+
     .table-responsive {
         overflow-x: auto;
         overflow-y: visible;
@@ -458,6 +547,10 @@
     .table-modern {
         margin: 0;
         min-width: 1080px;
+    }
+
+    .table-modern.is-compact {
+        min-width: 760px;
     }
 
     .table-modern thead th {
@@ -997,7 +1090,8 @@
             width: 100%;
         }
 
-        .export-field-grid {
+        .export-field-grid,
+        .column-field-grid {
             grid-template-columns: 1fr;
         }
     }
@@ -1098,7 +1192,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-lg-4 col-md-12">
+            <div class="col-lg-3 col-md-12">
                 <label class="form-label">Search</label>
                 <div class="student-search-suggest">
                     <input
@@ -1117,7 +1211,23 @@
                     <div class="student-search-suggest__results" id="studentListSearchSuggestions" role="listbox" aria-label="Student suggestions"></div>
                 </div>
             </div>
-            <div class="col-lg-2 col-md-12 d-flex align-items-end gap-2">
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">Order By</label>
+                <select name="order_by" class="form-select">
+                    {% for option_value, option_label in student_list_order_options %}
+                        <option value="{{ option_value }}" {% if order_filter == option_value %}selected{% endif %}>{{ option_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-1 col-md-6">
+                <label class="form-label">Show</label>
+                <select name="per_page" class="form-select">
+                    {% for page_size in student_list_page_size_options %}
+                        <option value="{{ page_size }}" {% if per_page == page_size %}selected{% endif %}>{{ page_size }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-12 col-md-12 d-flex align-items-end gap-2 justify-content-end">
                 <button type="submit" class="btn btn-gradient"><i class="bi bi-search"></i> Filter</button>
                 <a href="{% url 'institute_admin:student_list' %}" class="btn btn-light border"><i class="bi bi-x-circle"></i></a>
             </div>
@@ -1129,26 +1239,36 @@
             <h5><i class="bi bi-list-ul me-1"></i> Student Records</h5>
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <span class="text-muted small">Admission and parent data</span>
+                <button class="column-picker-toggle" type="button" data-bs-toggle="modal" data-bs-target="#studentColumnModal" data-no-row-click>
+                    <i class="bi bi-layout-three-columns"></i>
+                    Show Columns
+                </button>
             </div>
         </div>
         <div class="table-responsive">
-            <table class="table table-modern align-middle">
+            <table class="table table-modern align-middle" id="studentRecordsTable">
                 <thead>
                     <tr>
-                        <th>Student</th>
-                        <th>Parent / Contact</th>
-                        <th>Enrollments</th>
-                        <th class="text-end">Total Fees</th>
-                        <th class="text-end">Paid Amount</th>
-                        <th class="text-end">Due Amount</th>
-                        <th>Status</th>
-                        <th class="text-end">Actions</th>
+                        <th data-column="student">Student</th>
+                        <th data-column="student_id">Student ID</th>
+                        <th data-column="roll_number">Roll No</th>
+                        <th data-column="pen_no">PEN No</th>
+                        <th data-column="udise_number">UDISE No</th>
+                        <th data-column="appar_id">Apar ID</th>
+                        <th data-column="gr_number">GR Number</th>
+                        <th data-column="parent">Parent / Contact</th>
+                        <th data-column="enrollments">Enrollments</th>
+                        <th class="text-end" data-column="total_fees">Total Fees</th>
+                        <th class="text-end" data-column="paid_amount">Paid Amount</th>
+                        <th class="text-end" data-column="due_amount">Due Amount</th>
+                        <th data-column="status">Status</th>
+                        <th class="text-end" data-column="actions">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for student in students %}
                     <tr class="student-clickable-row" data-dashboard-url="{% url 'institute_admin:student_dashboard' student.student_id %}" tabindex="0" role="link" aria-label="Open dashboard for {{ student.student.user.get_full_name|default:student.student.user.username }}">
-                        <td>
+                        <td data-column="student">
                             <div class="d-flex align-items-center gap-3">
                                 <div class="student-avatar">{{ student.student.user.first_name|default:student.student.user.username|slice:":1" }}</div>
                                 <div>
@@ -1158,14 +1278,20 @@
                                 </div>
                             </div>
                         </td>
-                        <td>
+                        <td data-column="student_id"><strong>{{ student.student_id }}</strong></td>
+                        <td data-column="roll_number">{{ student.student.roll_number|default:"-" }}</td>
+                        <td data-column="pen_no">{{ student.student.pen_no|default:"-" }}</td>
+                        <td data-column="udise_number">{{ student.student.udise_number|default:"-" }}</td>
+                        <td data-column="appar_id">{{ student.student.appar_id|default:"-" }}</td>
+                        <td data-column="gr_number">{{ student.student.gr_number_udise|default:"-" }}</td>
+                        <td data-column="parent">
                             {% with guardian=student.student.guardians.all.0 %}
                                 <strong>{{ guardian.name|default:"No Guardian" }}</strong>
                                 <br>
                                 <small class="text-muted">{{ guardian.phone|default:student.student.user.profile.phone|default:"No Phone" }}</small>
                             {% endwith %}
                         </td>
-                        <td>
+                        <td data-column="enrollments">
                             <strong>{{ student.display_enrollment_count }}</strong>
                             <br>
                             <small class="text-muted">
@@ -1176,23 +1302,23 @@
                                 {% endfor %}
                             </small>
                         </td>
-                        <td class="text-end"><span class="fee-pill fee-total">{{ student.total_fee_amount }}</span></td>
-                        <td class="text-end"><span class="fee-pill fee-paid">{{ student.paid_amount }}</span></td>
-                        <td class="text-end">
+                        <td class="text-end" data-column="total_fees"><span class="fee-pill fee-total">{{ student.total_fee_amount }}</span></td>
+                        <td class="text-end" data-column="paid_amount"><span class="fee-pill fee-paid">{{ student.paid_amount }}</span></td>
+                        <td class="text-end" data-column="due_amount">
                             {% if student.due_amount > 0 %}
                                 <span class="fee-pill fee-due">{{ student.due_amount }}</span>
                             {% else %}
                                 <span class="fee-pill fee-clear">{{ student.due_amount }}</span>
                             {% endif %}
                         </td>
-                        <td>
+                        <td data-column="status">
                             {% if student.status == "ACTIVE" and student.student.is_active %}
                                 <span class="badge-soft badge-success-soft"><i class="bi bi-check-circle me-1"></i> Active</span>
                             {% else %}
                                 <span class="badge-soft badge-danger-soft"><i class="bi bi-x-circle me-1"></i> Inactive</span>
                             {% endif %}
                         </td>
-                        <td class="text-end">
+                        <td class="text-end" data-column="actions">
                             <div class="btn-group">
                                 <a href="{% url 'institute_admin:student_dashboard' student.student_id %}" class="btn btn-sm btn-outline-primary action-btn" title="Dashboard">
                                     <i class="bi bi-speedometer2"></i>
@@ -1218,7 +1344,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8">
+                        <td colspan="14">
                             <div class="empty-state">
                                 <i class="bi bi-mortarboard"></i>
                                 <h5>No Students Found</h5>
@@ -1233,6 +1359,103 @@
         {% include "includes/pagination.html" %}
     </div>
 </main>
+
+<div class="modal fade" id="studentColumnModal" tabindex="-1" aria-labelledby="studentColumnModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header" style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                <div>
+                    <h5 class="modal-title fw-bold" id="studentColumnModalLabel">
+                        <i class="bi bi-layout-three-columns me-2"></i> Student List Columns
+                    </h5>
+                    <div class="small text-muted">Select the columns you want to see in Student Records.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
+                    <div class="column-picker-title mb-0">Available columns</div>
+                    <label class="column-option" style="min-height:auto;">
+                        <input type="checkbox" id="selectAllStudentColumns">
+                        <span>Select all</span>
+                    </label>
+                </div>
+                <div class="column-field-grid">
+                    <label class="column-option">
+                        <input type="checkbox" class="student-column-toggle" value="student" data-default-visible="true">
+                        <span>Student</span>
+                    </label>
+                    <label class="column-option">
+                        <input type="checkbox" class="student-column-toggle" value="student_id">
+                        <span>Student ID</span>
+                    </label>
+                    <label class="column-option">
+                        <input type="checkbox" class="student-column-toggle" value="roll_number">
+                        <span>Roll No</span>
+                    </label>
+                    <label class="column-option">
+                        <input type="checkbox" class="student-column-toggle" value="pen_no">
+                        <span>PEN No</span>
+                    </label>
+                    <label class="column-option">
+                        <input type="checkbox" class="student-column-toggle" value="udise_number">
+                        <span>UDISE No</span>
+                    </label>
+                    <label class="column-option">
+                        <input type="checkbox" class="student-column-toggle" value="appar_id">
+                        <span>Apar ID</span>
+                    </label>
+                    <label class="column-option">
+                        <input type="checkbox" class="student-column-toggle" value="gr_number">
+                        <span>GR Number</span>
+                    </label>
+                    <label class="column-option">
+                        <input type="checkbox" class="student-column-toggle" value="parent" data-default-visible="true">
+                        <span>Parent / Contact</span>
+                    </label>
+                    <label class="column-option">
+                        <input type="checkbox" class="student-column-toggle" value="enrollments" data-default-visible="true">
+                        <span>Enrollments</span>
+                    </label>
+                    <label class="column-option">
+                        <input type="checkbox" class="student-column-toggle" value="total_fees" data-default-visible="true">
+                        <span>Total Fees</span>
+                    </label>
+                    <label class="column-option">
+                        <input type="checkbox" class="student-column-toggle" value="paid_amount" data-default-visible="true">
+                        <span>Paid Amount</span>
+                    </label>
+                    <label class="column-option">
+                        <input type="checkbox" class="student-column-toggle" value="due_amount" data-default-visible="true">
+                        <span>Due Amount</span>
+                    </label>
+                    <label class="column-option">
+                        <input type="checkbox" class="student-column-toggle" value="status" data-default-visible="true">
+                        <span>Status</span>
+                    </label>
+                    <label class="column-option">
+                        <input type="checkbox" class="student-column-toggle" value="actions" data-default-visible="true">
+                        <span>Actions</span>
+                    </label>
+                </div>
+                <div class="alert alert-danger mt-3 mb-0 py-2" id="studentColumnFieldError" style="display:none;">
+                    Select at least one column.
+                </div>
+            </div>
+            <div class="modal-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0;">
+                <button type="button" class="btn btn-light border" id="studentColumnsReset">
+                    <i class="bi bi-arrow-counterclockwise"></i> Reset Default
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="studentColumnsShowAll">
+                    <i class="bi bi-check2-all"></i> Show All
+                </button>
+                <button type="button" class="btn btn-gradient" id="studentColumnsApply" data-bs-dismiss="modal">
+                    <i class="bi bi-check2-circle"></i> Apply
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade feature-info-modal" id="studentFeatureInfoModal" tabindex="-1" aria-labelledby="studentFeatureInfoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -1577,6 +1800,136 @@
 </div>
 
 <script>
+    (function() {
+        const storageKey = "studentListVisibleColumns";
+        const table = document.getElementById("studentRecordsTable");
+        const toggles = Array.from(document.querySelectorAll(".student-column-toggle"));
+        const selectAllToggle = document.getElementById("selectAllStudentColumns");
+        const showAllButton = document.getElementById("studentColumnsShowAll");
+        const resetButton = document.getElementById("studentColumnsReset");
+        const applyButton = document.getElementById("studentColumnsApply");
+        const fieldError = document.getElementById("studentColumnFieldError");
+        if (!table || !toggles.length) {
+            return;
+        }
+
+        const allColumns = toggles.map(function(toggle) { return toggle.value; });
+        const defaultColumns = toggles
+            .filter(function(toggle) { return toggle.dataset.defaultVisible === "true"; })
+            .map(function(toggle) { return toggle.value; });
+
+        function readStoredColumns() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+                if (!Array.isArray(saved)) {
+                    return null;
+                }
+                const validSaved = saved.filter(function(column) { return allColumns.includes(column); });
+                return validSaved.length ? validSaved : null;
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function writeStoredColumns(visibleColumns) {
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(visibleColumns));
+            } catch (error) {}
+        }
+
+        function getSelectedColumns() {
+            return toggles
+                .filter(function(toggle) { return toggle.checked; })
+                .map(function(toggle) { return toggle.value; });
+        }
+
+        function updateSelectAllState() {
+            const selectedCount = getSelectedColumns().length;
+            if (selectAllToggle) {
+                selectAllToggle.checked = toggles.length > 0 && selectedCount === toggles.length;
+                selectAllToggle.indeterminate = selectedCount > 0 && selectedCount < toggles.length;
+            }
+            if (fieldError && selectedCount > 0) {
+                fieldError.style.display = "none";
+            }
+        }
+
+        function syncToggleState(visibleColumns) {
+            toggles.forEach(function(toggle) {
+                toggle.checked = visibleColumns.includes(toggle.value);
+            });
+            updateSelectAllState();
+        }
+
+        function setVisibleColumns(visibleColumns, persist) {
+            const safeVisibleColumns = visibleColumns.length ? visibleColumns : defaultColumns;
+            syncToggleState(safeVisibleColumns);
+            allColumns.forEach(function(column) {
+                const isVisible = safeVisibleColumns.includes(column);
+                table.querySelectorAll('[data-column="' + column + '"]').forEach(function(cell) {
+                    cell.classList.toggle("student-column-hidden", !isVisible);
+                });
+            });
+
+            const emptyCell = table.querySelector("tbody tr td:not([data-column])");
+            if (emptyCell) {
+                emptyCell.colSpan = safeVisibleColumns.length;
+            }
+            table.classList.toggle("is-compact", safeVisibleColumns.length <= 5);
+
+            if (persist) {
+                writeStoredColumns(safeVisibleColumns);
+            }
+        }
+
+        toggles.forEach(function(toggle) {
+            toggle.addEventListener("change", function() {
+                updateSelectAllState();
+            });
+        });
+
+        if (selectAllToggle) {
+            selectAllToggle.addEventListener("change", function() {
+                toggles.forEach(function(toggle) {
+                    toggle.checked = selectAllToggle.checked;
+                });
+                updateSelectAllState();
+            });
+        }
+
+        if (showAllButton) {
+            showAllButton.addEventListener("click", function() {
+                syncToggleState(allColumns);
+            });
+        }
+
+        if (resetButton) {
+            resetButton.addEventListener("click", function() {
+                try {
+                    localStorage.removeItem(storageKey);
+                } catch (error) {}
+                setVisibleColumns(defaultColumns, false);
+            });
+        }
+
+        if (applyButton) {
+            applyButton.addEventListener("click", function(event) {
+                const selectedColumns = getSelectedColumns();
+                if (!selectedColumns.length) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (fieldError) {
+                        fieldError.style.display = "block";
+                    }
+                    return;
+                }
+                setVisibleColumns(selectedColumns, true);
+            });
+        }
+
+        setVisibleColumns(readStoredColumns() || defaultColumns, false);
+    })();
+
     function openStudentWindow(element, customWidth = 1000, customHeight = 760) {
         const url = element.dataset.url;
         const left = Math.max(0, (window.screen.width - customWidth) / 2);
