@@ -7,7 +7,7 @@ from django.db import transaction
 from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.utils import timezone
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -1167,13 +1167,13 @@ def _result_student_summaries(request, attempts):
         )
     attempts_by_scope = {}
     for attempt in attempts.select_related("exam", "exam__batch", "academic_session", "student", "student__user"):
-        key = (attempt.student_id, attempt.exam.batch_id)
+        key = (attempt.student_id, attempt.exam.batch_id, attempt.academic_session_id)
         attempts_by_scope.setdefault(key, []).append(attempt)
     question_counts, exam_question_counts = _result_report_question_counts(request, batches)
     rows = []
     seen = set()
     for enrollment in enrollments:
-        key = (enrollment.student_id, enrollment.batch_id)
+        key = (enrollment.student_id, enrollment.batch_id, enrollment.academic_session_id)
         if key in seen:
             continue
         seen.add(key)
@@ -1344,7 +1344,7 @@ def _build_report_workbook(payload):
     workbook = Workbook()
     summary = workbook.active
     summary.title = "Summary"
-    _write_sheet(summary, ["Metric", "Value"], _summary_rows(payload["summary"]))
+    _write_report_summary_sheet(summary, payload)
     class_sheet = workbook.create_sheet("Class Summary")
     _write_sheet(class_sheet, _summary_headers(payload["report_type"], class_rows=True), payload["class_summaries"])
     student_sheet = workbook.create_sheet("Student Summary")
@@ -1355,21 +1355,79 @@ def _build_report_workbook(payload):
 
 
 def _write_sheet(sheet, headers, rows):
+    sheet.freeze_panes = "A2"
     sheet.append(headers)
     for cell in sheet[1]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="111827")
+        cell.alignment = Alignment(horizontal="center")
+        cell.border = Border(bottom=Side(style="thin", color="CBD5E1"))
     for row in rows:
         if isinstance(row, dict):
             sheet.append([row.get(_header_key(header), "") for header in headers])
         else:
             sheet.append(list(row))
+    for data_row in sheet.iter_rows(min_row=2):
+        for cell in data_row:
+            cell.border = Border(bottom=Side(style="thin", color="E5E7EB"))
+            cell.alignment = Alignment(vertical="center")
     for index, header in enumerate(headers, start=1):
         sheet.column_dimensions[get_column_letter(index)].width = max(14, len(header) + 2)
 
 
+def _write_report_summary_sheet(sheet, payload):
+    title = _report_title(payload)
+    generated_at = timezone.now().strftime("%d-%m-%Y %I:%M %p")
+    sheet.merge_cells("A1:D1")
+    sheet["A1"] = f"Teacher {title}"
+    sheet["A1"].font = Font(bold=True, size=16, color="FFFFFF")
+    sheet["A1"].fill = PatternFill("solid", fgColor="111827")
+    sheet["A1"].alignment = Alignment(horizontal="center")
+    sheet["A2"] = "Generated"
+    sheet["B2"] = generated_at
+    sheet["A2"].font = Font(bold=True)
+
+    sheet.append([])
+    _write_summary_section(sheet, "Overall Totals", _summary_rows(payload["summary"]))
+    sheet.append([])
+    _write_summary_section(sheet, "Applied Filters", _filter_rows(payload["filters"]))
+    sheet.append([])
+    sheet.append(["Included Sheets", "Class Summary", "Student Summary"])
+
+    for row in sheet.iter_rows():
+        for cell in row:
+            cell.alignment = Alignment(vertical="center")
+            cell.border = Border(bottom=Side(style="thin", color="E5E7EB"))
+    for column, width in {"A": 24, "B": 24, "C": 24, "D": 24}.items():
+        sheet.column_dimensions[column].width = width
+
+
+def _write_summary_section(sheet, title, rows):
+    start_row = sheet.max_row + 1
+    sheet.merge_cells(start_row=start_row, start_column=1, end_row=start_row, end_column=2)
+    title_cell = sheet.cell(row=start_row, column=1, value=title)
+    title_cell.font = Font(bold=True, color="FFFFFF")
+    title_cell.fill = PatternFill("solid", fgColor="0F766E")
+    sheet.append(["Metric", "Value"])
+    for cell in sheet[sheet.max_row]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="334155")
+    for label, value in rows:
+        sheet.append([label, value])
+
+
 def _summary_rows(summary):
     return [(key.replace("_", " ").title(), value) for key, value in summary.items()]
+
+
+def _filter_rows(filters):
+    if not filters:
+        return [("Filters", "None")]
+    return [(key.replace("_", " ").title(), value) for key, value in filters.items()]
+
+
+def _report_title(payload):
+    return "Attendance Report" if payload["report_type"] == "attendance" else "Result Report"
 
 
 def _summary_headers(report_type, *, class_rows):
@@ -1398,17 +1456,21 @@ def _header_key(header):
 
 
 def _build_report_pdf(payload):
-    title = "Attendance Report" if payload["report_type"] == "attendance" else "Result Report"
+    title = _report_title(payload)
     width = 842
     height = 595
     rows = payload["student_summaries"] or payload["class_summaries"]
     chunks = [rows[index:index + 16] for index in range(0, len(rows), 16)] or [[]]
     pages = []
+    if payload["report_type"] == "attendance":
+        pages.append(_build_attendance_pdf_cover(payload, title, width, height))
     for page_number, chunk in enumerate(chunks, start=1):
+        display_page = page_number + (1 if payload["report_type"] == "attendance" else 0)
+        total_pages = len(chunks) + (1 if payload["report_type"] == "attendance" else 0)
         stream = pdf_rect(0, 545, width, 50, "0.278 0.333 0.412")
         stream += pdf_text(30, 570, f"Teacher {title}", 18, "F2", "1 1 1")
         stream += pdf_text(30, 552, f"Generated {timezone.now().strftime('%d-%m-%Y %I:%M %p')}", 8, "F1", "1 1 1")
-        stream += pdf_text(730, 552, f"Page {page_number}/{len(chunks)}", 8, "F1", "1 1 1")
+        stream += pdf_text(730, 552, f"Page {display_page}/{total_pages}", 8, "F1", "1 1 1")
         summary_items = list(payload["summary"].items())[:4]
         for index, (key, value) in enumerate(summary_items):
             x = 30 + (index * 150)
@@ -1435,6 +1497,45 @@ def _build_report_pdf(payload):
         stream += pdf_text(30, 28, "UltraCoachMatrix teacher mobile export", 8, "F1", "0.39 0.45 0.55")
         pages.append(stream)
     return build_pdf_document(pages, width=width, height=height)
+
+
+def _build_attendance_pdf_cover(payload, title, width, height):
+    generated_at = timezone.now().strftime("%d-%m-%Y %I:%M %p")
+    summary = payload["summary"]
+    stream = pdf_rect(0, 520, width, 75, "0.06 0.09 0.16")
+    stream += pdf_text(34, 565, f"Teacher {title}", 22, "F2", "1 1 1")
+    stream += pdf_text(34, 545, f"Generated {generated_at}", 9, "F1", "0.86 0.91 0.98")
+    stream += pdf_text(730, 545, "Page 1", 9, "F1", "0.86 0.91 0.98")
+
+    cards = [
+        ("Total Records", summary.get("total", 0), "0.91 0.95 1"),
+        ("Present", summary.get("present", 0), "0.88 0.98 0.92"),
+        ("Absent", summary.get("absent", 0), "1 0.91 0.92"),
+        ("Late", summary.get("late", 0), "1 0.96 0.86"),
+        ("Attendance Rate", f"{summary.get('rate', 0)}%", "0.9 0.98 1"),
+    ]
+    for index, (label, value, color) in enumerate(cards):
+        x = 34 + (index * 154)
+        stream += pdf_rect(x, 438, 138, 58, color)
+        stream += pdf_text(x + 10, 475, label, 8, "F1", "0.39 0.45 0.55")
+        stream += pdf_text(x + 10, 452, str(value), 18, "F2", "0.06 0.09 0.16")
+
+    stream += pdf_text(34, 400, "Applied Filters", 14, "F2", "0.06 0.09 0.16")
+    filter_rows = _filter_rows(payload["filters"])
+    y = 372
+    for index, (label, value) in enumerate(filter_rows[:10]):
+        x = 34 if index < 5 else 430
+        row_y = y - ((index % 5) * 36)
+        stream += pdf_rect(x, row_y - 8, 350, 26, "0.98 0.99 1")
+        stream += pdf_text(x + 10, row_y + 6, label, 8, "F2", "0.39 0.45 0.55")
+        stream += pdf_text(x + 135, row_y + 6, str(value)[:32], 8, "F1", "0.06 0.09 0.16")
+
+    stream += pdf_text(34, 150, "Report Sections", 14, "F2", "0.06 0.09 0.16")
+    stream += pdf_text(34, 127, "1. Overall attendance totals for the selected date range and filters.", 9, "F1", "0.22 0.27 0.35")
+    stream += pdf_text(34, 108, "2. Class-wise summary with present, absent, late and attendance rate.", 9, "F1", "0.22 0.27 0.35")
+    stream += pdf_text(34, 89, "3. Student-wise summary for the exported records.", 9, "F1", "0.22 0.27 0.35")
+    stream += pdf_text(34, 36, "UltraCoachMatrix teacher mobile export", 8, "F1", "0.39 0.45 0.55")
+    return stream
 
 
 def _pdf_headers(report_type):

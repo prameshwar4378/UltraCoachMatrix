@@ -412,6 +412,22 @@ class TeacherMobileReadApiTests(TestCase):
         self.assertEqual(attendance_pdf.status_code, 200)
         self.assertEqual(attendance_pdf["Content-Type"], "application/pdf")
         self.assertIn(b"Teacher Attendance Report", attendance_pdf.content)
+        self.assertIn(b"Total Records", attendance_pdf.content)
+
+        attendance_excel = self.client.get(
+            "/api/mobile/teacher/reports/attendance/",
+            {"class_id": self.batch.pk, "date_from": "2026-07-01", "date_to": "2026-07-31", "format": "excel"},
+            **self.auth_headers(),
+        )
+        self.assertEqual(attendance_excel.status_code, 200)
+        attendance_workbook = load_workbook(BytesIO(attendance_excel.content))
+        self.assertIn("Summary", attendance_workbook.sheetnames)
+        attendance_summary = attendance_workbook["Summary"]
+        self.assertEqual(attendance_summary["A1"].value, "Teacher Attendance Report")
+        self.assertEqual(attendance_summary["A4"].value, "Metric")
+        self.assertEqual(attendance_summary["A5"].value, "Total")
+        self.assertEqual(attendance_summary["B5"].value, 1)
+        self.assertIn("Applied Filters", [cell.value for row in attendance_summary.iter_rows() for cell in row])
 
         results_excel = self.client.get(
             "/api/mobile/teacher/reports/results/",
@@ -435,6 +451,79 @@ class TeacherMobileReadApiTests(TestCase):
         self.assertEqual(sheet["F3"].value, 1)
         self.assertEqual(sheet["G3"].value, 0)
         self.assertEqual(sheet["J3"].value, 100)
+
+    def test_result_report_keeps_same_student_class_sessions_separate(self):
+        next_year = AcademicYear.objects.create(
+            institute=self.institute,
+            name="2027-28",
+            start_date="2027-04-01",
+            end_date="2028-03-31",
+        )
+        next_course = Course.objects.create(
+            institute=self.institute,
+            academic_year=next_year,
+            name="Science",
+        )
+        next_batch = Batch.objects.create(
+            institute=self.institute,
+            academic_year=next_year,
+            name="Assigned Batch",
+        )
+        next_batch.courses.add(next_course)
+        next_batch.teachers.add(self.teacher_user)
+        next_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_year=next_year,
+            admission_number="M001-27",
+        )
+        next_enrollment = StudentEnrollment.objects.create(
+            student=self.student,
+            academic_session=next_session,
+            batch=next_batch,
+        )
+        next_exam = Exam.objects.create(
+            academic_year=next_year,
+            batch=next_batch,
+            course=next_course,
+            title="Next Session Exam",
+            exam_date="2027-07-01",
+            is_published=True,
+        )
+        ExamQuestion.objects.create(
+            exam=next_exam,
+            text="Next session question",
+            marks=2,
+            order=1,
+        )
+        ExamAttempt.objects.create(
+            exam=next_exam,
+            academic_session=next_session,
+            student=self.student,
+            submitted_at=timezone.now(),
+            score=1,
+            total_marks=2,
+            correct_count=1,
+        )
+
+        # Simulate legacy/imported data where the same student appears in the same
+        # class across sessions; report grouping must still keep sessions separate.
+        StudentEnrollment.objects.filter(pk=next_enrollment.pk).update(batch=self.batch)
+        Exam.objects.filter(pk=next_exam.pk).update(batch=self.batch)
+
+        results = self.get_json(
+            f"/api/mobile/teacher/reports/results/?class_id={self.batch.pk}&student_id={self.student.pk}"
+        )
+
+        self.assertEqual(results["summary"]["total"], 2)
+        self.assertEqual(results["summary"]["submitted"], 2)
+        rows_by_admission = {
+            row["admission_number"]: row
+            for row in results["student_summaries"]
+        }
+        self.assertEqual(set(rows_by_admission), {"M001", "M001-27"})
+        self.assertEqual(rows_by_admission["M001"]["percentage"], 100)
+        self.assertEqual(rows_by_admission["M001-27"]["percentage"], 50)
 
     def test_phase_3_attendance_post_creates_and_updates_rows(self):
         Attendance.objects.filter(pk=self.attendance.pk).delete()

@@ -7,7 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.utils import timezone
 
-from institute_admin.models import AcademicYear, Batch, Course, Notice
+from institute_admin.models import AcademicYear, Batch, Course, Notice, NoticeRead
 from super_admin.mobile_auth import create_access_token
 from super_admin.models import Institute, UserProfile
 from teacher.models import (
@@ -193,6 +193,56 @@ class MobileHomeworkPlannerTests(TestCase):
         self.assertEqual(math_group["items"][0]["batch"]["name"], "Morning")
         self.assertEqual(math_group["items"][0]["title"], "Algebra practice")
         self.assertIn("/api/mobile/homework/document/download/", data["document_download_url"])
+
+    def test_mobile_homework_defaults_to_one_active_academic_session(self):
+        next_year = AcademicYear.objects.create(
+            institute=self.institute,
+            name="2027-28",
+            start_date=date(2027, 4, 1),
+            end_date=date(2028, 3, 31),
+        )
+        next_course = Course.objects.create(
+            institute=self.institute,
+            academic_year=next_year,
+            name="Mathematics",
+            fee_amount=Decimal("1000.00"),
+        )
+        next_batch = Batch.objects.create(
+            institute=self.institute,
+            academic_year=next_year,
+            name="Evening",
+        )
+        next_batch.courses.add(next_course)
+        next_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_year=next_year,
+            admission_number="ADM-001-27",
+        )
+        next_enrollment = StudentEnrollment.objects.create(
+            student=self.student,
+            academic_session=next_session,
+            batch=next_batch,
+        )
+        next_enrollment.courses.add(next_course)
+        Homework.objects.create(
+            batch=next_batch,
+            course=next_course,
+            title="Next session homework",
+            instructions="Do not mix with old session homework.",
+            due_date=date(2027, 6, 1),
+        )
+
+        default_response = self.client.get("/api/mobile/homework/", **self.auth_headers())
+        selected_response = self.client.get(
+            f"/api/mobile/homework/?academic_session_id={self.session.pk}",
+            **self.auth_headers(),
+        )
+
+        default_titles = [item["title"] for item in default_response.json()["homework"]]
+        selected_titles = [item["title"] for item in selected_response.json()["homework"]]
+        self.assertEqual(default_titles, ["Next session homework"])
+        self.assertEqual(set(selected_titles), {"Algebra practice", "Lab reading"})
 
     def test_mobile_homework_document_download_returns_html(self):
         response = self.client.get(
@@ -563,6 +613,79 @@ class MobileHomeworkPlannerTests(TestCase):
         read_notice = next(notice for notice in data["notices"] if notice["id"] == self.notice.pk)
         self.assertTrue(read_notice["is_read"])
         self.assertEqual(data["summary"]["unread_count"], 1)
+
+    def test_mobile_notice_detail_uses_selected_academic_session(self):
+        next_year = AcademicYear.objects.create(
+            institute=self.institute,
+            name="2027-28",
+            start_date=date(2027, 4, 1),
+            end_date=date(2028, 3, 31),
+        )
+        next_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_year=next_year,
+            admission_number="ADM-001-N",
+        )
+        next_notice = Notice.objects.create(
+            institute=self.institute,
+            academic_year=next_year,
+            title="Next session notice",
+            message="Visible only in next session.",
+            audience=Notice.Audience.STUDENTS_PARENTS,
+        )
+
+        blocked = self.client.get(
+            f"/api/mobile/notices/{next_notice.pk}/?academic_session_id={self.session.pk}",
+            **self.auth_headers(),
+        )
+        allowed = self.client.get(
+            f"/api/mobile/notices/{next_notice.pk}/?academic_session_id={next_session.pk}",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(blocked.status_code, 404)
+        self.assertEqual(allowed.status_code, 200)
+        self.assertEqual(allowed.json()["notice"]["id"], next_notice.pk)
+
+    def test_mobile_notice_mark_read_uses_selected_academic_session(self):
+        next_year = AcademicYear.objects.create(
+            institute=self.institute,
+            name="2027-28",
+            start_date=date(2027, 4, 1),
+            end_date=date(2028, 3, 31),
+        )
+        next_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_year=next_year,
+            admission_number="ADM-001-N",
+        )
+        next_notice = Notice.objects.create(
+            institute=self.institute,
+            academic_year=next_year,
+            title="Next session notice",
+            message="Visible only in next session.",
+            audience=Notice.Audience.STUDENTS_PARENTS,
+        )
+
+        blocked = self.client.post(
+            f"/api/mobile/notices/{next_notice.pk}/read/?academic_session_id={self.session.pk}",
+            **self.auth_headers(),
+        )
+        allowed = self.client.post(
+            f"/api/mobile/notices/{next_notice.pk}/read/?academic_session_id={next_session.pk}",
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(blocked.status_code, 404)
+        self.assertEqual(allowed.status_code, 200)
+        self.assertTrue(
+            NoticeRead.objects.filter(
+                notice=next_notice,
+                user=self.user,
+            ).exists()
+        )
 
 
 class MobilePushNotificationTests(TestCase):

@@ -21,7 +21,9 @@ def _env_list(name, default=None):
 
 
 ENVIRONMENT = "production"
-DEBUG = _env_bool("DJANGO_DEBUG", False)
+DEBUG = False
+if _env_bool("DJANGO_DEBUG", False):
+    raise ImproperlyConfigured("DJANGO_DEBUG must not be enabled in production.")
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "").strip()
 if not SECRET_KEY:
@@ -64,14 +66,14 @@ if not DATABASES["default"]["PASSWORD"]:
 CORS_ALLOW_ALL_ORIGINS = _env_bool("CORS_ALLOW_ALL_ORIGINS", False)
 CORS_ALLOWED_ORIGINS = _env_list("CORS_ALLOWED_ORIGINS")
 
-SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", False)
-CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", False)
-SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", False)
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", True)
+CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", True)
+SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", True)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "0"))
+SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000"))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", True)
-SECURE_HSTS_PRELOAD = _env_bool("SECURE_HSTS_PRELOAD", False)
+SECURE_HSTS_PRELOAD = _env_bool("SECURE_HSTS_PRELOAD", True)
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 

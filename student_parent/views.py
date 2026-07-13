@@ -862,13 +862,21 @@ def mobile_notices(request):
     return JsonResponse(_mobile_notices_payload(student, request))
 
 
+def _student_notice_queryset(student, request):
+    selected_session = _selected_academic_session(student, request)
+    return Notice.for_student(
+        student,
+        academic_session_id=selected_session.pk if selected_session else None,
+    )
+
+
 @require_GET
 def mobile_notice_detail(request, notice_id):
     student, error = _student_for_request(request)
     if error:
         return error
     notice = get_object_or_404(
-        Notice.for_student(student).select_related("created_by"),
+        _student_notice_queryset(student, request).select_related("created_by"),
         pk=notice_id,
     )
     read_ids = set(
@@ -886,7 +894,7 @@ def mobile_notice_mark_read(request, notice_id):
     student, error = _student_for_request(request)
     if error:
         return error
-    notice = get_object_or_404(Notice.for_student(student), pk=notice_id)
+    notice = get_object_or_404(_student_notice_queryset(student, request), pk=notice_id)
     receipt, _created = NoticeRead.objects.get_or_create(notice=notice, user=student.user)
     return JsonResponse({"detail": "Notice marked as read.", "notice_id": notice.pk, "read_at": _datetime(receipt.read_at)})
 
@@ -900,18 +908,18 @@ def _homework_document_url(request):
 
 
 def _student_homework_queryset(student, request):
+    selected_session = _student_exam_session(request, student)
+    if not selected_session:
+        return Homework.objects.none()
     enrollments = (
         StudentEnrollment.objects.filter(
             student=student,
             status=StudentEnrollment.Status.ACTIVE,
-            academic_session__status="ACTIVE",
+            academic_session=selected_session,
         )
         .select_related("batch", "batch__academic_year")
         .prefetch_related("courses")
     )
-    selected_session = _selected_academic_session(student, request)
-    if selected_session:
-        enrollments = enrollments.filter(academic_session=selected_session)
     batch_ids = enrollments.values_list("batch_id", flat=True)
     course_ids = enrollments.values_list("courses__id", flat=True)
     queryset = (
