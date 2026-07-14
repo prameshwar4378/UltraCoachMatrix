@@ -23,6 +23,7 @@ urlpatterns = [
     path("questions/", views.TeacherQuestionsAPI.as_view(), name="questions"),
     path("questions/<int:question_id>/", views.TeacherQuestionDetailAPI.as_view(), name="question_detail"),
     path("submissions/", views.TeacherSubmissionsAPI.as_view(), name="submissions"),
+    path("submissions/<int:attempt_id>/review/", views.TeacherSubmissionReviewAPI.as_view(), name="submission_review"),
     path("submissions/<int:attempt_id>/force-submit/", views.TeacherSubmissionForceSubmitAPI.as_view(), name="submission_force_submit"),
     path("submissions/<int:attempt_id>/reset/", views.TeacherSubmissionResetAPI.as_view(), name="submission_reset"),
     path("results/", views.TeacherResultsAPI.as_view(), name="results"),

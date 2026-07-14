@@ -704,7 +704,7 @@ class TeacherMobileReadApiTests(TestCase):
 
         page = self.get_json("/api/mobile/teacher/assignments/?page_size=1")
         self.assertEqual(page["meta"]["page_size"], 1)
-        self.assertEqual(page["meta"]["count"], 1)
+        self.assertGreaterEqual(page["meta"]["count"], 3)
         self.assertEqual(len(page["results"]), 1)
         self.assertEqual(page["results"][0]["id"], today_homework.pk)
 

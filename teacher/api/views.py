@@ -17,7 +17,7 @@ from rest_framework.views import APIView
 from institute_admin.models import Course, NoticeRead, Subject
 from student_parent.notifications import notify_exam_results_declared
 from student_parent.models import StudentAcademicSession, StudentEnrollment
-from ..models import Attendance, Exam, ExamAttempt, ExamQuestion, ExamQuestionOption, ExamResult, Homework, HomeworkAttachment
+from ..models import Attendance, Exam, ExamAttempt, ExamQuestion, ExamQuestionAttempt, ExamQuestionOption, ExamResult, Homework, HomeworkAttachment
 from ..views import build_pdf_document, pdf_rect, pdf_text, recalculate_exam_attempt, sync_exam_total_marks, teacher_attempt_percentage, teacher_students_for_batches
 from .authentication import MobileBearerAuthentication
 from .pagination import TeacherMobilePagination
@@ -378,8 +378,6 @@ class TeacherAssignmentsAPI(TeacherMobileAPIView):
             homework = homework.filter(Q(due_date__isnull=True) | Q(due_date__gte=today))
         elif homework_status == "no_due":
             homework = homework.filter(due_date__isnull=True)
-        if not (due_from or due_to or homework_status or search or class_id or course_id or subject_id):
-            homework = homework.filter(due_date=today)
         return self.paginated_response(
             homework.prefetch_related("attachments").order_by("-created_at"),
             HomeworkSerializer,
@@ -845,6 +843,54 @@ class TeacherSubmissionResetAPI(TeacherMobileAPIView):
         ExamResult.objects.filter(exam_id=exam_id, student_id=student_id).delete()
         attempt.delete()
         return api_response(message="Submission reset.")
+
+
+class TeacherSubmissionReviewAPI(TeacherMobileAPIView):
+    def get(self, request, attempt_id):
+        attempt = _teacher_review_attempt(request, attempt_id)
+        if not attempt:
+            return api_response(message="Submission not found.", status_code=status.HTTP_404_NOT_FOUND)
+        recalculate_exam_attempt(attempt)
+        attempt.refresh_from_db()
+        return api_response(_attempt_review_payload(request, attempt))
+
+    def patch(self, request, attempt_id):
+        attempt = _teacher_review_attempt(request, attempt_id)
+        if not attempt:
+            return api_response(message="Submission not found.", status_code=status.HTTP_404_NOT_FOUND)
+        answers = request.data.get("answers", [])
+        if not isinstance(answers, list):
+            return api_response(message="Answers must be a list.", status_code=status.HTTP_400_BAD_REQUEST)
+        questions = {question.pk: question for question in attempt.exam.questions.prefetch_related("options")}
+        with transaction.atomic():
+            for answer in answers:
+                if not isinstance(answer, dict):
+                    continue
+                question_id = answer.get("question_id")
+                try:
+                    question_id = int(question_id)
+                except (TypeError, ValueError):
+                    continue
+                question = questions.get(question_id)
+                if not question:
+                    continue
+                option_id = answer.get("option_id")
+                selected_option = None
+                if option_id not in (None, "", 0, "0"):
+                    selected_option = question.options.filter(pk=option_id).first()
+                    if not selected_option:
+                        return api_response(
+                            message="Selected option does not belong to the question.",
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                        )
+                ExamQuestionAttempt.objects.update_or_create(
+                    attempt=attempt,
+                    question=question,
+                    defaults={"selected_option": selected_option},
+                )
+            recalculate_exam_attempt(attempt)
+        attempt.refresh_from_db()
+        return api_response(_attempt_review_payload(request, attempt), message="Student answers updated.")
 
 
 class TeacherResultsAPI(TeacherMobileAPIView):
@@ -1590,6 +1636,82 @@ def _attempts_paginated_response(view, attempts, *, extra_summary=None):
             "previous": paginator.get_previous_link(),
         }
     return api_response({"summary": summary, "results": serializer.data, "meta": meta})
+
+
+def _teacher_review_attempt(request, attempt_id):
+    base_attempt = teacher_attempt_or_none(request, attempt_id)
+    if not base_attempt:
+        return None
+    return (
+        ExamAttempt.objects.select_related("exam", "student", "student__user", "academic_session")
+        .prefetch_related("exam__questions__options", "question_attempts__selected_option", "uploads")
+        .filter(pk=base_attempt.pk)
+        .first()
+    )
+
+
+def _attempt_review_payload(request, attempt):
+    answer_map = {
+        answer.question_id: answer
+        for answer in attempt.question_attempts.select_related("selected_option")
+    }
+    uploads_by_question = {}
+    unlinked_uploads = []
+    for upload in attempt.uploads.all():
+        row = _rough_upload_payload(request, upload)
+        if upload.question_id:
+            uploads_by_question.setdefault(upload.question_id, []).append(row)
+        else:
+            unlinked_uploads.append(row)
+    return {
+        "attempt": AttemptSerializer(attempt).data,
+        "questions": [
+            _review_question_payload(
+                request,
+                question,
+                answer_map.get(question.pk),
+                uploads_by_question.get(question.pk, []),
+            )
+            for question in attempt.exam.questions.all()
+        ],
+        "unlinked_uploads": unlinked_uploads,
+    }
+
+
+def _review_question_payload(request, question, answer, uploads):
+    correct_option = question.correct_option
+    selected_option = answer.selected_option if answer else None
+    image_url = question.image.url if question.image else ""
+    if image_url:
+        image_url = request.build_absolute_uri(image_url)
+    return {
+        "id": question.pk,
+        "order": question.order,
+        "text": question.text,
+        "marks": question.marks,
+        "image_url": image_url,
+        "selected_option_id": selected_option.pk if selected_option else None,
+        "correct_option_id": correct_option.pk if correct_option else None,
+        "is_correct": bool(answer and answer.is_correct),
+        "marks_awarded": float(answer.marks_awarded) if answer else 0,
+        "options": [
+            {"id": option.pk, "text": option.text, "order": option.order, "is_correct": option.is_correct}
+            for option in question.options.all()
+        ],
+        "rough_work_uploads": uploads,
+    }
+
+
+def _rough_upload_payload(request, upload):
+    url = upload.image.url if upload.image else ""
+    if url:
+        url = request.build_absolute_uri(url)
+    return {
+        "id": upload.pk,
+        "question_id": upload.question_id,
+        "image_url": url,
+        "uploaded_at": upload.uploaded_at.isoformat() if upload.uploaded_at else "",
+    }
 
 
 def _attempts_summary(attempts):
