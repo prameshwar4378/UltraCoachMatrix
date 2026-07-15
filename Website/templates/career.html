@@ -1,0 +1,1032 @@
+{% extends "website_base.html" %}
+
+{% block content %}
+<main class="career-page">
+  <section class="career-hero">
+    <div class="career-shell hero-grid">
+      <div class="career-copy">
+        <span class="career-eyebrow"><i class="bi bi-briefcase-fill"></i> Careers at UltraCoachMatrix</span>
+        <h1>Build software that helps coaching institutes run smarter.</h1>
+        <p>
+          Join a product team focused on admissions, fees, attendance, exams, reports,
+          communication and mobile app workflows for education businesses.
+        </p>
+        <div class="career-actions">
+          <a href="#career-application" class="career-primary">
+            Fill application form <i class="bi bi-arrow-right"></i>
+          </a>
+          <a href="{% url 'web_contact_us' %}" class="career-secondary">
+            Talk to team <i class="bi bi-headset"></i>
+          </a>
+        </div>
+      </div>
+
+      <aside class="career-panel" aria-label="Career highlights">
+        <div class="panel-top">
+          <span class="pulse-dot"></span>
+          <strong>Hiring focus</strong>
+        </div>
+        <div class="career-stat">
+          <span>Product area</span>
+          <strong>EdTech SaaS</strong>
+        </div>
+        <div class="career-stat">
+          <span>Work style</span>
+          <strong>Product + support collaboration</strong>
+        </div>
+        <div class="career-stat">
+          <span>Open position</span>
+          <strong>Sales Executive</strong>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="career-section">
+    <div class="career-shell">
+      <div class="career-heading">
+        <span class="career-eyebrow muted"><i class="bi bi-stars"></i> Why join us</span>
+        <h2>Work close to real institute problems.</h2>
+        <p>Every feature is shaped by practical workflows used by coaching classes and education teams.</p>
+      </div>
+
+      <div class="career-card-grid">
+        <article class="career-card">
+          <i class="bi bi-kanban-fill"></i>
+          <h3>Product ownership</h3>
+          <p>Help improve modules across students, teachers, fees, batches, exams and dashboards.</p>
+        </article>
+        <article class="career-card">
+          <i class="bi bi-phone-fill"></i>
+          <h3>Web and mobile impact</h3>
+          <p>Contribute to admin, student and teacher experiences used across daily institute operations.</p>
+        </article>
+        <article class="career-card">
+          <i class="bi bi-headset"></i>
+          <h3>Customer learning</h3>
+          <p>Understand feedback from institutes and turn it into simpler, faster product workflows.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="career-openings">
+    <div class="career-shell openings-panel">
+      <div class="openings-header">
+        <div class="career-heading align-left">
+          <span class="career-eyebrow muted"><i class="bi bi-briefcase-fill"></i> Career opportunity</span>
+          <h2>Current opportunities</h2>
+          <p>We are currently hiring for one important role focused on growth, demos and institute relationships.</p>
+        </div>
+        <a href="#career-application" class="openings-apply">
+          Apply now <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+
+      <article class="featured-role">
+        <div class="role-main">
+          <div class="role-title-row">
+            <span class="role-icon"><i class="bi bi-megaphone-fill"></i></span>
+            <div>
+              <span class="role-kicker">Open position</span>
+              <h3>Sales Executive</h3>
+            </div>
+            <span class="role-status">Open now</span>
+          </div>
+
+          <p>
+            Connect with coaching institutes, understand their needs, present UltraCoachMatrix,
+            schedule product demos and support follow-up until the customer is ready to onboard.
+          </p>
+
+          <div class="role-meta">
+            <span><i class="bi bi-geo-alt-fill"></i> India</span>
+            <span><i class="bi bi-clock-fill"></i> Full-time</span>
+            <span><i class="bi bi-mortarboard-fill"></i> Fresher friendly</span>
+          </div>
+        </div>
+
+        <div class="role-detail-grid">
+          <div class="role-detail">
+            <h4>What you will do</h4>
+            <ul>
+              <li><i class="bi bi-check2-circle"></i> Call and follow up with coaching institute leads</li>
+              <li><i class="bi bi-check2-circle"></i> Explain features, pricing and demo flow clearly</li>
+              <li><i class="bi bi-check2-circle"></i> Coordinate with the product team for onboarding</li>
+            </ul>
+          </div>
+          <div class="role-detail">
+            <h4>Good fit if you have</h4>
+            <ul>
+              <li><i class="bi bi-check2-circle"></i> Clear communication and confidence on calls</li>
+              <li><i class="bi bi-check2-circle"></i> Basic computer and CRM-style follow-up discipline</li>
+              <li><i class="bi bi-check2-circle"></i> Interest in education technology and software sales</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="career-application" id="career-application">
+    <div class="career-shell application-grid">
+      <div class="application-copy">
+        <span class="career-eyebrow muted"><i class="bi bi-send-check-fill"></i> Apply now</span>
+        <h2>Submit your career details.</h2>
+        <p>
+          Fill the form carefully for the Sales Executive opportunity. Our team will review your details and contact shortlisted applicants.
+        </p>
+        <div class="application-note">
+          <i class="bi bi-shield-check"></i>
+          <span>Your application will be saved securely in the admin panel for review.</span>
+        </div>
+      </div>
+
+      <div class="application-card">
+        {% if messages %}
+        <div class="career-alerts">
+          {% for message in messages %}
+          {% if message.tags == "success" %}
+          <div class="career-success-modal" id="careerSuccessModal" role="dialog" aria-modal="true" aria-labelledby="careerSuccessTitle">
+            <div class="career-success-box">
+              <button class="career-success-close" type="button" aria-label="Close success message">
+                <i class="bi bi-x-lg"></i>
+              </button>
+              <div class="success-check" aria-hidden="true">
+                <i class="bi bi-check-lg"></i>
+              </div>
+              <h3 id="careerSuccessTitle">Application submitted</h3>
+              <p>{{ message }}</p>
+            </div>
+          </div>
+          {% else %}
+          <div class="career-alert {{ message.tags }}">
+            <i class="bi {% if message.tags == 'success' %}bi-check-circle-fill{% else %}bi-exclamation-circle-fill{% endif %}"></i>
+            <span>{{ message }}</span>
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <form class="career-form" method="post" action="{% url 'web_careers' %}#career-application" enctype="multipart/form-data">
+          {% csrf_token %}
+
+          <div class="field-grid">
+            <label>
+              Full name
+              <input type="text" name="full_name" placeholder="Your full name" value="{{ form_data.full_name|default:'' }}" required>
+            </label>
+            <label>
+              Phone number
+              <input type="tel" name="phone" placeholder="+91..." value="{{ form_data.phone|default:'' }}" required>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              Email address
+              <input type="email" name="email" placeholder="you@example.com" value="{{ form_data.email|default:'' }}" required>
+            </label>
+            <label>
+              City
+              <input type="text" name="city" placeholder="Your city" value="{{ form_data.city|default:'' }}" required>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              Experience
+              <select name="experience" required>
+                <option value="">Select experience</option>
+                {% for value, label in experience_choices %}
+                <option value="{{ value }}" {% if form_data.experience == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              Qualification
+              <input type="text" name="qualification" placeholder="Highest qualification" value="{{ form_data.qualification|default:'' }}" required>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              Notice period
+              <input type="text" name="notice_period" placeholder="Immediate, 15 days, 30 days..." value="{{ form_data.notice_period|default:'' }}">
+            </label>
+            <label>
+              Resume upload
+              <input type="file" name="resume" accept=".pdf,.doc,.docx" required>
+              <small>Upload PDF, DOC or DOCX. Maximum size: 5 MB.</small>
+            </label>
+          </div>
+
+          <label class="full-field">
+            Portfolio or profile link
+            <input type="url" name="portfolio_link" placeholder="LinkedIn, GitHub, portfolio or other profile" value="{{ form_data.portfolio_link|default:'' }}">
+          </label>
+
+          <label class="full-field">
+            Short message
+            <textarea name="cover_letter" rows="5" placeholder="Tell us why you are interested in this opportunity.">{{ form_data.cover_letter|default:'' }}</textarea>
+          </label>
+
+          <button type="submit">Submit application <i class="bi bi-send-fill"></i></button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="career-process">
+    <div class="career-shell">
+      <div class="career-heading">
+        <span class="career-eyebrow muted"><i class="bi bi-diagram-3-fill"></i> Hiring process</span>
+        <h2>Simple, practical and focused on your work.</h2>
+      </div>
+
+      <div class="process-grid">
+        <article>
+          <span>01</span>
+          <h3>Resume review</h3>
+          <p>Upload your resume and share portfolio or profile links if available.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3>Skill discussion</h3>
+          <p>We discuss your experience, product thinking and role fit.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3>Practical task</h3>
+          <p>For technical roles, expect a small task based on real product scenarios.</p>
+        </article>
+        <article>
+          <span>04</span>
+          <h3>Final conversation</h3>
+          <p>Confirm expectations, availability and next steps with the team.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="career-cta">
+    <div class="career-shell cta-box">
+      <div>
+        <span>Ready to apply?</span>
+        <h2>Share your details with the UltraCoachMatrix team.</h2>
+      </div>
+      <a href="#career-application">
+        Open form <i class="bi bi-arrow-up-right"></i>
+      </a>
+    </div>
+  </section>
+</main>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const modal = document.getElementById("careerSuccessModal");
+  if (!modal) return;
+
+  const close = () => {
+    modal.classList.add("closing");
+    window.setTimeout(() => modal.remove(), 260);
+  };
+
+  modal.querySelector(".career-success-close")?.addEventListener("click", close);
+  modal.addEventListener("click", event => {
+    if (event.target === modal) close();
+  });
+  window.setTimeout(close, 5200);
+});
+</script>
+
+<style>
+.career-page{
+  background:linear-gradient(135deg,#f7fbff 0%,#ffffff 48%,#eef7f3 100%);
+  color:var(--text);
+}
+
+.career-shell{
+  width:min(1160px,calc(100% - 36px));
+  margin:auto;
+}
+
+.career-hero{
+  padding:118px 0 70px;
+}
+
+.hero-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1.08fr) minmax(320px,.62fr);
+  gap:34px;
+  align-items:center;
+}
+
+.career-eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 16px;
+  border-radius:999px;
+  color:#0d5b52;
+  background:rgba(13,91,82,.09);
+  border:1px solid rgba(13,91,82,.12);
+  font-size:13px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.6px;
+}
+
+.career-eyebrow.muted{
+  color:var(--primary);
+  background:rgba(18,60,122,.08);
+  border-color:rgba(18,60,122,.1);
+}
+
+.career-copy h1{
+  max-width:780px;
+  margin:22px 0 18px;
+  color:var(--dark);
+  font-size:clamp(40px,6vw,72px);
+  line-height:1.02;
+  font-weight:950;
+}
+
+.career-copy p,
+.career-heading p,
+.application-copy p,
+.career-card p,
+.process-grid p{
+  color:var(--muted);
+  line-height:1.75;
+  font-weight:600;
+}
+
+.career-copy p{
+  max-width:700px;
+  font-size:18px;
+}
+
+.career-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:14px;
+  margin-top:30px;
+}
+
+.career-primary,
+.career-secondary,
+.cta-box a{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  min-height:50px;
+  padding:14px 22px;
+  border-radius:999px;
+  text-decoration:none;
+  font-weight:950;
+}
+
+.career-primary,
+.cta-box a{
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  box-shadow:0 18px 40px rgba(245,179,1,.24);
+}
+
+.career-secondary{
+  color:var(--primary);
+  background:#fff;
+  border:1px solid rgba(18,60,122,.12);
+}
+
+.career-panel{
+  padding:28px;
+  border-radius:30px;
+  color:#fff;
+  background:linear-gradient(145deg,#071527,#123c7a 58%,#0d5b52);
+  box-shadow:0 30px 90px rgba(7,21,39,.18);
+}
+
+.panel-top,
+.career-stat{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+}
+
+.panel-top{
+  padding-bottom:20px;
+  margin-bottom:18px;
+  border-bottom:1px solid rgba(255,255,255,.16);
+}
+
+.pulse-dot{
+  width:12px;
+  height:12px;
+  border-radius:999px;
+  background:#38d996;
+  box-shadow:0 0 0 8px rgba(56,217,150,.16);
+}
+
+.career-stat{
+  padding:18px 0;
+  border-bottom:1px solid rgba(255,255,255,.12);
+}
+
+.career-stat:last-child{border-bottom:0}
+.career-stat span{color:rgba(255,255,255,.7);font-weight:800}
+.career-stat strong{text-align:right;font-size:17px}
+
+.career-section,
+.career-openings,
+.career-application,
+.career-process{
+  padding:68px 0;
+}
+
+.career-openings{
+  position:relative;
+  overflow:hidden;
+  margin:36px 0;
+  padding:84px 0;
+  color:#fff;
+  background:
+    linear-gradient(135deg,rgba(255,229,154,.12),rgba(13,91,82,.06) 34%,rgba(7,21,39,0) 62%),
+    linear-gradient(145deg,#071527,#0d2c5d 56%,#123c7a);
+}
+
+.career-openings .career-eyebrow{
+  color:#ffe59a;
+  background:rgba(255,255,255,.1);
+  border-color:rgba(255,255,255,.16);
+}
+
+.career-openings .career-heading h2{
+  color:#fff;
+}
+
+.career-openings .career-heading p{
+  color:rgba(255,255,255,.78);
+}
+
+.career-heading{
+  max-width:760px;
+  margin:0 auto 30px;
+  text-align:center;
+}
+
+.career-heading.align-left{
+  margin:0;
+  text-align:left;
+}
+
+.career-heading h2{
+  margin:16px 0 10px;
+  color:var(--dark);
+  font-size:clamp(30px,4vw,48px);
+  line-height:1.08;
+  font-weight:950;
+}
+
+.career-card-grid,
+.process-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:22px;
+}
+
+.career-card,
+.application-card,
+.process-grid article{
+  background:#fff;
+  border:1px solid rgba(18,60,122,.09);
+  box-shadow:0 22px 60px rgba(18,60,122,.08);
+}
+
+.career-card{
+  padding:28px;
+  border-radius:24px;
+}
+
+.career-card i{
+  display:inline-grid;
+  place-items:center;
+  width:50px;
+  height:50px;
+  border-radius:16px;
+  color:#fff;
+  background:linear-gradient(135deg,var(--primary),#0d5b52);
+  font-size:22px;
+}
+
+.career-card h3,
+.process-grid h3{
+  margin:18px 0 10px;
+  color:var(--dark);
+  font-size:20px;
+  font-weight:950;
+}
+
+.openings-panel{
+  display:grid;
+  gap:28px;
+}
+
+.openings-header{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:24px;
+}
+
+.openings-apply{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  flex-shrink:0;
+  min-height:50px;
+  padding:14px 22px;
+  border-radius:999px;
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  text-decoration:none;
+  font-weight:950;
+  box-shadow:0 18px 42px rgba(245,179,1,.22);
+}
+
+.featured-role{
+  display:grid;
+  grid-template-columns:minmax(0,.95fr) minmax(320px,.75fr);
+  gap:26px;
+  padding:30px;
+  border-radius:28px;
+  color:#fff;
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 28px 80px rgba(0,0,0,.24);
+  backdrop-filter:blur(10px);
+}
+
+.featured-role h3{
+  margin:4px 0 0;
+  color:#fff;
+  font-size:clamp(28px,4vw,46px);
+  line-height:1.02;
+  font-weight:950;
+}
+
+.featured-role p{
+  margin:22px 0 0;
+  color:rgba(255,255,255,.78);
+  font-size:16px;
+  line-height:1.75;
+  font-weight:700;
+}
+
+.role-title-row{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  gap:16px;
+  align-items:center;
+}
+
+.role-icon{
+  display:grid;
+  place-items:center;
+  width:60px;
+  height:60px;
+  border-radius:18px;
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  font-size:26px;
+}
+
+.role-kicker{
+  color:#ffe59a;
+  font-size:12px;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.7px;
+}
+
+.role-status{
+  align-self:start;
+  padding:9px 13px;
+  border-radius:999px;
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  font-size:12px;
+  font-weight:950;
+  text-transform:uppercase;
+}
+
+.role-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:24px;
+}
+
+.role-meta span{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 13px;
+  border-radius:999px;
+  color:rgba(255,255,255,.86);
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.12);
+  font-size:13px;
+  font-weight:850;
+}
+
+.role-detail-grid{
+  display:grid;
+  gap:16px;
+}
+
+.role-detail{
+  padding:22px;
+  border-radius:20px;
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.14);
+}
+
+.role-detail h4{
+  margin:0 0 14px;
+  color:#fff;
+  font-size:17px;
+  font-weight:950;
+}
+
+.role-detail ul{
+  display:grid;
+  gap:11px;
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+
+.role-detail li{
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  color:rgba(255,255,255,.78);
+  font-size:14px;
+  line-height:1.55;
+  font-weight:700;
+}
+
+.role-detail li i{
+  color:#ffe59a;
+  margin-top:2px;
+}
+
+.application-grid{
+  display:grid;
+  grid-template-columns:minmax(260px,.65fr) minmax(0,1fr);
+  gap:34px;
+  align-items:start;
+}
+
+.application-copy h2{
+  margin:16px 0 12px;
+  color:var(--dark);
+  font-size:clamp(30px,4vw,48px);
+  line-height:1.08;
+  font-weight:950;
+}
+
+.application-note{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  margin-top:24px;
+  padding:18px;
+  border-radius:18px;
+  color:#0d5b52;
+  background:rgba(13,91,82,.08);
+  border:1px solid rgba(13,91,82,.12);
+  font-weight:800;
+}
+
+.application-note i{
+  font-size:20px;
+}
+
+.application-card{
+  padding:28px;
+  border-radius:24px;
+}
+
+.career-alerts{
+  display:grid;
+  gap:12px;
+  margin-bottom:20px;
+}
+
+.career-success-modal{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  background:rgba(7,21,39,.46);
+  backdrop-filter:blur(8px);
+  animation:modalFadeIn .24s ease both;
+}
+
+.career-success-modal.closing{
+  animation:modalFadeOut .24s ease both;
+}
+
+.career-success-box{
+  position:relative;
+  width:min(420px,100%);
+  padding:36px 30px 30px;
+  border-radius:26px;
+  text-align:center;
+  background:#fff;
+  border:1px solid rgba(13,91,82,.14);
+  box-shadow:0 34px 100px rgba(7,21,39,.24);
+  animation:successPop .42s cubic-bezier(.2,1.25,.35,1) both;
+}
+
+.career-success-close{
+  position:absolute;
+  top:14px;
+  right:14px;
+  display:grid;
+  place-items:center;
+  width:36px;
+  height:36px;
+  border:0;
+  border-radius:999px;
+  color:var(--muted);
+  background:#f4f7fb;
+  cursor:pointer;
+}
+
+.success-check{
+  display:grid;
+  place-items:center;
+  width:84px;
+  height:84px;
+  margin:0 auto 18px;
+  border-radius:999px;
+  color:#fff;
+  background:linear-gradient(135deg,#16a34a,#22c55e);
+  box-shadow:0 20px 44px rgba(34,197,94,.3);
+  animation:checkPulse .78s ease .18s both;
+}
+
+.success-check i{
+  font-size:44px;
+  animation:checkDraw .42s ease .26s both;
+}
+
+.career-success-box h3{
+  margin:0 0 10px;
+  color:#0f5132;
+  font-size:26px;
+  font-weight:950;
+}
+
+.career-success-box p{
+  margin:0;
+  color:var(--muted);
+  font-size:16px;
+  line-height:1.6;
+  font-weight:700;
+}
+
+@keyframes modalFadeIn{
+  from{opacity:0}
+  to{opacity:1}
+}
+
+@keyframes modalFadeOut{
+  from{opacity:1}
+  to{opacity:0}
+}
+
+@keyframes successPop{
+  from{opacity:0;transform:translateY(18px) scale(.92)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+
+@keyframes checkPulse{
+  0%{transform:scale(.72);box-shadow:0 0 0 0 rgba(34,197,94,.35)}
+  70%{transform:scale(1.06);box-shadow:0 0 0 18px rgba(34,197,94,0)}
+  100%{transform:scale(1);box-shadow:0 20px 44px rgba(34,197,94,.3)}
+}
+
+@keyframes checkDraw{
+  from{opacity:0;transform:scale(.55) rotate(-16deg)}
+  to{opacity:1;transform:scale(1) rotate(0)}
+}
+
+.career-alert{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:14px 16px;
+  border-radius:16px;
+  font-weight:800;
+}
+
+.career-alert.success{
+  color:#0d5b52;
+  background:rgba(13,91,82,.09);
+  border:1px solid rgba(13,91,82,.16);
+}
+
+.career-alert.error{
+  color:#9a3412;
+  background:#fff7ed;
+  border:1px solid #fed7aa;
+}
+
+.career-form{
+  display:grid;
+  gap:18px;
+}
+
+.career-form .field-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:16px;
+}
+
+.career-form label{
+  display:grid;
+  gap:8px;
+  color:var(--dark);
+  font-size:13px;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.45px;
+}
+
+.career-form input,
+.career-form select,
+.career-form textarea{
+  width:100%;
+  border:1px solid rgba(18,60,122,.14);
+  border-radius:16px;
+  padding:14px 15px;
+  color:var(--text);
+  background:#f8fbff;
+  font-size:15px;
+  font-weight:700;
+  outline:none;
+  transition:border-color .2s ease,box-shadow .2s ease,background .2s ease;
+}
+
+.career-form select:disabled{
+  color:#0d5b52;
+  background:rgba(13,91,82,.08);
+  opacity:1;
+  cursor:not-allowed;
+}
+
+.career-form input:focus,
+.career-form select:focus,
+.career-form textarea:focus{
+  border-color:rgba(18,60,122,.42);
+  background:#fff;
+  box-shadow:0 0 0 4px rgba(18,60,122,.08);
+}
+
+.career-form textarea{
+  resize:vertical;
+  min-height:130px;
+}
+
+.career-form small{
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.5;
+  font-weight:700;
+  text-transform:none;
+  letter-spacing:0;
+}
+
+.career-form button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  min-height:52px;
+  border:0;
+  border-radius:999px;
+  color:#071527;
+  background:linear-gradient(135deg,#ffe59a,var(--accent));
+  font-weight:950;
+  cursor:pointer;
+  box-shadow:0 18px 40px rgba(245,179,1,.22);
+}
+
+.process-grid{
+  grid-template-columns:repeat(4,1fr);
+}
+
+.process-grid article{
+  padding:24px;
+  border-radius:22px;
+}
+
+.process-grid span,
+.cta-box span{
+  color:#f5b301;
+  font-size:13px;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.7px;
+}
+
+.career-cta{
+  padding:20px 0 90px;
+}
+
+.cta-box{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:24px;
+  padding:34px;
+  border-radius:30px;
+  color:#fff;
+  background:linear-gradient(135deg,#071527,#123c7a);
+  box-shadow:0 30px 90px rgba(7,21,39,.18);
+}
+
+.cta-box h2{
+  margin:8px 0 0;
+  font-size:30px;
+  font-weight:950;
+}
+
+@media(max-width:992px){
+  .hero-grid,
+  .application-grid,
+  .featured-role{
+    grid-template-columns:1fr;
+  }
+  .openings-header{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .career-card-grid,
+  .process-grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
+
+@media(max-width:680px){
+  .career-hero{padding:92px 0 48px}
+  .career-card-grid,
+  .career-form .field-grid,
+  .process-grid{
+    grid-template-columns:1fr;
+  }
+  .role-title-row{
+    grid-template-columns:auto minmax(0,1fr);
+  }
+  .role-status{
+    grid-column:1 / -1;
+    justify-self:start;
+  }
+  .cta-box{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+  .career-panel,
+  .career-card,
+  .application-card,
+  .featured-role,
+  .process-grid article,
+  .cta-box{
+    border-radius:20px;
+    padding:22px;
+  }
+  .career-stat{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:8px;
+  }
+  .career-stat strong{text-align:left}
+  .career-actions a,
+  .openings-apply,
+  .cta-box a{
+    width:100%;
+  }
+}
+</style>
+{% endblock content %}

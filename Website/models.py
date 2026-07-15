@@ -70,3 +70,49 @@ class WebsiteFeedback(models.Model):
     @property
     def empty_star_range(self):
         return range(5 - self.rating)
+
+
+class CareerApplication(models.Model):
+    ROLE_CHOICES = (
+        ("sales_executive", "Sales Executive"),
+    )
+
+    EXPERIENCE_CHOICES = (
+        ("fresher", "Fresher"),
+        ("0-1", "0-1 year"),
+        ("1-3", "1-3 years"),
+        ("3-5", "3-5 years"),
+        ("5+", "5+ years"),
+    )
+
+    STATUS_CHOICES = (
+        ("new", "New"),
+        ("reviewing", "Reviewing"),
+        ("shortlisted", "Shortlisted"),
+        ("rejected", "Rejected"),
+        ("hired", "Hired"),
+    )
+
+    full_name = models.CharField(max_length=140)
+    email = models.EmailField()
+    phone = models.CharField(max_length=30)
+    role = models.CharField(max_length=40, choices=ROLE_CHOICES)
+    experience = models.CharField(max_length=20, choices=EXPERIENCE_CHOICES)
+    qualification = models.CharField(max_length=160)
+    city = models.CharField(max_length=100)
+    notice_period = models.CharField(max_length=80, blank=True)
+    resume = models.FileField(upload_to="career_resumes/", default="")
+    portfolio_link = models.URLField(blank=True)
+    cover_letter = models.TextField(max_length=1500, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="new")
+    admin_note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Career application"
+        verbose_name_plural = "Career applications"
+
+    def __str__(self):
+        return f"{self.full_name} - {self.get_role_display()}"

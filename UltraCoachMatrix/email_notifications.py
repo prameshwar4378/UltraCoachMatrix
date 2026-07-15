@@ -203,6 +203,51 @@ def send_institute_welcome(user_id, temporary_password):
     )
 
 
+def send_career_application_notification(application_id):
+    from Website.models import CareerApplication
+
+    application = CareerApplication.objects.get(pk=application_id)
+    recipients = _unique_emails(
+        [
+            "prameshwar4378@gmail.com",
+            "ultoxy.tech@gmail.com",
+        ]
+    )
+    if not recipients:
+        return 0
+
+    html_body = render_to_string(
+        "email_templates/career_application_notification.html",
+        {
+            "application": application,
+            "admin_url": absolute_url(
+                reverse("admin:Website_careerapplication_change", args=[application.pk])
+            ),
+        },
+    )
+    message = EmailMultiAlternatives(
+        subject=f"New career application - {application.get_role_display()} - {application.full_name}",
+        body=_plain_text_body(html_body),
+        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+        to=recipients,
+        reply_to=_unique_emails([application.email, getattr(settings, "EMAIL_REPLY_TO", "")]),
+        headers={
+            "Auto-Submitted": "auto-generated",
+            "X-Auto-Response-Suppress": "All",
+        },
+    )
+    message.attach_alternative(html_body, "text/html")
+    if application.resume:
+        try:
+            message.attach_file(application.resume.path)
+        except Exception:
+            logger.exception(
+                "Could not attach resume for career application %s.",
+                application.pk,
+            )
+    return message.send(fail_silently=False)
+
+
 def _send_payment_email(payment_id, *, updated):
     from accountant.models import Payment
 

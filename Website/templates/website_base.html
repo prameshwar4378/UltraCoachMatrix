@@ -1070,6 +1070,7 @@ body.lock-scroll .mobile-toggle .menu-glyph span:last-child{
           <!-- <a href="{% url 'index' %}#mobile-apps" class="nav-btn">Mobile Apps</a> -->
           <!-- <a href="{% url 'index' %}#free-trial" class="nav-btn">Free Trial</a> -->
           <a href="{% url 'index' %}#pricing" class="nav-btn">Pricing</a>
+          <a href="{% url 'web_careers' %}" class="nav-btn">Careers</a>
           <a href="{% url 'web_contact_us' %}" class="nav-btn">Contact us</a>
           <button class="nav-btn" data-menu="help">Help <i class="bi bi-chevron-down"></i></button>
       </nav>
@@ -1132,6 +1133,10 @@ body.lock-scroll .mobile-toggle .menu-glyph span:last-child{
       <a href="{% url 'index' %}#pricing" class="mobile-primary-link">
         <i class="bi bi-cash-stack"></i>
         <span>Pricing</span>
+      </a>
+      <a href="{% url 'web_careers' %}" class="mobile-primary-link">
+        <i class="bi bi-briefcase-fill"></i>
+        <span>Careers</span>
       </a>
       <a href="{% url 'web_contact_us' %}" class="mobile-primary-link">
         <i class="bi bi-headset"></i>
@@ -1223,8 +1228,8 @@ const menuData = {
       ["Contact Team", "Call, email or send an enquiry to the product team.", "bi-headset", "{% url 'web_contact_us' %}"],
       ["Privacy Policy", "Understand how enquiry and website data is handled.", "bi-shield-check", "{% url 'web_privacy_policy' %}"],
       ["Terms of Use", "Read the terms for using the public website.", "bi-file-earmark-text", "{% url 'web_terms' %}"],
+      ["Careers", "Join the team building tools for coaching institutes.", "bi-briefcase-fill", "{% url 'web_careers' %}"],
       ["Book Demo", "Request a guided walkthrough for your institute.", "bi-calendar-check", "{% url 'web_contact_us' %}"],
-      ["WhatsApp", "Message the UltraCoachMatrix team directly.", "bi-whatsapp", "https://wa.me/917776824564"]
     ]
   }
 }
@@ -1532,6 +1537,7 @@ renderMobile();
         <a href="{% url 'index' %}">Home</a>
         <a href="{% url 'web-features' %}">Features</a>
         <a href="{% url 'index' %}#pricing">Pricing</a>
+        <a href="{% url 'web_careers' %}">Careers</a>
         <a href="{% url 'web_contact_us' %}">Contact</a>
       </div>
 
@@ -1553,9 +1559,10 @@ renderMobile();
       <p>&copy; 2026 UltraCoachMatrix Software. All rights reserved.</p>
 
       <div>
-        <a href="{% url 'web_contact_us' %}">Privacy Policy</a>
-        <a href="{% url 'web_contact_us' %}">Terms</a>
-        <a href="{% url 'web_contact_us' %}">Support</a>
+        <a href="{% url 'web_privacy_policy' %}">Privacy Policy</a>
+        <a href="{% url 'web_terms' %}">Terms</a>
+        <a href="{% url 'web_support' %}">Support</a>
+        <a href="{% url 'web_careers' %}">Careers</a>
       </div>
     </div>
 

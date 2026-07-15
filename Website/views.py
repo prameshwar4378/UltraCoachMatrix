@@ -9,7 +9,12 @@ from django.http import FileResponse, Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
-from .models import ContactEnquiry, WebsiteFeedback
+from UltraCoachMatrix.email_notifications import (
+    on_commit_email,
+    send_career_application_notification,
+)
+
+from .models import CareerApplication, ContactEnquiry, WebsiteFeedback
 
 
 def index(request):
@@ -126,6 +131,103 @@ def contact_us(request):
 
 def features(request):
     return render(request, 'features.html')
+
+
+def careers(request):
+    open_role = "sales_executive"
+    resume_extensions = {".pdf", ".doc", ".docx"}
+    max_resume_size = 5 * 1024 * 1024
+
+    if request.method == "POST":
+        required_fields = ("full_name", "email", "phone", "experience", "qualification", "city")
+        missing_fields = [field for field in required_fields if not request.POST.get(field, "").strip()]
+        resume = request.FILES.get("resume")
+
+        if missing_fields or not resume:
+            messages.error(request, "Please fill all required career application fields and upload your resume.")
+            return render(
+                request,
+                "career.html",
+                {
+                    "form_data": request.POST,
+                    "experience_choices": CareerApplication.EXPERIENCE_CHOICES,
+                },
+            )
+
+        resume_extension = Path(resume.name).suffix.lower()
+        if resume_extension not in resume_extensions:
+            messages.error(request, "Please upload your resume as a PDF, DOC or DOCX file.")
+            return render(
+                request,
+                "career.html",
+                {
+                    "form_data": request.POST,
+                    "experience_choices": CareerApplication.EXPERIENCE_CHOICES,
+                },
+            )
+
+        if resume.size > max_resume_size:
+            messages.error(request, "Resume file size must be 5 MB or smaller.")
+            return render(
+                request,
+                "career.html",
+                {
+                    "form_data": request.POST,
+                    "experience_choices": CareerApplication.EXPERIENCE_CHOICES,
+                },
+            )
+
+        email = request.POST.get("email", "").strip()
+        try:
+            validate_email(email)
+        except ValidationError:
+            messages.error(request, "Please enter a valid email address.")
+            return render(
+                request,
+                "career.html",
+                {
+                    "form_data": request.POST,
+                    "experience_choices": CareerApplication.EXPERIENCE_CHOICES,
+                },
+            )
+
+        experience = request.POST.get("experience", "").strip()
+        if experience not in dict(CareerApplication.EXPERIENCE_CHOICES):
+            messages.error(request, "Please select a valid experience range.")
+            return render(
+                request,
+                "career.html",
+                {
+                    "form_data": request.POST,
+                    "experience_choices": CareerApplication.EXPERIENCE_CHOICES,
+                },
+            )
+
+        application = CareerApplication.objects.create(
+            full_name=request.POST.get("full_name", "").strip(),
+            email=email,
+            phone=request.POST.get("phone", "").strip(),
+            role=open_role,
+            experience=experience,
+            qualification=request.POST.get("qualification", "").strip(),
+            city=request.POST.get("city", "").strip(),
+            notice_period=request.POST.get("notice_period", "").strip(),
+            resume=resume,
+            portfolio_link=request.POST.get("portfolio_link", "").strip(),
+            cover_letter=request.POST.get("cover_letter", "").strip(),
+        )
+        on_commit_email(send_career_application_notification, application.pk)
+
+        messages.success(request, "Thank you. Your career application has been submitted successfully.")
+        return redirect(f"{reverse('web_careers')}#career-application")
+
+    return render(
+        request,
+        "career.html",
+        {
+            "experience_choices": CareerApplication.EXPERIENCE_CHOICES,
+        },
+    )
 
 
 def privacy_policy(request):

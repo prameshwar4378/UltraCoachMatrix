@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#071527;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f7fb;padding:24px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:640px;max-width:94%;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #dfe7f2;">
+            <tr>
+              <td style="padding:28px;background:#071527;color:#ffffff;">
+                <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#ffe59a;">UltraCoachMatrix Careers</div>
+                <h1 style="margin:10px 0 0;font-size:26px;line-height:1.25;">New career application received</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:26px;">
+                <p style="margin:0 0 18px;font-size:16px;line-height:1.6;color:#39506a;">
+                  A new candidate submitted the careers form for <strong>{{ application.get_role_display }}</strong>.
+                </p>
+
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;color:#6b7f96;">Name</td>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;font-weight:700;">{{ application.full_name }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;color:#6b7f96;">Phone</td>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;font-weight:700;">{{ application.phone }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;color:#6b7f96;">Email</td>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;font-weight:700;">{{ application.email }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;color:#6b7f96;">City</td>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;font-weight:700;">{{ application.city }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;color:#6b7f96;">Experience</td>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;font-weight:700;">{{ application.get_experience_display }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;color:#6b7f96;">Qualification</td>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;font-weight:700;">{{ application.qualification }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;color:#6b7f96;">Notice period</td>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;font-weight:700;">{{ application.notice_period|default:"Not shared" }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;color:#6b7f96;">Profile link</td>
+                    <td style="padding:12px;border-bottom:1px solid #edf1f6;font-weight:700;">{{ application.portfolio_link|default:"Not shared" }}</td>
+                  </tr>
+                </table>
+
+                {% if application.cover_letter %}
+                <div style="margin-top:22px;padding:18px;border-radius:14px;background:#f8fbff;border:1px solid #e5edf7;">
+                  <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7f96;">Candidate message</div>
+                  <p style="margin:8px 0 0;font-size:15px;line-height:1.65;color:#263c55;">{{ application.cover_letter|linebreaksbr }}</p>
+                </div>
+                {% endif %}
+
+                <p style="margin:22px 0 0;font-size:14px;line-height:1.6;color:#6b7f96;">
+                  Resume is attached to this email when the uploaded file is available.
+                </p>
+
+                <div style="margin-top:24px;">
+                  <a href="{{ admin_url }}" style="display:inline-block;padding:13px 18px;border-radius:999px;background:#f5b301;color:#071527;text-decoration:none;font-weight:800;">
+                    Open application in admin
+                  </a>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
