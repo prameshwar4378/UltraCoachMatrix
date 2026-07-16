@@ -2,7 +2,7 @@ import json
 from datetime import timedelta
 from io import BytesIO
 
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.db import transaction
 from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.utils import timezone
@@ -973,6 +973,7 @@ class TeacherResultReportAPI(TeacherMobileAPIView):
         student_summaries = _result_student_summaries(request, attempts)
         payload = {
             "report_type": "results",
+            "metadata": _report_metadata_payload(request, "results"),
             "filters": _report_filters_payload(request),
             "summary": _result_report_summary(student_summaries),
             "class_summaries": _result_class_summaries(student_summaries),
@@ -1353,6 +1354,8 @@ def _report_filters_payload(request):
 
 
 def _export_hooks(request, report_type):
+    if report_type == "results" and not request.query_params.get("exam_id"):
+        return {}
     hooks = {}
     for export_format, label in (("pdf", "PDF"), ("excel", "Excel")):
         params = request.query_params.copy()
@@ -1372,6 +1375,11 @@ def _report_export_response(request, payload):
     if export_format not in {"pdf", "excel", "xlsx"}:
         return None
     report_type = payload["report_type"]
+    if report_type == "results" and not request.query_params.get("exam_id"):
+        return JsonResponse(
+            {"detail": "Select one exam before exporting the result report."},
+            status=400,
+        )
     extension = "xlsx" if export_format in {"excel", "xlsx"} else "pdf"
     filename = f"teacher-{report_type}-report.{extension}"
     if extension == "xlsx":
@@ -1384,6 +1392,28 @@ def _report_export_response(request, payload):
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     response["X-Export-Filename"] = filename
     return response
+
+
+def _report_metadata_payload(request, report_type):
+    user = request.user
+    profile = getattr(user, "profile", None)
+    institute = getattr(profile, "institute", None)
+    teacher_name = user.get_full_name() or user.username
+    exam_id = request.query_params.get("exam_id")
+    selected_exam = teacher_exam_or_none(request, exam_id) if exam_id else None
+    exam_label = selected_exam.title if selected_exam else "All Exams"
+    exam_date = selected_exam.exam_date.isoformat() if selected_exam else "All Dates"
+    report_state = "Total Result Report" if report_type == "results" else "Total Attendance Report"
+    return {
+        "institute_name": getattr(institute, "name", "") or "Institute",
+        "institute_address": getattr(institute, "address", "") or "",
+        "institute_phone": getattr(institute, "phone", "") or "",
+        "institute_email": getattr(institute, "email", "") or "",
+        "teacher_name": teacher_name,
+        "exam_name": exam_label,
+        "exam_date": exam_date,
+        "report_state": report_state,
+    }
 
 
 def _build_report_workbook(payload):
@@ -1424,14 +1454,46 @@ def _write_sheet(sheet, headers, rows):
 def _write_report_summary_sheet(sheet, payload):
     title = _report_title(payload)
     generated_at = timezone.now().strftime("%d-%m-%Y %I:%M %p")
+    metadata = payload.get("metadata") or {}
     sheet.merge_cells("A1:D1")
-    sheet["A1"] = f"Teacher {title}"
+    if payload["report_type"] == "results":
+        sheet["A1"] = metadata.get("institute_name") or "Institute"
+    else:
+        sheet["A1"] = f"Teacher {title}"
     sheet["A1"].font = Font(bold=True, size=16, color="FFFFFF")
     sheet["A1"].fill = PatternFill("solid", fgColor="111827")
     sheet["A1"].alignment = Alignment(horizontal="center")
-    sheet["A2"] = "Generated"
-    sheet["B2"] = generated_at
-    sheet["A2"].font = Font(bold=True)
+    if payload["report_type"] == "results":
+        sheet.merge_cells("A2:D2")
+        sheet["A2"] = f"Teacher {title} | {metadata.get('report_state', 'Total Result Report')}"
+        sheet["A2"].font = Font(bold=True, size=13, color="111827")
+        sheet["A2"].fill = PatternFill("solid", fgColor="EDE9FE")
+        sheet["A2"].alignment = Alignment(horizontal="center")
+        sheet["A3"] = "Generated"
+        sheet["B3"] = generated_at
+        sheet["A3"].font = Font(bold=True)
+    else:
+        sheet["A2"] = "Generated"
+        sheet["B2"] = generated_at
+        sheet["A2"].font = Font(bold=True)
+    detail_rows = (
+        [
+            ("Report Header", "School Details"),
+            ("Institute", metadata.get("institute_name", "")),
+            ("Address", metadata.get("institute_address", "")),
+            ("Phone", metadata.get("institute_phone", "")),
+            ("Email", metadata.get("institute_email", "")),
+            ("Teacher", metadata.get("teacher_name", "")),
+            ("Exam", metadata.get("exam_name", "")),
+            ("Exam Date", metadata.get("exam_date", "")),
+            ("Report State", metadata.get("report_state", "")),
+        ]
+        if payload["report_type"] == "results"
+        else []
+    )
+    for label, value in detail_rows:
+        if value:
+            sheet.append([label, value])
 
     sheet.append([])
     _write_summary_section(sheet, "Overall Totals", _summary_rows(payload["summary"]))
@@ -1503,6 +1565,7 @@ def _header_key(header):
 
 def _build_report_pdf(payload):
     title = _report_title(payload)
+    metadata = payload.get("metadata") or {}
     width = 842
     height = 595
     rows = payload["student_summaries"] or payload["class_summaries"]
@@ -1513,9 +1576,17 @@ def _build_report_pdf(payload):
     for page_number, chunk in enumerate(chunks, start=1):
         display_page = page_number + (1 if payload["report_type"] == "attendance" else 0)
         total_pages = len(chunks) + (1 if payload["report_type"] == "attendance" else 0)
-        stream = pdf_rect(0, 545, width, 50, "0.278 0.333 0.412")
-        stream += pdf_text(30, 570, f"Teacher {title}", 18, "F2", "1 1 1")
-        stream += pdf_text(30, 552, f"Generated {timezone.now().strftime('%d-%m-%Y %I:%M %p')}", 8, "F1", "1 1 1")
+        stream = pdf_rect(0, 525, width, 70, "0.278 0.333 0.412")
+        stream += pdf_text(30, 572, metadata.get("institute_name") or "Institute", 18, "F2", "1 1 1")
+        stream += pdf_text(30, 554, f"Teacher {title} | {metadata.get('report_state', '')}", 10, "F2", "0.93 0.96 1")
+        stream += pdf_text(
+            30,
+            538,
+            f"Teacher: {metadata.get('teacher_name', '-')} | Exam: {metadata.get('exam_name', '-')} | Exam Date: {metadata.get('exam_date', '-')}",
+            8,
+            "F1",
+            "1 1 1",
+        )
         stream += pdf_text(730, 552, f"Page {display_page}/{total_pages}", 8, "F1", "1 1 1")
         summary_items = list(payload["summary"].items())[:4]
         for index, (key, value) in enumerate(summary_items):

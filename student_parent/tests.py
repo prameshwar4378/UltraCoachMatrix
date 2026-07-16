@@ -436,7 +436,39 @@ class MobileHomeworkPlannerTests(TestCase):
         )
 
         self.assertEqual(upload.status_code, 201)
+        upload_data = upload.json()
+        upload_id = upload_data["id"]
+        self.assertEqual(upload_data["question_id"], question.pk)
+        self.assertTrue(upload_data["image_url"])
         self.assertEqual(ExamAttemptUpload.objects.filter(attempt_id=attempt_id, question=question).count(), 1)
+
+        resumed = self.client.post(
+            f"/api/mobile/exams/{exam.pk}/start/",
+            data={},
+            content_type="application/json",
+            **self.auth_headers(),
+        )
+        self.assertEqual(resumed.status_code, 200)
+        self.assertEqual(resumed.json()["questions"][0]["rough_work_uploads"][0]["id"], upload_id)
+
+        delete_response = self.client.delete(
+            f"/api/mobile/exam-attempts/{attempt_id}/rough-work/{upload_id}/",
+            **self.auth_headers(),
+        )
+        self.assertEqual(delete_response.status_code, 200)
+        self.assertFalse(ExamAttemptUpload.objects.filter(pk=upload_id).exists())
+
+        second_upload = self.client.post(
+            f"/api/mobile/exam-attempts/{attempt_id}/rough-work/",
+            data={
+                "question_id": str(question.pk),
+                "image": SimpleUploadedFile("rough-again.png", b"rough-work", content_type="image/png"),
+            },
+            **self.auth_headers(),
+        )
+
+        self.assertEqual(second_upload.status_code, 201)
+        second_upload_id = second_upload.json()["id"]
 
         submitted = self.client.post(
             f"/api/mobile/exam-attempts/{attempt_id}/submit/",
@@ -463,6 +495,13 @@ class MobileHomeworkPlannerTests(TestCase):
         self.assertEqual(submit_data["attempt"]["score"], "1")
         self.assertFalse(submit_data["attempt"]["can_view_result"])
         self.assertEqual(ExamAttemptActivity.objects.filter(attempt_id=attempt_id).count(), 1)
+
+        blocked_delete = self.client.delete(
+            f"/api/mobile/exam-attempts/{attempt_id}/rough-work/{second_upload_id}/",
+            **self.auth_headers(),
+        )
+        self.assertEqual(blocked_delete.status_code, 400)
+        self.assertTrue(ExamAttemptUpload.objects.filter(pk=second_upload_id).exists())
 
         hidden_result = self.client.get(
             f"/api/mobile/exam-attempts/{attempt_id}/result/",
@@ -755,6 +794,20 @@ class MobilePushNotificationTests(TestCase):
 
     def test_notification_log_is_created_for_particular_result_student(self):
         exam = Exam.objects.create(batch=self.batch, title="Unit Test", exam_date=date(2026, 6, 1))
+        academic_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=self.student,
+            academic_year=self.academic_year,
+            admission_number=self.student.admission_number,
+        )
+        attempt = ExamAttempt.objects.create(
+            exam=exam,
+            academic_session=academic_session,
+            student=self.student,
+            submitted_at=timezone.now(),
+            score="88.00",
+            total_marks="100.00",
+        )
         result = ExamResult.objects.create(exam=exam, student=self.student, marks_obtained="88.00")
 
         notification = notify_result_declared(result)
@@ -764,6 +817,7 @@ class MobilePushNotificationTests(TestCase):
         self.assertEqual(notification.status, PushNotification.Status.SKIPPED)
         self.assertEqual(notification.data["route"], "results")
         self.assertEqual(notification.data["action"], "OPEN_RESULTS")
+        self.assertEqual(notification.data["attempt_id"], str(attempt.pk))
         self.assertEqual(notification.data["title"], "Result declared")
         self.assertIn("88.00", notification.data["body"])
         self.assertEqual(notification.data["notification_id"], str(notification.pk))

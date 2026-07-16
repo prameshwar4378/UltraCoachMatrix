@@ -281,8 +281,19 @@ def notify_fee_paid(payment):
 
 
 def notify_result_declared(result):
+    from teacher.models import ExamAttempt
+
     exam = result.exam
     student = result.student
+    attempt = (
+        ExamAttempt.objects.filter(
+            exam=exam,
+            student=student,
+            submitted_at__isnull=False,
+        )
+        .order_by("-submitted_at", "-pk")
+        .first()
+    )
     title = "Result declared"
     body = f"{exam.title} result is available. Marks: {result.marks_obtained}/{exam.total_marks}."
     return send_push_to_user(
@@ -296,6 +307,7 @@ def notify_result_declared(result):
             "action": "OPEN_RESULTS",
             "result_id": result.pk,
             "exam_id": exam.pk,
+            "attempt_id": attempt.pk if attempt else "",
             "student_id": student.pk,
             "marks_obtained": result.marks_obtained,
             "total_marks": exam.total_marks,

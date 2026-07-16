@@ -401,6 +401,7 @@
                         <i class="bi bi-image"></i> Question Image
                     </label>
                     {{ form.image }}
+                    <div class="form-text" id="questionImageStatus"></div>
                     {{ form.image.errors }}
                 </div>
 
@@ -513,8 +514,80 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
+        const questionImageInput = document.getElementById("{{ form.image.id_for_label }}");
+        const questionImageStatus = document.getElementById("questionImageStatus");
         const originalCheckboxes = document.querySelectorAll('input[type="checkbox"][name$="-is_correct"]');
         const radios = document.querySelectorAll(".correct-answer-radio");
+
+        function setQuestionImageStatus(message, isWarning) {
+            if (!questionImageStatus) return;
+            questionImageStatus.textContent = message || "";
+            questionImageStatus.style.color = isWarning ? "var(--danger-color)" : "var(--text-secondary)";
+        }
+
+        function replaceQuestionImageFile(file) {
+            if (!questionImageInput || !window.DataTransfer) return false;
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            questionImageInput.files = dataTransfer.files;
+            return true;
+        }
+
+        function normalizeQuestionImage(file) {
+            if (!file || !file.type || !file.type.startsWith("image/")) {
+                setQuestionImageStatus("");
+                return;
+            }
+
+            if (["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+                setQuestionImageStatus("Image ready.");
+                return;
+            }
+
+            setQuestionImageStatus("Preparing camera photo...");
+            const image = new Image();
+            const objectUrl = URL.createObjectURL(file);
+
+            image.onload = function () {
+                try {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = image.naturalWidth || image.width;
+                    canvas.height = image.naturalHeight || image.height;
+                    const context = canvas.getContext("2d");
+                    context.drawImage(image, 0, 0);
+                    canvas.toBlob(function (blob) {
+                        URL.revokeObjectURL(objectUrl);
+                        if (!blob) {
+                            setQuestionImageStatus("Camera photo could not be prepared. Please choose JPG or PNG.", true);
+                            return;
+                        }
+                        const filename = (file.name || "question-image").replace(/\.[^.]+$/, "") + ".jpg";
+                        const convertedFile = new File([blob], filename, { type: "image/jpeg" });
+                        if (replaceQuestionImageFile(convertedFile)) {
+                            setQuestionImageStatus("Camera photo ready.");
+                        } else {
+                            setQuestionImageStatus("Camera photo may not upload on this browser. Please choose JPG or PNG.", true);
+                        }
+                    }, "image/jpeg", 0.9);
+                } catch (error) {
+                    URL.revokeObjectURL(objectUrl);
+                    setQuestionImageStatus("Camera photo could not be prepared. Please choose JPG or PNG.", true);
+                }
+            };
+
+            image.onerror = function () {
+                URL.revokeObjectURL(objectUrl);
+                setQuestionImageStatus("Camera photo format is not supported. Please choose JPG or PNG.", true);
+            };
+
+            image.src = objectUrl;
+        }
+
+        if (questionImageInput) {
+            questionImageInput.addEventListener("change", function () {
+                normalizeQuestionImage(questionImageInput.files && questionImageInput.files[0]);
+            });
+        }
 
         originalCheckboxes.forEach(function (checkbox) {
             checkbox.classList.add("correct-hidden-checkbox");

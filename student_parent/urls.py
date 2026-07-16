@@ -18,6 +18,11 @@ urlpatterns = [
         views.mobile_exam_rough_work_upload,
         name="mobile_exam_rough_work_upload",
     ),
+    path(
+        "api/mobile/exam-attempts/<int:attempt_id>/rough-work/<int:upload_id>/",
+        views.mobile_exam_rough_work_delete,
+        name="mobile_exam_rough_work_delete",
+    ),
     path("api/mobile/exam-attempts/<int:attempt_id>/result/", views.mobile_exam_result, name="mobile_exam_result"),
     path("api/mobile/attendance/", views.mobile_attendance, name="mobile_attendance"),
     path("api/mobile/homework/", views.mobile_homework_planner, name="mobile_homework_planner"),

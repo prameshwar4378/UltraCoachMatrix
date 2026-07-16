@@ -161,6 +161,7 @@ class ExamQuestionForm(forms.ModelForm):
         fields = ("text", "image", "marks")
         widgets = {
             "text": forms.Textarea(attrs={"rows": 4, "placeholder": "Optional question text. Upload an image for diagrams or complex problems."}),
+            "image": forms.FileInput(attrs={"accept": "image/*"}),
         }
 
     def __init__(self, *args, **kwargs):

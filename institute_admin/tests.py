@@ -3902,9 +3902,30 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertIn("Science has the highest admissions with 1 record(s).", response.context["insight_messages"])
         self.assertIn("12th Batch is the strongest batch with 1 admission(s).", response.context["insight_messages"])
         self.assertIn("Apr 2027 is the highest admission month with 1 admission(s).", response.context["insight_messages"])
+        self.assertContains(response, "Academic Session Status")
+        self.assertContains(response, "Student Lifecycle Status")
         self.assertContains(response, "SMIS-2027-28-0001")
         self.assertContains(response, "12th Batch")
         self.assertNotContains(response, "SMIS-2026-27-0001")
+
+    def test_student_admission_report_student_status_filter_uses_lifecycle_status(self):
+        self.mark_student_left_for_report()
+        self.select_year(self.year_2026)
+
+        response = self.client.get(
+            reverse("institute_admin:student_admission_report"),
+            {
+                "start_date": "2026-04-01",
+                "end_date": "2026-04-30",
+                "academic_year": self.year_2026.pk,
+                "student_status": StudentProfile.StudentStatus.LEFT_SCHOOL,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["admission_count"], 1)
+        self.assertContains(response, "SMIS-2026-27-0001")
+        self.assertContains(response, "Left School")
 
     def test_student_admission_report_smart_insights_handle_empty_state(self):
         self.select_year(self.year_2027)

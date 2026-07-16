@@ -9,6 +9,7 @@ from django.utils.html import strip_tags
 from django.utils.dateparse import parse_date, parse_datetime
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_http_methods
 from django.views.decorators.http import require_POST
 
 from institute_admin.models import Notice, NoticeRead
@@ -253,6 +254,10 @@ def _mobile_exam_item(exam, attempt=None):
 
 def _mobile_attempt_payload(request, attempt):
     exam = attempt.exam
+    rough_work_uploads = {}
+    for upload in attempt.uploads.all():
+        if upload.question_id:
+            rough_work_uploads.setdefault(upload.question_id, []).append(_mobile_rough_work_upload_payload(request, upload))
     questions = []
     for question in exam.questions.prefetch_related("options"):
         questions.append(
@@ -270,6 +275,7 @@ def _mobile_attempt_payload(request, attempt):
                     }
                     for option in question.options.all()
                 ],
+                "rough_work_uploads": rough_work_uploads.get(question.pk, []),
             }
         )
     return {
@@ -280,6 +286,16 @@ def _mobile_attempt_payload(request, attempt):
         },
         "exam": _mobile_exam_item(exam, attempt),
         "questions": questions,
+    }
+
+
+def _mobile_rough_work_upload_payload(request, upload):
+    return {
+        "id": upload.pk,
+        "attempt_id": upload.attempt_id,
+        "question_id": upload.question_id,
+        "image_url": _absolute_media_url(request, upload.image),
+        "uploaded_at": _datetime(upload.uploaded_at),
     }
 
 
@@ -391,6 +407,11 @@ def mobile_exam_start(request, pk):
         return JsonResponse({"detail": "This attempt belongs to another student."}, status=403)
     if attempt.is_submitted:
         return JsonResponse({"detail": "This exam has already been submitted."}, status=400)
+    attempt = (
+        ExamAttempt.objects.select_related("exam")
+        .prefetch_related("uploads", "exam__questions", "exam__questions__options")
+        .get(pk=attempt.pk)
+    )
     return JsonResponse(_mobile_attempt_payload(request, attempt))
 
 
@@ -424,16 +445,27 @@ def mobile_exam_rough_work_upload(request, attempt_id):
             return JsonResponse({"detail": "Question does not belong to this exam."}, status=400)
 
     upload = ExamAttemptUpload.objects.create(attempt=attempt, question=question, image=image)
-    return JsonResponse(
-        {
-            "id": upload.pk,
-            "attempt_id": attempt.pk,
-            "question_id": upload.question_id,
-            "image_url": _absolute_media_url(request, upload.image),
-            "uploaded_at": _datetime(upload.uploaded_at),
-        },
-        status=201,
+    return JsonResponse(_mobile_rough_work_upload_payload(request, upload), status=201)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def mobile_exam_rough_work_delete(request, attempt_id, upload_id):
+    student, error = _student_for_request(request)
+    if error:
+        return error
+    attempt = get_object_or_404(
+        ExamAttempt.objects.select_related("exam", "student"),
+        pk=attempt_id,
+        student=student,
     )
+    if attempt.is_submitted:
+        return JsonResponse({"detail": "This exam has already been submitted."}, status=400)
+    upload = get_object_or_404(ExamAttemptUpload, pk=upload_id, attempt=attempt)
+    if upload.image:
+        upload.image.delete(save=False)
+    upload.delete()
+    return JsonResponse({"deleted": True, "id": upload_id})
 
 
 @csrf_exempt

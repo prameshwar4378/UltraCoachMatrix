@@ -38,6 +38,7 @@ urlpatterns = [
     path('api/mobile/exams/<int:pk>/start/', student_parent_views.mobile_exam_start, name='mobile_exam_start'),
     path('api/mobile/exam-attempts/<int:attempt_id>/submit/', student_parent_views.mobile_exam_submit, name='mobile_exam_submit'),
     path('api/mobile/exam-attempts/<int:attempt_id>/rough-work/', student_parent_views.mobile_exam_rough_work_upload, name='mobile_exam_rough_work_upload'),
+    path('api/mobile/exam-attempts/<int:attempt_id>/rough-work/<int:upload_id>/', student_parent_views.mobile_exam_rough_work_delete, name='mobile_exam_rough_work_delete'),
     path('api/mobile/exam-attempts/<int:attempt_id>/result/', student_parent_views.mobile_exam_result, name='mobile_exam_result'),
     path('api/mobile/notices/', student_parent_views.mobile_notices, name='mobile_notices'),
     path('api/mobile/notices/<int:notice_id>/', student_parent_views.mobile_notice_detail, name='mobile_notice_detail'),

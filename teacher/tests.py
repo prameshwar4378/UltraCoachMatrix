@@ -404,6 +404,20 @@ class TeacherMobileReadApiTests(TestCase):
         self.assertEqual(results["student_summaries"][1]["percentage"], 100)
         self.assertIn("format=excel", results["export_hooks"]["excel"]["url"])
 
+        unscoped_results = self.get_json(
+            f"/api/mobile/teacher/reports/results/?class_id={self.batch.pk}&date_from=2026-07-01&date_to=2026-07-31"
+        )
+        self.assertEqual(unscoped_results["report_type"], "results")
+        self.assertEqual(unscoped_results["export_hooks"], {})
+
+        blocked_results_export = self.client.get(
+            "/api/mobile/teacher/reports/results/",
+            {"class_id": self.batch.pk, "date_from": "2026-07-01", "date_to": "2026-07-31", "format": "excel"},
+            **self.auth_headers(),
+        )
+        self.assertEqual(blocked_results_export.status_code, 400)
+        self.assertIn("Select one exam", blocked_results_export.json()["detail"])
+
         attendance_pdf = self.client.get(
             "/api/mobile/teacher/reports/attendance/",
             {"class_id": self.batch.pk, "date_from": "2026-07-01", "date_to": "2026-07-31", "format": "pdf"},
@@ -437,6 +451,20 @@ class TeacherMobileReadApiTests(TestCase):
         self.assertEqual(results_excel.status_code, 200)
         self.assertIn("spreadsheetml.sheet", results_excel["Content-Type"])
         workbook = load_workbook(BytesIO(results_excel.content))
+        summary_sheet = workbook["Summary"]
+        self.assertEqual(summary_sheet["A1"].value, "Mobile Institute")
+        self.assertEqual(summary_sheet["A2"].value, "Teacher Result Report | Total Result Report")
+        summary_values = [cell.value for row in summary_sheet.iter_rows() for cell in row]
+        self.assertIn("Report Header", summary_values)
+        self.assertIn("School Details", summary_values)
+        self.assertIn("Institute", summary_values)
+        self.assertIn("Mobile Institute", summary_values)
+        self.assertIn("Teacher", summary_values)
+        self.assertIn("mobile-teacher", summary_values)
+        self.assertIn("Exam", summary_values)
+        self.assertIn("Assigned Exam", summary_values)
+        self.assertIn("Report State", summary_values)
+        self.assertIn("Total Result Report", summary_values)
         self.assertIn("Student Summary", workbook.sheetnames)
         sheet = workbook["Student Summary"]
         self.assertEqual(sheet["A1"].value, "Roll Number")
@@ -451,6 +479,17 @@ class TeacherMobileReadApiTests(TestCase):
         self.assertEqual(sheet["F3"].value, 1)
         self.assertEqual(sheet["G3"].value, 0)
         self.assertEqual(sheet["J3"].value, 100)
+
+        results_pdf = self.client.get(
+            "/api/mobile/teacher/reports/results/",
+            {"class_id": self.batch.pk, "exam_id": self.exam.pk, "date_from": "2026-07-01", "date_to": "2026-07-31", "format": "pdf"},
+            **self.auth_headers(),
+        )
+        self.assertEqual(results_pdf.status_code, 200)
+        self.assertEqual(results_pdf["Content-Type"], "application/pdf")
+        self.assertIn(b"Teacher Result Report", results_pdf.content)
+        self.assertIn(b"Assigned Exam", results_pdf.content)
+        self.assertIn(b"mobile-teacher", results_pdf.content)
 
     def test_result_report_keeps_same_student_class_sessions_separate(self):
         next_year = AcademicYear.objects.create(
@@ -1962,6 +2001,20 @@ class ExamYearScopeTests(TestCase):
         self.assertContains(response, "window.close()")
         self.assertContains(response, reverse("teacher:exam_questions", args=[self.exam_a.pk]))
         self.assertEqual(self.exam_a.questions.count(), 1)
+
+    def test_question_form_prepares_camera_image_uploads(self):
+        self.client.login(username="teacher", password="pass")
+        session = self.client.session
+        session["academic_year_id"] = self.year_a.pk
+        session.save()
+
+        response = self.client.get(reverse("teacher:exam_question_create", args=[self.exam_a.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'accept="image/*"')
+        self.assertContains(response, "questionImageStatus")
+        self.assertContains(response, "Preparing camera photo")
+        self.assertContains(response, "Camera photo ready.")
 
     def test_exam_form_subjects_are_scoped_to_teacher_batch_institute_and_year(self):
         other_institute = Institute.objects.create(name="Other Institute", code="other")

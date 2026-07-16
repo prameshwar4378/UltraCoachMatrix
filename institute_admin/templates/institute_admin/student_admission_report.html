@@ -124,6 +124,15 @@
         font-weight: 700;
     }
 
+    .filter-help {
+        display: block;
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: .72rem;
+        font-weight: 700;
+        line-height: 1.35;
+    }
+
     .filter-actions {
         display: flex;
         flex-wrap: wrap;
@@ -607,22 +616,24 @@
             <div class="filter-grid">
                 {% include "institute_admin/reports/_common_filter_fields.html" with start_label="Start Date" end_label="End Date" include_session_dates=False %}
                 <div class="filter-field">
-                    <label for="id_status">Admission Status</label>
+                    <label for="id_status">Academic Session Status</label>
                     <select id="id_status" name="status">
                         <option value="">All statuses</option>
                         {% for value, label in session_status_choices %}
                         <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
+                    <small class="filter-help">Session record status, usually updated from Student Status or TC workflow.</small>
                 </div>
                 <div class="filter-field">
-                    <label for="id_student_status">Student Status</label>
+                    <label for="id_student_status">Student Lifecycle Status</label>
                     <select id="id_student_status" name="student_status">
                         <option value="">All student statuses</option>
                         {% for value, label in student_status_choices %}
                         <option value="{{ value }}" {% if filters.student_status == value %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
+                    <small class="filter-help">Current student status. This report still filters by admission date.</small>
                 </div>
                 <div class="filter-field">
                     <label for="id_gender">Gender</label>
@@ -737,11 +748,11 @@
 
             {% include "institute_admin/reports/_chart_panel.html" with panel_class="sar-panel" title="Batch Strength" subtitle="Admissions by batch" rows=batch_groups empty_message="No batch-wise admission data found." fill_class="" %}
 
-            {% include "institute_admin/reports/_chart_panel.html" with panel_class="sar-panel" title="Admission Status Split" subtitle="Admission session status" rows=status_groups empty_message="No admission status data found." fill_class="" %}
+            {% include "institute_admin/reports/_chart_panel.html" with panel_class="sar-panel" title="Academic Session Status Split" subtitle="Session status for the admission record" rows=status_groups empty_message="No session status data found." fill_class="" %}
 
             {% include "institute_admin/reports/_chart_panel.html" with panel_class="sar-panel" title="Gender Wise Split" subtitle="Student gender profile" rows=gender_groups empty_message="No gender data found." fill_class="" %}
 
-            {% include "institute_admin/reports/_chart_panel.html" with panel_class="sar-panel" title="Student Status Split" subtitle="Student profile status" rows=student_status_groups empty_message="No student status data found." fill_class="" %}
+            {% include "institute_admin/reports/_chart_panel.html" with panel_class="sar-panel" title="Student Lifecycle Status Split" subtitle="Current student profile status" rows=student_status_groups empty_message="No student status data found." fill_class="" %}
         </section>
 
         <section class="sar-panel">
@@ -759,8 +770,8 @@
                             <th>Class</th>
                             <th>Batch</th>
                             <th>Session</th>
-                            <th>Status</th>
-                            <th>Student Status</th>
+                            <th>Session Status</th>
+                            <th>Student Lifecycle Status</th>
                             <th>Gender</th>
                             <th>Phone</th>
                         </tr>

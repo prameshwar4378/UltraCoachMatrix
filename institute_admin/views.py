@@ -3856,8 +3856,8 @@ def admission_report_filter_labels(report):
         f"To: {filters['end_date_value'] or 'Any'}",
         f"Class: {filters['course'].name if filters['course'] else 'All'}",
         f"Batch: {filters['batch'].name if filters['batch'] else 'All'}",
-        f"Status: {dict(StudentAcademicSession.Status.choices).get(filters['status'], 'All')}",
-        f"Student Status: {dict(StudentProfile.StudentStatus.choices).get(filters['student_status'], 'All')}",
+        f"Session Status: {dict(StudentAcademicSession.Status.choices).get(filters['status'], 'All')}",
+        f"Student Lifecycle Status: {dict(StudentProfile.StudentStatus.choices).get(filters['student_status'], 'All')}",
         f"Gender: {dict(StudentProfile.Gender.choices).get(filters['gender'], 'All')}",
         f"Search: {filters['search'] or 'All'}",
     ]
