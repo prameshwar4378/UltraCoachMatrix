@@ -4067,31 +4067,11 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertIn("750.00 pending amount requires fee follow-up.", response.context["insight_messages"])
         self.assertIn("0 student record(s) are ready to archive.", response.context["insight_messages"])
         self.assertContains(response, "SMIS-2026-27-0001")
-        self.assertContains(response, "Profile: LEGACY-0001")
         self.assertContains(response, "Shifted to another city")
         self.assertContains(response, "Fee Follow-up Needed")
         self.assertContains(response, "TC Pending")
         self.assertContains(response, "Early Exit Watchlist")
         self.assertNotContains(response, "SMIS-2027-28-0001")
-
-    def test_inactive_students_report_explains_active_search_matches(self):
-        self.select_year(self.year_2026)
-
-        response = self.client.get(
-            reverse("institute_admin:inactive_students_report"),
-            {
-                "academic_year": self.year_2026.pk,
-                "search": self.session_2026.admission_number,
-            },
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["inactive_count"], 0)
-        self.assertEqual(len(response.context["active_search_matches"]), 1)
-        self.assertEqual(response.context["active_search_matches"][0]["student_name"], "Student One")
-        self.assertContains(response, "Active student not shown")
-        self.assertContains(response, "Student One")
-        self.assertContains(response, "This report only shows inactive")
 
     def test_inactive_students_report_smart_insights_handle_empty_state(self):
         self.select_year(self.year_2026)

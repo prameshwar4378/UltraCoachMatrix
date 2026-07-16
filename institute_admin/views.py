@@ -4249,43 +4249,6 @@ def get_inactive_student_session_queryset(institute, filters):
     return sessions.order_by("-student__date_of_leaving_school", "-student__tc_issue_date", "-joined_on", "-pk")
 
 
-def get_active_student_matches_excluded_from_inactive_report(institute, filters, excluded_session_ids):
-    query = filters.get("search", "")
-    if not query:
-        return []
-    sessions = StudentAcademicSession.objects.select_related(
-        "student",
-        "student__user",
-        "academic_year",
-    ).filter(
-        institute=institute,
-        status=StudentAcademicSession.Status.ACTIVE,
-        student__student_status=StudentProfile.StudentStatus.ACTIVE,
-        student__is_active=True,
-        student__user__is_active=True,
-    )
-    if filters["academic_year"]:
-        sessions = sessions.filter(academic_year=filters["academic_year"])
-    if excluded_session_ids:
-        sessions = sessions.exclude(pk__in=excluded_session_ids)
-    sessions = sessions.filter(
-        Q(admission_number__icontains=query)
-        | Q(student__admission_number__icontains=query)
-        | Q(student__user__first_name__icontains=query)
-        | Q(student__user__last_name__icontains=query)
-        | Q(student__user__username__icontains=query)
-    ).order_by("admission_number")[:3]
-    return [
-        {
-            "session_admission_number": session.admission_number,
-            "profile_admission_number": session.student.admission_number,
-            "student_name": session.student.user.get_full_name() or session.student.user.username,
-            "academic_year": session.academic_year.name,
-        }
-        for session in sessions
-    ]
-
-
 def inactive_student_event_date(session):
     student = session.student
     return student.date_of_leaving_school or student.tc_issue_date or session.joined_on
@@ -4452,8 +4415,6 @@ def build_inactive_students_report(request, institute):
         row = {
             "session": session,
             "student": student,
-            "student_name": student.user.get_full_name() or student.user.username,
-            "profile_admission_number": student.admission_number,
             "event_date": event_date,
             "days_to_exit": days_to_exit,
             "is_early_exit": is_early_exit,
@@ -4520,11 +4481,6 @@ def build_inactive_students_report(request, institute):
     top_exit_batch = first_group_or_none(batch_summary)
     top_exit_month = first_group_or_none(month_summary)
     average_pending = total_pending / pending_students_count if pending_students_count else Decimal("0.00")
-    active_search_matches = get_active_student_matches_excluded_from_inactive_report(
-        institute,
-        filters,
-        [row["session"].pk for row in rows],
-    )
     return {
         "filters": filters,
         "rows": rows,
@@ -4554,7 +4510,6 @@ def build_inactive_students_report(request, institute):
         "top_exit_class": top_exit_class,
         "top_exit_batch": top_exit_batch,
         "top_exit_month": top_exit_month,
-        "active_search_matches": active_search_matches,
         "insight_messages": build_inactive_insight_messages(
             top_reason,
             top_exit_class,
@@ -4637,10 +4592,11 @@ def inactive_students_excel_summary_rows(report):
 
 def inactive_students_export_row_values(report, date_format, amount_formatter):
     for row in report["rows"]:
+        student = row["student"]
         yield [
             row["event_date"].strftime(date_format) if row["event_date"] else "",
             row["session"].admission_number,
-            row["student_name"],
+            student.user.get_full_name() or student.user.username,
             row["phone"],
             row["class_label"],
             row["batch_label"],

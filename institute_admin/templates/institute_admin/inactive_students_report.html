@@ -602,7 +602,7 @@
                 </div>
                 <div class="filter-field">
                     <label for="id_search">Search</label>
-                    <input id="id_search" type="search" name="search" value="{{ filters.search }}" placeholder="Name, session/profile admission no, reason">
+                    <input id="id_search" type="search" name="search" value="{{ filters.search }}" placeholder="Name, admission no, reason">
                 </div>
                 <div class="filter-field">
                     <label for="id_page_size">Rows</label>
@@ -624,16 +624,6 @@
                 <a class="quick-chip" href="?{{ quick_tc_query }}"><i class="bi bi-file-earmark-text"></i> TC Issued</a>
             </div>
         </form>
-
-        {% if active_search_matches %}
-        <div class="alert alert-info mt-3 mb-0">
-            <strong>Active student not shown:</strong>
-            {% for match in active_search_matches %}
-                {{ match.student_name }} ({{ match.session_admission_number }}) is active in {{ match.academic_year }}{% if not forloop.last %}; {% endif %}
-            {% endfor %}
-            . This report only shows inactive, left, completed, cancelled, or login-blocked records.
-        </div>
-        {% endif %}
 
         <section class="summary-grid">
             {% include "institute_admin/reports/_summary_card.html" with card_class="isr-card" icon="bi-person-dash" value=inactive_count label="Inactive / Left" %}
@@ -803,7 +793,7 @@
                     <thead>
                         <tr>
                             <th>Left / Inactive Date</th>
-                            <th>Session Admission No.</th>
+                            <th>Admission No.</th>
                             <th>Student</th>
                             <th>Class</th>
                             <th>Batch</th>
@@ -826,13 +816,8 @@
                                 </a>
                             </td>
                             <td>
-                                <div class="student-name">{{ row.student_name }}</div>
-                                <div class="muted-line">
-                                    @{{ row.student.user.username }} &middot; {{ row.session.academic_year.name }}
-                                    {% if row.profile_admission_number and row.profile_admission_number != row.session.admission_number %}
-                                        &middot; Profile: {{ row.profile_admission_number }}
-                                    {% endif %}
-                                </div>
+                                <div class="student-name">{{ row.student.user.get_full_name|default:row.student.user.username }}</div>
+                                <div class="muted-line">@{{ row.student.user.username }} &middot; {{ row.session.academic_year.name }}</div>
                             </td>
                             <td>{{ row.class_label }}</td>
                             <td>{{ row.batch_label }}</td>
