@@ -1,0 +1,17 @@
+<section class="{{ header_class }}">
+    <div>
+        <a class="{{ back_class }}" href="{% url 'institute_admin:reports_dashboard' %}">
+            <i class="bi bi-arrow-left"></i> Reports
+        </a>
+        <h1 class="{{ title_class }}">{{ report_title }}</h1>
+        <p class="{{ subtitle_class }}">{{ report_subtitle }}</p>
+    </div>
+    <div class="{{ export_row_class }}">
+        <a class="{{ export_class }}" href="?{{ csv_export_query }}">
+            <i class="bi bi-filetype-csv"></i> Export CSV
+        </a>
+        <a class="{{ export_class }} excel" href="?{{ excel_export_query }}">
+            <i class="bi bi-file-earmark-spreadsheet"></i> Export Excel
+        </a>
+    </div>
+</section>

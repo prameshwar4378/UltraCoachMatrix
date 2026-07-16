@@ -15,8 +15,8 @@
         --blue: #2563eb;
         --amber: #d97706;
         --green: #16a34a;
-        padding: 24px;
-        background: linear-gradient(180deg, #f8fafc 0%, #fff5f5 100%);
+        padding: 20px;
+        background: #fffafa;
         min-height: calc(100vh - 120px);
     }
 
@@ -29,7 +29,7 @@
         background: var(--panel);
         border: 1px solid var(--line);
         border-radius: 8px;
-        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.07);
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.055);
     }
 
     .isr-header {
@@ -37,8 +37,8 @@
         justify-content: space-between;
         gap: 18px;
         align-items: center;
-        padding: 22px;
-        margin-bottom: 16px;
+        padding: 18px;
+        margin-bottom: 14px;
     }
 
     .isr-back {
@@ -90,7 +90,7 @@
 
     .isr-filter {
         padding: 18px;
-        margin-bottom: 16px;
+        margin-bottom: 14px;
     }
 
     .filter-grid {
@@ -182,26 +182,26 @@
     .summary-grid {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 14px;
-        margin-bottom: 16px;
+        gap: 12px;
+        margin-bottom: 14px;
     }
 
     .isr-card {
-        padding: 18px;
+        padding: 14px;
         display: grid;
-        grid-template-columns: 48px minmax(0, 1fr);
-        gap: 13px;
+        grid-template-columns: 42px minmax(0, 1fr);
+        gap: 11px;
         align-items: center;
     }
 
     .card-icon {
-        width: 48px;
-        height: 48px;
+        width: 42px;
+        height: 42px;
         border-radius: 8px;
         display: grid;
         place-items: center;
         color: #fff;
-        font-size: 1.25rem;
+        font-size: 1.08rem;
         background: var(--red);
     }
 
@@ -227,25 +227,93 @@
     .isr-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
-        margin-bottom: 16px;
+        gap: 14px;
+        margin-bottom: 14px;
     }
 
     .insight-grid {
         display: grid;
         grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
-        gap: 16px;
-        margin-bottom: 16px;
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+
+    .retention-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .retention-card {
+        background: #0f172a;
+        color: #fff;
+        border-radius: 8px;
+        padding: 14px;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, .14);
+        min-width: 0;
+    }
+
+    .retention-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #fecaca;
+        font-size: .74rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .retention-value {
+        margin-top: 10px;
+        color: #fff;
+        font-size: 1.05rem;
+        font-weight: 900;
+        overflow-wrap: anywhere;
+    }
+
+    .retention-meta {
+        margin-top: 5px;
+        color: #cbd5e1;
+        font-size: .78rem;
+        font-weight: 700;
+    }
+
+    .smart-insights {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .smart-insight {
+        display: flex;
+        gap: 9px;
+        align-items: flex-start;
+        min-width: 0;
+        padding: 12px;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        background: #fef2f2;
+        color: #991b1b;
+        font-size: .8rem;
+        font-weight: 850;
+        line-height: 1.4;
+    }
+
+    .smart-insight i {
+        flex: 0 0 auto;
+        margin-top: 1px;
     }
 
     .insight-panel {
         background: #0f172a;
         color: #fff;
         border-radius: 8px;
-        padding: 18px;
+        padding: 15px;
         display: grid;
         gap: 14px;
-        box-shadow: 0 18px 50px rgba(15, 23, 42, .18);
+        box-shadow: 0 10px 28px rgba(15, 23, 42, .16);
     }
 
     .insight-title {
@@ -285,7 +353,7 @@
     .isr-panel { overflow: hidden; }
 
     .panel-head {
-        padding: 16px 18px;
+        padding: 13px 15px;
         border-bottom: 1px solid var(--line);
         display: flex;
         justify-content: space-between;
@@ -309,9 +377,9 @@
 
     .chart-list {
         display: grid;
-        gap: 11px;
-        padding: 15px;
-        max-height: 360px;
+        gap: 10px;
+        padding: 13px;
+        max-height: 300px;
         overflow: auto;
     }
 
@@ -335,7 +403,7 @@
     .chart-label span { overflow-wrap: anywhere; }
 
     .bar-track {
-        height: 10px;
+        height: 8px;
         border-radius: 999px;
         background: #e2e8f0;
         overflow: hidden;
@@ -358,16 +426,20 @@
         white-space: nowrap;
     }
 
-    .table-wrap { overflow-x: auto; }
+    .table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
 
     .isr-table {
         width: 100%;
+        min-width: 1280px;
         margin: 0;
         border-collapse: collapse;
     }
 
     .isr-table th {
-        padding: 12px 14px;
+        padding: 10px 12px;
         color: #334155;
         background: var(--soft);
         border-bottom: 1px solid var(--line);
@@ -378,7 +450,7 @@
     }
 
     .isr-table td {
-        padding: 13px 14px;
+        padding: 10px 12px;
         color: #1e293b;
         border-bottom: 1px solid #f1f5f9;
         font-weight: 650;
@@ -424,7 +496,7 @@
         justify-content: space-between;
         gap: 12px;
         align-items: center;
-        padding: 14px 16px;
+        padding: 12px 14px;
         border-top: 1px solid var(--line);
         background: var(--soft);
     }
@@ -458,6 +530,8 @@
     @media (max-width: 1199px) {
         .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .summary-grid,
+        .smart-insights,
+        .retention-grid,
         .insight-grid,
         .isr-grid { grid-template-columns: 1fr 1fr; }
     }
@@ -467,6 +541,8 @@
         .isr-header,
         .filter-grid,
         .summary-grid,
+        .smart-insights,
+        .retention-grid,
         .insight-grid,
         .isr-grid,
         .pager {
@@ -477,74 +553,37 @@
         .pager { align-items: start; }
         .isr-export-row,
         .pager-links { justify-content: start; }
+        .isr-export,
+        .filter-button,
+        .filter-reset {
+            justify-content: center;
+            width: 100%;
+        }
+        .filter-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+        }
+        .panel-head {
+            display: grid;
+            align-items: start;
+        }
+        .insight-row {
+            grid-template-columns: 1fr;
+        }
+        .insight-amount {
+            white-space: normal;
+        }
     }
 </style>
 
 <main id="main" class="main isr-page">
     <div class="isr-shell">
-        <section class="isr-header">
-            <div>
-                <a class="isr-back" href="{% url 'institute_admin:reports_dashboard' %}">
-                    <i class="bi bi-arrow-left"></i> Reports
-                </a>
-                <h1 class="isr-title">Inactive / Left Students Report</h1>
-                <p class="isr-subtitle">
-                    Review left, inactive, TC issued, completed and login-disabled students with pending balance visibility.
-                </p>
-            </div>
-            <div class="isr-export-row">
-                <a class="isr-export" href="?{{ csv_export_query }}">
-                    <i class="bi bi-filetype-csv"></i> Export CSV
-                </a>
-                <a class="isr-export excel" href="?{{ excel_export_query }}">
-                    <i class="bi bi-file-earmark-spreadsheet"></i> Export Excel
-                </a>
-            </div>
-        </section>
+        {% include "institute_admin/reports/_report_header.html" with header_class="isr-header" back_class="isr-back" title_class="isr-title" subtitle_class="isr-subtitle" export_row_class="isr-export-row" export_class="isr-export" report_title="Inactive / Left Students Report" report_subtitle="Exit / Closure analysis for retention risk, TC readiness, account clearance and fee recovery follow-up." %}
 
         <form class="isr-filter" method="get">
             <input id="id_date_mode" type="hidden" name="date_mode" value="{{ filters.date_mode }}">
             <div class="filter-grid">
-                <div class="filter-field">
-                    <label for="id_start_date">Left / Inactive From</label>
-                    <input id="id_start_date" type="date" name="start_date" value="{{ filters.start_date_value }}">
-                </div>
-                <div class="filter-field">
-                    <label for="id_end_date">Left / Inactive To</label>
-                    <input id="id_end_date" type="date" name="end_date" value="{{ filters.end_date_value }}">
-                </div>
-                <div class="filter-field">
-                    <label for="id_academic_year">Session</label>
-                    <select id="id_academic_year" name="academic_year">
-                        <option value="all" {% if filters.academic_year_id == "all" %}selected{% endif %}>All sessions</option>
-                        {% for year in academic_years %}
-                        <option value="{{ year.pk }}"
-                                data-start="{{ year.start_date|date:'Y-m-d' }}"
-                                data-end="{{ year.end_date|date:'Y-m-d' }}"
-                                {% if filters.academic_year_id == year.pk|stringformat:"s" %}selected{% endif %}>
-                            {{ year.name }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="filter-field">
-                    <label for="id_course">Class</label>
-                    <select id="id_course" name="course">
-                        <option value="">All classes</option>
-                        {% for course in courses %}
-                        <option value="{{ course.pk }}" {% if filters.course_id == course.pk|stringformat:"s" %}selected{% endif %}>{{ course.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="filter-field">
-                    <label for="id_batch">Batch</label>
-                    <select id="id_batch" name="batch">
-                        <option value="">All batches</option>
-                        {% for batch in batches %}
-                        <option value="{{ batch.pk }}" {% if filters.batch_id == batch.pk|stringformat:"s" %}selected{% endif %}>{{ batch.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                {% include "institute_admin/reports/_common_filter_fields.html" with start_label="Left / Inactive From" end_label="Left / Inactive To" include_session_dates=True %}
                 <div class="filter-field">
                     <label for="id_status">Status Type</label>
                     <select id="id_status" name="status">
@@ -563,7 +602,7 @@
                 </div>
                 <div class="filter-field">
                     <label for="id_search">Search</label>
-                    <input id="id_search" type="search" name="search" value="{{ filters.search }}" placeholder="Name, admission no, reason">
+                    <input id="id_search" type="search" name="search" value="{{ filters.search }}" placeholder="Name, session/profile admission no, reason">
                 </div>
                 <div class="filter-field">
                     <label for="id_page_size">Rows</label>
@@ -574,10 +613,8 @@
                     </select>
                 </div>
             </div>
-            <div class="filter-actions">
-                <button class="filter-button" type="submit"><i class="bi bi-funnel"></i> Apply Filter</button>
-                <a class="filter-reset" href="{% url 'institute_admin:inactive_students_report' %}">Reset</a>
-            </div>
+            {% url 'institute_admin:inactive_students_report' as inactive_students_reset_url %}
+            {% include "institute_admin/reports/_filter_actions.html" with reset_url=inactive_students_reset_url %}
             <div class="quick-strip">
                 <a class="quick-chip" href="?{{ quick_all_query }}"><i class="bi bi-collection"></i> All Records</a>
                 <a class="quick-chip due" href="?{{ quick_due_query }}"><i class="bi bi-wallet2"></i> With Pending</a>
@@ -588,35 +625,63 @@
             </div>
         </form>
 
+        {% if active_search_matches %}
+        <div class="alert alert-info mt-3 mb-0">
+            <strong>Active student not shown:</strong>
+            {% for match in active_search_matches %}
+                {{ match.student_name }} ({{ match.session_admission_number }}) is active in {{ match.academic_year }}{% if not forloop.last %}; {% endif %}
+            {% endfor %}
+            . This report only shows inactive, left, completed, cancelled, or login-blocked records.
+        </div>
+        {% endif %}
+
         <section class="summary-grid">
-            <div class="isr-card">
-                <div class="card-icon"><i class="bi bi-person-dash"></i></div>
-                <div>
-                    <div class="card-value">{{ inactive_count }}</div>
-                    <div class="card-label">Inactive / Left</div>
+            {% include "institute_admin/reports/_summary_card.html" with card_class="isr-card" icon="bi-person-dash" value=inactive_count label="Inactive / Left" %}
+            {% include "institute_admin/reports/_summary_card.html" with card_class="isr-card pending" icon="bi-wallet2" prefix="Rs. " value=total_pending|floatformat:2 label="Pending Balance" %}
+            {% include "institute_admin/reports/_summary_card.html" with card_class="isr-card overdue" icon="bi-exclamation-triangle" value=overdue_count label="Overdue Cases" %}
+            {% include "institute_admin/reports/_summary_card.html" with card_class="isr-card clear" icon="bi-check2-circle" prefix="Rs. " value=average_pending|floatformat:2 label="Avg Pending" %}
+        </section>
+
+        <section class="smart-insights" aria-label="Smart retention insights">
+            {% for message in insight_messages %}
+            <div class="smart-insight"><i class="bi bi-lightbulb"></i><span>{{ message }}</span></div>
+            {% endfor %}
+        </section>
+
+        <section class="retention-grid" aria-label="Retention and exit highlights">
+            <div class="retention-card">
+                <div class="retention-label"><i class="bi bi-journals"></i> Highest Exit Class</div>
+                <div class="retention-value">{{ top_exit_class.label|default:"No exits yet" }}</div>
+                <div class="retention-meta">
+                    {% if top_exit_class %}{{ top_exit_class.count }} exit{{ top_exit_class.count|pluralize }} in selected filters{% else %}Exit class strength will appear after matching records exist.{% endif %}
                 </div>
             </div>
-            <div class="isr-card pending">
-                <div class="card-icon"><i class="bi bi-wallet2"></i></div>
-                <div>
-                    <div class="card-value">₹{{ total_pending|floatformat:2 }}</div>
-                    <div class="card-label">Pending Balance</div>
+            <div class="retention-card">
+                <div class="retention-label"><i class="bi bi-layers"></i> Highest Exit Batch</div>
+                <div class="retention-value">{{ top_exit_batch.label|default:"No batch exits" }}</div>
+                <div class="retention-meta">
+                    {% if top_exit_batch %}{{ top_exit_batch.count }} exit{{ top_exit_batch.count|pluralize }} in selected filters{% else %}Batch exit analysis will appear after matching records exist.{% endif %}
                 </div>
             </div>
-            <div class="isr-card overdue">
-                <div class="card-icon"><i class="bi bi-exclamation-triangle"></i></div>
-                <div>
-                    <div class="card-value">{{ overdue_count }}</div>
-                    <div class="card-label">Overdue Cases</div>
+            <div class="retention-card">
+                <div class="retention-label"><i class="bi bi-chat-left-text"></i> Top Exit Reason</div>
+                <div class="retention-value">{{ top_reason.label|default:"No reason data" }}</div>
+                <div class="retention-meta">
+                    {% if top_reason %}{{ top_reason.count }} record{{ top_reason.count|pluralize }} with this reason{% else %}Reason-wise leaving analysis will appear after records exist.{% endif %}
                 </div>
             </div>
-            <div class="isr-card clear">
-                <div class="card-icon"><i class="bi bi-check2-circle"></i></div>
-                <div>
-                    <div class="card-value">₹{{ average_pending|floatformat:2 }}</div>
-                    <div class="card-label">Avg Pending</div>
-                </div>
+            <div class="retention-card">
+                <div class="retention-label"><i class="bi bi-clock-history"></i> Early Exits</div>
+                <div class="retention-value">{{ early_exit_count }}</div>
+                <div class="retention-meta">Left within {{ early_exit_days }} day{{ early_exit_days|pluralize }} of admission</div>
             </div>
+        </section>
+
+        <section class="summary-grid" aria-label="Closure workflow summary">
+            {% include "institute_admin/reports/_summary_card.html" with card_class="isr-card clear" icon="bi-file-earmark-check" value=tc_issued_count label="TC Issued" %}
+            {% include "institute_admin/reports/_summary_card.html" with card_class="isr-card overdue" icon="bi-file-earmark-text" value=tc_pending_count label="TC Pending" %}
+            {% include "institute_admin/reports/_summary_card.html" with card_class="isr-card pending" icon="bi-wallet2" value=fee_followup_count label="Fee Follow-up" %}
+            {% include "institute_admin/reports/_summary_card.html" with card_class="isr-card clear" icon="bi-archive" value=ready_to_archive_count label="Ready to Archive" %}
         </section>
 
         <section class="insight-grid">
@@ -626,14 +691,14 @@
                 <div class="insight-row">
                     <div>
                         <strong>{{ row.student.user.get_full_name|default:row.student.user.username }}</strong>
-                        <span>{{ row.session.admission_number }} · {{ row.status_label }} · {{ row.action_label }}</span>
+                        <span>{{ row.session.admission_number }} - {{ row.closure_status_label }} - {{ row.action_label }}</span>
                     </div>
-                    <div class="insight-amount">₹{{ row.pending_amount|floatformat:2 }}</div>
+                    <div class="insight-amount">Rs. {{ row.pending_amount|floatformat:2 }}</div>
                 </div>
                 {% empty %}
                 <div class="insight-row">
                     <div><strong>No fee follow-up needed</strong><span>Every matching inactive or left record has a clear balance.</span></div>
-                    <div class="insight-amount">₹0.00</div>
+                    <div class="insight-amount">Rs. 0.00</div>
                 </div>
                 {% endfor %}
             </div>
@@ -649,7 +714,7 @@
                             <div class="chart-label"><span>Pending Follow-up</span><span>{{ pending_students_count }}</span></div>
                             <div class="bar-track"><div class="bar-fill amber" style="width: {% widthratio pending_students_count inactive_count 100 %}%;"></div></div>
                         </div>
-                        <div class="chart-count">₹{{ total_pending|floatformat:2 }}</div>
+                        <div class="chart-count">Rs. {{ total_pending|floatformat:2 }}</div>
                     </div>
                     <div class="chart-row">
                         <div>
@@ -672,63 +737,29 @@
         <section class="isr-grid">
             <div class="isr-panel">
                 <div class="panel-head">
-                    <h2>Status Breakdown</h2>
-                    <span>{{ status_groups|length }} status group{{ status_groups|length|pluralize }}</span>
+                    <h2>Early Exit Watchlist</h2>
+                    <span>{{ early_exit_count }} within {{ early_exit_days }} day{{ early_exit_days|pluralize }}</span>
                 </div>
                 <div class="chart-list">
-                    {% for row in status_groups %}
+                    {% for row in early_exit_rows %}
                     <div class="chart-row">
                         <div>
-                            <div class="chart-label"><span>{{ row.label }}</span></div>
-                            <div class="bar-track"><div class="bar-fill" style="width: {{ row.percent }}%;"></div></div>
+                            <div class="chart-label"><span>{{ row.student.user.get_full_name|default:row.student.user.username }}</span><span>{{ row.days_to_exit }} day{{ row.days_to_exit|pluralize }}</span></div>
+                            <div class="muted-line">{{ row.session.admission_number }} - {{ row.class_label }} - {{ row.reason }}</div>
                         </div>
-                        <div class="chart-count">{{ row.count }}</div>
+                        <div class="chart-count">{{ row.event_date|date:"d M" }}</div>
                     </div>
                     {% empty %}
-                    <div class="empty-line">No status data found.</div>
+                    <div class="empty-line">No students left within {{ early_exit_days }} days for the selected filters.</div>
                     {% endfor %}
                 </div>
             </div>
 
-            <div class="isr-panel">
-                <div class="panel-head">
-                    <h2>Pending Balance Range</h2>
-                    <span>Balance buckets</span>
-                </div>
-                <div class="chart-list">
-                    {% for row in balance_groups %}
-                    <div class="chart-row">
-                        <div>
-                            <div class="chart-label"><span>{{ row.label }}</span><span>₹{{ row.amount|floatformat:2 }}</span></div>
-                            <div class="bar-track"><div class="bar-fill amber" style="width: {{ row.percent }}%;"></div></div>
-                        </div>
-                        <div class="chart-count">{{ row.count }}</div>
-                    </div>
-                    {% empty %}
-                    <div class="empty-line">No balance data found.</div>
-                    {% endfor %}
-                </div>
-            </div>
+            {% include "institute_admin/reports/_chart_panel.html" with panel_class="isr-panel" title="Exit Status" subtitle="Inactive and closure groups" rows=status_groups empty_message="No status data found." fill_class="" %}
 
-            <div class="isr-panel">
-                <div class="panel-head">
-                    <h2>Reason Wise</h2>
-                    <span>{{ reason_groups|length }} reason{{ reason_groups|length|pluralize }}</span>
-                </div>
-                <div class="chart-list">
-                    {% for row in reason_groups %}
-                    <div class="chart-row">
-                        <div>
-                            <div class="chart-label"><span>{{ row.label }}</span></div>
-                            <div class="bar-track"><div class="bar-fill teal" style="width: {{ row.percent }}%;"></div></div>
-                        </div>
-                        <div class="chart-count">{{ row.count }}</div>
-                    </div>
-                    {% empty %}
-                    <div class="empty-line">No reason data found.</div>
-                    {% endfor %}
-                </div>
-            </div>
+            {% include "institute_admin/reports/_chart_panel.html" with panel_class="isr-panel" title="Pending Balance Range" subtitle="Balance buckets" rows=balance_groups empty_message="No balance data found." fill_class="amber" show_amount=True %}
+
+            {% include "institute_admin/reports/_chart_panel.html" with panel_class="isr-panel" title="Leaving Reasons" subtitle="Reason-wise exits" rows=reason_groups empty_message="No reason data found." fill_class="teal" %}
 
             <div class="isr-panel">
                 <div class="panel-head">
@@ -759,25 +790,7 @@
                 </div>
             </div>
 
-            <div class="isr-panel">
-                <div class="panel-head">
-                    <h2>Month Wise</h2>
-                    <span>{{ month_groups|length }} period{{ month_groups|length|pluralize }}</span>
-                </div>
-                <div class="chart-list">
-                    {% for row in month_groups %}
-                    <div class="chart-row">
-                        <div>
-                            <div class="chart-label"><span>{{ row.label }}</span></div>
-                            <div class="bar-track"><div class="bar-fill" style="width: {{ row.percent }}%;"></div></div>
-                        </div>
-                        <div class="chart-count">{{ row.count }}</div>
-                    </div>
-                    {% empty %}
-                    <div class="empty-line">No month-wise data found.</div>
-                    {% endfor %}
-                </div>
-            </div>
+            {% include "institute_admin/reports/_chart_panel.html" with panel_class="isr-panel" title="Month Wise" subtitle="Exit periods" rows=month_groups empty_message="No month-wise data found." fill_class="" %}
         </section>
 
         <section class="isr-panel">
@@ -790,12 +803,13 @@
                     <thead>
                         <tr>
                             <th>Left / Inactive Date</th>
-                            <th>Admission No.</th>
+                            <th>Session Admission No.</th>
                             <th>Student</th>
                             <th>Class</th>
                             <th>Batch</th>
                             <th>Status</th>
                             <th>Reason</th>
+                            <th>Closure Status</th>
                             <th>Recommended Action</th>
                             <th class="text-end">Pending</th>
                             <th>Oldest Due</th>
@@ -812,40 +826,33 @@
                                 </a>
                             </td>
                             <td>
-                                <div class="student-name">{{ row.student.user.get_full_name|default:row.student.user.username }}</div>
-                                <div class="muted-line">@{{ row.student.user.username }} · {{ row.session.academic_year.name }}</div>
+                                <div class="student-name">{{ row.student_name }}</div>
+                                <div class="muted-line">
+                                    @{{ row.student.user.username }} &middot; {{ row.session.academic_year.name }}
+                                    {% if row.profile_admission_number and row.profile_admission_number != row.session.admission_number %}
+                                        &middot; Profile: {{ row.profile_admission_number }}
+                                    {% endif %}
+                                </div>
                             </td>
                             <td>{{ row.class_label }}</td>
                             <td>{{ row.batch_label }}</td>
                             <td><span class="status-pill">{{ row.status_label }}</span></td>
                             <td>{{ row.reason }}</td>
+                            <td><span class="status-pill">{{ row.closure_status_label }}</span></td>
                             <td><div class="action-text">{{ row.action_label }}</div></td>
                             <td class="text-end {% if row.pending_amount > 0 %}due-amount{% else %}clear-amount{% endif %}">
-                                ₹{{ row.pending_amount|floatformat:2 }}
+                                Rs. {{ row.pending_amount|floatformat:2 }}
                             </td>
                             <td>{{ row.oldest_due_date|date:"d M Y"|default:"-" }}</td>
                             <td>{{ row.phone|default:"-" }}</td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="11" class="empty-line">No inactive or left students match the selected filters.</td></tr>
+                        <tr><td colspan="12" class="empty-line">No inactive or left students match the selected filters.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-            {% if page_obj.paginator.num_pages > 1 %}
-            <div class="pager">
-                <div class="muted-line">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</div>
-                <div class="pager-links">
-                    {% if page_obj.has_previous %}
-                    <a href="?{{ page_query }}&page={{ page_obj.previous_page_number }}">Previous</a>
-                    {% endif %}
-                    <span>{{ page_obj.number }}</span>
-                    {% if page_obj.has_next %}
-                    <a href="?{{ page_query }}&page={{ page_obj.next_page_number }}">Next</a>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
+            {% include "institute_admin/reports/_table_pager.html" %}
         </section>
     </div>
 </main>

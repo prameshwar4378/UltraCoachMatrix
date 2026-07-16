@@ -17,7 +17,6 @@ class StudentProfile(models.Model):
     class StudentStatus(models.TextChoices):
         ACTIVE = "ACTIVE", "Active"
         INACTIVE = "INACTIVE", "Inactive"
-        TC_ISSUED = "TC_ISSUED", "TC Issued"
         LEFT_SCHOOL = "LEFT_SCHOOL", "Left School"
         PASSED_OUT = "PASSED_OUT", "Passed Out"
 

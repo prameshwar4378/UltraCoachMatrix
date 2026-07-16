@@ -1,0 +1,22 @@
+<div class="{{ panel_class }}">
+    <div class="panel-head">
+        <h2>{{ title }}</h2>
+        <span>{{ subtitle }}</span>
+    </div>
+    <div class="chart-list">
+        {% for row in rows %}
+        <div class="chart-row">
+            <div>
+                <div class="chart-label">
+                    <span>{{ row.label }}</span>
+                    {% if show_amount %}<span>Rs. {{ row.amount|floatformat:2 }}</span>{% endif %}
+                </div>
+                <div class="bar-track"><div class="bar-fill {{ fill_class }}" style="width: {{ row.percent }}%;"></div></div>
+            </div>
+            <div class="chart-count">{{ row.count }}</div>
+        </div>
+        {% empty %}
+        <div class="empty-line">{{ empty_message }}</div>
+        {% endfor %}
+    </div>
+</div>

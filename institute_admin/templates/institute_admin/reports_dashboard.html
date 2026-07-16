@@ -284,6 +284,42 @@
         font-weight: 600;
     }
 
+    .lifecycle-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 9px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        color: #0f766e;
+        background: #f0fdfa;
+        border: 1px solid #99f6e4;
+        font-size: .72rem;
+        font-weight: 950;
+        white-space: nowrap;
+    }
+
+    .report-tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+    }
+
+    .export-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 9px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        color: #1d4ed8;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        font-size: .72rem;
+        font-weight: 950;
+        white-space: nowrap;
+    }
+
     .priority-badge {
         padding: 6px 10px;
         border-radius: 999px;
@@ -807,6 +843,18 @@
 
                                 <div>
                                     <h3 class="report-title">{{ report.title }}</h3>
+                                    <div class="report-tag-row">
+                                    {% if report.lifecycle_label %}
+                                        <span class="lifecycle-badge">
+                                            <i class="bi bi-diagram-3"></i> {{ report.lifecycle_label }}
+                                        </span>
+                                    {% endif %}
+                                    {% if report.export_label %}
+                                        <span class="export-badge">
+                                            <i class="bi bi-file-earmark-spreadsheet"></i> {{ report.export_label }}
+                                        </span>
+                                    {% endif %}
+                                    </div>
                                     <p class="report-description">{{ report.description }}</p>
                                 </div>
 

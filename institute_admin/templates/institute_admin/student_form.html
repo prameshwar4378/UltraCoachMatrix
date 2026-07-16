@@ -32,6 +32,11 @@
         textarea.form-control { min-height: 86px; }
         .form-check { display: flex; align-items: center; gap: 8px; padding-left: 0; }
         .form-check .form-check-input { margin-left: 0; }
+        .setting-toggle { min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; }
+        .setting-toggle .form-check-input { width: 2.25rem; height: 1.15rem; margin: 0; flex: 0 0 auto; cursor: pointer; border-radius: 999px; }
+        .setting-toggle-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+        .setting-toggle-title { font-weight: 700; color: var(--text-primary); line-height: 1.2; }
+        .setting-toggle-hint { color: var(--text-secondary); font-size: .82rem; line-height: 1.25; }
         .text-muted, small { color: var(--text-secondary) !important; }
         .form-actions { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; gap: 18px; }
         .btn { padding: 11px 22px; border-radius: 8px; font-weight: 650; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
@@ -89,7 +94,6 @@
                             <div><label class="form-label"><i class="bi bi-translate"></i> Mother Tongue</label>{{ form.mother_tongue }}{{ form.mother_tongue.errors }}</div>
                             {% endif %}
                             <div><label class="form-label"><i class="bi bi-image"></i> Student Photo</label>{{ form.profile_image }}{{ form.profile_image.errors }}</div>
-                            <div class="d-flex align-items-center pt-4"><div class="form-check">{{ form.is_active }}<label class="form-check-label fw-semibold">Active Login</label></div></div>
                         </div>
                     </div>
                 </div>
@@ -109,6 +113,16 @@
                             <div><label class="form-label"><i class="bi bi-envelope"></i> Email</label>{{ form.email }}{{ form.email.errors }}</div>
                             <div><label class="form-label"><i class="bi bi-key"></i> Password</label>{{ form.password }}{{ form.password.errors }}{% if form.student %}<small>Leave blank to keep current password.</small>{% else %}<small>Leave blank to use Student@123.</small>{% endif %}</div>
                             <div><label class="form-label"><i class="bi bi-shield-lock"></i> Confirm Password</label>{{ form.confirm_password }}{{ form.confirm_password.errors }}</div>
+                            <div>
+                                <label class="form-label"><i class="bi bi-shield-check"></i> Login Access</label>
+                                <div class="setting-toggle">
+                                    {{ form.is_active }}
+                                    <label class="setting-toggle-body" for="{{ form.is_active.id_for_label }}">
+                                        <span class="setting-toggle-title">Active Login</span>
+                                        <span class="setting-toggle-hint" id="login-access-hint"></span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -209,6 +223,9 @@
                     <div class="accordion-body">
                         <div class="form-grid">
                             <div><label class="form-label"><i class="bi bi-calendar-check"></i> Admission Date</label>{{ form.joined_on }}{{ form.joined_on.errors }}</div>
+                            {% if is_school_institute and form.student %}
+                            <div><label class="form-label"><i class="bi bi-person-check"></i> Student Status</label>{{ form.student_status }}{{ form.student_status.errors }}<small id="student-status-hint"></small></div>
+                            {% endif %}
                             <div><label class="form-label"><i class="bi bi-door-open"></i> Class</label>{{ form.class_course }}{{ form.class_course.errors }}</div>
                             <div><label class="form-label"><i class="bi bi-diagram-3"></i> Batch / Division</label>{{ form.batch }}{{ form.batch.errors }}<small>Select a class first to load its batches.</small></div>
                             {% if is_school_institute %}
@@ -327,6 +344,34 @@
             if (field) field.addEventListener("input", updateFullName);
         });
         updateFullName();
+    }
+
+    const studentStatusField = document.getElementById("id_student_status");
+    const studentStatusHint = document.getElementById("student-status-hint");
+    const studentStatusHints = {
+        ACTIVE: "Currently studying.",
+        INACTIVE: "Temporarily not active academically.",
+        LEFT_SCHOOL: "Left before completion.",
+        PASSED_OUT: "Completed school.",
+    };
+    function updateStudentStatusHint() {
+        if (!studentStatusField || !studentStatusHint) return;
+        studentStatusHint.textContent = studentStatusHints[studentStatusField.value] || "";
+    }
+    if (studentStatusField && studentStatusHint) {
+        studentStatusField.addEventListener("change", updateStudentStatusHint);
+        updateStudentStatusHint();
+    }
+
+    const loginAccessField = document.getElementById("id_is_active");
+    const loginAccessHint = document.getElementById("login-access-hint");
+    function updateLoginAccessHint() {
+        if (!loginAccessField || !loginAccessHint) return;
+        loginAccessHint.textContent = loginAccessField.checked ? "Login allowed." : "Login blocked.";
+    }
+    if (loginAccessField && loginAccessHint) {
+        loginAccessField.addEventListener("change", updateLoginAccessHint);
+        updateLoginAccessHint();
     }
 
     const classSelect = document.getElementById("id_class_course");

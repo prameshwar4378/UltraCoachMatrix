@@ -1,0 +1,38 @@
+Watching for file changes with StatReloader
+[15/Jul/2026 20:13:53] "GET /institute/reports/ HTTP/1.1" 302 0
+[15/Jul/2026 20:13:53] "GET /login/?next=/institute/reports/ HTTP/1.1" 200 12459
+[15/Jul/2026 20:13:53,891] - Broken pipe from ('127.0.0.1', 53399)
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\super_admin\models.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\student_parent\models.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\forms.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\forms.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\forms.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\forms.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\views.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\user\Desktop\PROJECTS\UltraCoachMatrix\School Software 0.0.2\BackEnd\UltraCoachMatrix\institute_admin\views.py changed, reloading.
+Watching for file changes with StatReloader

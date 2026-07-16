@@ -41,6 +41,14 @@ class Institute(models.Model):
         help_text="Use Active or Trial to allow access. Suspended and Cancelled block access.",
     )
     internal_notes = models.TextField(blank=True)
+    left_school_login_active = models.BooleanField(
+        default=True,
+        help_text="Keep student/parent login active when student status is Left School.",
+    )
+    passed_out_login_active = models.BooleanField(
+        default=True,
+        help_text="Keep student/parent login active when student status is Passed Out.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

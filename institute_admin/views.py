@@ -3399,26 +3399,30 @@ def reports_dashboard(request):
     institute = get_current_institute(request)
     report_sections = [
         {
-            "group": "Students",
+            "group": "Student Lifecycle",
             "accent": "cyan",
             "reports": [
                 {
                     "title": "Student Admission Report",
-                    "description": "New admission list by date, class and academic session.",
+                    "lifecycle_label": "Admissions / Intake",
+                    "description": "Admission growth and admission quality analysis for new student intake by session, class, batch and profile status.",
                     "icon": "bi-person-plus",
-                    "priority": "Standard",
+                    "priority": "Growth",
+                    "export_label": "CSV/XLSX",
                     "url": reverse("institute_admin:student_admission_report"),
-                    "filters": ["Start date", "End date", "Class", "Session"],
-                    "outputs": ["Admission number", "Student", "Class", "Admission date"],
+                    "filters": ["Admission date", "Session", "Class", "Batch", "Student status", "Gender"],
+                    "outputs": ["Admission trend", "Class strength", "Batch strength", "Quality review", "Student details"],
                 },
                 {
                     "title": "Inactive / Left Students Report",
-                    "description": "Students who left or were marked inactive, with pending balance visibility.",
+                    "lifecycle_label": "Exit / Closure",
+                    "description": "Retention, exit, closure and pending fee recovery analysis for inactive, left, TC issued and completed students.",
                     "icon": "bi-person-dash",
-                    "priority": "Standard",
+                    "priority": "Closure",
+                    "export_label": "CSV/XLSX",
                     "url": reverse("institute_admin:inactive_students_report"),
-                    "filters": ["Start date", "End date", "Class", "Batch", "Status"],
-                    "outputs": ["Student", "Reason", "Left / inactive date", "Pending balance"],
+                    "filters": ["Exit date", "Session", "Class", "Batch", "Exit status", "Balance"],
+                    "outputs": ["Exit trend", "Leaving reasons", "Closure health", "Pending recovery", "Follow-up queue"],
                 },
             ],
         },
@@ -3431,6 +3435,7 @@ def reports_dashboard(request):
                     "description": "Profit/loss, collection vs expense, expense summary and monthly finance trend in one report.",
                     "icon": "bi-graph-up-arrow",
                     "priority": "Core",
+                    "export_label": "CSV/XLSX",
                     "url": reverse("institute_admin:profit_loss_report"),
                     "filters": ["Academic session", "Start date", "End date", "Month", "Class", "Batch"],
                     "outputs": ["Profit/loss", "Collection vs expense", "Expense summary", "Monthly trend", "Payment mode split"],
@@ -3446,6 +3451,7 @@ def reports_dashboard(request):
                     "description": "Class-wise student fee summary with total, paid, pending, follow-up, collections and ledger in one report.",
                     "icon": "bi-cash-stack",
                     "priority": "Core",
+                    "export_label": "CSV/XLSX",
                     "url": reverse("institute_admin:fee_collection_report"),
                     "filters": ["Academic session", "Class", "Batch", "Student", "Status", "Payment mode"],
                     "outputs": ["Batch-wise fee summary", "Student detail Excel", "Pending amount", "Collections", "Student ledger"],
@@ -3481,6 +3487,97 @@ def normalize_report_choice(value, allowed_values):
     return value if value in allowed_values else ""
 
 
+REPORT_PAGE_SIZE_OPTIONS = (25, 50, 100, 200)
+
+
+def normalize_report_page_size(value, default=25):
+    try:
+        page_size = int((value or str(default)).strip())
+    except ValueError:
+        return default
+    return page_size if page_size in REPORT_PAGE_SIZE_OPTIONS else default
+
+
+def normalize_report_date_range(start_date_value, end_date_value, default_range=None):
+    start_date = parse_date(start_date_value)
+    end_date = parse_date(end_date_value)
+    if not start_date and not end_date and default_range:
+        start_date, end_date = default_range
+    if start_date and end_date and start_date > end_date:
+        start_date, end_date = end_date, start_date
+    return start_date, end_date
+
+
+def current_month_date_range(today):
+    start_date = today.replace(day=1)
+    next_month = date(today.year + (1 if today.month == 12 else 0), 1 if today.month == 12 else today.month + 1, 1)
+    return start_date, next_month - timedelta(days=1)
+
+
+def get_report_academic_year_selection(request, institute, academic_year_param, academic_year_id):
+    academic_year_queryset = AcademicYear.objects.filter(institute=institute).order_by("-start_date", "-pk")
+    if academic_year_param is None:
+        selected_academic_year = get_current_academic_year(request, institute)
+        selected_academic_year_id = str(selected_academic_year.pk) if selected_academic_year else ""
+    elif academic_year_id and academic_year_id != "all":
+        selected_academic_year = academic_year_queryset.filter(pk=academic_year_id).first()
+        selected_academic_year_id = str(selected_academic_year.pk) if selected_academic_year else "all"
+    else:
+        selected_academic_year = None
+        selected_academic_year_id = "all"
+    return academic_year_queryset, selected_academic_year, selected_academic_year_id
+
+
+def get_report_course_batch_selection(institute, selected_academic_year, course_id, batch_id):
+    course_queryset = Course.objects.filter(institute=institute, is_active=True)
+    batch_queryset = Batch.objects.filter(institute=institute, is_active=True)
+    if selected_academic_year:
+        course_queryset = course_queryset.filter(academic_year=selected_academic_year)
+        batch_queryset = batch_queryset.filter(academic_year=selected_academic_year)
+    course = course_queryset.filter(pk=course_id).first() if course_id else None
+    batch = batch_queryset.filter(pk=batch_id).first() if batch_id else None
+    return course, batch, course_queryset, batch_queryset
+
+
+def get_report_filter_options(institute, academic_year):
+    courses = Course.objects.filter(institute=institute, is_active=True)
+    batches = Batch.objects.filter(institute=institute, is_active=True)
+    if academic_year:
+        courses = courses.filter(academic_year=academic_year)
+        batches = batches.filter(academic_year=academic_year)
+    return courses.order_by("name"), batches.order_by("name")
+
+
+def apply_session_course_batch_filters(sessions, filters):
+    if filters["course"]:
+        sessions = sessions.filter(
+            Q(enrollments__courses=filters["course"])
+            | Q(enrollments__batch__courses=filters["course"])
+        ).distinct()
+    if filters["batch"]:
+        sessions = sessions.filter(enrollments__batch=filters["batch"]).distinct()
+    return sessions
+
+
+def report_query_sets(request):
+    query_params = request.GET.copy()
+    query_params.pop("page", None)
+    csv_params = query_params.copy()
+    csv_params["export"] = "csv"
+    excel_params = query_params.copy()
+    excel_params["export"] = "excel"
+    return {
+        "query_params": query_params,
+        "csv_export_query": urlencode(csv_params, doseq=True),
+        "excel_export_query": urlencode(excel_params, doseq=True),
+        "page_query": urlencode(query_params, doseq=True),
+    }
+
+
+def paginate_report_rows(request, rows, page_size):
+    return Paginator(rows, page_size).get_page(request.GET.get("page"))
+
+
 def get_student_admission_filter_state(request, institute):
     today = timezone.localdate()
     start_date_value = (request.GET.get("start_date") or "").strip()
@@ -3504,43 +3601,22 @@ def get_student_admission_filter_state(request, institute):
     search = (request.GET.get("search") or "").strip()
     page_size_value = (request.GET.get("page_size") or "25").strip()
 
-    start_date = parse_date(start_date_value)
-    end_date = parse_date(end_date_value)
-    if not start_date and not end_date:
-        current_year = get_current_academic_year(request, institute)
-        if current_year:
-            start_date = current_year.start_date
-            end_date = current_year.end_date
-        else:
-            start_date = today.replace(day=1)
-            next_month = date(today.year + (1 if today.month == 12 else 0), 1 if today.month == 12 else today.month + 1, 1)
-            end_date = next_month - timedelta(days=1)
-    if start_date and end_date and start_date > end_date:
-        start_date, end_date = end_date, start_date
-
-    academic_year_queryset = AcademicYear.objects.filter(institute=institute).order_by("-start_date", "-pk")
-    if academic_year_param is None:
-        selected_academic_year = get_current_academic_year(request, institute)
-        selected_academic_year_id = str(selected_academic_year.pk) if selected_academic_year else ""
-    elif academic_year_id and academic_year_id != "all":
-        selected_academic_year = academic_year_queryset.filter(pk=academic_year_id).first()
-        selected_academic_year_id = str(selected_academic_year.pk) if selected_academic_year else "all"
-    else:
-        selected_academic_year = None
-        selected_academic_year_id = "all"
-    course_queryset = Course.objects.filter(institute=institute, is_active=True)
-    batch_queryset = Batch.objects.filter(institute=institute, is_active=True)
-    if selected_academic_year:
-        course_queryset = course_queryset.filter(academic_year=selected_academic_year)
-        batch_queryset = batch_queryset.filter(academic_year=selected_academic_year)
-    course = course_queryset.filter(pk=course_id).first() if course_id else None
-    batch = batch_queryset.filter(pk=batch_id).first() if batch_id else None
-    try:
-        page_size = int(page_size_value)
-    except ValueError:
-        page_size = 25
-    if page_size not in (25, 50, 100, 200):
-        page_size = 25
+    current_year = get_current_academic_year(request, institute)
+    default_range = (current_year.start_date, current_year.end_date) if current_year else current_month_date_range(today)
+    start_date, end_date = normalize_report_date_range(start_date_value, end_date_value, default_range=default_range)
+    _academic_year_queryset, selected_academic_year, selected_academic_year_id = get_report_academic_year_selection(
+        request,
+        institute,
+        academic_year_param,
+        academic_year_id,
+    )
+    course, batch, _course_queryset, _batch_queryset = get_report_course_batch_selection(
+        institute,
+        selected_academic_year,
+        course_id,
+        batch_id,
+    )
+    page_size = normalize_report_page_size(page_size_value)
 
     return {
         "start_date": start_date,
@@ -3581,13 +3657,7 @@ def get_admission_session_queryset(institute, filters):
         sessions = sessions.filter(joined_on__gte=filters["start_date"])
     if filters["end_date"]:
         sessions = sessions.filter(joined_on__lte=filters["end_date"])
-    if filters["course"]:
-        sessions = sessions.filter(
-            Q(enrollments__courses=filters["course"])
-            | Q(enrollments__batch__courses=filters["course"])
-        ).distinct()
-    if filters["batch"]:
-        sessions = sessions.filter(enrollments__batch=filters["batch"]).distinct()
+    sessions = apply_session_course_batch_filters(sessions, filters)
     if filters["status"]:
         sessions = sessions.filter(status=filters["status"])
     if filters["student_status"]:
@@ -3653,6 +3723,39 @@ def summarize_count_groups(groups):
     ]
 
 
+def first_group_or_none(groups):
+    return groups[0] if groups else None
+
+
+def admission_review_reasons(row):
+    reasons = []
+    if not (row.get("phone") or "").strip():
+        reasons.append("Missing phone number")
+    if row.get("class_label") == "Unassigned" or row.get("batch_label") == "Unassigned":
+        reasons.append("Class or batch not assigned")
+    session = row["session"]
+    student = row["student"]
+    if session.status != StudentAcademicSession.Status.ACTIVE:
+        reasons.append("Academic session is not active")
+    if student.student_status != StudentProfile.StudentStatus.ACTIVE or not student.is_active or not student.user.is_active:
+        reasons.append("Student profile is not active")
+    return reasons
+
+
+def build_admission_insight_messages(top_class, top_batch, top_month, review_count):
+    if not top_class and not top_batch and not top_month:
+        return ["No admissions found for the selected filters."]
+    messages = []
+    if top_class:
+        messages.append(f"{top_class['label']} has the highest admissions with {top_class['count']} record(s).")
+    if top_batch:
+        messages.append(f"{top_batch['label']} is the strongest batch with {top_batch['count']} admission(s).")
+    if top_month:
+        messages.append(f"{top_month['label']} is the highest admission month with {top_month['count']} admission(s).")
+    messages.append(f"{review_count} admission record(s) need admin review.")
+    return messages
+
+
 def build_student_admission_report(request, institute):
     filters = get_student_admission_filter_state(request, institute)
     sessions = list(get_admission_session_queryset(institute, filters))
@@ -3661,6 +3764,7 @@ def build_student_admission_report(request, institute):
     month_groups = defaultdict(lambda: {"count": 0})
     gender_groups = defaultdict(lambda: {"count": 0})
     status_groups = defaultdict(lambda: {"count": 0})
+    student_status_groups = defaultdict(lambda: {"count": 0})
     rows = []
     status_labels = dict(StudentAcademicSession.Status.choices)
     student_status_labels = dict(StudentProfile.StudentStatus.choices)
@@ -3686,36 +3790,61 @@ def build_student_admission_report(request, institute):
             "student_status_label": student_status_label,
             "phone": getattr(profile, "phone", ""),
         }
+        row["review_reasons"] = admission_review_reasons(row)
+        row["needs_review"] = bool(row["review_reasons"])
         rows.append(row)
         class_groups[labels["class_label"]]["count"] += 1
         batch_groups[labels["batch_label"]]["count"] += 1
         month_groups[month_label]["count"] += 1
         gender_groups[gender_label]["count"] += 1
         status_groups[status_label]["count"] += 1
+        student_status_groups[student_status_label]["count"] += 1
 
-    query_params = request.GET.copy()
-    query_params.pop("page", None)
-    csv_params = query_params.copy()
-    csv_params["export"] = "csv"
-    excel_params = query_params.copy()
-    excel_params["export"] = "excel"
-    page_params = query_params.copy()
-    paginator = Paginator(rows, filters["page_size"])
-    page_obj = paginator.get_page(request.GET.get("page"))
+    report_queries = report_query_sets(request)
+    page_obj = paginate_report_rows(request, rows, filters["page_size"])
+    review_rows = [row for row in rows if row["needs_review"]]
+    class_summary = summarize_count_groups(class_groups)
+    batch_summary = summarize_count_groups(batch_groups)
+    month_summary = summarize_count_groups(month_groups)
+    gender_summary = summarize_count_groups(gender_groups)
+    status_summary = summarize_count_groups(status_groups)
+    student_status_summary = summarize_count_groups(student_status_groups)
+    top_class = first_group_or_none(class_summary)
+    top_batch = first_group_or_none(batch_summary)
+    top_month = first_group_or_none(month_summary)
     return {
         "filters": filters,
         "rows": rows,
         "page_obj": page_obj,
         "admission_count": len(rows),
         "active_count": sum(1 for row in rows if row["session"].status == StudentAcademicSession.Status.ACTIVE),
-        "class_groups": summarize_count_groups(class_groups),
-        "batch_groups": summarize_count_groups(batch_groups),
-        "month_groups": summarize_count_groups(month_groups),
-        "gender_groups": summarize_count_groups(gender_groups),
-        "status_groups": summarize_count_groups(status_groups),
-        "csv_export_query": urlencode(csv_params, doseq=True),
-        "excel_export_query": urlencode(excel_params, doseq=True),
-        "page_query": urlencode(page_params, doseq=True),
+        "missing_phone_count": sum(1 for row in rows if not (row["phone"] or "").strip()),
+        "unassigned_class_batch_count": sum(
+            1 for row in rows if row["class_label"] == "Unassigned" or row["batch_label"] == "Unassigned"
+        ),
+        "inactive_profile_or_session_count": sum(
+            1
+            for row in rows
+            if row["session"].status != StudentAcademicSession.Status.ACTIVE
+            or row["student"].student_status != StudentProfile.StudentStatus.ACTIVE
+            or not row["student"].is_active
+            or not row["student"].user.is_active
+        ),
+        "review_count": len(review_rows),
+        "review_rows": review_rows[:8],
+        "class_groups": class_summary,
+        "batch_groups": batch_summary,
+        "month_groups": month_summary,
+        "gender_groups": gender_summary,
+        "status_groups": status_summary,
+        "student_status_groups": student_status_summary,
+        "top_class": top_class,
+        "top_batch": top_batch,
+        "top_month": top_month,
+        "insight_messages": build_admission_insight_messages(top_class, top_batch, top_month, len(review_rows)),
+        "csv_export_query": report_queries["csv_export_query"],
+        "excel_export_query": report_queries["excel_export_query"],
+        "page_query": report_queries["page_query"],
     }
 
 
@@ -3734,71 +3863,91 @@ def admission_report_filter_labels(report):
     ]
 
 
-def export_student_admission_csv(report, institute):
-    response = HttpResponse(content_type="text/csv; charset=utf-8")
+def report_export_filename(filename_prefix, extension):
     stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
-    response["Content-Disposition"] = f'attachment; filename="student_admission_report_{stamp}.csv"'
+    return f"{filename_prefix}_{stamp}.{extension}"
+
+
+def split_report_filter_label(label):
+    if ": " not in label:
+        return label, ""
+    return label.split(": ", 1)
+
+
+def export_report_csv(
+    report_title,
+    institute_name,
+    filter_labels,
+    summary_rows,
+    table_columns,
+    row_values,
+    theme_color,
+    filename_prefix,
+):
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{report_export_filename(filename_prefix, "csv")}"'
     writer = csv.writer(response)
-    writer.writerow(["Student Admission Report"])
-    writer.writerow(["Institute", institute.name])
-    for label in admission_report_filter_labels(report):
-        title, value = label.split(": ", 1)
+    writer.writerow([report_title])
+    writer.writerow(["Institute", institute_name])
+    for label in filter_labels:
+        title, value = split_report_filter_label(label)
         writer.writerow([title, value])
     writer.writerow([])
-    writer.writerow(["Total Admissions", report["admission_count"]])
-    writer.writerow(["Active Admissions", report["active_count"]])
+    for label, value in summary_rows:
+        writer.writerow([label, value])
     writer.writerow([])
-    writer.writerow(["Admission Date", "Admission No.", "Student", "Username", "Phone", "Class", "Batch", "Session", "Session Status", "Student Status", "Gender"])
-    for row in report["rows"]:
-        student = row["student"]
-        writer.writerow([
-            row["joined_on"].strftime("%Y-%m-%d") if row["joined_on"] else "",
-            row["session"].admission_number,
-            student.user.get_full_name() or student.user.username,
-            student.user.username,
-            row["phone"],
-            row["class_label"],
-            row["batch_label"],
-            row["session"].academic_year.name,
-            row["status_label"],
-            row["student_status_label"],
-            row["gender_label"],
-        ])
+    writer.writerow(table_columns)
+    for values in row_values:
+        writer.writerow(values)
     return response
 
 
-def export_student_admission_excel(report, institute):
+def export_report_excel(
+    report_title,
+    institute_name,
+    filter_labels,
+    summary_rows,
+    table_columns,
+    row_values,
+    theme_color,
+    filename_prefix,
+    sheet_title="Report",
+    summary_fill_color="E2E8F0",
+    column_widths=None,
+    left_aligned_columns=(),
+):
     workbook = Workbook()
     sheet = workbook.active
-    sheet.title = "Admissions"
-    primary = "0891B2"
+    sheet.title = sheet_title
     dark = "0F172A"
     muted = "64748B"
-    border_color = "CBD5E1"
-    thin = Side(style="thin", color=border_color)
+    thin = Side(style="thin", color="CBD5E1")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     center = Alignment(horizontal="center", vertical="center")
     left = Alignment(horizontal="left", vertical="center")
-    columns = ["Admission Date", "Admission No.", "Student", "Username", "Phone", "Class", "Batch", "Session", "Session Status", "Student Status", "Gender"]
+    column_count = len(table_columns)
 
-    sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(columns))
-    title_cell = sheet.cell(row=1, column=1, value="Student Admission Report")
+    sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=column_count)
+    title_cell = sheet.cell(row=1, column=1, value=report_title)
     title_cell.font = Font(size=18, bold=True, color="FFFFFF")
-    title_cell.fill = PatternFill("solid", fgColor=primary)
+    title_cell.fill = PatternFill("solid", fgColor=theme_color)
     title_cell.alignment = center
     sheet.row_dimensions[1].height = 30
 
-    sheet.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(columns))
-    sheet.cell(row=2, column=1, value=f"{institute.name} | Generated {timezone.localtime().strftime('%d-%m-%Y %I:%M %p')}").font = Font(size=10, color=muted)
+    sheet.merge_cells(start_row=2, start_column=1, end_row=2, end_column=column_count)
+    sheet.cell(
+        row=2,
+        column=1,
+        value=f"{institute_name} | Generated {timezone.localtime().strftime('%d-%m-%Y %I:%M %p')}",
+    ).font = Font(size=10, color=muted)
     sheet.cell(row=2, column=1).alignment = center
 
-    sheet.merge_cells(start_row=4, start_column=1, end_row=4, end_column=len(columns))
-    sheet.cell(row=4, column=1, value=" | ".join(admission_report_filter_labels(report))).font = Font(italic=True, color=muted)
+    sheet.merge_cells(start_row=4, start_column=1, end_row=4, end_column=column_count)
+    sheet.cell(row=4, column=1, value=" | ".join(filter_labels)).font = Font(italic=True, color=muted)
 
-    summary = [("Total Admissions", report["admission_count"]), ("Active Admissions", report["active_count"]), ("Classes", len(report["class_groups"])), ("Batches", len(report["batch_groups"]))]
-    for index, (label, value) in enumerate(summary, start=1):
+    for index, (label, value) in enumerate(summary_rows, start=1):
         sheet.cell(row=6, column=index, value=label).font = Font(bold=True, color=dark)
-        sheet.cell(row=6, column=index).fill = PatternFill("solid", fgColor="E0F2FE")
+        sheet.cell(row=6, column=index).fill = PatternFill("solid", fgColor=summary_fill_color)
         sheet.cell(row=6, column=index).alignment = center
         sheet.cell(row=6, column=index).border = border
         sheet.cell(row=7, column=index, value=value).font = Font(size=14, bold=True, color=dark)
@@ -3806,17 +3955,67 @@ def export_student_admission_excel(report, institute):
         sheet.cell(row=7, column=index).border = border
 
     header_row = 9
-    for index, column in enumerate(columns, start=1):
+    for index, column in enumerate(table_columns, start=1):
         cell = sheet.cell(row=header_row, column=index, value=column)
         cell.fill = PatternFill("solid", fgColor=dark)
         cell.font = Font(bold=True, color="FFFFFF")
         cell.alignment = center
         cell.border = border
 
-    for row_index, row in enumerate(report["rows"], start=header_row + 1):
+    row_count = 0
+    for row_index, values in enumerate(row_values, start=header_row + 1):
+        row_count += 1
+        for col_index, value in enumerate(values, start=1):
+            cell = sheet.cell(row=row_index, column=col_index, value=value)
+            cell.border = border
+            cell.alignment = left if col_index in left_aligned_columns else center
+
+    widths = column_widths or [18] * column_count
+    for index, width in enumerate(widths, start=1):
+        sheet.column_dimensions[get_column_letter(index)].width = width
+    sheet.freeze_panes = "A10"
+    sheet.auto_filter.ref = f"A9:{get_column_letter(column_count)}{max(10, header_row + row_count)}"
+    buffer = BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{report_export_filename(filename_prefix, "xlsx")}"'
+    return response
+
+
+STUDENT_ADMISSION_EXPORT_COLUMNS = [
+    "Admission Date",
+    "Admission No.",
+    "Student",
+    "Username",
+    "Phone",
+    "Class",
+    "Batch",
+    "Session",
+    "Session Status",
+    "Student Status",
+    "Gender",
+    "Review Notes",
+]
+
+
+def student_admission_summary_rows(report):
+    return [
+        ("Total Admissions", report["admission_count"]),
+        ("Active Admissions", report["active_count"]),
+        ("Classes", len(report["class_groups"])),
+        ("Batches", len(report["batch_groups"])),
+    ]
+
+
+def student_admission_export_row_values(report, date_format):
+    for row in report["rows"]:
         student = row["student"]
-        values = [
-            row["joined_on"].strftime("%d-%m-%Y") if row["joined_on"] else "",
+        yield [
+            row["joined_on"].strftime(date_format) if row["joined_on"] else "",
             row["session"].admission_number,
             student.user.get_full_name() or student.user.username,
             student.user.username,
@@ -3827,27 +4026,38 @@ def export_student_admission_excel(report, institute):
             row["status_label"],
             row["student_status_label"],
             row["gender_label"],
+            ", ".join(row["review_reasons"]),
         ]
-        for col_index, value in enumerate(values, start=1):
-            cell = sheet.cell(row=row_index, column=col_index, value=value)
-            cell.border = border
-            cell.alignment = left if col_index in (3, 6, 7) else center
 
-    widths = [16, 20, 28, 18, 16, 26, 24, 16, 16, 18, 14]
-    for index, width in enumerate(widths, start=1):
-        sheet.column_dimensions[get_column_letter(index)].width = width
-    sheet.freeze_panes = "A10"
-    sheet.auto_filter.ref = f"A9:{get_column_letter(len(columns))}{max(10, header_row + len(report['rows']))}"
-    buffer = BytesIO()
-    workbook.save(buffer)
-    buffer.seek(0)
-    response = HttpResponse(
-        buffer.getvalue(),
-        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+def export_student_admission_csv(report, institute):
+    return export_report_csv(
+        "Student Admission Report",
+        institute.name,
+        admission_report_filter_labels(report),
+        student_admission_summary_rows(report)[:2],
+        STUDENT_ADMISSION_EXPORT_COLUMNS,
+        student_admission_export_row_values(report, "%Y-%m-%d"),
+        "0891B2",
+        "student_admission_report",
     )
-    stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
-    response["Content-Disposition"] = f'attachment; filename="student_admission_report_{stamp}.xlsx"'
-    return response
+
+
+def export_student_admission_excel(report, institute):
+    return export_report_excel(
+        "Student Admission Report",
+        institute.name,
+        admission_report_filter_labels(report),
+        student_admission_summary_rows(report),
+        STUDENT_ADMISSION_EXPORT_COLUMNS,
+        student_admission_export_row_values(report, "%d-%m-%Y"),
+        "0891B2",
+        "student_admission_report",
+        sheet_title="Admissions",
+        summary_fill_color="E0F2FE",
+        column_widths=[16, 20, 28, 18, 16, 26, 24, 16, 16, 18, 14, 34],
+        left_aligned_columns={3, 6, 7, 12},
+    )
 
 
 @institute_admin_required
@@ -3873,21 +4083,17 @@ def student_admission_report(request):
 
     filters = report["filters"]
     academic_years = AcademicYear.objects.filter(institute=institute).order_by("-start_date", "-pk")
-    courses = Course.objects.filter(institute=institute, is_active=True)
-    batches = Batch.objects.filter(institute=institute, is_active=True)
-    if filters["academic_year"]:
-        courses = courses.filter(academic_year=filters["academic_year"])
-        batches = batches.filter(academic_year=filters["academic_year"])
+    courses, batches = get_report_filter_options(institute, filters["academic_year"])
     context = {
         **report,
         "current_institute": institute,
         "academic_years": academic_years,
-        "courses": courses.order_by("name"),
-        "batches": batches.order_by("name"),
+        "courses": courses,
+        "batches": batches,
         "session_status_choices": StudentAcademicSession.Status.choices,
         "student_status_choices": StudentProfile.StudentStatus.choices,
         "gender_choices": StudentProfile.Gender.choices,
-        "page_size_options": [25, 50, 100, 200],
+        "page_size_options": REPORT_PAGE_SIZE_OPTIONS,
     }
     return render(request, "institute_admin/student_admission_report.html", context)
 
@@ -3911,6 +4117,8 @@ INACTIVE_REPORT_BALANCE_CHOICES = [
     ("overdue", "Overdue Pending Balance"),
 ]
 
+EARLY_EXIT_DAYS = 30
+
 
 def get_inactive_student_filter_state(request, institute):
     start_date_value = (request.GET.get("start_date") or "").strip()
@@ -3930,21 +4138,13 @@ def get_inactive_student_filter_state(request, institute):
     )
     search = (request.GET.get("search") or "").strip()
     page_size_value = (request.GET.get("page_size") or "25").strip()
-    start_date = parse_date(start_date_value)
-    end_date = parse_date(end_date_value)
-    if start_date and end_date and start_date > end_date:
-        start_date, end_date = end_date, start_date
-
-    academic_year_queryset = AcademicYear.objects.filter(institute=institute).order_by("-start_date", "-pk")
-    if academic_year_param is None:
-        selected_academic_year = get_current_academic_year(request, institute)
-        selected_academic_year_id = str(selected_academic_year.pk) if selected_academic_year else ""
-    elif academic_year_id and academic_year_id != "all":
-        selected_academic_year = academic_year_queryset.filter(pk=academic_year_id).first()
-        selected_academic_year_id = str(selected_academic_year.pk) if selected_academic_year else "all"
-    else:
-        selected_academic_year = None
-        selected_academic_year_id = "all"
+    start_date, end_date = normalize_report_date_range(start_date_value, end_date_value)
+    _academic_year_queryset, selected_academic_year, selected_academic_year_id = get_report_academic_year_selection(
+        request,
+        institute,
+        academic_year_param,
+        academic_year_id,
+    )
     if selected_academic_year and date_mode != "session" and (start_date_value or end_date_value):
         selected_academic_year = None
         selected_academic_year_id = "all"
@@ -3959,19 +4159,13 @@ def get_inactive_student_filter_state(request, institute):
     else:
         date_mode = ""
 
-    course_queryset = Course.objects.filter(institute=institute, is_active=True)
-    batch_queryset = Batch.objects.filter(institute=institute, is_active=True)
-    if selected_academic_year:
-        course_queryset = course_queryset.filter(academic_year=selected_academic_year)
-        batch_queryset = batch_queryset.filter(academic_year=selected_academic_year)
-    course = course_queryset.filter(pk=course_id).first() if course_id else None
-    batch = batch_queryset.filter(pk=batch_id).first() if batch_id else None
-    try:
-        page_size = int(page_size_value)
-    except ValueError:
-        page_size = 25
-    if page_size not in (25, 50, 100, 200):
-        page_size = 25
+    course, batch, _course_queryset, _batch_queryset = get_report_course_batch_selection(
+        institute,
+        selected_academic_year,
+        course_id,
+        batch_id,
+    )
+    page_size = normalize_report_page_size(page_size_value)
     return {
         "start_date": start_date,
         "end_date": end_date,
@@ -4021,20 +4215,14 @@ def get_inactive_student_session_queryset(institute, filters):
         | Q(student__user__is_active=False)
     )
     sessions = sessions.filter(inactive_filter)
-    if filters["course"]:
-        sessions = sessions.filter(
-            Q(enrollments__courses=filters["course"])
-            | Q(enrollments__batch__courses=filters["course"])
-        ).distinct()
-    if filters["batch"]:
-        sessions = sessions.filter(enrollments__batch=filters["batch"]).distinct()
+    sessions = apply_session_course_batch_filters(sessions, filters)
     status_scope = filters["status"]
     if status_scope == "student_inactive":
         sessions = sessions.filter(student__student_status=StudentProfile.StudentStatus.INACTIVE)
     elif status_scope == "left_school":
         sessions = sessions.filter(student__student_status=StudentProfile.StudentStatus.LEFT_SCHOOL)
     elif status_scope == "tc_issued":
-        sessions = sessions.filter(student__student_status=StudentProfile.StudentStatus.TC_ISSUED)
+        sessions = sessions.filter(student__tc_issue_date__isnull=False)
     elif status_scope == "passed_out":
         sessions = sessions.filter(student__student_status=StudentProfile.StudentStatus.PASSED_OUT)
     elif status_scope == "session_left":
@@ -4059,6 +4247,43 @@ def get_inactive_student_session_queryset(institute, filters):
             | Q(student__reason_for_leaving__icontains=query)
         ).distinct()
     return sessions.order_by("-student__date_of_leaving_school", "-student__tc_issue_date", "-joined_on", "-pk")
+
+
+def get_active_student_matches_excluded_from_inactive_report(institute, filters, excluded_session_ids):
+    query = filters.get("search", "")
+    if not query:
+        return []
+    sessions = StudentAcademicSession.objects.select_related(
+        "student",
+        "student__user",
+        "academic_year",
+    ).filter(
+        institute=institute,
+        status=StudentAcademicSession.Status.ACTIVE,
+        student__student_status=StudentProfile.StudentStatus.ACTIVE,
+        student__is_active=True,
+        student__user__is_active=True,
+    )
+    if filters["academic_year"]:
+        sessions = sessions.filter(academic_year=filters["academic_year"])
+    if excluded_session_ids:
+        sessions = sessions.exclude(pk__in=excluded_session_ids)
+    sessions = sessions.filter(
+        Q(admission_number__icontains=query)
+        | Q(student__admission_number__icontains=query)
+        | Q(student__user__first_name__icontains=query)
+        | Q(student__user__last_name__icontains=query)
+        | Q(student__user__username__icontains=query)
+    ).order_by("admission_number")[:3]
+    return [
+        {
+            "session_admission_number": session.admission_number,
+            "profile_admission_number": session.student.admission_number,
+            "student_name": session.student.user.get_full_name() or session.student.user.username,
+            "academic_year": session.academic_year.name,
+        }
+        for session in sessions
+    ]
 
 
 def inactive_student_event_date(session):
@@ -4130,6 +4355,42 @@ def inactive_student_action_label(pending_amount, overdue_invoice_count):
     return "Archive after record check"
 
 
+def inactive_student_has_tc(student):
+    return bool(student.tc_issue_date)
+
+
+def inactive_student_needs_tc_review(session):
+    student = session.student
+    left_status = (
+        student.student_status == StudentProfile.StudentStatus.LEFT_SCHOOL
+        or session.status == StudentAcademicSession.Status.LEFT
+    )
+    return left_status and not inactive_student_has_tc(student)
+
+
+def inactive_closure_status_label(session, pending_amount, overdue_invoice_count):
+    if pending_amount > 0:
+        return "Fee Follow-up Needed"
+    if inactive_student_needs_tc_review(session):
+        return "TC/Record Review Needed"
+    return "Ready to Archive"
+
+
+def build_inactive_insight_messages(top_reason, top_exit_class, top_exit_batch, total_pending, ready_to_archive_count):
+    if not top_reason and not top_exit_class and not top_exit_batch:
+        return ["No inactive or left students found for the selected filters."]
+    messages = []
+    if top_reason:
+        messages.append(f"{top_reason['label']} is the top exit reason with {top_reason['count']} record(s).")
+    if top_exit_class:
+        messages.append(f"{top_exit_class['label']} has the highest exits with {top_exit_class['count']} record(s).")
+    if top_exit_batch:
+        messages.append(f"{top_exit_batch['label']} has the highest batch exits with {top_exit_batch['count']} record(s).")
+    messages.append(f"{total_pending:.2f} pending amount requires fee follow-up.")
+    messages.append(f"{ready_to_archive_count} student record(s) are ready to archive.")
+    return messages
+
+
 def report_query_with_params(base_params, **updates):
     params = base_params.copy()
     params.pop("page", None)
@@ -4156,6 +4417,11 @@ def build_inactive_students_report(request, institute):
     overdue_count = 0
     clear_count = 0
     pending_students_count = 0
+    tc_issued_count = 0
+    tc_pending_count = 0
+    ready_to_archive_count = 0
+    fee_followup_count = 0
+    tc_record_review_count = 0
 
     for session in sessions:
         event_date = inactive_student_event_date(session)
@@ -4178,10 +4444,19 @@ def build_inactive_students_report(request, institute):
         month_label = event_date.strftime("%b %Y") if event_date else "No Date"
         balance_bucket = inactive_balance_bucket(pending_amount)
         action_label = inactive_student_action_label(pending_amount, overdue_invoice_count)
+        days_to_exit = (event_date - session.joined_on).days if event_date and session.joined_on else None
+        is_early_exit = days_to_exit is not None and 0 <= days_to_exit <= EARLY_EXIT_DAYS
+        has_tc = inactive_student_has_tc(student)
+        needs_tc_review = inactive_student_needs_tc_review(session)
+        closure_status_label = inactive_closure_status_label(session, pending_amount, overdue_invoice_count)
         row = {
             "session": session,
             "student": student,
+            "student_name": student.user.get_full_name() or student.user.username,
+            "profile_admission_number": student.admission_number,
             "event_date": event_date,
+            "days_to_exit": days_to_exit,
+            "is_early_exit": is_early_exit,
             "class_label": labels["class_label"],
             "batch_label": labels["batch_label"],
             "status_label": status_label,
@@ -4192,15 +4467,27 @@ def build_inactive_students_report(request, institute):
             "oldest_due_date": oldest_due_date,
             "phone": getattr(profile, "phone", ""),
             "action_label": action_label,
+            "has_tc": has_tc,
+            "needs_tc_review": needs_tc_review,
+            "closure_status_label": closure_status_label,
         }
         rows.append(row)
         total_pending += pending_amount
+        if has_tc:
+            tc_issued_count += 1
+        if needs_tc_review:
+            tc_pending_count += 1
         if overdue_invoice_count:
             overdue_count += 1
         if pending_amount > 0:
             pending_students_count += 1
+            fee_followup_count += 1
         if pending_amount <= 0:
             clear_count += 1
+        if closure_status_label == "Ready to Archive":
+            ready_to_archive_count += 1
+        elif closure_status_label == "TC/Record Review Needed":
+            tc_record_review_count += 1
         reason_groups[reason]["count"] += 1
         status_groups[status_label]["count"] += 1
         class_groups[labels["class_label"]]["count"] += 1
@@ -4210,40 +4497,75 @@ def build_inactive_students_report(request, institute):
         balance_groups[balance_bucket]["amount"] += pending_amount
 
     rows.sort(key=lambda row: (row["event_date"] or date.min, row["pending_amount"], row["session"].pk), reverse=True)
-    query_params = request.GET.copy()
-    query_params.pop("page", None)
-    csv_params = query_params.copy()
-    csv_params["export"] = "csv"
-    excel_params = query_params.copy()
-    excel_params["export"] = "excel"
-    paginator = Paginator(rows, filters["page_size"])
-    page_obj = paginator.get_page(request.GET.get("page"))
+    report_queries = report_query_sets(request)
+    query_params = report_queries["query_params"]
+    page_obj = paginate_report_rows(request, rows, filters["page_size"])
     top_due_rows = sorted(
         [row for row in rows if row["pending_amount"] > 0],
-        key=lambda row: (row["pending_amount"], row["overdue_invoice_count"], row["session"].pk),
+        key=lambda row: (row["overdue_invoice_count"] > 0, row["pending_amount"], row["overdue_invoice_count"], row["session"].pk),
         reverse=True,
     )[:8]
+    early_exit_rows = sorted(
+        [row for row in rows if row["is_early_exit"]],
+        key=lambda row: (row["days_to_exit"], row["event_date"] or date.max, row["session"].pk),
+    )[:8]
+    reason_summary = summarize_count_groups(reason_groups)
+    status_summary = summarize_count_groups(status_groups)
+    class_summary = summarize_count_groups(class_groups)
+    batch_summary = summarize_count_groups(batch_groups)
+    month_summary = summarize_count_groups(month_groups)
+    top_reason = first_group_or_none(reason_summary)
+    top_status = first_group_or_none(status_summary)
+    top_exit_class = first_group_or_none(class_summary)
+    top_exit_batch = first_group_or_none(batch_summary)
+    top_exit_month = first_group_or_none(month_summary)
     average_pending = total_pending / pending_students_count if pending_students_count else Decimal("0.00")
+    active_search_matches = get_active_student_matches_excluded_from_inactive_report(
+        institute,
+        filters,
+        [row["session"].pk for row in rows],
+    )
     return {
         "filters": filters,
         "rows": rows,
         "page_obj": page_obj,
         "inactive_count": len(rows),
+        "early_exit_days": EARLY_EXIT_DAYS,
+        "early_exit_count": sum(1 for row in rows if row["is_early_exit"]),
         "total_pending": total_pending,
         "average_pending": average_pending,
         "overdue_count": overdue_count,
         "clear_count": clear_count,
         "pending_students_count": pending_students_count,
+        "tc_issued_count": tc_issued_count,
+        "tc_pending_count": tc_pending_count,
+        "fee_followup_count": fee_followup_count,
+        "ready_to_archive_count": ready_to_archive_count,
+        "tc_record_review_count": tc_record_review_count,
         "top_due_rows": top_due_rows,
-        "reason_groups": summarize_count_groups(reason_groups),
-        "status_groups": summarize_count_groups(status_groups),
-        "class_groups": summarize_count_groups(class_groups),
-        "batch_groups": summarize_count_groups(batch_groups),
-        "month_groups": summarize_count_groups(month_groups),
+        "early_exit_rows": early_exit_rows,
+        "reason_groups": reason_summary,
+        "status_groups": status_summary,
+        "class_groups": class_summary,
+        "batch_groups": batch_summary,
+        "month_groups": month_summary,
+        "top_reason": top_reason,
+        "top_status": top_status,
+        "top_exit_class": top_exit_class,
+        "top_exit_batch": top_exit_batch,
+        "top_exit_month": top_exit_month,
+        "active_search_matches": active_search_matches,
+        "insight_messages": build_inactive_insight_messages(
+            top_reason,
+            top_exit_class,
+            top_exit_batch,
+            total_pending,
+            ready_to_archive_count,
+        ),
         "balance_groups": summarize_amount_groups(balance_groups),
-        "csv_export_query": urlencode(csv_params, doseq=True),
-        "excel_export_query": urlencode(excel_params, doseq=True),
-        "page_query": urlencode(query_params, doseq=True),
+        "csv_export_query": report_queries["csv_export_query"],
+        "excel_export_query": report_queries["excel_export_query"],
+        "page_query": report_queries["page_query"],
         "quick_all_query": report_query_with_params(query_params, balance=""),
         "quick_due_query": report_query_with_params(query_params, balance="with_due"),
         "quick_overdue_query": report_query_with_params(query_params, balance="overdue"),
@@ -4267,125 +4589,100 @@ def inactive_report_filter_labels(report):
     ]
 
 
-def export_inactive_students_csv(report, institute):
-    response = HttpResponse(content_type="text/csv; charset=utf-8")
-    stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
-    response["Content-Disposition"] = f'attachment; filename="inactive_left_students_report_{stamp}.csv"'
-    writer = csv.writer(response)
-    writer.writerow(["Inactive / Left Students Report"])
-    writer.writerow(["Institute", institute.name])
-    for label in inactive_report_filter_labels(report):
-        title, value = label.split(": ", 1)
-        writer.writerow([title, value])
-    writer.writerow([])
-    writer.writerow(["Students", report["inactive_count"]])
-    writer.writerow(["Pending Balance", f"{report['total_pending']:.2f}"])
-    writer.writerow(["Average Pending", f"{report['average_pending']:.2f}"])
-    writer.writerow(["Overdue Cases", report["overdue_count"]])
-    writer.writerow(["Clear Accounts", report["clear_count"]])
-    writer.writerow([])
-    writer.writerow(["Left / Inactive Date", "Admission No.", "Student", "Phone", "Class", "Batch", "Session", "Status", "Reason", "Pending Balance", "Pending Invoices", "Oldest Due Date", "Recommended Action"])
-    for row in report["rows"]:
-        student = row["student"]
-        writer.writerow([
-            row["event_date"].strftime("%Y-%m-%d") if row["event_date"] else "",
-            row["session"].admission_number,
-            student.user.get_full_name() or student.user.username,
-            row["phone"],
-            row["class_label"],
-            row["batch_label"],
-            row["session"].academic_year.name,
-            row["status_label"],
-            row["reason"],
-            f"{row['pending_amount']:.2f}",
-            row["pending_count"],
-            row["oldest_due_date"].strftime("%Y-%m-%d") if row["oldest_due_date"] else "",
-            row["action_label"],
-        ])
-    return response
+INACTIVE_STUDENTS_EXPORT_COLUMNS = [
+    "Left / Inactive Date",
+    "Admission No.",
+    "Student",
+    "Phone",
+    "Class",
+    "Batch",
+    "Session",
+    "Status",
+    "Reason",
+    "Pending Balance",
+    "Pending Invoices",
+    "Oldest Due Date",
+    "Closure Status",
+    "Recommended Action",
+]
 
 
-def export_inactive_students_excel(report, institute):
-    workbook = Workbook()
-    sheet = workbook.active
-    sheet.title = "Inactive Students"
-    primary = "991B1B"
-    dark = "0F172A"
-    muted = "64748B"
-    thin = Side(style="thin", color="CBD5E1")
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
-    center = Alignment(horizontal="center", vertical="center")
-    left = Alignment(horizontal="left", vertical="center")
-    columns = ["Left / Inactive Date", "Admission No.", "Student", "Phone", "Class", "Batch", "Session", "Status", "Reason", "Pending Balance", "Pending Invoices", "Oldest Due Date", "Recommended Action"]
-    sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(columns))
-    title_cell = sheet.cell(row=1, column=1, value="Inactive / Left Students Report")
-    title_cell.font = Font(size=18, bold=True, color="FFFFFF")
-    title_cell.fill = PatternFill("solid", fgColor=primary)
-    title_cell.alignment = center
-    sheet.row_dimensions[1].height = 30
-    sheet.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(columns))
-    sheet.cell(row=2, column=1, value=f"{institute.name} | Generated {timezone.localtime().strftime('%d-%m-%Y %I:%M %p')}").font = Font(size=10, color=muted)
-    sheet.cell(row=2, column=1).alignment = center
-    sheet.merge_cells(start_row=4, start_column=1, end_row=4, end_column=len(columns))
-    sheet.cell(row=4, column=1, value=" | ".join(inactive_report_filter_labels(report))).font = Font(italic=True, color=muted)
-    summary = [
+def inactive_students_csv_summary_rows(report):
+    return [
+        ("Students", report["inactive_count"]),
+        ("Pending Balance", f"{report['total_pending']:.2f}"),
+        ("Average Pending", f"{report['average_pending']:.2f}"),
+        ("Overdue Cases", report["overdue_count"]),
+        ("Clear Accounts", report["clear_count"]),
+        ("TC Issued", report["tc_issued_count"]),
+        ("TC Pending / Record Review", report["tc_pending_count"]),
+        ("Fee Follow-up Needed", report["fee_followup_count"]),
+        ("Ready to Archive", report["ready_to_archive_count"]),
+    ]
+
+
+def inactive_students_excel_summary_rows(report):
+    return [
         ("Students", report["inactive_count"]),
         ("Pending Balance", float(report["total_pending"])),
         ("Average Pending", float(report["average_pending"])),
         ("Overdue Cases", report["overdue_count"]),
         ("Clear Accounts", report["clear_count"]),
+        ("TC Issued", report["tc_issued_count"]),
+        ("TC Pending", report["tc_pending_count"]),
+        ("Fee Follow-up", report["fee_followup_count"]),
+        ("Ready to Archive", report["ready_to_archive_count"]),
     ]
-    for index, (label, value) in enumerate(summary, start=1):
-        sheet.cell(row=6, column=index, value=label).font = Font(bold=True, color=dark)
-        sheet.cell(row=6, column=index).fill = PatternFill("solid", fgColor="FEE2E2")
-        sheet.cell(row=6, column=index).alignment = center
-        sheet.cell(row=6, column=index).border = border
-        sheet.cell(row=7, column=index, value=value).font = Font(size=14, bold=True, color=dark)
-        sheet.cell(row=7, column=index).alignment = center
-        sheet.cell(row=7, column=index).border = border
-    header_row = 9
-    for index, column in enumerate(columns, start=1):
-        cell = sheet.cell(row=header_row, column=index, value=column)
-        cell.fill = PatternFill("solid", fgColor=dark)
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.alignment = center
-        cell.border = border
-    for row_index, row in enumerate(report["rows"], start=header_row + 1):
-        student = row["student"]
-        values = [
-            row["event_date"].strftime("%d-%m-%Y") if row["event_date"] else "",
+
+
+def inactive_students_export_row_values(report, date_format, amount_formatter):
+    for row in report["rows"]:
+        yield [
+            row["event_date"].strftime(date_format) if row["event_date"] else "",
             row["session"].admission_number,
-            student.user.get_full_name() or student.user.username,
+            row["student_name"],
             row["phone"],
             row["class_label"],
             row["batch_label"],
             row["session"].academic_year.name,
             row["status_label"],
             row["reason"],
-            float(row["pending_amount"]),
+            amount_formatter(row["pending_amount"]),
             row["pending_count"],
-            row["oldest_due_date"].strftime("%d-%m-%Y") if row["oldest_due_date"] else "",
+            row["oldest_due_date"].strftime(date_format) if row["oldest_due_date"] else "",
+            row["closure_status_label"],
             row["action_label"],
         ]
-        for col_index, value in enumerate(values, start=1):
-            cell = sheet.cell(row=row_index, column=col_index, value=value)
-            cell.border = border
-            cell.alignment = left if col_index in (3, 5, 6, 9) else center
-    widths = [20, 20, 28, 16, 26, 24, 16, 18, 34, 18, 18, 16, 30]
-    for index, width in enumerate(widths, start=1):
-        sheet.column_dimensions[get_column_letter(index)].width = width
-    sheet.freeze_panes = "A10"
-    sheet.auto_filter.ref = f"A9:{get_column_letter(len(columns))}{max(10, header_row + len(report['rows']))}"
-    buffer = BytesIO()
-    workbook.save(buffer)
-    buffer.seek(0)
-    response = HttpResponse(
-        buffer.getvalue(),
-        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+
+def export_inactive_students_csv(report, institute):
+    return export_report_csv(
+        "Inactive / Left Students Report",
+        institute.name,
+        inactive_report_filter_labels(report),
+        inactive_students_csv_summary_rows(report),
+        INACTIVE_STUDENTS_EXPORT_COLUMNS,
+        inactive_students_export_row_values(report, "%Y-%m-%d", lambda amount: f"{amount:.2f}"),
+        "991B1B",
+        "inactive_left_students_report",
     )
-    stamp = timezone.localtime().strftime("%Y%m%d_%H%M")
-    response["Content-Disposition"] = f'attachment; filename="inactive_left_students_report_{stamp}.xlsx"'
-    return response
+
+
+def export_inactive_students_excel(report, institute):
+    return export_report_excel(
+        "Inactive / Left Students Report",
+        institute.name,
+        inactive_report_filter_labels(report),
+        inactive_students_excel_summary_rows(report),
+        INACTIVE_STUDENTS_EXPORT_COLUMNS,
+        inactive_students_export_row_values(report, "%d-%m-%Y", float),
+        "991B1B",
+        "inactive_left_students_report",
+        sheet_title="Inactive Students",
+        summary_fill_color="FEE2E2",
+        column_widths=[20, 20, 28, 16, 26, 24, 16, 18, 34, 18, 18, 16, 24, 30],
+        left_aligned_columns={3, 5, 6, 9, 13, 14},
+    )
 
 
 @institute_admin_required
@@ -4410,20 +4707,16 @@ def inactive_students_report(request):
 
     filters = report["filters"]
     academic_years = AcademicYear.objects.filter(institute=institute).order_by("-start_date", "-pk")
-    courses = Course.objects.filter(institute=institute, is_active=True)
-    batches = Batch.objects.filter(institute=institute, is_active=True)
-    if filters["academic_year"]:
-        courses = courses.filter(academic_year=filters["academic_year"])
-        batches = batches.filter(academic_year=filters["academic_year"])
+    courses, batches = get_report_filter_options(institute, filters["academic_year"])
     context = {
         **report,
         "current_institute": institute,
         "academic_years": academic_years,
-        "courses": courses.order_by("name"),
-        "batches": batches.order_by("name"),
+        "courses": courses,
+        "batches": batches,
         "status_choices": INACTIVE_REPORT_STATUS_CHOICES,
         "balance_choices": INACTIVE_REPORT_BALANCE_CHOICES,
-        "page_size_options": [25, 50, 100, 200],
+        "page_size_options": REPORT_PAGE_SIZE_OPTIONS,
     }
     return render(request, "institute_admin/inactive_students_report.html", context)
 
@@ -8154,6 +8447,13 @@ def student_tc_generate(request, pk):
             "subtitle": "Only TC-specific details are required; student details are pulled from the profile.",
             "button_text": "Generate TC",
             "icon": "bi-file-earmark-text",
+            "status_rule_summary": [
+                "Active: currently studying",
+                "Inactive: temporarily not active academically",
+                "Left School: left before completion",
+                "Passed Out: completed school",
+                "Active Login controls whether the student/parent can log in and is separate from Student Status",
+            ],
         },
     )
 

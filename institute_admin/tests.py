@@ -3896,9 +3896,31 @@ class AcademicSessionIsolationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["admission_count"], 1)
+        self.assertEqual(response.context["top_class"]["label"], "Science")
+        self.assertEqual(response.context["top_batch"]["label"], "12th Batch")
+        self.assertEqual(response.context["top_month"]["label"], "Apr 2027")
+        self.assertIn("Science has the highest admissions with 1 record(s).", response.context["insight_messages"])
+        self.assertIn("12th Batch is the strongest batch with 1 admission(s).", response.context["insight_messages"])
+        self.assertIn("Apr 2027 is the highest admission month with 1 admission(s).", response.context["insight_messages"])
         self.assertContains(response, "SMIS-2027-28-0001")
         self.assertContains(response, "12th Batch")
         self.assertNotContains(response, "SMIS-2026-27-0001")
+
+    def test_student_admission_report_smart_insights_handle_empty_state(self):
+        self.select_year(self.year_2027)
+
+        response = self.client.get(
+            reverse("institute_admin:student_admission_report"),
+            {
+                "academic_year": self.year_2027.pk,
+                "search": "no-matching-admission",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["admission_count"], 0)
+        self.assertEqual(response.context["insight_messages"], ["No admissions found for the selected filters."])
+        self.assertContains(response, "No admissions found for the selected filters.")
 
     def test_student_admission_report_exports_filtered_csv_and_excel(self):
         self.select_year(self.year_2026)
@@ -3925,6 +3947,63 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertIn("Student Admission Report", values)
         self.assertIn("SMIS-2026-27-0001", values)
         self.assertNotIn("SMIS-2027-28-0001", values)
+
+    def test_student_admission_report_quality_insights_flag_records_needing_review(self):
+        review_user = User.objects.create_user(
+            username="quality-student",
+            password="pass12345",
+            first_name="Quality",
+            last_name="Student",
+        )
+        review_student = StudentProfile.objects.create(
+            institute=self.institute,
+            user=review_user,
+            academic_year=None,
+            admission_number="LEGACY-0002",
+            student_status=StudentProfile.StudentStatus.INACTIVE,
+            is_active=True,
+        )
+        StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=review_student,
+            academic_year=self.year_2027,
+            admission_number="SMIS-2027-28-0002",
+            joined_on=date(2027, 4, 12),
+            status=StudentAcademicSession.Status.CANCELLED,
+        )
+        self.select_year(self.year_2027)
+
+        response = self.client.get(
+            reverse("institute_admin:student_admission_report"),
+            {
+                "academic_year": self.year_2027.pk,
+                "search": "quality-student",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["admission_count"], 1)
+        self.assertEqual(response.context["missing_phone_count"], 1)
+        self.assertEqual(response.context["unassigned_class_batch_count"], 1)
+        self.assertEqual(response.context["inactive_profile_or_session_count"], 1)
+        self.assertEqual(response.context["review_count"], 1)
+        self.assertContains(response, "Admission Review Queue")
+        self.assertContains(response, "Missing phone number")
+        self.assertContains(response, "Class or batch not assigned")
+        self.assertContains(response, "Academic session is not active")
+        self.assertContains(response, "Student profile is not active")
+
+        csv_response = self.client.get(
+            reverse("institute_admin:student_admission_report"),
+            {
+                "academic_year": self.year_2027.pk,
+                "search": "quality-student",
+                "export": "csv",
+            },
+        )
+        csv_content = csv_response.content.decode("utf-8")
+        self.assertIn("Review Notes", csv_content)
+        self.assertIn("Missing phone number", csv_content)
 
     def mark_student_left_for_report(self):
         self.student.student_status = StudentProfile.StudentStatus.LEFT_SCHOOL
@@ -3973,9 +4052,62 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertEqual(response.context["filters"]["date_mode"], "custom")
         self.assertEqual(response.context["total_pending"], Decimal("750.00"))
         self.assertEqual(response.context["overdue_count"], 1)
+        self.assertEqual(response.context["tc_pending_count"], 1)
+        self.assertEqual(response.context["tc_issued_count"], 0)
+        self.assertEqual(response.context["fee_followup_count"], 1)
+        self.assertEqual(response.context["ready_to_archive_count"], 0)
+        self.assertEqual(response.context["top_due_rows"][0]["closure_status_label"], "Fee Follow-up Needed")
+        self.assertEqual(response.context["early_exit_count"], 0)
+        self.assertEqual(response.context["top_exit_class"]["label"], "Science")
+        self.assertEqual(response.context["top_exit_batch"]["label"], "11th Batch")
+        self.assertEqual(response.context["top_reason"]["label"], "Shifted to another city")
+        self.assertIn("Shifted to another city is the top exit reason with 1 record(s).", response.context["insight_messages"])
+        self.assertIn("Science has the highest exits with 1 record(s).", response.context["insight_messages"])
+        self.assertIn("11th Batch has the highest batch exits with 1 record(s).", response.context["insight_messages"])
+        self.assertIn("750.00 pending amount requires fee follow-up.", response.context["insight_messages"])
+        self.assertIn("0 student record(s) are ready to archive.", response.context["insight_messages"])
         self.assertContains(response, "SMIS-2026-27-0001")
+        self.assertContains(response, "Profile: LEGACY-0001")
         self.assertContains(response, "Shifted to another city")
+        self.assertContains(response, "Fee Follow-up Needed")
+        self.assertContains(response, "TC Pending")
+        self.assertContains(response, "Early Exit Watchlist")
         self.assertNotContains(response, "SMIS-2027-28-0001")
+
+    def test_inactive_students_report_explains_active_search_matches(self):
+        self.select_year(self.year_2026)
+
+        response = self.client.get(
+            reverse("institute_admin:inactive_students_report"),
+            {
+                "academic_year": self.year_2026.pk,
+                "search": self.session_2026.admission_number,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["inactive_count"], 0)
+        self.assertEqual(len(response.context["active_search_matches"]), 1)
+        self.assertEqual(response.context["active_search_matches"][0]["student_name"], "Student One")
+        self.assertContains(response, "Active student not shown")
+        self.assertContains(response, "Student One")
+        self.assertContains(response, "This report only shows inactive")
+
+    def test_inactive_students_report_smart_insights_handle_empty_state(self):
+        self.select_year(self.year_2026)
+
+        response = self.client.get(
+            reverse("institute_admin:inactive_students_report"),
+            {
+                "academic_year": self.year_2026.pk,
+                "search": "no-matching-inactive-student",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["inactive_count"], 0)
+        self.assertEqual(response.context["insight_messages"], ["No inactive or left students found for the selected filters."])
+        self.assertContains(response, "No inactive or left students found for the selected filters.")
 
     def test_inactive_students_report_session_autofills_date_range(self):
         self.mark_student_left_for_report()
@@ -3996,6 +4128,218 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertContains(response, "clearSessionForCustomDates")
         self.assertContains(response, "SMIS-2026-27-0001")
 
+    def test_inactive_students_report_flags_students_who_left_soon_after_admission(self):
+        early_user = User.objects.create_user(
+            username="early-exit",
+            password="pass12345",
+            first_name="Early",
+            last_name="Exit",
+        )
+        early_student = StudentProfile.objects.create(
+            institute=self.institute,
+            user=early_user,
+            academic_year=None,
+            admission_number="LEGACY-0003",
+            student_status=StudentProfile.StudentStatus.LEFT_SCHOOL,
+            reason_for_leaving="Admission cancelled quickly",
+            date_of_leaving_school=date(2026, 4, 15),
+            is_active=False,
+        )
+        early_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=early_student,
+            academic_year=self.year_2026,
+            admission_number="SMIS-2026-27-0003",
+            joined_on=date(2026, 4, 5),
+            status=StudentAcademicSession.Status.LEFT,
+        )
+        StudentEnrollment.objects.create(
+            academic_session=early_session,
+            student=early_student,
+            batch=self.batch_2026,
+            enrolled_on=date(2026, 4, 5),
+            custom_fee_amount=Decimal("1000.00"),
+        ).courses.add(self.course)
+        self.select_year(self.year_2026)
+
+        response = self.client.get(
+            reverse("institute_admin:inactive_students_report"),
+            {
+                "start_date": "2026-04-01",
+                "end_date": "2026-04-30",
+                "status": "left_school",
+                "search": "early-exit",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["inactive_count"], 1)
+        self.assertEqual(response.context["early_exit_count"], 1)
+        self.assertEqual(response.context["early_exit_rows"][0]["days_to_exit"], 10)
+        self.assertEqual(response.context["tc_record_review_count"], 1)
+        self.assertEqual(response.context["rows"][0]["closure_status_label"], "TC/Record Review Needed")
+        self.assertContains(response, "Early Exit Watchlist")
+        self.assertContains(response, "TC/Record Review Needed")
+        self.assertContains(response, "10 days")
+        self.assertContains(response, "Admission cancelled quickly")
+
+    def test_inactive_students_report_prioritizes_overdue_followups_before_larger_future_dues(self):
+        overdue_user = User.objects.create_user(
+            username="overdue-exit",
+            password="pass12345",
+            first_name="Overdue",
+            last_name="Exit",
+        )
+        future_user = User.objects.create_user(
+            username="future-exit",
+            password="pass12345",
+            first_name="Future",
+            last_name="Exit",
+        )
+        overdue_student = StudentProfile.objects.create(
+            institute=self.institute,
+            user=overdue_user,
+            academic_year=None,
+            admission_number="LEGACY-0004",
+            student_status=StudentProfile.StudentStatus.LEFT_SCHOOL,
+            reason_for_leaving="Fee overdue",
+            date_of_leaving_school=date(2026, 6, 10),
+            is_active=False,
+        )
+        future_student = StudentProfile.objects.create(
+            institute=self.institute,
+            user=future_user,
+            academic_year=None,
+            admission_number="LEGACY-0005",
+            student_status=StudentProfile.StudentStatus.LEFT_SCHOOL,
+            reason_for_leaving="Future due",
+            date_of_leaving_school=date(2026, 6, 12),
+            is_active=False,
+        )
+        overdue_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=overdue_student,
+            academic_year=self.year_2026,
+            admission_number="SMIS-2026-27-0004",
+            joined_on=date(2026, 4, 5),
+            status=StudentAcademicSession.Status.LEFT,
+        )
+        future_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=future_student,
+            academic_year=self.year_2026,
+            admission_number="SMIS-2026-27-0005",
+            joined_on=date(2026, 4, 5),
+            status=StudentAcademicSession.Status.LEFT,
+        )
+        overdue_enrollment = StudentEnrollment.objects.create(
+            academic_session=overdue_session,
+            student=overdue_student,
+            batch=self.batch_2026,
+            enrolled_on=date(2026, 4, 5),
+            custom_fee_amount=Decimal("500.00"),
+        )
+        overdue_enrollment.courses.add(self.course)
+        future_enrollment = StudentEnrollment.objects.create(
+            academic_session=future_session,
+            student=future_student,
+            batch=self.batch_2026,
+            enrolled_on=date(2026, 4, 5),
+            custom_fee_amount=Decimal("5000.00"),
+        )
+        future_enrollment.courses.add(self.course)
+        FeeInvoice.objects.create(
+            institute=self.institute,
+            student=overdue_student,
+            academic_session=overdue_session,
+            enrollment=overdue_enrollment,
+            batch=self.batch_2026,
+            title="Overdue Fee",
+            amount=Decimal("500.00"),
+            due_date=date(2020, 1, 1),
+        )
+        FeeInvoice.objects.create(
+            institute=self.institute,
+            student=future_student,
+            academic_session=future_session,
+            enrollment=future_enrollment,
+            batch=self.batch_2026,
+            title="Future Fee",
+            amount=Decimal("5000.00"),
+            due_date=date(2099, 1, 1),
+        )
+        self.select_year(self.year_2026)
+
+        response = self.client.get(
+            reverse("institute_admin:inactive_students_report"),
+            {
+                "start_date": "2026-06-01",
+                "end_date": "2026-06-30",
+                "status": "left_school",
+                "balance": "with_due",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["pending_students_count"], 2)
+        self.assertEqual(response.context["overdue_count"], 1)
+        self.assertEqual(response.context["top_due_rows"][0]["student"].user.username, "overdue-exit")
+        self.assertEqual(response.context["top_due_rows"][0]["closure_status_label"], "Fee Follow-up Needed")
+
+    def test_inactive_students_report_marks_tc_issued_clear_accounts_ready_to_archive(self):
+        tc_user = User.objects.create_user(
+            username="tc-clear",
+            password="pass12345",
+            first_name="TC",
+            last_name="Clear",
+        )
+        tc_student = StudentProfile.objects.create(
+            institute=self.institute,
+            user=tc_user,
+            academic_year=None,
+            admission_number="LEGACY-0006",
+            student_status=StudentProfile.StudentStatus.LEFT_SCHOOL,
+            reason_for_leaving="Transfer complete",
+            date_of_leaving_school=date(2026, 6, 18),
+            tc_issue_date=date(2026, 6, 20),
+            is_active=False,
+        )
+        tc_session = StudentAcademicSession.objects.create(
+            institute=self.institute,
+            student=tc_student,
+            academic_year=self.year_2026,
+            admission_number="SMIS-2026-27-0006",
+            joined_on=date(2026, 4, 5),
+            status=StudentAcademicSession.Status.LEFT,
+        )
+        StudentEnrollment.objects.create(
+            academic_session=tc_session,
+            student=tc_student,
+            batch=self.batch_2026,
+            enrolled_on=date(2026, 4, 5),
+            custom_fee_amount=Decimal("0.00"),
+        ).courses.add(self.course)
+        self.select_year(self.year_2026)
+
+        response = self.client.get(
+            reverse("institute_admin:inactive_students_report"),
+            {
+                "start_date": "2026-06-01",
+                "end_date": "2026-06-30",
+                "status": "tc_issued",
+                "search": "tc-clear",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["inactive_count"], 1)
+        self.assertEqual(response.context["tc_issued_count"], 1)
+        self.assertEqual(response.context["tc_pending_count"], 0)
+        self.assertEqual(response.context["clear_count"], 1)
+        self.assertEqual(response.context["ready_to_archive_count"], 1)
+        self.assertEqual(response.context["rows"][0]["closure_status_label"], "Ready to Archive")
+        self.assertContains(response, "Ready to Archive")
+
     def test_inactive_students_report_exports_filtered_csv_and_excel(self):
         self.mark_student_left_for_report()
         self.select_year(self.year_2026)
@@ -4010,6 +4354,8 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertIn("Inactive / Left Students Report", csv_content)
         self.assertIn("SMIS-2026-27-0001", csv_content)
         self.assertIn("750.00", csv_content)
+        self.assertIn("Closure Status", csv_content)
+        self.assertIn("Fee Follow-up Needed", csv_content)
 
         excel_response = self.client.get(
             reverse("institute_admin:inactive_students_report"),
@@ -4022,6 +4368,8 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertIn("Inactive / Left Students Report", values)
         self.assertIn("SMIS-2026-27-0001", values)
         self.assertIn(750, values)
+        self.assertIn("Closure Status", values)
+        self.assertIn("Fee Follow-up Needed", values)
 
     def test_tc_form_defaults_use_school_prefix_and_selected_session_class(self):
         self.student.current_class = ""
@@ -4036,6 +4384,63 @@ class AcademicSessionIsolationTests(TestCase):
 
         self.assertRegex(form.initial["tc_number"], r"^S-TC-\d{4}-\d{4}$")
         self.assertEqual(form.initial["last_class_attended"], "Science")
+        self.assertFalse(form.initial["active_login_after_tc"])
+        self.assertEqual(
+            list(form.fields),
+            [
+                "tc_number",
+                "issue_date",
+                "leaving_date",
+                "last_class_attended",
+                "reason_for_leaving",
+                "result",
+                "progress",
+                "conduct",
+                "qualified_for_promotion",
+                "fees_cleared",
+                "status_after_tc",
+                "active_login_after_tc",
+                "remarks",
+            ],
+        )
+
+    def test_tc_generation_updates_student_status_and_active_login_separately(self):
+        self.institute.institute_type = Institute.InstituteType.SCHOOL
+        self.institute.save(update_fields=["institute_type"])
+
+        form = StudentTransferCertificateForm(
+            {
+                "tc_number": "S-TC-2027-9999",
+                "issue_date": "2027-06-20",
+                "leaving_date": "2027-06-18",
+                "reason_for_leaving": "Completed school",
+                "conduct": "Good",
+                "result": "Pass",
+                "progress": "Good",
+                "last_class_attended": "Science",
+                "qualified_for_promotion": "on",
+                "fees_cleared": "on",
+                "remarks": "",
+                "status_after_tc": StudentProfile.StudentStatus.PASSED_OUT,
+            },
+            student=self.student,
+            academic_session=self.session_2027,
+            generated_by=self.admin_user,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        tc = form.save()
+        self.student.refresh_from_db()
+        self.student.user.refresh_from_db()
+        self.institute.refresh_from_db()
+        self.session_2027.refresh_from_db()
+
+        self.assertEqual(tc.student, self.student)
+        self.assertEqual(self.student.student_status, StudentProfile.StudentStatus.PASSED_OUT)
+        self.assertFalse(self.student.is_active)
+        self.assertFalse(self.student.user.is_active)
+        self.assertEqual(self.session_2027.status, StudentAcademicSession.Status.COMPLETED)
+        self.assertEqual(self.student.tc_issue_date, date(2027, 6, 20))
 
     def test_bonafide_snapshot_uses_selected_session_batch_when_profile_class_is_blank(self):
         self.institute.institute_type = Institute.InstituteType.SCHOOL
@@ -4126,6 +4531,11 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertContains(response, "PEN No")
         self.assertContains(response, "Previous School Name")
         self.assertContains(response, "Documents to Collect and Store")
+        self.assertNotContains(response, 'name="student_status"')
+
+        edit_response = self.client.get(reverse("institute_admin:student_update", args=[self.student.pk]))
+        self.assertEqual(edit_response.status_code, 200)
+        self.assertContains(edit_response, 'name="student_status"')
 
     def test_courses_and_batches_are_limited_to_selected_academic_year(self):
         old_only_course = Course.objects.create(

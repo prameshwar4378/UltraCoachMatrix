@@ -1,0 +1,39 @@
+<div class="filter-field">
+    <label for="id_start_date">{{ start_label }}</label>
+    <input id="id_start_date" type="date" name="start_date" value="{{ filters.start_date_value }}">
+</div>
+<div class="filter-field">
+    <label for="id_end_date">{{ end_label }}</label>
+    <input id="id_end_date" type="date" name="end_date" value="{{ filters.end_date_value }}">
+</div>
+<div class="filter-field">
+    <label for="id_academic_year">Session</label>
+    <select id="id_academic_year" name="academic_year">
+        <option value="all" {% if filters.academic_year_id == "all" %}selected{% endif %}>All sessions</option>
+        {% for year in academic_years %}
+        <option value="{{ year.pk }}"
+                {% if include_session_dates %}data-start="{{ year.start_date|date:'Y-m-d' }}" data-end="{{ year.end_date|date:'Y-m-d' }}"{% endif %}
+                {% if filters.academic_year_id == year.pk|stringformat:"s" %}selected{% endif %}>
+            {{ year.name }}
+        </option>
+        {% endfor %}
+    </select>
+</div>
+<div class="filter-field">
+    <label for="id_course">Class</label>
+    <select id="id_course" name="course">
+        <option value="">All classes</option>
+        {% for course in courses %}
+        <option value="{{ course.pk }}" {% if filters.course_id == course.pk|stringformat:"s" %}selected{% endif %}>{{ course.name }}</option>
+        {% endfor %}
+    </select>
+</div>
+<div class="filter-field">
+    <label for="id_batch">Batch</label>
+    <select id="id_batch" name="batch">
+        <option value="">All batches</option>
+        {% for batch in batches %}
+        <option value="{{ batch.pk }}" {% if filters.batch_id == batch.pk|stringformat:"s" %}selected{% endif %}>{{ batch.name }}</option>
+        {% endfor %}
+    </select>
+</div>

@@ -20,6 +20,11 @@
         .form-control, .form-select { border: 2px solid var(--border-color); border-radius: 10px; padding: 12px 14px; }
         textarea.form-control { min-height: 96px; }
         .form-check-input { width: 1.1em; height: 1.1em; }
+        .setting-toggle { min-height: 50px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; background: #fff; }
+        .setting-toggle .form-check-input { width: 2.25rem; height: 1.15rem; margin: 0; flex: 0 0 auto; cursor: pointer; border-radius: 999px; }
+        .setting-toggle-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+        .setting-toggle-title { font-weight: 700; color: var(--text-primary); line-height: 1.2; }
+        .setting-toggle-hint { color: var(--text-secondary); font-size: .82rem; line-height: 1.25; }
         .errorlist { color: #b91c1c; margin: 8px 0 0; padding-left: 18px; font-size: .9rem; }
         .form-actions { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 12px; }
         .btn { padding: 11px 22px; border-radius: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; }
@@ -42,19 +47,41 @@
             {% for field in form %}
                 <div class="{% if field.field.widget.input_type == 'textarea' or field.name == 'files' or field.name == 'profile_image' %}form-field-wide{% endif %}">
                     {% if field.field.widget.input_type == "checkbox" %}
-                        <div class="form-check pt-2">
+                        <div class="setting-toggle" data-checkbox-toggle="{{ field.name }}">
                             {{ field }}
-                            <label class="form-check-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            <label class="setting-toggle-body" for="{{ field.id_for_label }}">
+                                <span class="setting-toggle-title">{{ field.label }}</span>
+                                <span class="setting-toggle-hint" data-checkbox-hint="{{ field.name }}"></span>
+                            </label>
                         </div>
                     {% else %}
                         <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
                         {{ field }}
+                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
                     {% endif %}
-                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
                     {{ field.errors }}
                 </div>
             {% endfor %}
         </div>
+
+        {% if status_rule_summary %}
+        <div class="alert alert-warning mt-4 mb-0">
+            <div class="fw-bold mb-2"><i class="bi bi-exclamation-triangle me-1"></i> Student status rules after TC</div>
+            <ul class="mb-2 ps-3">
+                {% for rule in status_rule_summary %}
+                <li>{{ rule }}</li>
+                {% endfor %}
+            </ul>
+            {% if status_rule_config %}
+            <div class="small">
+                Current configuration:
+                {% for item in status_rule_config %}
+                    <span class="badge bg-light text-dark border ms-1">{{ item }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <div class="form-actions">
             <button type="button" class="btn btn-secondary" onclick="window.close()"><i class="bi bi-x-circle"></i> Cancel</button>
@@ -63,5 +90,38 @@
     </form>
 </div>
 <script src="/static/js/form-submit-lock.js"></script>
+<script>
+    const checkboxHintMessages = {
+        qualified_for_promotion: {
+            checked: "Promotion eligible.",
+            unchecked: "No promotion.",
+        },
+        fees_cleared: {
+            checked: "Fees clear.",
+            unchecked: "Fees pending.",
+        },
+        active_login_after_tc: {
+            checked: "Login allowed.",
+            unchecked: "Login blocked.",
+        },
+    };
+
+    function updateCheckboxHint(checkbox) {
+        const hint = document.querySelector(`[data-checkbox-hint="${checkbox.name}"]`);
+        if (!hint) return;
+        const messages = checkboxHintMessages[checkbox.name] || {
+            checked: "Selected.",
+            unchecked: "Not selected.",
+        };
+        hint.textContent = checkbox.checked ? messages.checked : messages.unchecked;
+    }
+
+    document.querySelectorAll("[data-checkbox-toggle] input[type='checkbox']").forEach(function(checkbox) {
+        checkbox.addEventListener("change", function() {
+            updateCheckboxHint(checkbox);
+        });
+        updateCheckboxHint(checkbox);
+    });
+</script>
 </body>
 </html>

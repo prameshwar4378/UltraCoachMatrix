@@ -1487,8 +1487,8 @@ class StudentForm(forms.Form):
         self.fields["fee_discount"].widget.attrs["placeholder"] = "0.00"
         self.fields["final_fee_amount"].widget.attrs["readonly"] = "readonly"
         self.fields["final_fee_amount"].widget.attrs["placeholder"] = "0.00"
-        self.fields["student_status"].initial = StudentProfile.StudentStatus.ACTIVE
         if not student:
+            self.fields["student_status"].initial = StudentProfile.StudentStatus.ACTIVE
             self.fields["username"].widget.attrs["placeholder"] = "Generated automatically"
             self.fields["username"].help_text = "Generated automatically and identical to the registration number."
             self.fields["password"].widget.attrs["placeholder"] = "Default: Student@123"
@@ -1587,10 +1587,13 @@ class StudentForm(forms.Form):
             user = User(username=username)
             student = None
 
+        student_status = self.cleaned_data.get("student_status") or StudentProfile.StudentStatus.ACTIVE
+        login_active = self.cleaned_data["is_active"]
+
         user.first_name = self.cleaned_data["first_name"]
         user.last_name = self.cleaned_data["last_name"]
         user.email = self.cleaned_data["email"]
-        user.is_active = self.cleaned_data["is_active"]
+        user.is_active = login_active
         if self.cleaned_data.get("password"):
             user.set_password(self.cleaned_data["password"])
         elif not self.student:
@@ -1691,7 +1694,8 @@ class StudentForm(forms.Form):
                 "previous_class": self.cleaned_data["previous_class"],
                 "previous_class_passed": self.cleaned_data["previous_class_passed"],
                 "last_exam_result": self.cleaned_data["last_exam_result"],
-                "is_active": self.cleaned_data["is_active"],
+                "student_status": student_status,
+                "is_active": login_active,
             },
         )
 
@@ -1707,9 +1711,7 @@ class StudentForm(forms.Form):
                 "admission_number": admission_number,
                 "joined_on": self.cleaned_data["joined_on"],
                 "status": (
-                    StudentAcademicSession.Status.ACTIVE
-                    if self.cleaned_data["is_active"]
-                    else StudentAcademicSession.Status.LEFT
+                    student_session_status_for_student_status(student_status)
                 ),
                 "current_school_name": school_name,
                 "current_school_address": school_address,
@@ -1764,6 +1766,14 @@ class StudentForm(forms.Form):
             )
 
         return student
+
+
+def student_session_status_for_student_status(status):
+    if status == StudentProfile.StudentStatus.LEFT_SCHOOL:
+        return StudentAcademicSession.Status.LEFT
+    if status == StudentProfile.StudentStatus.PASSED_OUT:
+        return StudentAcademicSession.Status.COMPLETED
+    return StudentAcademicSession.Status.ACTIVE
 
 
 class DummyStudentCreateForm(forms.Form):
@@ -2015,11 +2025,19 @@ class StudentTransferCertificateForm(forms.Form):
     last_class_attended = forms.CharField(max_length=80)
     qualified_for_promotion = forms.BooleanField(required=False)
     fees_cleared = forms.BooleanField(required=False)
-    remarks = forms.CharField(max_length=255, required=False)
-    deactivate_login = forms.BooleanField(
+    remarks = forms.CharField(max_length=255, required=False, widget=forms.Textarea(attrs={"rows": 2}))
+    status_after_tc = forms.ChoiceField(
+        choices=[
+            (StudentProfile.StudentStatus.LEFT_SCHOOL, "Left School"),
+            (StudentProfile.StudentStatus.PASSED_OUT, "Passed Out"),
+        ],
+        label="Student status after TC",
+        help_text="Choose how the student should appear in reports after this TC is generated.",
+    )
+    active_login_after_tc = forms.BooleanField(
         required=False,
-        initial=True,
-        label="Deactivate student login after TC generation",
+        label="Active Login",
+        help_text="Controls whether the student/parent can still log in after TC is generated.",
     )
 
     def __init__(self, *args, student=None, academic_session=None, generated_by=None, **kwargs):
@@ -2038,10 +2056,33 @@ class StudentTransferCertificateForm(forms.Form):
                     "conduct": student.conduct or "Good",
                     "result": student.result,
                     "last_class_attended": self.get_last_class_attended(),
+                    "status_after_tc": (
+                        StudentProfile.StudentStatus.PASSED_OUT
+                        if student.student_status == StudentProfile.StudentStatus.PASSED_OUT
+                        else StudentProfile.StudentStatus.LEFT_SCHOOL
+                    ),
+                    "active_login_after_tc": False,
                 }
             )
         kwargs["initial"] = initial
         super().__init__(*args, **kwargs)
+        self.order_fields(
+            [
+                "tc_number",
+                "issue_date",
+                "leaving_date",
+                "last_class_attended",
+                "reason_for_leaving",
+                "result",
+                "progress",
+                "conduct",
+                "qualified_for_promotion",
+                "fees_cleared",
+                "status_after_tc",
+                "active_login_after_tc",
+                "remarks",
+            ]
+        )
         for field in self.fields.values():
             if isinstance(field.widget, forms.CheckboxInput):
                 css_class = "form-check-input"
@@ -2187,8 +2228,8 @@ class StudentTransferCertificateForm(forms.Form):
         student.result = tc.result
         student.date_of_leaving_school = tc.leaving_date
         student.tc_issue_date = tc.issue_date
-        student.student_status = StudentProfile.StudentStatus.TC_ISSUED
-        student.is_active = False if self.cleaned_data["deactivate_login"] else student.is_active
+        student.student_status = self.cleaned_data["status_after_tc"]
+        student.is_active = self.cleaned_data["active_login_after_tc"]
         student.save(
             update_fields=[
                 "reason_for_leaving",
@@ -2200,10 +2241,9 @@ class StudentTransferCertificateForm(forms.Form):
                 "is_active",
             ]
         )
-        if self.cleaned_data["deactivate_login"]:
-            student.user.is_active = False
-            student.user.save(update_fields=["is_active"])
-        session.status = StudentAcademicSession.Status.LEFT
+        student.user.is_active = student.is_active
+        student.user.save(update_fields=["is_active"])
+        session.status = student_session_status_for_student_status(student.student_status)
         session.save(update_fields=["status"])
         return tc
 
