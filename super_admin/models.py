@@ -166,6 +166,7 @@ class UserProfile(models.Model):
         TEACHER = "TEACHER", "Teacher"
         ACCOUNTANT = "ACCOUNTANT", "Accountant"
         STUDENT_PARENT = "STUDENT_PARENT", "Student/Parent"
+        UCM_PARTNER = "UCM_PARTNER", "UCM Partner"
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     institute = models.ForeignKey(

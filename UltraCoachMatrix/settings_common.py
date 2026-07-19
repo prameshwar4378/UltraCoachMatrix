@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'accountant',
     'student_parent',
     'Website',
+    'UCMPartner.apps.UcmpartnerConfig',
 ]
 
 REST_FRAMEWORK = {

@@ -96,10 +96,23 @@ def _can_access_model_file(user, path):
     from student_parent.models import StudentDocument, StudentProfile
     from teacher.models import ExamAttemptUpload, ExamQuestion, HomeworkAttachment
     from super_admin.models import Institute
+    from UCMPartner.models import PartnerSaleClaim
 
     institute = Institute.objects.filter(logo=path).first()
     if institute:
         return _same_institute(profile, institute.pk)
+
+    sale_claim = (
+        PartnerSaleClaim.objects.select_related("partner", "partner__user")
+        .filter(payment_screenshot=path)
+        .first()
+    )
+    if sale_claim:
+        return bool(
+            user.is_staff
+            or user.is_superuser
+            or sale_claim.partner.user_id == user.pk
+        )
 
     student_doc = (
         StudentDocument.objects.select_related("student")
