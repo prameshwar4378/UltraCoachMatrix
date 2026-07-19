@@ -1,5 +1,27 @@
 {% extends "website_base.html" %}
 
+{% block seo_title %}Careers at UltraCoachMatrix | EdTech SaaS Jobs{% endblock seo_title %}
+{% block seo_description %}Explore careers at UltraCoachMatrix and apply for roles building, selling and supporting school and coaching institute management software for education businesses.{% endblock seo_description %}
+{% block seo_keywords %}Ultra Coach Matrix careers, UltraCoachMatrix jobs, EdTech SaaS jobs India, school software sales executive, coaching software sales executive, education technology careers, software company careers{% endblock seo_keywords %}
+{% block og_title %}Careers at UltraCoachMatrix{% endblock og_title %}
+{% block og_description %}Join UltraCoachMatrix and help schools and coaching institutes digitize admissions, fees, attendance, exams, reports and communication workflows.{% endblock og_description %}
+{% block twitter_title %}Careers at UltraCoachMatrix{% endblock twitter_title %}
+{% block twitter_description %}Apply for EdTech SaaS roles at UltraCoachMatrix and work on school and coaching institute software.{% endblock twitter_description %}
+{% block structured_data %}
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Careers at Ultra Coach Matrix",
+  "description": "Career opportunities at UltraCoachMatrix for EdTech SaaS and school or coaching institute software roles.",
+  "url": "{{ request.build_absolute_uri }}",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "Ultra Coach Matrix",
+    "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'index' %}"
+  }
+}
+{% endblock structured_data %}
+
 {% block content %}
 <main class="career-page">
   <section class="career-hero">

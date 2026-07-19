@@ -1,5 +1,37 @@
 {% extends "website_base.html" %}
 
+{% block seo_title %}Contact UltraCoachMatrix | School & Coaching Software Demo Support{% endblock seo_title %}
+{% block seo_description %}Contact UltraCoachMatrix for school and coaching institute software demos, pricing, onboarding support, fees management, attendance, exams, reports and mobile app setup.{% endblock seo_description %}
+{% block seo_keywords %}contact Ultra Coach Matrix, UltraCoachMatrix demo, school software demo, coaching software demo, school ERP pricing, coaching ERP pricing, institute software support, school management onboarding, coaching management onboarding, student app support, teacher app support{% endblock seo_keywords %}
+{% block og_title %}Contact UltraCoachMatrix for Demo and Support{% endblock og_title %}
+{% block og_description %}Request a product demo, pricing details or onboarding support for UltraCoachMatrix school and coaching institute management software.{% endblock og_description %}
+{% block twitter_title %}Contact UltraCoachMatrix{% endblock twitter_title %}
+{% block twitter_description %}Book a demo or get support for UltraCoachMatrix school and coaching institute management software.{% endblock twitter_description %}
+{% block structured_data %}
+{
+  "@context": "https://schema.org",
+  "@type": "ContactPage",
+  "name": "Contact Ultra Coach Matrix",
+  "description": "Contact page for UltraCoachMatrix demos, pricing, onboarding and school or coaching institute software support.",
+  "url": "{{ request.build_absolute_uri }}",
+  "mainEntity": {
+    "@type": "Organization",
+    "name": "Ultra Coach Matrix",
+    "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'index' %}",
+    "email": "ultoxy.tech@gmail.com",
+    "telephone": "+917776824564",
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": "+917776824564",
+      "email": "ultoxy.tech@gmail.com",
+      "contactType": "customer support",
+      "areaServed": "IN",
+      "availableLanguage": ["English", "Hindi", "Marathi"]
+    }
+  }
+}
+{% endblock structured_data %}
+
 {% block content %}
 <main class="contact-page">
   <section class="contact-hero">

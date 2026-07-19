@@ -1,5 +1,27 @@
 {% extends "website_base.html" %}
 
+{% block seo_title %}{{ title }} | UltraCoachMatrix{% endblock seo_title %}
+{% block seo_description %}{{ intro }}{% endblock seo_description %}
+{% block seo_keywords %}Ultra Coach Matrix {{ title }}, UltraCoachMatrix {{ title }}, school software {{ title }}, coaching institute software {{ title }}, education ERP support, school management software policies, coaching management software policies{% endblock seo_keywords %}
+{% block og_title %}{{ title }} | UltraCoachMatrix{% endblock og_title %}
+{% block og_description %}{{ intro }}{% endblock og_description %}
+{% block twitter_title %}{{ title }} | UltraCoachMatrix{% endblock twitter_title %}
+{% block twitter_description %}{{ intro }}{% endblock twitter_description %}
+{% block structured_data %}
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "{{ title }}",
+  "description": "{{ intro }}",
+  "url": "{{ request.build_absolute_uri }}",
+  "publisher": {
+    "@type": "Organization",
+    "name": "Ultra Coach Matrix",
+    "url": "{{ request.scheme }}://{{ request.get_host }}{% url 'index' %}"
+  }
+}
+{% endblock structured_data %}
+
 {% block content %}
 <main class="legal-page">
   <section class="legal-hero">
