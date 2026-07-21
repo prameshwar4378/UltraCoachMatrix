@@ -9,8 +9,11 @@
     .page-toolbar { padding:22px; margin-bottom:20px; }
     .page-title { font-size:1.7rem; font-weight:900; color:var(--text); margin:0; }
     .page-subtitle { color:var(--muted); margin:6px 0 0; font-weight:700; }
+    .rc-toolbar-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
     .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
     .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    .rc-grade-rule-btn { height:44px; display:inline-flex; align-items:center; justify-content:center; gap:7px; border:1px solid #d97706; color:#b45309; background:#fffbeb; border-radius:8px; padding:0 15px; font-weight:850; text-decoration:none; white-space:nowrap; }
+    .rc-grade-rule-btn:hover { color:#92400e; background:#fef3c7; transform:translateY(-1px); text-decoration:none; }
     .stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:20px; }
     .stat-card { padding:18px; border-top:4px solid var(--stat-color); }
     .stat-icon { width:42px; height:42px; border-radius:8px; background:var(--stat-soft); color:var(--stat-color); display:flex; align-items:center; justify-content:center; font-size:1.2rem; margin-bottom:12px; }
@@ -37,7 +40,7 @@
     .empty-state { padding:50px 20px; text-align:center; color:var(--muted); font-weight:750; }
     .rc-empty-icon { width:54px; height:54px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:#eff6ff; color:var(--primary); font-size:1.45rem; margin-bottom:14px; }
     @media(max-width: 992px) { .stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-    @media(max-width: 576px) { .stat-grid { grid-template-columns:1fr; } .page-toolbar, .table-header { flex-direction:column; align-items:flex-start !important; } .rc-action-btn { width:34px; } }
+    @media(max-width: 576px) { .stat-grid { grid-template-columns:1fr; } .page-toolbar, .table-header { flex-direction:column; align-items:flex-start !important; } .rc-action-btn { width:34px; } .rc-toolbar-actions, .rc-toolbar-actions a { width:100%; } }
 </style>
 
 <main id="main" class="main homework-page">
@@ -51,12 +54,17 @@
             <h2 class="page-title">Report Card Planner</h2>
             <p class="page-subtitle">Create assessment structures, enter subject-wise marks, and publish report cards.</p>
         </div>
-        <a class="btn btn-gradient"
-           href="{% url 'report_card:assessment_create' %}"
-           data-url="{% url 'report_card:assessment_create' %}"
-           onclick="return openReportCardWindow(this)">
-            <i class="bi bi-plus-circle me-1"></i> New Assessment
-        </a>
+        <div class="rc-toolbar-actions">
+            <a class="rc-grade-rule-btn" href="{% url 'report_card_admin:grade_rule_list' %}" title="Manage report-card grade rules">
+                <i class="bi bi-award"></i> Grade Rules
+            </a>
+            <a class="btn btn-gradient"
+               href="{% url 'report_card:assessment_create' %}"
+               data-url="{% url 'report_card:assessment_create' %}"
+               onclick="return openReportCardWindow(this)">
+                <i class="bi bi-plus-circle me-1"></i> New Assessment
+            </a>
+        </div>
     </div>
 
     <div class="stat-grid">

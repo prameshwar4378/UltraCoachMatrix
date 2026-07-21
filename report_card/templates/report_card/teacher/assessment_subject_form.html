@@ -140,11 +140,13 @@
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label" for="{{ form.passing_marks.id_for_label }}"><i class="bi bi-check2-circle"></i> {{ form.passing_marks.label }}</label>
-                        {{ form.passing_marks }}
-                        <div class="text-muted small fw-semibold mt-1">Subject-level passing marks only. Individual columns do not have passing marks.</div>
-                        <div class="rc-warning mt-2" id="passing-warning"><i class="bi bi-exclamation-triangle me-1"></i> Passing marks cannot be greater than the live subject total.</div>
-                        {% if form.passing_marks.errors %}<div class="field-error">{{ form.passing_marks.errors|striptags }}</div>{% endif %}
+                        <div class="rc-total-box">
+                            <label class="form-label fw-bold" for="{{ form.passing_marks.id_for_label }}"><i class="bi bi-check2-circle"></i> {{ form.passing_marks.label }}</label>
+                            {{ form.passing_marks }}
+                            <div class="text-muted small fw-semibold mt-1">Subject-level passing marks only. Individual columns do not have passing marks.</div>
+                            <div class="rc-warning mt-2" id="passing-warning"><i class="bi bi-exclamation-triangle me-1"></i> Passing marks cannot be greater than the live subject total.</div>
+                            {% if form.passing_marks.errors %}<div class="field-error">{{ form.passing_marks.errors|striptags }}</div>{% endif %}
+                        </div>
                     </div>
                 </div>
                 <div class="rc-table-card">
