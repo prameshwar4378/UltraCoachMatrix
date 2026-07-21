@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My Report Cards</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root { --primary:#6042c8; --dark:#442c9f; --border:#e5e7eb; --muted:#6b7280; --text:#111827; }
+        .page-toolbar, .filter-panel, .table-card { background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 12px 30px rgba(16,24,40,.06); }
+        .page-toolbar { padding:22px; margin-bottom:20px; }
+        .page-title { font-size:1.7rem; font-weight:900; color:var(--text); margin:0; }
+        .page-subtitle { color:var(--muted); margin:6px 0 0; font-weight:700; }
+        .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:9px 14px; font-weight:800; }
+        .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+        .filter-panel { padding:20px; margin-bottom:20px; }
+        .filter-panel .form-select { border-radius:8px; border:1px solid var(--border); padding:10px 13px; }
+        .table-card { overflow:hidden; }
+        .table-header { padding:18px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; }
+        .table-header h5 { margin:0; font-weight:900; }
+        .result-pill { display:inline-flex; align-items:center; justify-content:center; min-width:82px; padding:7px 10px; border-radius:999px; font-weight:850; font-size:.78rem; white-space:nowrap; }
+        .result-pass { background:#dcfce7; color:#15803d; }
+        .result-fail { background:#fee2e2; color:#b91c1c; }
+        .result-incomplete { background:#ffedd5; color:#c2410c; }
+        .result-absent { background:#e5e7eb; color:#374151; }
+        .grade-pill { display:inline-flex; padding:7px 10px; border-radius:999px; background:#f1edff; color:var(--primary); font-weight:850; font-size:.78rem; }
+        .total-cell { font-weight:850; color:var(--text); }
+        .rank-cell { font-weight:900; color:var(--primary); }
+        .rc-table th { background:#f8fafc; color:#475467; border-bottom:1px solid var(--border); font-size:.76rem; text-transform:uppercase; white-space:nowrap; letter-spacing:.06em; font-weight:900; }
+        .rc-table td, .rc-table th { padding:14px 16px; vertical-align:middle; }
+        .empty-state { padding:50px 20px; text-align:center; color:var(--muted); font-weight:750; }
+        .empty-icon { width:54px; height:54px; border-radius:50%; background:#f1edff; color:var(--primary); display:inline-flex; align-items:center; justify-content:center; font-size:1.45rem; margin-bottom:14px; }
+        .action-btn { border-radius:8px; font-weight:800; }
+        @media(max-width:576px) { .page-toolbar, .table-header { flex-direction:column; align-items:flex-start !important; } }
+    </style>
+</head>
+<body class="bg-light">
+<main class="container py-4">
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+
+    <div class="page-toolbar d-flex justify-content-between align-items-center gap-3 flex-wrap">
+        <div>
+            <h1 class="page-title"><i class="bi bi-journal-check me-2"></i>My Report Cards</h1>
+            <div class="page-subtitle">{{ student.user.get_full_name|default:student.user.username }} | {{ student.admission_number }}</div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-light border action-btn" href="{% url 'student_parent:exams' %}"><i class="bi bi-laptop me-1"></i> Online Exams</a>
+            <a class="btn btn-light border action-btn" href="{% url 'student_parent:download_app' %}"><i class="bi bi-house me-1"></i> Home</a>
+        </div>
+    </div>
+
+    <form method="get" class="filter-panel">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-8">
+                <label class="form-label fw-bold" for="academic_session_id"><i class="bi bi-calendar-range me-1"></i> Academic Session</label>
+                <select class="form-select" id="academic_session_id" name="academic_session_id" onchange="this.form.submit()">
+                    {% for session in sessions %}
+                        <option value="{{ session.pk }}" {% if selected_session and selected_session.pk == session.pk %}selected{% endif %}>
+                            {{ session.academic_year.name }} - {{ session.admission_number }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 text-md-end text-muted fw-semibold">
+                Published report cards only
+            </div>
+        </div>
+    </form>
+
+    <div class="table-card">
+        <div class="table-header">
+            <h5><i class="bi bi-journal-check me-1"></i> Published Report Cards</h5>
+            <span class="text-muted small">Academic session wise results</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table rc-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Assessment</th>
+                        <th>Class / Batch</th>
+                        <th>Total</th>
+                        <th>Percentage</th>
+                        <th>Grade</th>
+                        <th>Rank</th>
+                        <th>Result</th>
+                        <th class="text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                        <tr>
+                            <td><strong>{{ result.assessment.title }}</strong><br><small class="text-muted">{{ result.assessment.academic_year_name_snapshot }}</small></td>
+                            <td>{{ result.assessment.batch_name_snapshot }}</td>
+                            <td class="total-cell">{{ result.total_obtained }} / {{ result.total_max_marks }}</td>
+                            <td>{{ result.percentage|default:"-" }}</td>
+                            <td><span class="grade-pill">{{ result.grade|default:"-" }}</span></td>
+                            <td class="rank-cell">{{ result.rank|default:"-" }}</td>
+                            <td><span class="result-pill {% if result.result_status == 'PASS' %}result-pass{% elif result.result_status == 'FAIL' %}result-fail{% elif result.result_status == 'ABSENT' %}result-absent{% else %}result-incomplete{% endif %}">{{ result.get_result_status_display }}</span></td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-gradient" href="{% url 'report_card_student:published_report_card_detail' result.pk %}"><i class="bi bi-eye me-1"></i> View</a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="8">
+                                <div class="empty-state">
+                                    <div class="empty-icon"><i class="bi bi-journal-x"></i></div>
+                                    <div class="h5 fw-bold text-dark mb-2">No published report cards found</div>
+                                    <div>Published or locked report cards for this academic session will appear here.</div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+<script src="/static/js/form-submit-lock.js"></script>
+</body>
+</html>

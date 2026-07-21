@@ -1,0 +1,522 @@
+{% extends "teacher_base.html" %}
+
+{% block title %}Marks Entry{% endblock title %}
+
+{% block content %}
+<style>
+    .homework-page { --primary:#6042c8; --dark:#442c9f; --surface:#fff; --border:#e5e7eb; --text:#111827; --muted:#6b7280; }
+    .page-toolbar, .table-card, .upload-panel { background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:0 12px 30px rgba(16,24,40,.06); }
+    .page-toolbar { padding:22px; margin-bottom:20px; }
+    .page-title { margin:0; font-size:1.7rem; font-weight:900; color:var(--text); }
+    .page-subtitle { color:var(--muted); font-weight:700; margin:6px 0 0; }
+    .upload-panel { padding:20px; margin-bottom:20px; }
+    .table-card { overflow:hidden; }
+    .table-header { padding:18px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .table-header h5 { margin:0; font-weight:900; }
+    .table-modern { margin:0; }
+    .table-modern thead th { background:#f8fafc; color:#475467; border-bottom:1px solid var(--border); padding:14px 16px; font-size:.76rem; text-transform:uppercase; letter-spacing:.06em; font-weight:900; white-space:nowrap; }
+    .table-modern tbody td { padding:14px 16px; vertical-align:middle; border-bottom:1px solid #f1f5f9; color:var(--text); }
+    .rc-table-wrap { max-height:70vh; overflow:auto; }
+    .rc-table thead th { position:sticky; top:0; z-index:4; }
+    .rc-sticky-admission { position:sticky; left:0; z-index:3; min-width:160px; background:#fff; box-shadow:6px 0 12px rgba(15,23,42,.04); }
+    .rc-sticky-student { position:sticky; left:160px; z-index:3; min-width:240px; background:#fff; box-shadow:6px 0 12px rgba(15,23,42,.04); }
+    .rc-table thead .rc-sticky-admission, .rc-table thead .rc-sticky-student { z-index:5; background:#f8fafc; }
+    .marks-input { max-width:130px; }
+    .marks-input input { min-height:42px; }
+    .marks-input input[readonly] { background:#e9ecef; cursor:not-allowed; color:#6c757d; }
+    .marks-input input.is-invalid { border-color:#dc3545; background:#fff5f5; }
+    .rc-row-total { font-weight:900; color:#111827; white-space:nowrap; }
+    .rc-status { display:inline-flex; align-items:center; justify-content:center; min-width:86px; padding:6px 10px; border-radius:999px; font-size:.76rem; font-weight:850; white-space:nowrap; }
+    .rc-status-complete { background:#dcfce7; color:#15803d; }
+    .rc-status-missing { background:#ffedd5; color:#c2410c; }
+    .rc-status-absent { background:#e5e7eb; color:#374151; }
+    .rc-import-icon { width:46px; height:46px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; background:#f1edff; color:var(--primary); font-size:1.35rem; }
+    .rc-import-help { color:#6b7280; font-weight:700; margin:4px 0 0; }
+    .rc-save-bar { position:sticky; bottom:0; z-index:6; background:#fff; border-top:1px solid #e5e7eb; box-shadow:0 -10px 22px rgba(15,23,42,.06); }
+    .rc-save-note { color:#6b7280; font-weight:750; }
+    #partialMarksModal .modal-dialog { margin-top:12px; margin-bottom:12px; }
+    #partialMarksModal .modal-content { max-height:calc(100vh - 24px); display:flex; flex-direction:column; overflow:hidden; }
+    #partialMarksModal .modal-body { overflow-y:auto; flex:1 1 auto; }
+    .rc-partial-list { max-height:170px; overflow:auto; border:1px solid #e5e7eb; border-radius:8px; }
+    .rc-partial-list li { padding:10px 12px; border-bottom:1px solid #eef2f7; }
+    .rc-partial-list li:last-child { border-bottom:0; }
+    .rc-partial-actions { flex:0 0 auto; display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:14px 16px; background:#fff; border-top:1px solid #e5e7eb; }
+    .rc-partial-actions .btn { min-height:44px; border-radius:8px; font-weight:850; display:inline-flex; align-items:center; justify-content:center; gap:6px; width:100%; }
+    .rc-partial-save-btn { background:linear-gradient(135deg,#6042c8,#442c9f) !important; color:#fff !important; border:1px solid #442c9f !important; box-shadow:0 8px 18px rgba(68,44,159,.2); }
+    .rc-partial-save-btn:hover { color:#fff !important; transform:translateY(-1px); }
+    .rc-loader-overlay { position:fixed; inset:0; z-index:20000; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.62); backdrop-filter:blur(2px); }
+    .rc-loader-overlay.is-visible { display:flex; }
+    .rc-loader-card { width:min(92vw,520px); background:#fff; border-radius:12px; box-shadow:0 24px 70px rgba(15,23,42,.32); padding:24px; border:1px solid #e5e7eb; }
+    .rc-loader-title { font-size:1.15rem; font-weight:900; color:#111827; margin:0; }
+    .rc-loader-text { color:#6b7280; font-weight:700; margin:6px 0 18px; }
+    .rc-loader-track { height:14px; background:#eef2ff; border-radius:999px; overflow:hidden; }
+    .rc-loader-bar { height:100%; width:0%; border-radius:999px; background:linear-gradient(135deg,var(--primary),var(--dark)); transition:width .25s ease; }
+    .rc-loader-meta { display:flex; justify-content:space-between; gap:12px; margin-top:10px; color:#475467; font-weight:800; }
+    .rc-btn { border-radius:8px; font-weight:800; }
+    .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
+    .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    @media(max-width: 768px) {
+        .rc-sticky-admission, .rc-sticky-student { position:static; min-width:auto; box-shadow:none; }
+        .rc-table thead th { position:static; }
+        .page-toolbar, .table-header { flex-direction:column; align-items:flex-start !important; }
+        .rc-partial-actions { grid-template-columns:1fr; }
+    }
+</style>
+<main id="main" class="main homework-page">
+    <div class="pagetitle"><h1>Marks Entry</h1><nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'report_card:assessment_detail' assessment.pk %}">{{ assessment.title }}</a></li><li class="breadcrumb-item active">{{ assessment_subject.subject_name_snapshot }}</li></ol></nav></div>
+    {% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
+    <div class="page-toolbar d-flex justify-content-between align-items-center gap-3 flex-wrap">
+        <div><h2 class="page-title">{{ assessment_subject.subject_name_snapshot }}</h2><p class="page-subtitle">Max {{ assessment_subject.max_marks }} | Weightage {{ assessment_subject.weightage }} | Students {{ student_count }}{% if components %} | Custom columns {{ components|length }}{% else %} | Single marks column{% endif %}</p></div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-outline-success rc-btn" href="{% url 'report_card:marks_entry_template' assessment.pk assessment_subject.pk %}"><i class="bi bi-file-earmark-excel me-1"></i> Template</a>
+            <a class="btn btn-light border rc-btn" href="{% url 'report_card:assessment_detail' assessment.pk %}">Back</a>
+        </div>
+    </div>
+    <form method="post" enctype="multipart/form-data" action="{% url 'report_card:marks_entry_import' assessment.pk assessment_subject.pk %}" class="upload-panel">
+        {% csrf_token %}
+        <div class="row g-2 align-items-end">
+            <div class="col-md-8 d-flex gap-3 align-items-start">
+                <span class="rc-import-icon"><i class="bi bi-file-earmark-excel"></i></span>
+                <div class="flex-grow-1">
+                <label class="form-label fw-bold" for="marks_file">Import marks from Excel</label>
+                <input class="form-control" id="marks_file" name="marks_file" type="file" accept=".xlsx">
+                <p class="rc-import-help">Use the downloaded template so admission numbers and custom columns match safely.</p>
+                </div>
+            </div>
+            <div class="col-md-4 text-md-end">
+            <button class="btn btn-gradient" type="submit"><i class="bi bi-upload me-1"></i> Import</button>
+            </div>
+        </div>
+    </form>
+    <form method="post" class="table-card" id="marks-entry-form">
+        {% csrf_token %}
+        <div class="table-header">
+            <h5><i class="bi bi-list-task me-1"></i> Marks Entry Grid</h5>
+            <span class="text-muted small">Bulk entry with absent, total, and validation status</span>
+        </div>
+        <div class="table-responsive rc-table-wrap">
+            <table class="table table-modern rc-table mb-0">
+                <thead>
+                    <tr>
+                        <th class="rc-sticky-admission">Admission No.</th>
+                        <th class="rc-sticky-student">Student</th>
+                        {% if components %}
+                            {% for component in components %}
+                                <th>{{ component.name_snapshot }}<br><small class="text-muted">Max {{ component.max_marks }}</small></th>
+                            {% endfor %}
+                        {% else %}
+                            <th>Marks</th>
+                        {% endif %}
+                        <th>Total</th>
+                        <th>Absent</th>
+                        <th>Status</th>
+                        <th>Remark</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in form_rows %}
+                        <tr data-student-name="{{ item.row.student.user.get_full_name|default:item.row.student.user.username }}" data-admission-number="{{ item.row.academic_session.admission_number }}">
+                            <td class="rc-sticky-admission">{{ item.row.academic_session.admission_number }}{{ item.form.academic_session_id }}</td>
+                            <td class="rc-sticky-student"><strong>{{ item.row.student.user.get_full_name|default:item.row.student.user.username }}</strong><br><small class="text-muted">Roll {{ item.row.student.roll_number|default:"-" }}</small></td>
+                            {% if components %}
+                                {% for component_field in item.component_fields %}
+                                    <td data-max-marks="{{ component_field.component.max_marks }}" data-mark-label="{{ component_field.component.name_snapshot }}"><div class="marks-input">{{ component_field.field }}</div><div class="text-danger small rc-mark-error d-none"></div>{% if component_field.field.errors %}<div class="text-danger small">{{ component_field.field.errors|striptags }}</div>{% endif %}</td>
+                                {% endfor %}
+                            {% else %}
+                                <td data-max-marks="{{ assessment_subject.max_marks }}" data-mark-label="Marks"><div class="marks-input">{{ item.form.marks_obtained }}</div><div class="text-danger small rc-mark-error d-none"></div>{% if item.form.marks_obtained.errors %}<div class="text-danger small">{{ item.form.marks_obtained.errors|striptags }}</div>{% endif %}</td>
+                            {% endif %}
+                            <td><span class="rc-row-total">0</span></td>
+                            <td>{{ item.form.is_absent }}</td>
+                            <td><span class="rc-status rc-status-missing">Missing</span></td>
+                            <td>{{ item.form.remark }}{% if item.form.non_field_errors %}<div class="text-danger small">{{ item.form.non_field_errors|striptags }}</div>{% endif %}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="8" class="text-center text-muted p-4">No active students found for this assessment batch.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="rc-save-bar d-flex justify-content-between align-items-center gap-2 flex-wrap p-3">
+            <div class="rc-save-note"><span id="entry-summary">Review marks before saving.</span></div>
+            <div class="d-flex justify-content-end gap-2">
+                <a class="btn btn-light border rc-btn" href="{% url 'report_card:assessment_detail' assessment.pk %}">Cancel</a>
+                <button class="btn btn-gradient" type="submit" id="save-marks-button"><i class="bi bi-save me-1"></i> Save Marks</button>
+            </div>
+        </div>
+    </form>
+</main>
+<div class="modal fade" id="partialMarksModal" tabindex="-1" aria-labelledby="partialMarksModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title fw-bold" id="partialMarksModalLabel">Save incomplete marks?</h5>
+                    <p class="text-muted mb-0 small">You can save now and complete the remaining marks later.</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" data-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning mb-3">
+                    <strong id="partialMarksSummary">Some marks are still missing.</strong>
+                    <div class="small mt-1">These blank fields will remain pending. Result generation will stay blocked until required marks are completed or students are marked absent.</div>
+                </div>
+                <ul class="list-unstyled mb-0 rc-partial-list" id="partialMarksList"></ul>
+            </div>
+            <div class="rc-partial-actions">
+                <button type="button" class="btn btn-light border rc-btn" data-bs-dismiss="modal" data-dismiss="modal">Review Marks</button>
+                <button type="button" class="btn rc-partial-save-btn confirm-partial-save-action" id="confirmPartialSave"><i class="bi bi-save"></i> Save Partial Marks</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="rc-loader-overlay" id="marksSavingOverlay" aria-live="polite" aria-hidden="true">
+    <div class="rc-loader-card">
+        <h5 class="rc-loader-title">Saving marks...</h5>
+        <p class="rc-loader-text" id="marksSavingText">Please wait while the marks are being saved.</p>
+        <div class="rc-loader-track">
+            <div class="rc-loader-bar" id="marksSavingBar"></div>
+        </div>
+        <div class="rc-loader-meta">
+            <span id="marksSavingPercent">0%</span>
+            <span id="marksSavingRemaining">Preparing</span>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const summaryElement = document.getElementById("entry-summary");
+    const marksForm = document.getElementById("marks-entry-form");
+    const partialModalElement = document.getElementById("partialMarksModal");
+    const partialSummaryElement = document.getElementById("partialMarksSummary");
+    const partialListElement = document.getElementById("partialMarksList");
+    const confirmPartialSaveButtons = document.querySelectorAll(".confirm-partial-save-action");
+    const saveMarksButton = document.getElementById("save-marks-button");
+    const savingOverlay = document.getElementById("marksSavingOverlay");
+    const savingBar = document.getElementById("marksSavingBar");
+    const savingPercent = document.getElementById("marksSavingPercent");
+    const savingRemaining = document.getElementById("marksSavingRemaining");
+    const savingText = document.getElementById("marksSavingText");
+    let partialSaveConfirmed = false;
+    let manualModalBackdrop = null;
+    let savingTimer = null;
+
+    function formatTotal(value) {
+        if (!Number.isFinite(value)) return "0";
+        return Number.isInteger(value) ? String(value) : value.toFixed(2);
+    }
+
+    function setStatus(statusElement, status) {
+        if (!statusElement) return;
+        statusElement.classList.remove("rc-status-complete", "rc-status-missing", "rc-status-absent");
+        if (status === "absent") {
+            statusElement.textContent = "Absent";
+            statusElement.classList.add("rc-status-absent");
+        } else if (status === "complete") {
+            statusElement.textContent = "Complete";
+            statusElement.classList.add("rc-status-complete");
+        } else {
+            statusElement.textContent = "Missing";
+            statusElement.classList.add("rc-status-missing");
+        }
+    }
+
+    function updateSummary() {
+        if (!summaryElement) return;
+        const statuses = Array.from(document.querySelectorAll(".rc-status"));
+        const complete = statuses.filter(function (item) { return item.textContent === "Complete"; }).length;
+        const absent = statuses.filter(function (item) { return item.textContent === "Absent"; }).length;
+        const missing = statuses.filter(function (item) { return item.textContent === "Missing"; }).length;
+        summaryElement.textContent = `${complete} complete, ${missing} missing, ${absent} absent`;
+    }
+
+    function getMissingMarksDetails() {
+        const details = [];
+        let missingFieldCount = 0;
+        document.querySelectorAll(".rc-table tbody tr").forEach(function (row) {
+            const absentCheckbox = row.querySelector('input[type="checkbox"][name$="-is_absent"]');
+            const markInputs = Array.from(row.querySelectorAll(".marks-input input"));
+            if (!absentCheckbox || absentCheckbox.checked || !markInputs.length) return;
+
+            const missingLabels = [];
+            markInputs.forEach(function (input) {
+                if (String(input.value || "").trim() !== "") return;
+                const cell = input.closest("td");
+                missingLabels.push(cell ? (cell.dataset.markLabel || "Marks") : "Marks");
+                missingFieldCount += 1;
+            });
+
+            if (missingLabels.length) {
+                details.push({
+                    studentName: row.dataset.studentName || "Student",
+                    admissionNumber: row.dataset.admissionNumber || "-",
+                    labels: missingLabels,
+                });
+            }
+        });
+        return { studentCount: details.length, fieldCount: missingFieldCount, details: details };
+    }
+
+    function hideManualModal() {
+        if (!partialModalElement) return;
+        partialModalElement.classList.remove("show");
+        partialModalElement.style.display = "none";
+        partialModalElement.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("modal-open");
+        document.body.style.removeProperty("overflow");
+        document.body.style.removeProperty("padding-right");
+        if (manualModalBackdrop) {
+            manualModalBackdrop.remove();
+            manualModalBackdrop = null;
+        }
+    }
+
+    function showManualModal() {
+        if (!partialModalElement) return;
+        partialModalElement.style.display = "block";
+        partialModalElement.removeAttribute("aria-hidden");
+        partialModalElement.classList.add("show");
+        document.body.classList.add("modal-open");
+        if (!manualModalBackdrop) {
+            manualModalBackdrop = document.createElement("div");
+            manualModalBackdrop.className = "modal-backdrop fade show";
+            document.body.appendChild(manualModalBackdrop);
+            manualModalBackdrop.addEventListener("click", hideManualModal);
+        }
+    }
+
+    function setSavingProgress(percent) {
+        const safePercent = Math.max(0, Math.min(95, Math.round(percent)));
+        if (savingBar) savingBar.style.width = `${safePercent}%`;
+        if (savingPercent) savingPercent.textContent = `${safePercent}%`;
+        if (savingRemaining) savingRemaining.textContent = `${Math.max(5, 100 - safePercent)}% remaining`;
+    }
+
+    function startSavingLoader() {
+        if (!savingOverlay) return;
+        savingOverlay.classList.add("is-visible");
+        savingOverlay.setAttribute("aria-hidden", "false");
+        if (savingText) {
+            savingText.textContent = "Saving entered marks and keeping blank fields pending for later completion.";
+        }
+        setSavingProgress(8);
+        let progress = 8;
+        window.clearInterval(savingTimer);
+        savingTimer = window.setInterval(function () {
+            const step = progress < 55 ? 9 : progress < 80 ? 5 : 2;
+            progress = Math.min(95, progress + step);
+            setSavingProgress(progress);
+            if (progress >= 95) {
+                if (savingRemaining) savingRemaining.textContent = "Finishing save";
+                window.clearInterval(savingTimer);
+            }
+        }, 350);
+    }
+
+    function submitWithLoader() {
+        partialSaveConfirmed = true;
+        startSavingLoader();
+        window.setTimeout(function () {
+            marksForm.submit();
+        }, 50);
+    }
+
+    function showPartialMarksModal(missing) {
+        if (!partialModalElement || !partialSummaryElement || !partialListElement) {
+            return window.confirm(`${missing.studentCount} student(s) have ${missing.fieldCount} missing mark field(s). Save partial marks anyway?`);
+        }
+
+        partialSummaryElement.textContent = `${missing.studentCount} student(s) have ${missing.fieldCount} missing mark field(s).`;
+        partialListElement.innerHTML = "";
+        missing.details.slice(0, 50).forEach(function (item) {
+            const listItem = document.createElement("li");
+            const title = document.createElement("div");
+            const fields = document.createElement("div");
+            title.className = "fw-bold";
+            fields.className = "text-muted small mt-1";
+            title.textContent = `${item.studentName} (${item.admissionNumber})`;
+            fields.textContent = `Pending: ${item.labels.join(", ")}`;
+            listItem.appendChild(title);
+            listItem.appendChild(fields);
+            partialListElement.appendChild(listItem);
+        });
+        if (missing.details.length > 50) {
+            const extraItem = document.createElement("li");
+            extraItem.className = "text-muted";
+            extraItem.textContent = `And ${missing.details.length - 50} more student(s).`;
+            partialListElement.appendChild(extraItem);
+        }
+
+        try {
+            if (window.bootstrap && window.bootstrap.Modal) {
+                window.bootstrap.Modal.getOrCreateInstance(partialModalElement).show();
+                return false;
+            }
+            if (window.jQuery && window.jQuery.fn && window.jQuery.fn.modal) {
+                window.jQuery(partialModalElement).modal("show");
+                return false;
+            }
+            showManualModal();
+            return false;
+        } catch (error) {
+            showManualModal();
+            return false;
+        }
+    }
+
+    function shouldPauseForPartialSave(event) {
+        if (partialSaveConfirmed) return false;
+        const missing = getMissingMarksDetails();
+        if (!missing.fieldCount) return false;
+        if (event) event.preventDefault();
+        showPartialMarksModal(missing);
+        return true;
+    }
+
+    document.querySelectorAll(".rc-table tbody tr").forEach(function (row) {
+        const absentCheckbox = row.querySelector('input[type="checkbox"][name$="-is_absent"]');
+        const markInputs = row.querySelectorAll(".marks-input input");
+        const rowTotal = row.querySelector(".rc-row-total");
+        const statusElement = row.querySelector(".rc-status");
+        if (!absentCheckbox || !markInputs.length) return;
+
+        markInputs.forEach(function (input) {
+            input.setAttribute("inputmode", "decimal");
+            input.setAttribute("autocomplete", "off");
+        });
+
+        function validateAndTotal() {
+            let total = 0;
+            let hasMissing = false;
+            let hasInvalid = false;
+
+            markInputs.forEach(function (input) {
+                const cell = input.closest("td");
+                const errorElement = cell ? cell.querySelector(".rc-mark-error") : null;
+                const maxMarks = Number(cell ? cell.dataset.maxMarks : 0);
+                const rawValue = String(input.value || "").trim();
+                input.classList.remove("is-invalid");
+                if (errorElement) {
+                    errorElement.classList.add("d-none");
+                    errorElement.textContent = "";
+                }
+
+                if (absentCheckbox.checked) {
+                    return;
+                }
+
+                if (rawValue === "") {
+                    hasMissing = true;
+                    return;
+                }
+
+                const markValue = Number(rawValue);
+                if (!Number.isFinite(markValue)) {
+                    hasInvalid = true;
+                    input.classList.add("is-invalid");
+                    if (errorElement) {
+                        errorElement.textContent = "Invalid marks";
+                        errorElement.classList.remove("d-none");
+                    }
+                    return;
+                }
+
+                total += markValue;
+                if (Number.isFinite(maxMarks) && maxMarks > 0 && markValue > maxMarks) {
+                    hasInvalid = true;
+                    input.classList.add("is-invalid");
+                    if (errorElement) {
+                        errorElement.textContent = `Max ${formatTotal(maxMarks)}`;
+                        errorElement.classList.remove("d-none");
+                    }
+                }
+            });
+
+            if (absentCheckbox.checked) {
+                if (rowTotal) rowTotal.textContent = "-";
+                setStatus(statusElement, "absent");
+            } else {
+                if (rowTotal) rowTotal.textContent = formatTotal(total);
+                setStatus(statusElement, hasMissing || hasInvalid ? "missing" : "complete");
+            }
+            updateSummary();
+        }
+
+        function applyAbsentState() {
+            markInputs.forEach(function (input) {
+                if (absentCheckbox.checked) {
+                    input.value = "";
+                    input.readOnly = true;
+                    input.classList.add("bg-light");
+                    input.classList.remove("is-invalid");
+                    const errorElement = input.closest("td").querySelector(".rc-mark-error");
+                    if (errorElement) {
+                        errorElement.classList.add("d-none");
+                        errorElement.textContent = "";
+                    }
+                } else {
+                    input.readOnly = false;
+                    input.classList.remove("bg-light");
+                }
+            });
+            validateAndTotal();
+        }
+
+        absentCheckbox.addEventListener("change", applyAbsentState);
+        markInputs.forEach(function (input) {
+            input.addEventListener("input", validateAndTotal);
+            input.addEventListener("keydown", function (event) {
+                if (event.key !== "Enter") return;
+                const inputs = Array.from(document.querySelectorAll(".marks-input input:not([readonly])"));
+                const currentIndex = inputs.indexOf(input);
+                if (currentIndex >= 0 && currentIndex < inputs.length - 1) {
+                    event.preventDefault();
+                    inputs[currentIndex + 1].focus();
+                    inputs[currentIndex + 1].select();
+                }
+            });
+        });
+        applyAbsentState();
+    });
+
+    if (marksForm) {
+        marksForm.addEventListener("submit", function (event) {
+            if (shouldPauseForPartialSave(event)) return;
+            startSavingLoader();
+        });
+    }
+
+    if (saveMarksButton && marksForm) {
+        saveMarksButton.addEventListener("click", function (event) {
+            shouldPauseForPartialSave(event);
+        });
+    }
+
+    if (confirmPartialSaveButtons.length && marksForm) {
+        confirmPartialSaveButtons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Saving...';
+                button.classList.add("rc-partial-save-btn");
+                hideManualModal();
+                submitWithLoader();
+            });
+        });
+    }
+
+    if (marksForm) {
+        marksForm.addEventListener("partial-save", function () {
+            hideManualModal();
+            submitWithLoader();
+        });
+    }
+
+    if (partialModalElement) {
+        partialModalElement.querySelectorAll('[data-bs-dismiss="modal"], [data-dismiss="modal"]').forEach(function (button) {
+            button.addEventListener("click", hideManualModal);
+        });
+    }
+
+    updateSummary();
+});
+</script>
+{% endblock content %}

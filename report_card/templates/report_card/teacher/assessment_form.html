@@ -1,0 +1,116 @@
+{% extends "teacher_base.html" %}
+
+{% block title %}{{ page_title }}{% endblock title %}
+
+{% block content %}
+<style>
+    .report-card-form-page { --primary:#6042c8; --dark:#442c9f; --light:#f5f3ff; --border:#ddd6fe; --text:#111827; --muted:#6b7280; }
+    .form-container { max-width:880px; margin:0 auto; background:#fff; border-radius:18px; box-shadow:0 20px 60px rgba(16,24,40,.12); overflow:hidden; }
+    .form-header { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; padding:28px 36px; }
+    .form-header h1 { font-weight:850; margin:0 0 6px; color:#fff; }
+    .form-header p { opacity:.9; margin:0; font-weight:650; }
+    .form-body { padding:34px; }
+    .form-section { background:var(--light); border-radius:14px; padding:22px; margin-bottom:26px; border-left:5px solid var(--primary); }
+    .section-title { display:flex; align-items:center; gap:12px; margin-bottom:22px; }
+    .section-title-icon { width:46px; height:46px; background:linear-gradient(135deg,var(--primary),var(--dark)); border-radius:12px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:1.25rem; flex:0 0 auto; }
+    .section-title h3 { margin:0; font-weight:850; color:var(--text); }
+    .section-title p { margin:4px 0 0; color:var(--muted); }
+    .form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:20px; }
+    .form-label { font-weight:750; color:var(--text); margin-bottom:9px; display:flex; gap:8px; align-items:center; }
+    .form-label i { color:var(--primary); }
+    .form-control, .form-select { border:2px solid var(--border); border-radius:10px; padding:12px 14px; min-height:52px; }
+    .form-control:focus, .form-select:focus { border-color:var(--primary); box-shadow:0 0 0 .2rem rgba(96,66,200,.15); }
+    .field-help { display:block; margin-top:6px; color:var(--muted); font-size:.84rem; font-weight:650; }
+    .field-error { margin-top:6px; color:#dc2626; font-size:.82rem; font-weight:750; }
+    .form-error { border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; border-radius:10px; padding:12px 14px; font-weight:750; margin-bottom:18px; }
+    .form-actions { background:#fff; padding-top:24px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:18px; }
+    .form-actions .btn { padding:11px 22px; border-radius:10px; font-weight:750; display:inline-flex; align-items:center; gap:8px; }
+    .btn-primary-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; }
+    .btn-primary-gradient:hover { color:#fff; transform:translateY(-1px); }
+    .btn-secondary-soft { background:#fff; color:var(--muted); border:2px solid var(--border); }
+    @media(max-width: 768px) {
+        .form-header, .form-body { padding:22px 16px; }
+        .form-actions { flex-direction:column; align-items:stretch; }
+        .form-actions .btn { width:100%; justify-content:center; }
+    }
+</style>
+<main id="main" class="main report-card-form-page">
+    <div class="pagetitle">
+        <h1>Report Cards</h1>
+        <nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'report_card:assessment_list' %}">Report Cards</a></li><li class="breadcrumb-item active">{{ page_title }}</li></ol></nav>
+    </div>
+    <div class="form-container">
+        <div class="form-header">
+            <h1><i class="bi bi-clipboard-check me-2"></i>{{ page_title }}</h1>
+            <p>Set report-card assessment details for the selected academic year.</p>
+        </div>
+        <form method="post" class="form-body">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="form-error"><i class="bi bi-exclamation-triangle me-1"></i>{{ form.non_field_errors|striptags }}</div>{% endif %}
+
+            <div class="form-section">
+                <div class="section-title">
+                    <div class="section-title-icon"><i class="bi bi-journal-text"></i></div>
+                    <div>
+                        <h3>Assessment Information</h3>
+                        <p>Choose the assigned class and result schedule.</p>
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div>
+                        <label class="form-label" for="{{ form.academic_year.id_for_label }}"><i class="bi bi-calendar-range"></i> {{ form.academic_year.label }}</label>
+                        {{ form.academic_year }}
+                        <small class="field-help">Only academic years linked to your assigned classes are shown.</small>
+                        {% if form.academic_year.errors %}<div class="field-error">{{ form.academic_year.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div>
+                        <label class="form-label" for="{{ form.batch.id_for_label }}"><i class="bi bi-collection"></i> {{ form.batch.label }}</label>
+                        {{ form.batch }}
+                        <small class="field-help">Select the class/batch for this report-card assessment.</small>
+                        {% if form.batch.errors %}<div class="field-error">{{ form.batch.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div style="grid-column:1 / -1;">
+                        <label class="form-label" for="{{ form.title.id_for_label }}"><i class="bi bi-card-heading"></i> {{ form.title.label }}</label>
+                        {{ form.title }}
+                        {% if form.title.errors %}<div class="field-error">{{ form.title.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div>
+                        <label class="form-label" for="{{ form.assessment_date.id_for_label }}"><i class="bi bi-calendar-check"></i> {{ form.assessment_date.label }}</label>
+                        {{ form.assessment_date }}
+                        <small class="field-help">The date on which this assessment was conducted.</small>
+                        {% if form.assessment_date.errors %}<div class="field-error">{{ form.assessment_date.errors|striptags }}</div>{% endif %}
+                    </div>
+                    <div>
+                        <label class="form-label" for="{{ form.result_date.id_for_label }}"><i class="bi bi-calendar2-check"></i> {{ form.result_date.label }}</label>
+                        {{ form.result_date }}
+                        <small class="field-help">The date that should appear on generated report cards.</small>
+                        {% if form.result_date.errors %}<div class="field-error">{{ form.result_date.errors|striptags }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <div class="text-muted"><i class="bi bi-info-circle me-1"></i> Add subjects after saving this assessment.</div>
+                <div class="d-flex gap-3">
+                {% if assessment %}
+                    <a class="btn btn-secondary-soft" href="{% url 'report_card:assessment_detail' assessment.pk %}"><i class="bi bi-x-circle"></i> Cancel</a>
+                {% else %}
+                    <a class="btn btn-secondary-soft" href="{% url 'report_card:assessment_list' %}"><i class="bi bi-x-circle"></i> Cancel</a>
+                {% endif %}
+                <button class="btn btn-primary-gradient" type="submit"><i class="bi bi-check-circle"></i> Save</button>
+                </div>
+            </div>
+            {% comment %}
+                Keep unexpected future fields renderable without changing backend behavior.
+            {% endcomment %}
+            <div class="d-none">
+                {% for field in form %}
+                    {% if field.name != "academic_year" and field.name != "batch" and field.name != "title" and field.name != "assessment_date" and field.name != "result_date" %}
+                        {{ field }}
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </form>
+    </div>
+</main>
+{% endblock content %}

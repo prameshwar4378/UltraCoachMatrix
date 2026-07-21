@@ -1,0 +1,448 @@
+{% extends "teacher_base.html" %}
+
+{% block title %}{{ page_title }}{% endblock title %}
+
+{% block content %}
+<style>
+    .report-card-form-page { --primary:#6042c8; --dark:#442c9f; --light:#f5f3ff; --border:#ddd6fe; --text:#111827; --muted:#6b7280; }
+    .form-container { width:100%; max-width:none; margin:0; background:#fff; border-radius:18px; box-shadow:0 20px 60px rgba(16,24,40,.12); overflow:hidden; }
+    .form-header { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; padding:28px 36px; }
+    .form-header h1 { font-weight:850; margin:0 0 6px; color:#fff; }
+    .form-header p { opacity:.9; margin:0; font-weight:650; }
+    .form-body { padding:34px; }
+    .form-section { background:var(--light); border-radius:14px; padding:22px; margin-bottom:26px; border-left:5px solid var(--primary); }
+    .section-title { display:flex; align-items:center; gap:12px; margin-bottom:22px; }
+    .section-title-icon { width:46px; height:46px; background:linear-gradient(135deg,var(--primary),var(--dark)); border-radius:12px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:1.25rem; flex:0 0 auto; }
+    .section-title h3 { margin:0; font-weight:850; color:var(--text); }
+    .section-title p { margin:4px 0 0; color:var(--muted); }
+    .form-grid { display:grid; grid-template-columns:repeat(3,minmax(220px,1fr)); gap:20px; }
+    .form-label { font-weight:750; color:var(--text); margin-bottom:9px; display:flex; gap:8px; align-items:center; }
+    .form-label i { color:var(--primary); }
+    .form-control, .form-select { border:2px solid var(--border); border-radius:10px; padding:12px 14px; min-height:48px; }
+    .form-control:focus, .form-select:focus { border-color:var(--primary); box-shadow:0 0 0 .2rem rgba(96,66,200,.15); }
+    .field-help { display:block; margin-top:6px; color:var(--muted); font-size:.84rem; font-weight:650; }
+    .field-error { margin-top:6px; color:#dc2626; font-size:.82rem; font-weight:750; }
+    .form-error { border:1px solid #fecaca; background:#fef2f2; color:#b91c1c; border-radius:10px; padding:12px 14px; font-weight:750; margin-bottom:18px; }
+    .form-actions { background:#fff; padding-top:24px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:18px; }
+    .form-actions .btn { padding:11px 22px; border-radius:10px; font-weight:750; display:inline-flex; align-items:center; gap:8px; }
+    .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:10px; padding:11px 22px; font-weight:800; }
+    .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    .btn-secondary-soft { background:#fff; color:var(--muted); border:2px solid var(--border); }
+    .rc-column-panel { background:var(--light); border-left:5px solid var(--primary); border-radius:14px; padding:22px; margin-bottom:26px; }
+    .rc-table-card { background:#fff; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .rc-table-header { padding:14px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .rc-table-header h5 { margin:0; font-weight:900; }
+    .rc-column-table { margin:0; }
+    .rc-column-table th { background:#f8fafc; border-bottom:1px solid var(--border); padding:14px 16px; font-size:.76rem; text-transform:uppercase; color:#475467; letter-spacing:.06em; font-weight:900; white-space:nowrap; }
+    .rc-column-table td { padding:12px 16px; vertical-align:middle; border-bottom:1px solid #f1f5f9; }
+    .rc-column-table tbody tr { transition:transform .22s ease, opacity .22s ease, background-color .22s ease; }
+    .rc-column-table tbody tr.rc-row-moving-up { transform:translateY(-12px); opacity:.72; background:#f1edff; }
+    .rc-column-table tbody tr.rc-row-moving-down { transform:translateY(12px); opacity:.72; background:#f1edff; }
+    .rc-column-table tbody tr.rc-row-arrived { animation:rowArrived .55s ease; }
+    .rc-column-table input { min-width:100px; }
+    .rc-column-action { width:42px; height:40px; display:inline-flex; align-items:center; justify-content:center; }
+    .rc-main-row { background:#f8fbff; }
+    .rc-preset-group { display:flex; flex-wrap:wrap; gap:8px; }
+    .rc-preset-btn { border-radius:999px; font-weight:800; }
+    .rc-total-box { background:#fff; border:2px solid var(--border); border-radius:10px; padding:12px 14px; }
+    .rc-total-box label { color:var(--primary); }
+    .rc-warning { display:none; border:1px solid #fbbf24; background:#fffbeb; color:#92400e; border-radius:8px; padding:10px 12px; font-weight:800; }
+    .rc-warning.is-visible { display:block; }
+    .rc-readonly { background:#eef2f7 !important; color:#475569; cursor:not-allowed; }
+    .rc-action-stack { display:flex; gap:6px; justify-content:flex-end; align-items:center; }
+    .rc-main-badge { display:inline-flex; align-items:center; gap:5px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:999px; background:#fff; color:#334155; font-weight:850; white-space:nowrap; }
+    @keyframes rowArrived {
+        0% { background:#ede9fe; }
+        100% { background:transparent; }
+    }
+    @media(max-width:768px) {
+        .form-grid { grid-template-columns:1fr; }
+        .form-header, .form-body { padding:22px 16px; }
+        .form-actions { flex-direction:column; align-items:stretch; }
+        .form-actions .btn { width:100%; justify-content:center; }
+    }
+</style>
+<main id="main" class="main report-card-form-page">
+    <div class="pagetitle"><h1>Report Cards</h1><nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'report_card:assessment_structure' assessment.pk %}">Structure</a></li><li class="breadcrumb-item active">{{ page_title }}</li></ol></nav></div>
+    {% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
+    <div class="form-container">
+        <div class="form-header">
+            <h1><i class="bi bi-book me-2"></i>{{ page_title }}</h1>
+            <p>{{ assessment.title }} | configure subject marks and report-card weightage.</p>
+        </div>
+        <form method="post" class="form-body">
+            {% csrf_token %}
+            {{ form.components_json }}
+            {{ form.max_marks }}
+            {{ form.weightage }}
+            {{ form.display_order }}
+            {% if form.non_field_errors %}<div class="form-error"><i class="bi bi-exclamation-triangle me-1"></i>{{ form.non_field_errors|striptags }}</div>{% endif %}
+            {% if form.components_json.errors %}<div class="form-error"><i class="bi bi-exclamation-triangle me-1"></i>{{ form.components_json.errors|striptags }}</div>{% endif %}
+
+            <div class="form-section">
+                <div class="section-title">
+                    <div class="section-title-icon"><i class="bi bi-journal-bookmark"></i></div>
+                    <div>
+                        <h3>Subject Details</h3>
+                        <p>Select the subject and result behavior before configuring marks columns.</p>
+                    </div>
+                </div>
+                <div class="form-grid">
+                <div>
+                    <label class="form-label" for="{{ form.subject.id_for_label }}"><i class="bi bi-book"></i> {{ form.subject.label }}</label>
+                    {{ form.subject }}
+                    {% if form.subject.errors %}<div class="field-error">{{ form.subject.errors|striptags }}</div>{% endif %}
+                </div>
+                <div>
+                    <label class="form-label" for="{{ form.is_optional.id_for_label }}"><i class="bi bi-star"></i> {{ form.is_optional.label }}</label>
+                    <div>{{ form.is_optional }}</div>
+                    <small class="field-help">Optional subjects can be handled separately during result calculation.</small>
+                    {% if form.is_optional.errors %}<div class="field-error">{{ form.is_optional.errors|striptags }}</div>{% endif %}
+                </div>
+                <div>
+                    <label class="form-label" for="{{ form.include_in_total.id_for_label }}"><i class="bi bi-calculator"></i> {{ form.include_in_total.label }}</label>
+                    <div>{{ form.include_in_total }}</div>
+                    <small class="field-help">When enabled, this subject contributes to overall report-card percentage.</small>
+                    {% if form.include_in_total.errors %}<div class="field-error">{{ form.include_in_total.errors|striptags }}</div>{% endif %}
+                </div>
+                </div>
+            </div>
+
+            <div class="rc-column-panel">
+                <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
+                    <div>
+                        <div class="section-title mb-0">
+                            <div class="section-title-icon"><i class="bi bi-layout-three-columns"></i></div>
+                            <div>
+                        <h3>Subject marks columns</h3>
+                        <div class="text-muted fw-semibold">The first row is the main theory exam. Add other rows such as Notebook, Practical, Internal, Sport, or Unit Test. These rows are saved only when you save the subject.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold mb-2">Quick presets</label>
+                    <div class="rc-preset-group">
+                        <button class="btn btn-sm btn-outline-secondary rc-preset-btn" type="button" data-preset="theory">Theory only</button>
+                        <button class="btn btn-sm btn-outline-secondary rc-preset-btn" type="button" data-preset="theory_oral">Theory + Oral</button>
+                        <button class="btn btn-sm btn-outline-secondary rc-preset-btn" type="button" data-preset="theory_notebook">Theory + Notebook</button>
+                        <button class="btn btn-sm btn-outline-secondary rc-preset-btn" type="button" data-preset="theory_practical">Theory + Practical</button>
+                        <button class="btn btn-sm btn-outline-secondary rc-preset-btn" type="button" data-preset="theory_oral_notebook">Theory + Oral + Notebook</button>
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <div class="rc-total-box">
+                            <label class="form-label fw-bold" for="subject-total-display">Live subject total marks</label>
+                            <input class="form-control rc-readonly" id="subject-total-display" type="number" readonly>
+                            <div class="text-muted small fw-semibold mt-1">Auto-calculated from rows counted in subject total.</div>
+                            {% if form.max_marks.errors %}<div class="field-error">{{ form.max_marks.errors|striptags }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="{{ form.passing_marks.id_for_label }}"><i class="bi bi-check2-circle"></i> {{ form.passing_marks.label }}</label>
+                        {{ form.passing_marks }}
+                        <div class="text-muted small fw-semibold mt-1">Subject-level passing marks only. Individual columns do not have passing marks.</div>
+                        <div class="rc-warning mt-2" id="passing-warning"><i class="bi bi-exclamation-triangle me-1"></i> Passing marks cannot be greater than the live subject total.</div>
+                        {% if form.passing_marks.errors %}<div class="field-error">{{ form.passing_marks.errors|striptags }}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="rc-table-card">
+                    <div class="rc-table-header">
+                        <h5><i class="bi bi-list-task me-1"></i> Marks Columns</h5>
+                        <span class="text-muted small">Local changes save only with Save Subject</span>
+                    </div>
+                    <div class="table-responsive">
+                    <table class="table rc-column-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:90px;">No.</th>
+                                <th>Column Name</th>
+                                <th style="width:150px;">Max Marks</th>
+                                <th style="width:150px;">Weightage</th>
+                                <th style="width:190px;">Count in subject total</th>
+                                <th style="width:180px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="component-rows">
+                            <tr id="empty-component-row">
+                                <td colspan="6" class="text-center text-muted p-4">Theory Exam will be used as the main marks column.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end mt-3">
+                    <button class="btn btn-gradient" type="button" id="add-component-row"><i class="bi bi-plus-circle me-1"></i> Add Column</button>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <div class="text-muted"><i class="bi bi-info-circle me-1"></i> Columns are stored locally until you save this subject.</div>
+                <div class="d-flex gap-3">
+                <a class="btn btn-secondary-soft" href="{% url 'report_card:assessment_structure' assessment.pk %}"><i class="bi bi-x-circle"></i> Cancel</a>
+                <button class="btn btn-gradient" type="submit"><i class="bi bi-check-circle"></i> Save Subject</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</main>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const hiddenInput = document.getElementById("id_components_json");
+    const tbody = document.getElementById("component-rows");
+    const emptyRow = document.getElementById("empty-component-row");
+    const addButton = document.getElementById("add-component-row");
+    const passingInput = document.getElementById("id_passing_marks");
+    const passingWarning = document.getElementById("passing-warning");
+    let rows = [];
+    let highlightedRowId = null;
+    const presets = {
+        theory: [{ name: "Theory Exam", max_marks: "" }],
+        theory_oral: [{ name: "Theory Exam", max_marks: "" }, { name: "Oral", max_marks: "" }],
+        theory_notebook: [{ name: "Theory Exam", max_marks: "" }, { name: "Notebook", max_marks: "" }],
+        theory_practical: [{ name: "Theory Exam", max_marks: "" }, { name: "Practical", max_marks: "" }],
+        theory_oral_notebook: [{ name: "Theory Exam", max_marks: "" }, { name: "Oral", max_marks: "" }, { name: "Notebook", max_marks: "" }]
+    };
+
+    function parseRows() {
+        try {
+            rows = JSON.parse(hiddenInput.value || "[]");
+            if (!Array.isArray(rows)) rows = [];
+        } catch (_error) {
+            rows = [];
+        }
+    }
+
+    function valueOrDefault(value, fallback) {
+        return value === undefined || value === null || value === "" ? fallback : value;
+    }
+
+    function escapeAttribute(value) {
+        return String(value === undefined || value === null ? "" : value)
+            .replaceAll("&", "&amp;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;");
+    }
+
+    function syncHidden() {
+        normalizeRows();
+        hiddenInput.value = JSON.stringify(rows.map(function (row, index) {
+            return {
+                id: row.id || null,
+                name: row.name || "",
+                max_marks: String(valueOrDefault(row.max_marks, "")),
+                passing_marks: "0",
+                weightage: String(valueOrDefault(row.max_marks, row.weightage || "")),
+                display_order: index + 1,
+                include_in_total: row.include_in_total !== false,
+                is_primary: index === 0 || row.is_primary === true
+            };
+        }));
+        updateSubjectTotals();
+    }
+
+    function updateRow(index, key, value) {
+        rows[index][key] = value;
+        syncHidden();
+    }
+
+    function normalizeRows() {
+        if (!rows.length) {
+            rows.push({
+                id: null,
+                name: "Theory Exam",
+                max_marks: "",
+                passing_marks: "0",
+                weightage: "",
+                display_order: 1,
+                include_in_total: true,
+                is_primary: true
+            });
+        }
+        rows.forEach(function (row, index) {
+            row.display_order = index + 1;
+            row.weightage = valueOrDefault(row.max_marks, row.weightage || "");
+            if (index === 0) {
+                if (!row.name) row.name = "Theory Exam";
+                row.is_primary = true;
+                row.include_in_total = true;
+            } else {
+                row.is_primary = false;
+            }
+        });
+    }
+
+    function moveRow(fromIndex, toIndex, direction) {
+        if (fromIndex <= 0 || toIndex <= 0 || toIndex >= rows.length) return;
+        const rowElement = tbody.querySelector(`[data-row-index="${fromIndex}"]`);
+        if (rowElement) {
+            rowElement.classList.add(direction === "up" ? "rc-row-moving-up" : "rc-row-moving-down");
+        }
+        const moved = rows.splice(fromIndex, 1)[0];
+        highlightedRowId = moved.id || moved._localId;
+        window.setTimeout(function () {
+            rows.splice(toIndex, 0, moved);
+            syncHidden();
+            renderRows();
+        }, 170);
+    }
+
+    function applyPreset(key) {
+        const presetRows = presets[key] || presets.theory;
+        rows = presetRows.map(function (row, index) {
+            return {
+                id: null,
+                name: row.name,
+                max_marks: row.max_marks,
+                passing_marks: "0",
+                weightage: row.max_marks,
+                display_order: index + 1,
+                include_in_total: true,
+                is_primary: index === 0
+            };
+        });
+        syncHidden();
+        renderRows();
+    }
+
+    function renderRows() {
+        tbody.innerHTML = "";
+        normalizeRows();
+        if (!rows.length) {
+            tbody.appendChild(emptyRow);
+            return;
+        }
+        rows.forEach(function (row, index) {
+            if (!row._localId) row._localId = `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            const tr = document.createElement("tr");
+            tr.dataset.rowIndex = index;
+            if (index === 0) tr.classList.add("rc-main-row");
+            if ((row.id || row._localId) === highlightedRowId) {
+                tr.classList.add("rc-row-arrived");
+                window.setTimeout(function () {
+                    tr.classList.remove("rc-row-arrived");
+                    highlightedRowId = null;
+                }, 600);
+            }
+            tr.innerHTML = `
+                <td><span class="fw-bold">${row.display_order}</span></td>
+                <td><input class="form-control component-name" type="text" value="${escapeAttribute(row.name)}" placeholder="${index === 0 ? "Theory Exam" : "Notebook"}"></td>
+                <td><input class="form-control component-max" type="number" min="0.01" step="0.01" value="${escapeAttribute(valueOrDefault(row.max_marks, ""))}"></td>
+                <td><input class="form-control component-weight rc-readonly" type="number" min="0.01" step="0.01" value="${escapeAttribute(valueOrDefault(row.max_marks, row.weightage || ""))}" readonly></td>
+                <td>
+                    <select class="form-select component-total${index === 0 ? " rc-readonly" : ""}"${index === 0 ? " disabled" : ""}>
+                        <option value="true"${row.include_in_total !== false ? " selected" : ""}>Yes</option>
+                        <option value="false"${row.include_in_total === false ? " selected" : ""}>No</option>
+                    </select>
+                </td>
+                <td>
+                    ${index === 0 ? '<span class="rc-main-badge"><i class="bi bi-lock"></i> Main</span>' : `
+                        <div class="rc-action-stack">
+                            <button class="btn btn-light border rc-column-action component-up" type="button" title="Move up"><i class="bi bi-arrow-up"></i></button>
+                            <button class="btn btn-light border rc-column-action component-down" type="button" title="Move down"><i class="bi bi-arrow-down"></i></button>
+                            <button class="btn btn-danger rc-column-action component-delete" type="button" title="Delete column"><i class="bi bi-trash"></i></button>
+                        </div>
+                    `}
+                </td>
+            `;
+            const nameInput = tr.querySelector(".component-name");
+            if (nameInput) {
+                nameInput.addEventListener("input", function (event) { updateRow(index, "name", event.target.value); });
+            }
+            tr.querySelector(".component-max").addEventListener("input", function (event) {
+                updateRow(index, "max_marks", event.target.value);
+                rows[index].weightage = event.target.value;
+                const weightInput = tr.querySelector(".component-weight");
+                if (weightInput) weightInput.value = event.target.value;
+                syncHidden();
+            });
+            const totalSelect = tr.querySelector(".component-total");
+            if (totalSelect && index > 0) {
+                totalSelect.addEventListener("change", function (event) { updateRow(index, "include_in_total", event.target.value === "true"); });
+            }
+            const upButton = tr.querySelector(".component-up");
+            if (upButton) {
+                upButton.disabled = index === 1;
+                upButton.addEventListener("click", function () { moveRow(index, index - 1, "up"); });
+            }
+            const downButton = tr.querySelector(".component-down");
+            if (downButton) {
+                downButton.disabled = index === rows.length - 1;
+                downButton.addEventListener("click", function () { moveRow(index, index + 1, "down"); });
+            }
+            const deleteButton = tr.querySelector(".component-delete");
+            if (deleteButton) {
+                deleteButton.addEventListener("click", function () {
+                    rows.splice(index, 1);
+                    syncHidden();
+                    renderRows();
+                });
+            }
+            tbody.appendChild(tr);
+        });
+        syncHidden();
+    }
+
+    function updateSubjectTotals() {
+        const total = rows.reduce(function (sum, row) {
+            if (row.include_in_total === false) return sum;
+            const value = Number(row.max_marks || 0);
+            return sum + (Number.isFinite(value) ? value : 0);
+        }, 0);
+        const formatted = total ? total.toFixed(2) : "";
+        const totalDisplay = document.getElementById("subject-total-display");
+        const maxInput = document.getElementById("id_max_marks");
+        const weightInput = document.getElementById("id_weightage");
+        if (totalDisplay) totalDisplay.value = formatted;
+        if (maxInput) maxInput.value = formatted;
+        if (weightInput) weightInput.value = formatted;
+        updatePassingWarning(total);
+    }
+
+    function updatePassingWarning(total) {
+        if (!passingInput || !passingWarning) return;
+        const passingValue = Number(passingInput.value || 0);
+        if (Number.isFinite(passingValue) && passingValue > total) {
+            passingWarning.classList.add("is-visible");
+            passingInput.classList.add("is-invalid");
+        } else {
+            passingWarning.classList.remove("is-visible");
+            passingInput.classList.remove("is-invalid");
+        }
+    }
+
+    addButton.addEventListener("click", function () {
+        rows.push({
+            id: null,
+            name: "",
+            max_marks: "",
+            passing_marks: "0",
+            weightage: "",
+            display_order: rows.length + 1,
+            include_in_total: true
+        });
+        renderRows();
+        const lastNameInput = tbody.querySelector("tr:last-child .component-name");
+        if (lastNameInput) lastNameInput.focus();
+    });
+
+    document.querySelectorAll("[data-preset]").forEach(function (button) {
+        button.addEventListener("click", function () {
+            if (rows.some(function (row) { return row.id; }) && !confirm("This will replace the local marks columns for this subject. Existing saved data is not changed until you click Save Subject.")) {
+                return;
+            }
+            applyPreset(button.dataset.preset);
+        });
+    });
+
+    if (passingInput) {
+        passingInput.addEventListener("input", function () { updateSubjectTotals(); });
+    }
+
+    parseRows();
+    renderRows();
+});
+</script>
+{% endblock content %}

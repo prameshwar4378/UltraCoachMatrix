@@ -34,51 +34,65 @@
       </p>
 
       <div class="um-hero-actions">
-        <a href="{% url 'signup' %}" class="um-hero-btn trial">
-          <span class="um-btn-icon">
-            <i class="bi bi-rocket-takeoff-fill"></i>
-          </span>
-          <span class="um-btn-text">
-            <small>Start Your</small>
-            <strong>14 Days Free Trial</strong>
-          </span>
-          <span class="um-btn-arrow">
-            <i class="bi bi-arrow-right"></i>
-          </span>
-        </a>
+        <div class="um-hero-primary-actions">
+          <a href="{% url 'signup' %}" class="um-hero-btn trial">
+            <span class="um-btn-icon">
+              <i class="bi bi-rocket-takeoff-fill"></i>
+            </span>
+            <span class="um-btn-text">
+              <small>Start Your</small>
+              <strong>14 Days Free Trial</strong>
+            </span>
+            <span class="um-btn-arrow">
+              <i class="bi bi-arrow-right"></i>
+            </span>
+          </a>
 
-        <a href="{% url 'web_contact_us' %}" class="um-hero-btn demo">
-          <span class="um-btn-icon">
-            <i class="bi bi-calendar2-check-fill"></i>
-          </span>
-          <span class="um-btn-text">
-            <small>Book Your</small>
-            <strong>Request Demo</strong>
-          </span>
-          <span class="um-btn-arrow">
-            <i class="bi bi-arrow-right"></i>
-          </span>
-        </a>
+          <a href="{% url 'web_contact_us' %}" class="um-hero-btn demo">
+            <span class="um-btn-icon">
+              <i class="bi bi-calendar2-check-fill"></i>
+            </span>
+            <span class="um-btn-text">
+              <small>Book Your</small>
+              <strong>Request Demo</strong>
+            </span>
+            <span class="um-btn-arrow">
+              <i class="bi bi-arrow-right"></i>
+            </span>
+          </a>
+        </div>
 
-        <a href="{% url 'apk_download' %}" class="um-hero-btn android">
-          <span class="um-btn-icon">
-            <i class="bi bi-google-play"></i>
-          </span>
-          <span class="um-btn-text">
-            <small>Download for</small>
-            <strong>Android</strong>
-          </span>
-        </a>
+        <div class="um-hero-app-actions">
+          <a href="{% url 'student_app_download' %}" class="um-hero-btn android">
+            <span class="um-btn-icon">
+              <i class="bi bi-google-play"></i>
+            </span>
+            <span class="um-btn-text">
+              <small>Download</small>
+              <strong>Student App</strong>
+            </span>
+          </a>
 
-        <a href="{% url 'web_contact_us' %}" class="um-hero-btn ios">
-          <span class="um-btn-icon">
-            <i class="bi bi-apple"></i>
-          </span>
-          <span class="um-btn-text">
-            <small>Request for</small>
-            <strong>iOS</strong>
-          </span>
-        </a>
+          <a href="{% url 'teacher_app_download' %}" class="um-hero-btn android">
+            <span class="um-btn-icon">
+              <i class="bi bi-tablet"></i>
+            </span>
+            <span class="um-btn-text">
+              <small>Download</small>
+              <strong>Teacher App</strong>
+            </span>
+          </a>
+
+          <a href="{% url 'partner_app_download' %}" class="um-hero-btn android">
+            <span class="um-btn-icon">
+              <i class="bi bi-briefcase-fill"></i>
+            </span>
+            <span class="um-btn-text">
+              <small>Download</small>
+              <strong>Partner App</strong>
+            </span>
+          </a>
+        </div>
       </div>
     </div>
   </div>
@@ -404,11 +418,28 @@ body{
 
 .um-hero-actions{
   display:flex;
+  flex-direction:column;
   align-items:center;
   justify-content:center;
   gap:14px;
-  flex-wrap:wrap;
   margin-top:36px;
+}
+
+.um-hero-primary-actions,
+.um-hero-app-actions{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+}
+
+.um-hero-primary-actions{
+  flex-wrap:wrap;
+}
+
+.um-hero-app-actions{
+  width:100%;
+  flex-wrap:nowrap;
 }
 
 .um-hero-btn{
@@ -549,6 +580,11 @@ body{
   background:linear-gradient(135deg,#ffe59a,var(--accent));
 }
 
+.um-hero-app-actions .um-hero-btn{
+  min-width:190px;
+  justify-content:flex-start;
+}
+
 .um-hero-btn.ios .um-btn-icon{
   color:#fff;
   background:linear-gradient(135deg,#071527,#334155);
@@ -672,6 +708,13 @@ body{
     min-height:66px;
   }
 
+  .um-hero-app-actions{
+    overflow-x:auto;
+    justify-content:flex-start;
+    max-width:100%;
+    padding-bottom:4px;
+  }
+
   .um-service-card{
     flex-basis:290px;
     min-height:114px;
@@ -707,6 +750,15 @@ body{
     gap:12px;
   }
 
+  .um-hero-primary-actions{
+    width:100%;
+    flex-direction:column;
+  }
+
+  .um-hero-app-actions{
+    gap:10px;
+  }
+
   .um-hero-btn{
     width:100%;
     max-width:300px;
@@ -716,6 +768,31 @@ body{
 
   .um-hero-btn.demo{
     max-width:320px;
+  }
+
+  .um-hero-app-actions .um-hero-btn{
+    width:auto;
+    min-width:142px;
+    max-width:none;
+    min-height:58px;
+    gap:9px;
+    padding:10px 12px;
+  }
+
+  .um-hero-app-actions .um-btn-icon{
+    width:36px;
+    height:36px;
+    min-width:36px;
+    border-radius:13px;
+    font-size:17px;
+  }
+
+  .um-hero-app-actions .um-btn-text small{
+    font-size:10px;
+  }
+
+  .um-hero-app-actions .um-btn-text strong{
+    font-size:13px;
   }
 
   .um-slider-mask{
@@ -815,11 +892,27 @@ if(heroVisual){
       </p>
 
       <div class="um-download-actions">
-        <a href="{% url 'apk_download' %}" class="um-store-btn android-btn">
+        <a href="{% url 'student_app_download' %}" class="um-store-btn android-btn">
           <i class="bi bi-google-play"></i>
           <span>
-            <small>Download for</small>
-            <strong>Android</strong>
+            <small>Download Android</small>
+            <strong>Student App</strong>
+          </span>
+        </a>
+
+        <a href="{% url 'teacher_app_download' %}" class="um-store-btn android-btn">
+          <i class="bi bi-tablet"></i>
+          <span>
+            <small>Download Android</small>
+            <strong>Teacher App</strong>
+          </span>
+        </a>
+
+        <a href="{% url 'partner_app_download' %}" class="um-store-btn android-btn">
+          <i class="bi bi-briefcase-fill"></i>
+          <span>
+            <small>Download Android</small>
+            <strong>Partner App</strong>
           </span>
         </a>
 

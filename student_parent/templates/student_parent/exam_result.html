@@ -31,7 +31,10 @@
             </div>
         {% endfor %}
     </div>
-    <a class="btn btn-light border mt-3" href="{% url 'student_parent:exams' %}">Back to Exams</a>
+    <div class="d-flex gap-2 flex-wrap mt-3">
+        <a class="btn btn-light border" href="{% url 'student_parent:exams' %}">Back to Exams</a>
+        <a class="btn btn-outline-primary" href="{% url 'report_card_student:published_report_cards' %}">Report Cards</a>
+    </div>
 </main>
 </body>
 </html>

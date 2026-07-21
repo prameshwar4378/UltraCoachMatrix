@@ -16,6 +16,7 @@
             <h1 class="h3 mb-1">My Exams</h1>
             <div class="text-muted">{{ student.user.get_full_name|default:student.user.username }}</div>
         </div>
+        <a class="btn btn-light border" href="{% url 'report_card_student:published_report_cards' %}">Report Cards</a>
     </div>
 
     <form method="get" class="card card-body mb-3">

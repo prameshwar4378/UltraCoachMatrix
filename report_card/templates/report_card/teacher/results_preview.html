@@ -1,0 +1,151 @@
+{% extends "teacher_base.html" %}
+
+{% block title %}Report Card Results{% endblock title %}
+
+{% block content %}
+<style>
+    .homework-page { --primary:#6042c8; --dark:#442c9f; --surface:#fff; --border:#e5e7eb; --text:#111827; --muted:#6b7280; }
+    .page-toolbar, .filter-panel, .table-card, .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:0 12px 30px rgba(16,24,40,.06); }
+    .page-toolbar { padding:22px; margin-bottom:20px; }
+    .page-title { margin:0; font-size:1.7rem; font-weight:900; color:var(--text); }
+    .page-subtitle { color:var(--muted); font-weight:700; margin:6px 0 0; }
+    .stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:20px; }
+    .stat-card { padding:18px; border-top:4px solid var(--stat-color); }
+    .stat-icon { width:42px; height:42px; border-radius:8px; background:var(--stat-soft); color:var(--stat-color); display:flex; align-items:center; justify-content:center; font-size:1.2rem; margin-bottom:12px; }
+    .stat-number { color:var(--text); font-size:1.7rem; line-height:1; font-weight:950; }
+    .stat-label { color:var(--muted); font-size:.85rem; font-weight:750; margin-top:8px; }
+    .filter-panel { padding:20px; margin-bottom:20px; }
+    .form-control, .form-select { border-radius:8px; border:1px solid var(--border); padding:10px 13px; }
+    .table-card { overflow:hidden; }
+    .table-header { padding:18px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .table-header h5 { margin:0; font-weight:900; }
+    .table-modern { margin:0; }
+    .table-modern thead th { background:#f8fafc; color:#475467; border-bottom:1px solid var(--border); padding:14px 16px; font-size:.76rem; text-transform:uppercase; letter-spacing:.06em; font-weight:900; white-space:nowrap; }
+    .table-modern tbody td { padding:16px; vertical-align:middle; border-bottom:1px solid #f1f5f9; color:var(--text); }
+    .rc-pill { display:inline-flex; align-items:center; justify-content:center; min-width:82px; padding:6px 10px; border-radius:999px; font-weight:850; font-size:.76rem; white-space:nowrap; }
+    .rc-pill-pass { background:#dcfce7; color:#15803d; }
+    .rc-pill-fail { background:#fee2e2; color:#b91c1c; }
+    .rc-pill-incomplete { background:#ffedd5; color:#c2410c; }
+    .rc-pill-absent { background:#e5e7eb; color:#374151; }
+    .rc-stale-yes { background:#fef3c7; color:#92400e; }
+    .rc-stale-no { background:#eef2ff; color:#3730a3; }
+    .rc-warning { border:1px solid #fbbf24; background:#fffbeb; color:#92400e; border-radius:8px; padding:12px 14px; margin-bottom:18px; font-weight:800; }
+    .rc-toolbar-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+    .rc-toolbar-actions form { margin:0; }
+    .rc-action-top {
+        min-width:112px;
+        height:44px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:7px;
+        border-radius:8px;
+        padding:0 16px;
+        font-weight:850;
+        line-height:1;
+        white-space:nowrap;
+        box-shadow:0 8px 18px rgba(15,23,42,.07);
+        transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .rc-action-top i { font-size:1rem; line-height:1; }
+    .rc-action-top:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 12px 24px rgba(15,23,42,.12); }
+    .rc-action-export { border:1px solid #16a34a; background:#fff; color:#15803d; }
+    .rc-action-export:hover { background:#f0fdf4; color:#166534; }
+    .rc-action-publish { border:1px solid #15803d; background:#15803d; color:#fff; }
+    .rc-action-publish:hover { background:#166534; color:#fff; }
+    .rc-action-published { border:1px solid #16a34a; background:#f0fdf4; color:#15803d; }
+    .rc-action-lock { border:1px solid #111827; background:#fff; color:#111827; }
+    .rc-action-lock:hover { background:#111827; color:#fff; }
+    .rc-action-locked { border:1px solid #111827; background:#111827; color:#fff; }
+    .rc-action-top:disabled { opacity:.55; cursor:not-allowed; box-shadow:none; transform:none; }
+    .rc-action-btn { white-space:nowrap; }
+    .rc-btn { border-radius:8px; font-weight:800; }
+    .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
+    .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    @media(max-width: 992px) { .stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media(max-width: 576px) { .stat-grid { grid-template-columns:1fr; } .page-toolbar, .table-header { flex-direction:column; align-items:flex-start !important; } .rc-toolbar-actions, .rc-toolbar-actions form, .rc-action-top { width:100%; } }
+</style>
+<main id="main" class="main homework-page">
+    <div class="pagetitle"><h1>Report Card Results</h1><nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'report_card:assessment_detail' assessment.pk %}">{{ assessment.title }}</a></li><li class="breadcrumb-item active">Results</li></ol></nav></div>
+    {% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
+    <div class="page-toolbar d-flex justify-content-between align-items-center gap-3 flex-wrap">
+        <div><h2 class="page-title">Generated Results</h2><p class="page-subtitle">{{ assessment.title }} | {{ assessment.get_status_display }}</p></div>
+        <div class="rc-toolbar-actions">
+            <a class="rc-action-top rc-action-export" href="{% url 'report_card:results_export' assessment.pk %}" title="Export generated results to Excel"><i class="bi bi-file-earmark-excel"></i> Export</a>
+            <form method="post" action="{% url 'report_card:publish_results' assessment.pk %}">{% csrf_token %}<button class="rc-action-top {% if assessment.status == 'PUBLISHED' or assessment.status == 'LOCKED' %}rc-action-published{% else %}rc-action-publish{% endif %}" type="submit" {% if assessment.status == 'PUBLISHED' or assessment.status == 'LOCKED' or not summary.generated or summary.stale %}disabled{% endif %} title="{% if summary.stale %}Regenerate stale results before publishing{% elif not summary.generated %}Generate results before publishing{% else %}Publish generated results{% endif %}"><i class="bi bi-send-check"></i> {% if assessment.status == 'PUBLISHED' or assessment.status == 'LOCKED' %}Published{% else %}Publish{% endif %}</button></form>
+            <form method="post" action="{% url 'report_card:lock_assessment' assessment.pk %}">{% csrf_token %}<button class="rc-action-top {% if assessment.status == 'LOCKED' %}rc-action-locked{% else %}rc-action-lock{% endif %}" type="submit" {% if assessment.status == 'LOCKED' or not summary.generated %}disabled{% endif %} title="{% if assessment.status == 'LOCKED' %}Assessment is already locked{% elif not summary.generated %}Generate results before locking{% else %}Lock this assessment{% endif %}"><i class="bi bi-lock"></i> {% if assessment.status == 'LOCKED' %}Locked{% else %}Lock{% endif %}</button></form>
+        </div>
+    </div>
+    <div class="stat-grid">
+        <div class="stat-card" style="--stat-color:#6042c8; --stat-soft:#f1edff;"><div class="stat-icon"><i class="bi bi-bar-chart"></i></div><div class="stat-number">{{ summary.generated }}</div><div class="stat-label">Generated Results</div></div>
+        <div class="stat-card" style="--stat-color:#16a34a; --stat-soft:#dcfce7;"><div class="stat-icon"><i class="bi bi-check-circle"></i></div><div class="stat-number">{{ summary.passed }}</div><div class="stat-label">Passed</div></div>
+        <div class="stat-card" style="--stat-color:#dc2626; --stat-soft:#fee2e2;"><div class="stat-icon"><i class="bi bi-x-circle"></i></div><div class="stat-number">{{ summary.failed }}</div><div class="stat-label">Failed</div></div>
+        <div class="stat-card" style="--stat-color:#d97706; --stat-soft:#ffedd5;"><div class="stat-icon"><i class="bi bi-exclamation-circle"></i></div><div class="stat-number">{{ summary.stale }}</div><div class="stat-label">Stale Results</div></div>
+    </div>
+    {% if summary.stale %}
+        <div class="rc-warning"><i class="bi bi-exclamation-triangle me-1"></i> Some results are stale. Regenerate results before publishing so students receive the latest marks.</div>
+    {% endif %}
+    <form method="get" class="filter-panel">
+        <div class="row g-3 align-items-end">
+            <div class="col-lg-5 col-md-6">
+                <label class="form-label fw-bold" for="q">Search student</label>
+                <input class="form-control" id="q" name="q" type="search" value="{{ search_query }}" placeholder="Student name or admission number">
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-bold" for="result_status">Result status</label>
+                <select class="form-select" id="result_status" name="result_status">
+                    <option value="">All statuses</option>
+                    {% for value, label in result_status_choices %}
+                        <option value="{{ value }}" {% if filter_result_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label fw-bold" for="stale">Stale</label>
+                <select class="form-select" id="stale" name="stale">
+                    <option value="">All</option>
+                    <option value="yes" {% if filter_stale == 'yes' %}selected{% endif %}>Stale only</option>
+                    <option value="no" {% if filter_stale == 'no' %}selected{% endif %}>Fresh only</option>
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-6 d-flex gap-2">
+                <button class="btn btn-gradient flex-fill" type="submit"><i class="bi bi-search me-1"></i> Filter</button>
+                <a class="btn btn-light border rc-btn" href="{% url 'report_card:results_preview' assessment.pk %}" title="Clear filters"><i class="bi bi-x-lg"></i></a>
+            </div>
+        </div>
+    </form>
+    <div class="table-card">
+        <div class="table-header">
+            <h5><i class="bi bi-list-task me-1"></i> Result Records</h5>
+            <span class="text-muted small">Student-wise totals, grades, rank, and report PDF</span>
+        </div>
+        <div class="table-responsive">
+        <table class="table table-modern mb-0">
+            <thead><tr><th>Rank</th><th>Student</th><th>Admission No.</th><th>Total</th><th>Max</th><th>Percentage</th><th>Grade</th><th>Result</th><th>Stale</th><th class="text-end">PDF</th></tr></thead>
+            <tbody>
+                {% for result in results %}
+                    <tr>
+                        <td>{{ result.rank|default:"-" }}</td>
+                        <td><strong>{{ result.student_name_snapshot }}</strong></td>
+                        <td>{{ result.admission_number_snapshot }}</td>
+                        <td>{{ result.total_obtained }}</td>
+                        <td>{{ result.total_max_marks }}</td>
+                        <td>{{ result.percentage|default:"-" }}</td>
+                        <td>{{ result.grade|default:"-" }}</td>
+                        <td>
+                            <span class="rc-pill {% if result.result_status == 'PASS' %}rc-pill-pass{% elif result.result_status == 'FAIL' %}rc-pill-fail{% elif result.result_status == 'ABSENT' %}rc-pill-absent{% else %}rc-pill-incomplete{% endif %}">{{ result.get_result_status_display }}</span>
+                        </td>
+                        <td>
+                            <span class="rc-pill {% if result.is_stale %}rc-stale-yes{% else %}rc-stale-no{% endif %}">{{ result.is_stale|yesno:"Stale,Fresh" }}</span>
+                        </td>
+                        <td class="text-end"><a class="btn btn-sm btn-outline-primary rc-btn rc-action-btn" href="{% url 'report_card:result_pdf_download' assessment.pk result.pk %}" title="Download PDF report card"><i class="bi bi-file-earmark-pdf me-1"></i> PDF</a></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="10" class="text-center text-muted p-4">No generated results yet. Complete marks entry, then generate results.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</main>
+{% endblock content %}

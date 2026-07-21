@@ -63,21 +63,58 @@ def index(request):
     )
 
 
-def download_android_app(request):
-    configured_path = Path(settings.STUDENT_APP_APK_PATH)
-    apk_path = configured_path
-    if not apk_path.is_file():
-        fallback_path = Path(settings.BASE_DIR) / "static" / "apk" / "UltraCoachMatrix.apk"
-        if fallback_path.is_file():
-            apk_path = fallback_path
+APP_DOWNLOADS = {
+    "student": {
+        "path": Path(settings.BASE_DIR) / "static" / "apk" / "UltraCoachMatrix-Student.apk",
+        "filename": "UltraCoachMatrix-Student.apk",
+    },
+    "teacher": {
+        "path": Path(settings.BASE_DIR) / "static" / "apk" / "UltraCoachMatrix-Teacher.apk",
+        "filename": "UltraCoachMatrix-Teacher.apk",
+    },
+    "partner": {
+        "path": Path(settings.BASE_DIR) / "static" / "apk" / "UltraCoachMatrix-Partner.apk",
+        "filename": "UltraCoachMatrix-Partner.apk",
+    },
+}
+
+
+def _apk_response(apk_path, filename):
     if not apk_path.is_file():
         raise Http404("The Android application is not available.")
     return FileResponse(
         apk_path.open("rb"),
         as_attachment=True,
-        filename="UltraCoachMatrix.apk",
+        filename=filename,
         content_type="application/vnd.android.package-archive",
     )
+
+
+def download_android_app(request):
+    configured_path = Path(settings.STUDENT_APP_APK_PATH)
+    apk_path = configured_path
+    if not apk_path.is_file():
+        apk_path = APP_DOWNLOADS["student"]["path"]
+    if not apk_path.is_file():
+        fallback_path = Path(settings.BASE_DIR) / "static" / "apk" / "UltraCoachMatrix.apk"
+        if fallback_path.is_file():
+            apk_path = fallback_path
+    return _apk_response(apk_path, "UltraCoachMatrix.apk")
+
+
+def download_student_app(request):
+    app = APP_DOWNLOADS["student"]
+    return _apk_response(app["path"], app["filename"])
+
+
+def download_teacher_app(request):
+    app = APP_DOWNLOADS["teacher"]
+    return _apk_response(app["path"], app["filename"])
+
+
+def download_partner_app(request):
+    app = APP_DOWNLOADS["partner"]
+    return _apk_response(app["path"], app["filename"])
 
 
 def contact_us(request):

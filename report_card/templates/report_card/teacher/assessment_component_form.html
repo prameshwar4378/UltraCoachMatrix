@@ -1,0 +1,42 @@
+{% extends "teacher_base.html" %}
+
+{% block title %}{{ page_title }}{% endblock title %}
+
+{% block content %}
+<style>
+    main { --primary:#6042c8; --dark:#442c9f; --light:#f5f3ff; --border:#ddd6fe; }
+    .rc-card { background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 12px 30px rgba(16,24,40,.06); overflow:hidden; }
+    .rc-header { padding:22px; border-bottom:1px solid #e5e7eb; }
+    .rc-body { padding:22px; }
+    .rc-title { margin:0; font-size:1.45rem; font-weight:900; }
+    .rc-help { color:#6b7280; font-weight:700; margin:6px 0 0; }
+    .rc-btn { border-radius:8px; font-weight:800; }
+    .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
+    .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    .form-control, .form-select { border:2px solid var(--border); border-radius:10px; padding:10px 13px; }
+</style>
+<main id="main" class="main">
+    <div class="pagetitle"><h1>Report Cards</h1><nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'report_card:assessment_structure' assessment.pk %}">Structure</a></li><li class="breadcrumb-item active">{{ page_title }}</li></ol></nav></div>
+    {% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
+    <div class="rc-card">
+        <div class="rc-header"><h2 class="rc-title">{{ page_title }}</h2><p class="rc-help">{{ assessment_subject.subject_name_snapshot }} | add columns like Notebook, Practical, Internal, Theory, Sports.</p></div>
+        <form method="post" class="rc-body">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="row g-3">
+                {% for field in form %}
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors|striptags }}</div>{% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <a class="btn btn-light border rc-btn" href="{% url 'report_card:assessment_structure' assessment.pk %}">Cancel</a>
+                <button class="btn btn-gradient" type="submit"><i class="bi bi-check2-circle me-1"></i> Save Column</button>
+            </div>
+        </form>
+    </div>
+</main>
+{% endblock content %}

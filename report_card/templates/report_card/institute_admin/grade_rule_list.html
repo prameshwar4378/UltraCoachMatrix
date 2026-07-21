@@ -1,0 +1,91 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Report Card Grade Rules{% endblock title %}
+
+{% block content %}
+<style>
+    .rc-grade-main { background:#f5f7fb; min-height:calc(100vh - 80px); }
+    .rc-admin-page { --primary:#6042c8; --dark:#442c9f; width:100%; max-width:none; margin:0; color:#0f172a; }
+    .rc-hero { padding:22px 24px; margin-bottom:20px; border-radius:8px; background:#fff; border:1px solid #e2e8f0; box-shadow:0 12px 35px rgba(15,23,42,.07); }
+    .rc-title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; flex-wrap:wrap; }
+    .rc-hero h2 { margin:0 0 7px; font-weight:900; font-size:1.45rem; }
+    .rc-hero p { margin:0; color:#64748b; font-weight:700; max-width:850px; line-height:1.45; word-break:break-word; }
+    .rc-hero .rc-actions { flex:0 0 auto; }
+    .rc-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 12px 35px rgba(15,23,42,.07); overflow: hidden; }
+    .rc-table { margin: 0; }
+    .rc-table th { background: #f8fafc; color: #475569; font-size: .76rem; text-transform: uppercase; white-space: nowrap; }
+    .rc-table td, .rc-table th { padding: 13px 15px; vertical-align: middle; }
+    .rc-pill { display: inline-flex; padding: 7px 10px; border-radius: 999px; background: #f1edff; color: var(--primary); font-size: .78rem; font-weight: 850; }
+    .rc-empty { padding:34px 24px; text-align:center; }
+    .rc-empty-icon { width:54px; height:54px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; background:#f1edff; color:var(--primary); font-size:1.5rem; margin-bottom:12px; }
+    .rc-empty h3 { font-size:1.05rem; font-weight:900; margin:0 0 6px; }
+    .rc-empty p { color:#64748b; font-weight:700; margin:0 auto 16px; max-width:620px; }
+    .rc-example { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:18px; }
+    .rc-example span { border:1px solid #e2e8f0; border-radius:999px; padding:6px 10px; background:#f8fafc; color:#475569; font-weight:800; font-size:.8rem; }
+    .rc-btn { border-radius: 8px; font-weight: 800; }
+    .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
+    .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    @media(max-width: 768px) { .rc-hero { padding:18px; } .rc-hero .rc-actions, .rc-hero .btn { width:100%; } }
+</style>
+
+<main id="main" class="main rc-grade-main">
+<div class="rc-admin-page">
+    <section class="rc-hero">
+        <div class="rc-title-row">
+        <div class="flex-grow-1">
+            <h2>Report Card Grade Rules</h2>
+            <p>Manage default and academic-year-specific percentage ranges for {{ institute.name }}.</p>
+        </div>
+        <div class="rc-actions">
+            <a class="btn btn-gradient" href="{% url 'report_card_admin:grade_rule_create' %}"><i class="bi bi-plus-circle me-1"></i> New Rule</a>
+        </div>
+        </div>
+    </section>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+        {% endfor %}
+    {% endif %}
+
+    <section class="rc-card table-responsive">
+        <table class="table rc-table align-middle">
+            <thead><tr><th>Scope</th><th>Grade</th><th>Range</th><th>Remark</th><th>Order</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+                {% for rule in rules %}
+                    <tr>
+                        <td>{{ rule.academic_year.name|default:"Institute Default" }}</td>
+                        <td><strong>{{ rule.grade }}</strong></td>
+                        <td>{{ rule.min_percentage }}% - {{ rule.max_percentage }}%</td>
+                        <td>{{ rule.remark|default:"-" }}</td>
+                        <td>{{ rule.display_order }}</td>
+                        <td><span class="rc-pill">{{ rule.is_active|yesno:"Active,Inactive" }}</span></td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-secondary rc-btn" href="{% url 'report_card_admin:grade_rule_update' rule.pk %}"><i class="bi bi-pencil"></i></a>
+                            <form class="d-inline" method="post" action="{% url 'report_card_admin:grade_rule_delete' rule.pk %}" onsubmit="return confirm('Delete this grade rule?');">{% csrf_token %}<button class="btn btn-sm btn-outline-danger rc-btn" type="submit"><i class="bi bi-trash"></i></button></form>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7">
+                            <div class="rc-empty">
+                                <div class="rc-empty-icon"><i class="bi bi-award"></i></div>
+                                <h3>No grade rules configured yet</h3>
+                                <p>Add percentage ranges so report-card results can automatically show grades such as A1, A2, B1, and C1 after generation.</p>
+                                <div class="rc-example">
+                                    <span>90-100: A1</span>
+                                    <span>80-89.99: A2</span>
+                                    <span>70-79.99: B1</span>
+                                    <span>60-69.99: B2</span>
+                                </div>
+                                <a class="btn btn-gradient" href="{% url 'report_card_admin:grade_rule_create' %}"><i class="bi bi-plus-circle me-1"></i> Create First Rule</a>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+</main>
+{% endblock content %}

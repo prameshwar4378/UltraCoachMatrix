@@ -1,0 +1,131 @@
+{% extends "teacher_base.html" %}
+
+{% block title %}Assessment Structure{% endblock title %}
+
+{% block content %}
+<style>
+    .homework-page { --primary:#6042c8; --dark:#442c9f; --success:#16a34a; --surface:#fff; --border:#e5e7eb; --muted:#6b7280; --text:#111827; --soft:#f8fafc; }
+    .page-toolbar, .table-card, .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:0 12px 30px rgba(16,24,40,.06); }
+    .page-toolbar { padding:22px 24px; margin-bottom:20px; }
+    .rc-structure-toolbar { border-left:4px solid var(--primary); }
+    .rc-title-stack { display:flex; flex-direction:column; gap:7px; min-width:260px; }
+    .page-title { margin:0; font-size:1.7rem; font-weight:900; color:var(--text); }
+    .page-subtitle { color:var(--muted); font-weight:750; margin:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .rc-status-pill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:#eef2ff; color:#4338ca; font-size:.78rem; font-weight:900; line-height:1; }
+    .rc-toolbar-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+    .rc-toolbar-actions form { margin:0; }
+    .rc-top-action { min-width:150px; height:46px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:0 16px; font-weight:900; line-height:1; white-space:nowrap; box-shadow:0 10px 20px rgba(15,23,42,.08); transition:transform .15s ease, box-shadow .15s ease; text-decoration:none; }
+    .rc-top-action:hover { transform:translateY(-1px); box-shadow:0 14px 26px rgba(15,23,42,.12); text-decoration:none; }
+    .rc-top-primary { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:1px solid var(--dark); }
+    .rc-top-primary:hover { color:#fff; }
+    .rc-top-success { background:#15803d; color:#fff; border:1px solid #166534; }
+    .rc-top-success:hover { color:#fff; background:#166534; }
+    .stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:20px; }
+    .stat-card { padding:18px; border-top:4px solid var(--stat-color); }
+    .stat-icon { width:42px; height:42px; border-radius:8px; background:var(--stat-soft); color:var(--stat-color); display:flex; align-items:center; justify-content:center; font-size:1.2rem; margin-bottom:12px; }
+    .stat-number { color:var(--text); font-size:1.7rem; line-height:1; font-weight:950; }
+    .stat-label { color:var(--muted); font-size:.85rem; font-weight:750; margin-top:8px; }
+    .table-card { overflow:hidden; }
+    .table-header { padding:18px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .table-header h5 { margin:0; font-weight:900; }
+    .table-modern { margin:0; }
+    .table-modern thead th { background:#f8fafc; color:#475467; border-bottom:1px solid var(--border); padding:14px 16px; font-size:.76rem; text-transform:uppercase; letter-spacing:.06em; font-weight:900; white-space:nowrap; }
+    .table-modern tbody td { padding:16px; vertical-align:middle; border-bottom:1px solid #f1f5f9; color:var(--text); }
+    .rc-btn { border-radius:8px; font-weight:800; }
+    .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
+    .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    .rc-component-list { display:flex; flex-direction:column; gap:7px; min-width:220px; }
+    .rc-component { display:flex; justify-content:space-between; gap:12px; border:1px solid #ddd6fe; border-radius:8px; background:#fff; padding:8px 10px; }
+    .rc-component strong { color:#111827; }
+    .rc-component span { color:#475569; font-weight:800; white-space:nowrap; }
+    .rc-badge { display:inline-flex; align-items:center; padding:6px 10px; border-radius:999px; font-size:.76rem; font-weight:850; white-space:nowrap; }
+    .rc-badge-yes { background:#dcfce7; color:#15803d; }
+    .rc-badge-no { background:#f1f5f9; color:#475569; }
+    .rc-open-blocked { display:inline-flex; align-items:center; gap:7px; color:#92400e; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:9px 12px; font-weight:800; }
+    .empty-state { padding:50px 20px; text-align:center; color:var(--muted); font-weight:750; }
+    .rc-empty-icon { width:54px; height:54px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:#f1edff; color:var(--primary); font-size:1.45rem; margin-bottom:14px; }
+    .rc-action-btn { width:36px; height:34px; display:inline-flex; align-items:center; justify-content:center; }
+    @media(max-width: 992px) { .stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media(max-width: 576px) { .stat-grid { grid-template-columns:1fr; } .page-toolbar, .table-header { flex-direction:column; align-items:flex-start !important; } .rc-toolbar-actions, .rc-toolbar-actions form, .rc-top-action { width:100%; } }
+</style>
+<main id="main" class="main homework-page">
+    <div class="pagetitle"><h1>Report Cards</h1><nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'report_card:assessment_detail' assessment.pk %}">{{ assessment.title }}</a></li><li class="breadcrumb-item active">Structure</li></ol></nav></div>
+    {% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
+    <div class="page-toolbar rc-structure-toolbar d-flex justify-content-between align-items-center gap-3 flex-wrap">
+        <div class="rc-title-stack"><h2 class="page-title">Assessment Structure</h2><p class="page-subtitle"><span>{{ assessment.title }}</span><span class="rc-status-pill"><i class="bi bi-circle-fill"></i>{{ assessment.get_status_display }}</span></p></div>
+        <div class="rc-toolbar-actions">
+            {% if can_edit %}<a class="rc-top-action rc-top-primary" href="{% url 'report_card:assessment_subject_create' assessment.pk %}"><i class="bi bi-plus-circle"></i> Add Subject</a>{% endif %}
+            {% if subjects %}
+                <form method="post" action="{% url 'report_card:open_marks_entry' assessment.pk %}">{% csrf_token %}<button class="rc-top-action rc-top-success" type="submit" title="Open marks entry for configured subjects"><i class="bi bi-unlock"></i> Open Marks Entry</button></form>
+            {% else %}
+                <span class="rc-open-blocked" title="Add at least one subject before opening marks entry"><i class="bi bi-info-circle"></i> Add subjects first</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="stat-grid">
+        <div class="stat-card" style="--stat-color:#6042c8; --stat-soft:#f1edff;"><div class="stat-icon"><i class="bi bi-book"></i></div><div class="stat-number">{{ summary.subject_count }}</div><div class="stat-label">Subjects</div></div>
+        <div class="stat-card" style="--stat-color:#2563eb; --stat-soft:#dbeafe;"><div class="stat-icon"><i class="bi bi-calculator"></i></div><div class="stat-number">{{ summary.total_marks }}</div><div class="stat-label">Total Marks</div></div>
+        <div class="stat-card" style="--stat-color:#16a34a; --stat-soft:#dcfce7;"><div class="stat-icon"><i class="bi bi-check-circle"></i></div><div class="stat-number">{{ summary.included_subject_count }}</div><div class="stat-label">Included Subjects</div></div>
+        <div class="stat-card" style="--stat-color:#d97706; --stat-soft:#ffedd5;"><div class="stat-icon"><i class="bi bi-star"></i></div><div class="stat-number">{{ summary.optional_subject_count }}</div><div class="stat-label">Optional Subjects</div></div>
+    </div>
+    <div class="table-card">
+        <div class="table-header">
+            <h5><i class="bi bi-list-task me-1"></i> Subject Structure</h5>
+            <span class="text-muted small">Subject-wise marks columns and result settings</span>
+        </div>
+        <div class="table-responsive">
+        <table class="table table-modern mb-0">
+            <thead><tr><th>Order</th><th>Subject</th><th>Marks Columns</th><th>Subject Total</th><th>Passing</th><th>Optional</th><th>Count In Result</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+                {% for subject in subjects %}
+                    <tr>
+                        <td>{{ subject.display_order }}</td>
+                        <td><strong>{{ subject.subject_name_snapshot }}</strong></td>
+                        <td>
+                            <div class="rc-component-list">
+                            {% for component in subject.components.all %}
+                                <div class="rc-component">
+                                    <strong>{{ component.name_snapshot }}</strong>
+                                    <span>{{ component.max_marks }}</span>
+                                </div>
+                            {% empty %}
+                                <div class="rc-component">
+                                    <strong>Theory Exam</strong>
+                                    <span>{{ subject.max_marks }}</span>
+                                </div>
+                            {% endfor %}
+                            </div>
+                        </td>
+                        <td><strong>{{ subject.max_marks }}</strong></td>
+                        <td>{{ subject.passing_marks }}</td>
+                        <td><span class="rc-badge {% if subject.is_optional %}rc-badge-yes{% else %}rc-badge-no{% endif %}">{{ subject.is_optional|yesno:"Yes,No" }}</span></td>
+                        <td><span class="rc-badge {% if subject.include_in_total %}rc-badge-yes{% else %}rc-badge-no{% endif %}">{{ subject.include_in_total|yesno:"Yes,No" }}</span></td>
+                        <td class="text-end">
+                            {% if can_edit %}
+                                <div class="d-inline-flex gap-1">
+                                    <a class="btn btn-sm btn-outline-secondary rc-btn rc-action-btn" href="{% url 'report_card:assessment_subject_update' assessment.pk subject.pk %}" title="Edit subject structure" aria-label="Edit subject structure"><i class="bi bi-pencil"></i></a>
+                                    <form method="post" action="{% url 'report_card:assessment_subject_delete' assessment.pk subject.pk %}" class="d-inline" onsubmit="return confirm('Remove this subject from the assessment?');">{% csrf_token %}<button class="btn btn-sm btn-outline-danger rc-btn rc-action-btn" type="submit" title="Remove subject" aria-label="Remove subject"><i class="bi bi-trash"></i></button></form>
+                                </div>
+                            {% else %}-{% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <div class="rc-empty-icon"><i class="bi bi-list-check"></i></div>
+                                <h3 class="h5 fw-bold text-dark mb-2">No subjects configured yet</h3>
+                                <p class="mb-3">Add subjects first, then configure theory and additional marks columns inside each subject.</p>
+                                {% if can_edit %}
+                                    <a class="btn btn-gradient" href="{% url 'report_card:assessment_subject_create' assessment.pk %}"><i class="bi bi-plus-circle me-1"></i> Add Subject</a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</main>
+{% endblock content %}

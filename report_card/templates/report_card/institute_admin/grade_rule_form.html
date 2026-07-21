@@ -1,0 +1,49 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}{{ page_title }}{% endblock title %}
+
+{% block content %}
+<style>
+    .rc-grade-main { background:#f5f7fb; min-height:calc(100vh - 80px); }
+    .rc-admin-page { --primary:#6042c8; --dark:#442c9f; --light:#f5f3ff; --border:#ddd6fe; width:100%; max-width:980px; margin:0 auto; color:#0f172a; }
+    .rc-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 12px 35px rgba(15,23,42,.07); }
+    .rc-head { padding: 22px; border-bottom: 1px solid #e2e8f0; }
+    .rc-head h2 { margin: 0 0 6px; font-weight: 900; }
+    .rc-head p { margin: 0; color: #64748b; font-weight: 700; }
+    .rc-body { padding: 22px; }
+    .rc-btn { border-radius: 8px; font-weight: 800; }
+    .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
+    .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    .form-control, .form-select { border:2px solid var(--border); border-radius:10px; padding:10px 13px; }
+    .field-error { margin-top: 6px; color: #dc2626; font-size: .82rem; font-weight: 700; }
+    @media(max-width: 768px) { .rc-body, .rc-head { padding:18px; } }
+</style>
+
+<main id="main" class="main rc-grade-main">
+<div class="rc-admin-page">
+    <section class="rc-card">
+        <div class="rc-head">
+            <h2>{{ page_title }}</h2>
+            <p>Use an empty academic year for institute default rules. Academic-year rules take priority during result generation.</p>
+        </div>
+        <form method="post" class="rc-body">
+            {% csrf_token %}
+            {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+            <div class="row g-3">
+                {% for field in form %}
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% for error in field.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:grade_rule_list' %}">Cancel</a>
+                <button class="btn btn-gradient" type="submit"><i class="bi bi-check2-circle me-1"></i> Save Rule</button>
+            </div>
+        </form>
+    </section>
+</div>
+</main>
+{% endblock content %}

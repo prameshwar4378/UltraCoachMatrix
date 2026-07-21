@@ -10,6 +10,21 @@ urlpatterns = [
         name="apk_download",
     ),
     path(
+        "download/UltraCoachMatrix-Student.apk",
+        views.download_student_app,
+        name="student_app_download",
+    ),
+    path(
+        "download/UltraCoachMatrix-Teacher.apk",
+        views.download_teacher_app,
+        name="teacher_app_download",
+    ),
+    path(
+        "download/UltraCoachMatrix-Partner.apk",
+        views.download_partner_app,
+        name="partner_app_download",
+    ),
+    path(
         "download/ultra-coach-matrix.apk",
         views.download_android_app,
         name="apk_download_legacy",

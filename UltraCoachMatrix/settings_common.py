@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'super_admin',
     'institute_admin',
     'teacher',
+    'report_card',
     'accountant',
     'student_parent',
     'Website',

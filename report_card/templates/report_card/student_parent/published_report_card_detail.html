@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Report Card</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root { --primary:#6042c8; --dark:#442c9f; --border:#e5e7eb; --muted:#6b7280; --text:#111827; }
+        body { color:var(--text); }
+        .rc-report { background:#fff; border:1px solid #dbe3ef; border-radius:8px; box-shadow:0 16px 38px rgba(16,24,40,.08); overflow:hidden; }
+        .rc-header { padding:24px 28px; border-bottom:1px solid #e5e7eb; background:linear-gradient(135deg,#f8fafc,#f5f3ff); }
+        .rc-school { font-size:1.55rem; font-weight:950; margin:0; color:#111827; }
+        .rc-assessment { margin:8px 0 0; color:#475569; font-weight:800; }
+        .rc-badge { display:inline-flex; align-items:center; justify-content:center; min-width:84px; padding:7px 11px; border-radius:999px; font-weight:850; font-size:.8rem; white-space:nowrap; }
+        .rc-badge-pass { background:#dcfce7; color:#15803d; }
+        .rc-badge-fail { background:#fee2e2; color:#b91c1c; }
+        .rc-badge-incomplete { background:#ffedd5; color:#c2410c; }
+        .rc-badge-absent { background:#e5e7eb; color:#374151; }
+        .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:9px 14px; font-weight:800; }
+        .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+        .action-btn { border-radius:8px; font-weight:800; }
+        .rc-body { padding:24px 28px; }
+        .rc-info-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+        .rc-info { border:1px solid #e5e7eb; border-radius:8px; padding:12px 14px; background:#fff; }
+        .rc-info span { display:block; color:#64748b; font-size:.78rem; font-weight:850; text-transform:uppercase; letter-spacing:.03em; }
+        .rc-info strong { display:block; margin-top:4px; color:#111827; font-size:1rem; }
+        .rc-summary { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+        .rc-stat { background:#fff; border:1px solid #e5e7eb; border-top:4px solid var(--stat-color); border-radius:8px; padding:14px; }
+        .rc-stat-icon { width:34px; height:34px; border-radius:8px; background:var(--stat-soft); color:var(--stat-color); display:flex; align-items:center; justify-content:center; font-size:1rem; margin-bottom:10px; }
+        .rc-stat strong { display:block; font-size:1.25rem; color:#111827; }
+        .rc-stat span { color:#6b7280; font-weight:750; font-size:.82rem; }
+        .table-card { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:16px; }
+        .table-header { padding:16px 18px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; background:#fff; }
+        .table-header h2 { font-size:1.05rem; font-weight:950; margin:0; }
+        .rc-table th { background:#f8fafc; color:#475467; border-bottom:1px solid var(--border); font-size:.76rem; text-transform:uppercase; white-space:nowrap; letter-spacing:.06em; font-weight:900; }
+        .rc-table td, .rc-table th { padding: 13px 14px; vertical-align: middle; }
+        .rc-component-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+        .rc-component { display:inline-flex; gap:6px; align-items:center; border:1px solid #ddd6fe; border-radius:999px; padding:5px 9px; background:#f8fafc; color:#475569; font-size:.8rem; font-weight:750; }
+        .rc-component strong { color:#111827; }
+        .grade-pill { display:inline-flex; padding:7px 10px; border-radius:999px; background:#f1edff; color:var(--primary); font-weight:850; font-size:.78rem; }
+        .count-pill { display:inline-flex; padding:6px 9px; border-radius:999px; background:#f1f5f9; color:#475569; font-weight:800; font-size:.78rem; }
+        .count-pill-yes { background:#dcfce7; color:#15803d; }
+        .rc-remark { border:1px solid #bfdbfe; background:#eff6ff; color:#1e40af; border-radius:8px; padding:13px 15px; font-weight:750; }
+        .rc-actions { margin-top:18px; }
+        @media(max-width: 992px) { .rc-summary { grid-template-columns:repeat(2,minmax(0,1fr)); } .rc-info-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+        @media(max-width: 576px) { .rc-summary, .rc-info-grid { grid-template-columns:1fr; } .rc-header, .rc-body { padding:18px; } .table-header { flex-direction:column; align-items:flex-start; } }
+        @media print {
+            body { background:#fff !important; }
+            .rc-actions, .alert, .btn { display:none !important; }
+            main.container { width:100%; max-width:none; padding:0 !important; }
+            .rc-report { border:1px solid #111827; box-shadow:none; border-radius:0; }
+            .rc-header { background:#fff !important; border-bottom:1px solid #111827; }
+            .rc-card, .rc-stat, .rc-info, .table-card { box-shadow:none; break-inside:avoid; }
+            .table-responsive { overflow:visible !important; }
+            .rc-table th { background:#f3f4f6 !important; color:#111827 !important; }
+        }
+    </style>
+</head>
+<body class="bg-light">
+<main class="container py-4">
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+
+    <div class="rc-report">
+        <div class="rc-header">
+            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                <div>
+                    <h1 class="rc-school">{{ assessment.institute_name_snapshot }}</h1>
+                    <div class="rc-assessment">{{ assessment.title }} | {{ assessment.academic_year_name_snapshot }} | {{ assessment.batch_name_snapshot }}</div>
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                    <span class="rc-badge {% if result.result_status == 'PASS' %}rc-badge-pass{% elif result.result_status == 'FAIL' %}rc-badge-fail{% elif result.result_status == 'ABSENT' %}rc-badge-absent{% else %}rc-badge-incomplete{% endif %}">{{ result.get_result_status_display }}</span>
+                    <a class="btn btn-sm btn-gradient" href="{% url 'report_card_student:published_report_card_pdf' result.pk %}"><i class="bi bi-file-earmark-pdf me-1"></i> Download PDF</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="rc-body">
+            <div class="rc-info-grid">
+                <div class="rc-info"><span>Student Name</span><strong>{{ result.student_name_snapshot }}</strong></div>
+                <div class="rc-info"><span>Admission No.</span><strong>{{ result.admission_number_snapshot }}</strong></div>
+                <div class="rc-info"><span>Class / Batch</span><strong>{{ assessment.batch_name_snapshot }}</strong></div>
+                <div class="rc-info"><span>Academic Year</span><strong>{{ assessment.academic_year_name_snapshot }}</strong></div>
+            </div>
+
+            <div class="rc-summary">
+                <div class="rc-stat" style="--stat-color:#6042c8; --stat-soft:#f1edff;"><div class="rc-stat-icon"><i class="bi bi-calculator"></i></div><strong>{{ result.total_obtained }}</strong><span>Total Marks</span></div>
+                <div class="rc-stat" style="--stat-color:#2563eb; --stat-soft:#dbeafe;"><div class="rc-stat-icon"><i class="bi bi-ui-checks"></i></div><strong>{{ result.total_max_marks }}</strong><span>Maximum Marks</span></div>
+                <div class="rc-stat" style="--stat-color:#16a34a; --stat-soft:#dcfce7;"><div class="rc-stat-icon"><i class="bi bi-percent"></i></div><strong>{{ result.percentage|default:"-" }}</strong><span>Percentage</span></div>
+                <div class="rc-stat" style="--stat-color:#d97706; --stat-soft:#ffedd5;"><div class="rc-stat-icon"><i class="bi bi-award"></i></div><strong>{{ result.grade|default:"-" }}</strong><span>Grade</span></div>
+                <div class="rc-stat" style="--stat-color:#7c3aed; --stat-soft:#ede9fe;"><div class="rc-stat-icon"><i class="bi bi-trophy"></i></div><strong>{{ result.rank|default:"-" }}</strong><span>Rank</span></div>
+                <div class="rc-stat" style="--stat-color:#0f766e; --stat-soft:#ccfbf1;"><div class="rc-stat-icon"><i class="bi bi-clipboard-check"></i></div><strong>{{ result.get_result_status_display }}</strong><span>Result</span></div>
+            </div>
+
+            <div class="table-card">
+                <div class="table-header">
+                    <h2><i class="bi bi-list-task me-1"></i> Subject-wise Marks</h2>
+                    <span class="text-muted small">Marks, components, grade, and total contribution</span>
+                </div>
+            <div class="table-responsive">
+                <table class="table rc-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Marks</th>
+                            <th>Max Marks</th>
+                            <th>Percentage</th>
+                            <th>Grade</th>
+                            <th>Absent</th>
+                            <th>Counted</th>
+                            <th>Remark</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in subject_rows %}
+                            <tr>
+                                <td>
+                                    <strong>{{ row.assessment_subject.subject_name_snapshot }}</strong>
+                                    {% if row.component_entries %}
+                                        <div class="rc-component-list">
+                                            {% for component_entry in row.component_entries %}
+                                                <span class="rc-component">
+                                                    <strong>{{ component_entry.component.name_snapshot }}</strong>
+                                                    {% if component_entry.is_absent %}AB{% else %}{{ component_entry.marks_obtained }}/{{ component_entry.component.max_marks }}{% endif %}
+                                                </span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if row.subject_result %}
+                                        {% if row.subject_result.is_absent %}-{% else %}{{ row.subject_result.obtained_marks }}{% endif %}
+                                    {% elif row.mark_entry %}
+                                        {% if row.mark_entry.is_absent %}-{% else %}{{ row.mark_entry.marks_obtained }}{% endif %}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{% if row.subject_result %}{{ row.subject_result.max_marks }}{% else %}{{ row.assessment_subject.max_marks }}{% endif %}</td>
+                                <td>{% if row.subject_result %}{{ row.subject_result.percentage|default:"-" }}{% else %}-{% endif %}</td>
+                                <td><span class="grade-pill">{% if row.subject_result %}{{ row.subject_result.grade|default:"-" }}{% else %}-{% endif %}</span></td>
+                                <td>{% if row.subject_result and row.subject_result.is_absent or row.mark_entry and row.mark_entry.is_absent %}Yes{% else %}No{% endif %}</td>
+                                <td><span class="count-pill {% if row.assessment_subject.include_in_total %}count-pill-yes{% endif %}">{{ row.assessment_subject.include_in_total|yesno:"Yes,No" }}</span></td>
+                                <td>{% if row.subject_result %}{{ row.subject_result.remark|default:"-" }}{% elif row.mark_entry %}{{ row.mark_entry.remark|default:"-" }}{% else %}-{% endif %}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="8" class="text-center text-muted p-4">No subject marks found for this report card.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            </div>
+
+            {% if result.remark %}
+                <div class="rc-remark"><i class="bi bi-info-circle me-1"></i>{{ result.remark }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="rc-actions d-flex gap-2 flex-wrap">
+        <a class="btn btn-light border action-btn" href="{% url 'report_card_student:published_report_cards' %}"><i class="bi bi-arrow-left me-1"></i> Back to Report Cards</a>
+        <a class="btn btn-outline-primary action-btn" href="{% url 'student_parent:exams' %}"><i class="bi bi-laptop me-1"></i> Online Exams</a>
+        <a class="btn btn-gradient action-btn" href="{% url 'report_card_student:published_report_card_pdf' result.pk %}"><i class="bi bi-file-earmark-pdf me-1"></i> Download PDF</a>
+    </div>
+</main>
+</body>
+</html>

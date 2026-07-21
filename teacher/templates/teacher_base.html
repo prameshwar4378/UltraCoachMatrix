@@ -14314,6 +14314,13 @@
         </li>
 
         <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.namespace != 'report_card' %}collapsed{% endif %}" href="{% url 'report_card:assessment_list' %}">
+                <i class="bi bi-journal-check"></i>
+                <span>Report Cards</span>
+            </a>
+        </li>
+
+        <li class="nav-item">
             <a class="nav-link {% if current_url != 'results' %}collapsed{% endif %}" href="{% url 'teacher:results' %}">
                 <i class="bi bi-bar-chart-line"></i>
                 <span>Results</span>

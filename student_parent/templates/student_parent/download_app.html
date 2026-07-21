@@ -11,7 +11,11 @@
         <section class="bg-white border rounded-3 shadow-sm p-4 text-center" style="max-width: 520px;">
             <h1 class="h3 fw-bold">Student access is available on Android</h1>
             <p class="text-muted mb-4">Download the UltraCoachMatrix Android application to view attendance, homework, exams, results, notices, and fee updates.</p>
-            <a class="btn btn-primary mb-4" href="{% url 'apk_download' %}">Download Android application</a>
+            <div class="d-grid gap-2 mb-4">
+                <a class="btn btn-primary" href="{% url 'apk_download' %}">Download Android application</a>
+                <a class="btn btn-outline-primary" href="{% url 'student_parent:exams' %}">Online Exams</a>
+                <a class="btn btn-outline-primary" href="{% url 'report_card_student:published_report_cards' %}">Report Cards</a>
+            </div>
             <form method="post" action="{% url 'logout' %}">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-outline-secondary">Logout</button>
