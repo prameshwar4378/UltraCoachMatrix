@@ -12,8 +12,7 @@
     .rc-toolbar-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
     .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
     .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
-    .rc-grade-rule-btn { height:44px; display:inline-flex; align-items:center; justify-content:center; gap:7px; border:1px solid #d97706; color:#b45309; background:#fffbeb; border-radius:8px; padding:0 15px; font-weight:850; text-decoration:none; white-space:nowrap; }
-    .rc-grade-rule-btn:hover { color:#92400e; background:#fef3c7; transform:translateY(-1px); text-decoration:none; }
+    .rc-readonly-note { display:inline-flex; align-items:center; gap:7px; border:1px solid #dbeafe; color:#1d4ed8; background:#eff6ff; border-radius:8px; padding:10px 14px; font-weight:850; white-space:nowrap; }
     .stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:20px; }
     .stat-card { padding:18px; border-top:4px solid var(--stat-color); }
     .stat-icon { width:42px; height:42px; border-radius:8px; background:var(--stat-soft); color:var(--stat-color); display:flex; align-items:center; justify-content:center; font-size:1.2rem; margin-bottom:12px; }
@@ -52,18 +51,10 @@
     <div class="page-toolbar d-flex justify-content-between align-items-center gap-3 flex-wrap">
         <div>
             <h2 class="page-title">Report Card Planner</h2>
-            <p class="page-subtitle">Create assessment structures, enter subject-wise marks, and publish report cards.</p>
+            <p class="page-subtitle">View admin-created assessments and enter marks for your allocated subjects.</p>
         </div>
         <div class="rc-toolbar-actions">
-            <a class="rc-grade-rule-btn" href="{% url 'report_card_admin:grade_rule_list' %}" title="Manage report-card grade rules">
-                <i class="bi bi-award"></i> Grade Rules
-            </a>
-            <a class="btn btn-gradient"
-               href="{% url 'report_card:assessment_create' %}"
-               data-url="{% url 'report_card:assessment_create' %}"
-               onclick="return openReportCardWindow(this)">
-                <i class="bi bi-plus-circle me-1"></i> New Assessment
-            </a>
+            <span class="rc-readonly-note"><i class="bi bi-shield-check"></i> Assessments managed by institute admin</span>
         </div>
     </div>
 
@@ -144,13 +135,12 @@
                         <td class="text-end">
                             <div class="d-inline-flex gap-1">
                                 <a class="btn btn-sm btn-outline-primary rc-btn rc-action-btn" href="{% url 'report_card:assessment_detail' assessment.pk %}" title="View assessment" aria-label="View assessment"><i class="bi bi-eye"></i></a>
-                                <a class="btn btn-sm btn-outline-secondary rc-btn rc-action-btn" href="{% url 'report_card:assessment_structure' assessment.pk %}" title="Manage structure" aria-label="Manage structure"><i class="bi bi-list-check"></i></a>
                                 {% if assessment.first_assessment_subject %}
                                     <a class="btn btn-sm btn-outline-success rc-btn rc-action-btn" href="{% url 'report_card:marks_entry' assessment.pk assessment.first_assessment_subject.pk %}" title="Enter marks" aria-label="Enter marks"><i class="bi bi-pencil-square"></i></a>
                                 {% else %}
                                     <a class="btn btn-sm btn-outline-success rc-btn rc-action-btn disabled" href="#" title="Add subjects before marks entry" aria-label="Marks unavailable"><i class="bi bi-pencil-square"></i></a>
                                 {% endif %}
-                                <a class="btn btn-sm btn-outline-dark rc-btn rc-action-btn" href="{% url 'report_card:results_preview' assessment.pk %}" title="View results" aria-label="View results"><i class="bi bi-bar-chart"></i></a>
+                                <a class="btn btn-sm btn-outline-info rc-btn rc-action-btn" href="{% url 'report_card:completion_summary' assessment.pk %}" title="View subject completion" aria-label="View subject completion"><i class="bi bi-clipboard-check"></i></a>
                             </div>
                         </td>
                     </tr>
@@ -160,13 +150,7 @@
                             <div class="empty-state">
                                 <div class="rc-empty-icon"><i class="bi bi-journal-check"></i></div>
                                 <h3 class="h5 fw-bold text-dark mb-2">No report card assessments found</h3>
-                                <p class="mb-3">Create an assessment, add subjects, then open marks entry for the assigned class.</p>
-                                <a class="btn btn-gradient"
-                                   href="{% url 'report_card:assessment_create' %}"
-                                   data-url="{% url 'report_card:assessment_create' %}"
-                                   onclick="return openReportCardWindow(this)">
-                                    <i class="bi bi-plus-circle me-1"></i> Create New Assessment
-                                </a>
+                                <p class="mb-0">No admin-created assessment is currently available for your report-card subject allocations.</p>
                             </div>
                         </td>
                     </tr>
@@ -176,37 +160,4 @@
         </div>
     </div>
 </main>
-<script>
-    function openReportCardWindow(element, customWidth = 920, customHeight = 760) {
-        const url = element.dataset.url || element.href;
-        const left = Math.max(0, (window.screen.width - customWidth) / 2);
-        const top = Math.max(0, (window.screen.height - customHeight) / 2);
-        const features = [
-            `width=${customWidth}`,
-            `height=${customHeight}`,
-            `left=${left}`,
-            `top=${top}`,
-            'scrollbars=yes',
-            'resizable=yes',
-            'location=no',
-            'menubar=no',
-            'toolbar=no',
-            'status=no'
-        ].join(',');
-
-        const newWindow = window.open(url, "reportCardAssessmentWindow", features);
-        if (!newWindow) {
-            window.location.href = url;
-            return false;
-        }
-        newWindow.focus();
-        const checkWindow = setInterval(function () {
-            if (newWindow.closed) {
-                clearInterval(checkWindow);
-                window.location.reload();
-            }
-        }, 500);
-        return false;
-    }
-</script>
 {% endblock content %}

@@ -15,6 +15,8 @@ from rest_framework import status
 from rest_framework.views import APIView
 
 from institute_admin.models import Course, NoticeRead, Subject
+from report_card.models import ReportCardAssessment
+from report_card.selectors import get_teacher_accessible_assessments
 from student_parent.notifications import notify_exam_results_declared
 from student_parent.models import StudentAcademicSession, StudentEnrollment
 from ..models import Attendance, Exam, ExamAttempt, ExamQuestion, ExamQuestionAttempt, ExamQuestionOption, ExamResult, Homework, HomeworkAttachment
@@ -117,6 +119,11 @@ class TeacherDashboardAPI(TeacherMobileAPIView):
         marked_count = today_attendance.count()
         attempts_qs = ExamAttempt.objects.filter(exam__in=exam_qs)
         submitted_attempts = attempts_qs.filter(submitted_at__isnull=False)
+        report_card_qs = get_teacher_accessible_assessments(request.user)
+        report_card_status_counts = {
+            status_value: report_card_qs.filter(status=status_value).count()
+            for status_value, _status_label in ReportCardAssessment.Status.choices
+        }
 
         payload = {
             "batch_count": batches.count(),
@@ -141,6 +148,50 @@ class TeacherDashboardAPI(TeacherMobileAPIView):
             "recent_homework": HomeworkSerializer(homework_queryset(request)[:6], many=True).data,
             "recent_exams": ExamSerializer(exam_qs.order_by("exam_date")[:6], many=True).data,
             "recent_results": AttemptSerializer(submitted_attempts_queryset(request)[:6], many=True).data,
+            "report_card_count": report_card_qs.count(),
+            "report_card_marks_entry_open_count": report_card_status_counts.get(ReportCardAssessment.Status.MARKS_ENTRY_OPEN, 0),
+            "report_card_marks_entry_completed_count": report_card_status_counts.get(ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED, 0),
+            "report_card_status_counts": report_card_status_counts,
+            "recent_report_cards": [
+                {
+                    "id": assessment.pk,
+                    "title": assessment.title,
+                    "academic_year": assessment.academic_year_name_snapshot,
+                    "batch_name": assessment.batch_name_snapshot,
+                    "status": assessment.status,
+                    "status_label": assessment.get_status_display(),
+                    "assessment_date": assessment.assessment_date.isoformat() if assessment.assessment_date else None,
+                    "result_date": assessment.result_date.isoformat() if assessment.result_date else None,
+                    "endpoint": f"/api/mobile/report-cards/teacher/assessments/{assessment.pk}/",
+                }
+                for assessment in report_card_qs.order_by("-updated_at", "-id")[:6]
+            ],
+            "quick_actions": [
+                {
+                    "key": "attendance",
+                    "label": "Attendance",
+                    "endpoint": "/api/mobile/teacher/attendance/",
+                    "badge_count": marked_count,
+                },
+                {
+                    "key": "homework",
+                    "label": "Homework",
+                    "endpoint": "/api/mobile/teacher/assignments/",
+                    "badge_count": homework_qs.count(),
+                },
+                {
+                    "key": "online_exams",
+                    "label": "Online Exams",
+                    "endpoint": "/api/mobile/teacher/exams/",
+                    "badge_count": exam_qs.count(),
+                },
+                {
+                    "key": "report_cards",
+                    "label": "Report Cards",
+                    "endpoint": "/api/mobile/report-cards/teacher/assessments/",
+                    "badge_count": report_card_status_counts.get(ReportCardAssessment.Status.MARKS_ENTRY_OPEN, 0),
+                },
+            ],
         }
         return api_response(payload)
 

@@ -128,6 +128,7 @@ def import_marks_workbook(assessment_subject, upload, *, actor=None):
         return {
             "saved_count": 0,
             "errors": [{"row": 1, "errors": [f"Missing column: {header}"]} for header in missing_headers],
+            "warnings": [],
         }
 
     sessions = {
@@ -137,6 +138,7 @@ def import_marks_workbook(assessment_subject, upload, *, actor=None):
     sessions_by_admission = {session.admission_number: session for session in sessions.values()}
     rows = []
     errors = []
+    warnings = []
 
     for row_number, row in enumerate(sheet.iter_rows(min_row=2), start=2):
         raw_session_id = _cell(row, headers, "academic session id")
@@ -148,8 +150,17 @@ def import_marks_workbook(assessment_subject, upload, *, actor=None):
         is_absent = _truthy(_cell(row, headers, "absent"))
         remark = str(_cell(row, headers, "remark") or "").strip()
         row_errors = []
+        missing_fields = []
+        has_any_component_mark = any(value not in (None, "") for value in component_marks.values())
 
-        if not raw_session_id and not raw_admission and raw_marks in (None, "") and not is_absent and not remark:
+        if (
+            not raw_session_id
+            and not raw_admission
+            and raw_marks in (None, "")
+            and not has_any_component_mark
+            and not is_absent
+            and not remark
+        ):
             continue
 
         session = None
@@ -168,7 +179,7 @@ def import_marks_workbook(assessment_subject, upload, *, actor=None):
 
         if not is_absent and not components:
             if raw_marks in (None, ""):
-                row_errors.append("Marks are required unless Absent is Yes.")
+                missing_fields.append("Marks")
             else:
                 try:
                     if float(raw_marks) < 0:
@@ -181,7 +192,7 @@ def import_marks_workbook(assessment_subject, upload, *, actor=None):
             for component in components:
                 raw_component_marks = component_marks.get(component.pk)
                 if raw_component_marks in (None, ""):
-                    row_errors.append(f"{component.name_snapshot} marks are required unless Absent is Yes.")
+                    missing_fields.append(component.name_snapshot or component.name)
                     continue
                 try:
                     if float(raw_component_marks) < 0:
@@ -194,6 +205,16 @@ def import_marks_workbook(assessment_subject, upload, *, actor=None):
         if row_errors:
             errors.append({"row": row_number, "errors": row_errors})
             continue
+        if missing_fields:
+            student_label = raw_admission or str(raw_session_id or f"row {row_number}")
+            warnings.append(
+                {
+                    "row": row_number,
+                    "student": student_label,
+                    "missing_fields": missing_fields,
+                    "message": f"Missing marks kept pending: {', '.join(missing_fields)}.",
+                }
+            )
 
         rows.append(
             {
@@ -206,13 +227,13 @@ def import_marks_workbook(assessment_subject, upload, *, actor=None):
         )
 
     if errors:
-        return {"saved_count": 0, "errors": errors}
+        return {"saved_count": 0, "errors": errors, "warnings": warnings}
 
     try:
         saved_entries = bulk_save_subject_marks(assessment_subject, rows, actor=actor)
     except ValidationError as error:
-        return {"saved_count": 0, "errors": [{"row": None, "errors": getattr(error, "messages", [str(error)])}]}
-    return {"saved_count": len(saved_entries), "errors": []}
+        return {"saved_count": 0, "errors": [{"row": None, "errors": getattr(error, "messages", [str(error)])}], "warnings": warnings}
+    return {"saved_count": len(saved_entries), "errors": [], "warnings": warnings}
 
 
 def consolidated_results_response(assessment):
@@ -340,22 +361,40 @@ def _prepare_pdf_logo(institute, *, max_size=180):
         return None
 
 
-def _build_pdf_stream(stream, *, width=595, height=842, images=None):
-    content = stream.encode("latin-1", errors="replace")
+def _build_pdf_stream(streams, *, width=595, height=842, images=None):
+    if isinstance(streams, str):
+        streams = [streams]
+    contents = [stream.encode("latin-1", errors="replace") for stream in streams]
     images = images or {}
+    page_count = len(contents)
+    page_object_ids = list(range(3, 3 + page_count))
+    font_regular_id = 3 + page_count
+    font_bold_id = font_regular_id + 1
+    first_content_id = font_bold_id + 1
+    first_image_id = first_content_id + page_count
     image_resource = ""
     if images:
         image_resource = " /XObject << " + " ".join(
-            f"/{name} {7 + index} 0 R" for index, name in enumerate(images)
+            f"/{name} {first_image_id + index} 0 R" for index, name in enumerate(images)
         ) + " >>"
+    resources = f"<< /Font << /F1 {font_regular_id} 0 R /F2 {font_bold_id} 0 R >>{image_resource} >>"
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {width} {height}] /Resources << /Font << /F1 4 0 R /F2 5 0 R >>{image_resource} >> /Contents 6 0 R >>".encode(),
+        f"<< /Type /Pages /Kids [{' '.join(f'{page_id} 0 R' for page_id in page_object_ids)}] /Count {page_count} >>".encode(),
+    ]
+    for index, page_id in enumerate(page_object_ids):
+        content_id = first_content_id + index
+        objects.append(
+            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {width} {height}] /Resources {resources} /Contents {content_id} 0 R >>".encode()
+        )
+    objects.extend(
+        [
         b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
         b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
-        b"<< /Length " + str(len(content)).encode() + b" >>\nstream\n" + content + b"endstream",
-    ]
+        ]
+    )
+    for content in contents:
+        objects.append(b"<< /Length " + str(len(content)).encode() + b" >>\nstream\n" + content + b"endstream")
     for image in images.values():
         objects.append(
             (
@@ -404,13 +443,36 @@ def report_card_pdf_response(result, *, download=True):
     logo_image = _prepare_pdf_logo(institute)
     pdf_images = {"Im1": logo_image} if logo_image else {}
 
-    stream = ""
     width = 595
     height = 842
     margin = 32
+    table_x = margin
+    table_w = width - (margin * 2)
+    columns = [("Subject", 145), ("Components / Marks", 165), ("Total", 64), ("Max", 56), ("%", 47), ("Grade", 54)]
+    table_header_height = 26
+    pages = []
+    stream = ""
     y = height - 32
 
-    stream += _pdf_rect(margin, 30, width - (margin * 2), height - 60, stroke="111827", line_width=1.4)
+    def page_base(page_number):
+        base = _pdf_rect(margin, 30, width - (margin * 2), height - 60, stroke="111827", line_width=1.4)
+        base += _pdf_text(margin, 48, "This is a computer-generated report card. Verify school seal/signature where required.", size=7.5, color="64748B")
+        base += _pdf_text(width - 174, 48, "Powered by UltraCoachMatrix", size=7.5, color="64748B")
+        if page_number > 1:
+            base += _pdf_text(width - margin - 44, 34, f"Page {page_number}", size=7.2, color="64748B")
+        return base
+
+    def draw_table_header(current_stream, current_y):
+        current_stream += _pdf_rect(table_x, current_y - table_header_height, table_w, table_header_height, stroke="CBD5E1", fill="EEF2FF")
+        x_pos = table_x
+        for title, col_w in columns:
+            current_stream += _pdf_text(x_pos + 8, current_y - 17, title, size=7.4, bold=True, color="334155")
+            if x_pos > table_x:
+                current_stream += _pdf_line(x_pos, current_y, x_pos, current_y - table_header_height, color="CBD5E1")
+            x_pos += col_w
+        return current_stream, current_y - table_header_height
+
+    stream += page_base(1)
     header_height = 132
     header_bottom = y - header_height
     logo_x = margin + 18
@@ -474,18 +536,18 @@ def report_card_pdf_response(result, *, download=True):
     y -= 72
     stream += _pdf_text(margin, y, "SUBJECT-WISE PERFORMANCE", size=10, bold=True, color="111827")
     y -= 15
-    table_x = margin
-    table_w = width - (margin * 2)
-    columns = [("Subject", 145), ("Components / Marks", 165), ("Total", 64), ("Max", 56), ("%", 47), ("Grade", 54)]
-    row_h = 26
-    stream += _pdf_rect(table_x, y - row_h, table_w, row_h, stroke="CBD5E1", fill="EEF2FF")
-    x = table_x
-    for title, col_w in columns:
-        stream += _pdf_text(x + 8, y - 17, title, size=7.4, bold=True, color="334155")
-        if x > table_x:
-            stream += _pdf_line(x, y, x, y - row_h, color="CBD5E1")
-        x += col_w
-    y -= row_h
+    stream, y = draw_table_header(stream, y)
+
+    def start_continued_subject_page():
+        page_number = len(pages) + 2
+        current_stream = page_base(page_number)
+        current_y = height - 58
+        current_stream += _pdf_text(margin, current_y, institute_name, size=9.4, bold=True, color="111827")
+        current_stream += _pdf_text(margin, current_y - 14, f"{assessment.title} | {result.student_name_snapshot} | {result.admission_number_snapshot}", size=8.2, color="475569")
+        current_y -= 34
+        current_stream += _pdf_text(margin, current_y, "SUBJECT-WISE PERFORMANCE CONTINUED", size=10, bold=True, color="111827")
+        current_y -= 15
+        return draw_table_header(current_stream, current_y)
 
     for index, row in enumerate(subject_rows, start=1):
         subject = row["assessment_subject"]
@@ -504,10 +566,10 @@ def report_card_pdf_response(result, *, download=True):
         grade = subject_result.grade if subject_result else "-"
 
         wrapped_components = wrap(component_text, width=50) or [component_text]
-        row_height = max(30, 16 + (min(len(wrapped_components), 3) * 8))
-        if y - row_height < 170:
-            stream += _pdf_text(margin, 58, "Continued on next page is not supported in this compact PDF. Use Excel export for full long-format records.", size=8, color="B45309")
-            break
+        row_height = max(30, 16 + (len(wrapped_components) * 8))
+        if y - row_height < 76:
+            pages.append(stream)
+            stream, y = start_continued_subject_page()
         stream += _pdf_rect(table_x, y - row_height, table_w, row_height, stroke="E5E7EB", fill="FFFFFF" if index % 2 else "F8FAFC")
         x = table_x
         for _, col_w in columns:
@@ -516,7 +578,7 @@ def report_card_pdf_response(result, *, download=True):
             x += col_w
         stream += _pdf_text(table_x + 8, y - 17, subject.subject_name_snapshot, size=8.3, bold=True)
         component_y = y - 16
-        for component_line in wrapped_components[:3]:
+        for component_line in wrapped_components:
             stream += _pdf_text(table_x + 153, component_y, component_line, size=6.4, color="475569")
             component_y -= 8
         stream += _pdf_text(table_x + 318, y - 17, _display(marks), size=8.2, bold=True)
@@ -524,6 +586,16 @@ def report_card_pdf_response(result, *, download=True):
         stream += _pdf_text(table_x + 438, y - 17, _display(percentage), size=8.2)
         stream += _pdf_text(table_x + 485, y - 17, _display(grade), size=8.2, bold=True, color="6042C8")
         y -= row_height
+
+    summary_required_height = 168
+    if y - summary_required_height < 76:
+        pages.append(stream)
+        page_number = len(pages) + 1
+        stream = page_base(page_number)
+        y = height - 70
+        stream += _pdf_text(margin, y, institute_name, size=9.4, bold=True, color="111827")
+        stream += _pdf_text(margin, y - 14, f"{assessment.title} | {result.student_name_snapshot} | {result.admission_number_snapshot}", size=8.2, color="475569")
+        y -= 42
 
     y -= 18
     box_width = (width - (margin * 2) - 20) / 3
@@ -551,10 +623,9 @@ def report_card_pdf_response(result, *, download=True):
         stream += _pdf_line(width - margin - 145, y, width - margin, y, color="111827")
         stream += _pdf_text(margin + 28, y - 15, "Class Teacher", size=8, color="475569")
         stream += _pdf_text(width - margin - 112, y - 15, "Principal / Director", size=8, color="475569")
-    stream += _pdf_text(margin, 48, "This is a computer-generated report card. Verify school seal/signature where required.", size=7.5, color="64748B")
-    stream += _pdf_text(width - 174, 48, "Powered by UltraCoachMatrix", size=7.5, color="64748B")
+    pages.append(stream)
 
-    response = HttpResponse(_build_pdf_stream(stream, images=pdf_images), content_type="application/pdf")
+    response = HttpResponse(_build_pdf_stream(pages, images=pdf_images), content_type="application/pdf")
     disposition = "attachment" if download else "inline"
     filename = f"report-card-{_safe_filename(result.admission_number_snapshot)}-{_safe_filename(assessment.title)}.pdf"
     response["Content-Disposition"] = f'{disposition}; filename="{filename}"'

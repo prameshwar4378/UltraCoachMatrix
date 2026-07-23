@@ -15,6 +15,7 @@ from .models import (
     ReportCardComponentMarkEntry,
     ReportCardMarkEntry,
     ReportCardStudentResult,
+    ReportCardTeacherSubjectAllocation,
 )
 
 
@@ -111,6 +112,105 @@ def get_available_subjects(institute, academic_year=None):
     if academic_year:
         subjects = subjects.filter(academic_year=academic_year)
     return subjects.order_by("academic_year__start_date", "name")
+
+
+def get_teacher_report_card_allocations(user, academic_year=None):
+    institute = get_teacher_institute(user)
+    if not user or not institute:
+        return ReportCardTeacherSubjectAllocation.objects.none()
+
+    allocations = (
+        ReportCardTeacherSubjectAllocation.objects.filter(
+            institute=institute,
+            teacher=user,
+            is_active=True,
+        )
+        .select_related("institute", "academic_year", "batch", "subject", "teacher")
+    )
+    if academic_year:
+        allocations = allocations.filter(academic_year=academic_year)
+    return allocations.order_by("academic_year__start_date", "batch__name", "subject__name")
+
+
+def teacher_has_subject_allocation(user, assessment_subject):
+    if not user or not assessment_subject:
+        return False
+    assessment = assessment_subject.assessment
+    return get_teacher_report_card_allocations(user, academic_year=assessment.academic_year).filter(
+        institute=assessment.institute,
+        batch=assessment.batch,
+        subject=assessment_subject.subject,
+    ).exists()
+
+
+def get_teacher_allocated_batches(user, academic_year=None):
+    allocations = get_teacher_report_card_allocations(user, academic_year=academic_year)
+    return (
+        Batch.objects.filter(report_card_teacher_subject_allocations__in=allocations, is_active=True)
+        .select_related("institute", "academic_year")
+        .distinct()
+        .order_by("academic_year__start_date", "name")
+    )
+
+
+def get_teacher_allocated_subjects(user, batch=None, academic_year=None):
+    allocations = get_teacher_report_card_allocations(user, academic_year=academic_year)
+    if batch:
+        allocations = allocations.filter(batch=batch)
+    return (
+        Subject.objects.filter(report_card_teacher_subject_allocations__in=allocations, is_active=True)
+        .select_related("institute", "academic_year")
+        .distinct()
+        .order_by("academic_year__start_date", "name")
+    )
+
+
+def get_teacher_accessible_assessment_subjects(user, assessment):
+    if not user or not assessment:
+        return ReportCardAssessmentSubject.objects.none()
+    allocations = get_teacher_report_card_allocations(user, academic_year=assessment.academic_year).filter(
+        institute=assessment.institute,
+        batch=assessment.batch,
+    )
+    return (
+        ReportCardAssessmentSubject.objects.filter(
+            assessment=assessment,
+            subject__in=allocations.values("subject"),
+        )
+        .select_related("assessment", "subject")
+        .prefetch_related("components")
+        .order_by("display_order", "subject_name_snapshot", "id")
+    )
+
+
+def get_teacher_accessible_assessments(user, academic_year=None):
+    allocations = get_teacher_report_card_allocations(user, academic_year=academic_year)
+    if not allocations.exists():
+        return ReportCardAssessment.objects.none()
+
+    assessments = (
+        ReportCardAssessment.objects.filter(
+            institute__in=allocations.values("institute"),
+            academic_year__in=allocations.values("academic_year"),
+            batch__in=allocations.values("batch"),
+            assessment_subjects__subject__in=allocations.values("subject"),
+        )
+        .select_related("institute", "academic_year", "batch", "created_by")
+        .prefetch_related(
+            Prefetch(
+                "assessment_subjects",
+                queryset=ReportCardAssessmentSubject.objects.select_related("subject").order_by(
+                    "display_order",
+                    "subject_name_snapshot",
+                    "id",
+                ).prefetch_related("components"),
+            )
+        )
+        .distinct()
+    )
+    if academic_year:
+        assessments = assessments.filter(academic_year=academic_year)
+    return assessments.order_by("-created_at", "title")
 
 
 def get_assessments_for_teacher(user, academic_year=None):
@@ -224,7 +324,7 @@ def get_marks_grid(assessment_subject):
     ]
 
 
-def get_completion_summary(assessment):
+def get_completion_summary(assessment, assessment_subjects=None):
     if not assessment:
         return {
             "assessment": None,
@@ -240,7 +340,7 @@ def get_completion_summary(assessment):
 
     sessions = list(get_active_student_sessions_for_assessment(assessment))
     session_ids = [session.pk for session in sessions]
-    subjects = list(get_assessment_subjects(assessment))
+    subjects = list(assessment_subjects) if assessment_subjects is not None else list(get_assessment_subjects(assessment))
     subject_ids = [subject.pk for subject in subjects]
     components_by_subject = {
         subject.pk: list(subject.components.all())

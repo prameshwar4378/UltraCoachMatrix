@@ -12,6 +12,7 @@ from .models import (
     ReportCardMarkEntry,
     ReportCardStudentResult,
     ReportCardSubjectResult,
+    ReportCardTeacherSubjectAllocation,
 )
 
 
@@ -346,3 +347,30 @@ class ReportCardAuditLogAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+@admin.register(ReportCardTeacherSubjectAllocation)
+class ReportCardTeacherSubjectAllocationAdmin(admin.ModelAdmin):
+    list_display = (
+        "teacher",
+        "institute",
+        "academic_year",
+        "batch",
+        "subject",
+        "is_active",
+        "created_by",
+        "created_at",
+    )
+    list_filter = ("institute", "academic_year", "batch", "subject", "is_active", "created_at")
+    search_fields = (
+        "teacher__username",
+        "teacher__first_name",
+        "teacher__last_name",
+        "batch__name",
+        "subject__name",
+        "academic_year__name",
+        "institute__name",
+    )
+    raw_id_fields = ("institute", "academic_year", "batch", "subject", "teacher", "created_by")
+    readonly_fields = ("created_at", "updated_at")
+    date_hierarchy = "created_at"

@@ -1,0 +1,120 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Teacher Subject Allocations{% endblock title %}
+
+{% block content %}
+<style>
+    .rc-grade-main { background:#f5f7fb; min-height:calc(100vh - 80px); }
+    .rc-admin-page { --primary:#6042c8; --dark:#442c9f; width:100%; max-width:none; margin:0; color:#0f172a; }
+    .rc-hero, .rc-filter, .rc-card { background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 12px 35px rgba(15,23,42,.07); }
+    .rc-hero { padding:22px 24px; margin-bottom:18px; }
+    .rc-title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; flex-wrap:wrap; }
+    .rc-hero h2 { margin:0 0 7px; font-weight:900; font-size:1.45rem; }
+    .rc-hero p { margin:0; color:#64748b; font-weight:700; max-width:860px; line-height:1.45; }
+    .rc-filter { padding:16px; margin-bottom:18px; }
+    .rc-card { overflow:hidden; }
+    .rc-table { margin:0; }
+    .rc-table th { background:#f8fafc; color:#475569; font-size:.76rem; text-transform:uppercase; white-space:nowrap; }
+    .rc-table td, .rc-table th { padding:13px 15px; vertical-align:middle; }
+    .rc-pill { display:inline-flex; padding:7px 10px; border-radius:999px; background:#f1edff; color:var(--primary); font-size:.78rem; font-weight:850; }
+    .rc-pill-inactive { background:#fee2e2; color:#b91c1c; }
+    .rc-btn { border-radius:8px; font-weight:800; }
+    .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
+    .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    .rc-empty { padding:34px 24px; text-align:center; color:#64748b; font-weight:750; }
+    @media(max-width:768px){ .rc-hero .btn, .rc-filter .btn { width:100%; } }
+</style>
+
+<main id="main" class="main rc-grade-main">
+<div class="rc-admin-page">
+    <section class="rc-hero">
+        <div class="rc-title-row">
+            <div>
+                <h2>Teacher Subject Allocations</h2>
+                <p>Assign teachers to class-subject combinations once for the academic year. Report-card marks entry will use these allocations.</p>
+            </div>
+            <a class="btn btn-gradient" href="{% url 'report_card_admin:allocation_create' %}"><i class="bi bi-plus-circle me-1"></i> New Allocation</a>
+        </div>
+    </section>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+        {% endfor %}
+    {% endif %}
+
+    <form class="rc-filter" method="get">
+        <div class="row g-2 align-items-end">
+            <div class="col-lg-2 col-md-4">
+                <label class="form-label fw-bold">Academic year</label>
+                <select class="form-select" name="academic_year">
+                    <option value="">All years</option>
+                    {% for year in academic_years %}<option value="{{ year.pk }}" {% if filter_academic_year == year.pk|stringformat:"s" %}selected{% endif %}>{{ year.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-4">
+                <label class="form-label fw-bold">Teacher</label>
+                <select class="form-select" name="teacher">
+                    <option value="">All teachers</option>
+                    {% for teacher in teachers %}<option value="{{ teacher.pk }}" {% if filter_teacher == teacher.pk|stringformat:"s" %}selected{% endif %}>{{ teacher.get_full_name|default:teacher.username }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-4">
+                <label class="form-label fw-bold">Class / batch</label>
+                <select class="form-select" name="batch">
+                    <option value="">All batches</option>
+                    {% for batch in batches %}<option value="{{ batch.pk }}" {% if filter_batch == batch.pk|stringformat:"s" %}selected{% endif %}>{{ batch.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-4">
+                <label class="form-label fw-bold">Subject</label>
+                <select class="form-select" name="subject">
+                    <option value="">All subjects</option>
+                    {% for subject in subjects %}<option value="{{ subject.pk }}" {% if filter_subject == subject.pk|stringformat:"s" %}selected{% endif %}>{{ subject.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-4">
+                <label class="form-label fw-bold">Status</label>
+                <select class="form-select" name="status">
+                    <option value="">All</option>
+                    <option value="active" {% if filter_status == "active" %}selected{% endif %}>Active</option>
+                    <option value="inactive" {% if filter_status == "inactive" %}selected{% endif %}>Inactive</option>
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-4">
+                <label class="form-label fw-bold">Search</label>
+                <input class="form-control" type="search" name="q" value="{{ search_query }}" placeholder="Teacher, batch, subject">
+            </div>
+            <div class="col-12 d-flex justify-content-end gap-2">
+                <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:allocation_list' %}">Reset</a>
+                <button class="btn btn-gradient" type="submit"><i class="bi bi-funnel me-1"></i> Filter</button>
+            </div>
+        </div>
+    </form>
+
+    <section class="rc-card table-responsive">
+        <table class="table rc-table align-middle">
+            <thead><tr><th>Teacher</th><th>Academic Year</th><th>Class / Batch</th><th>Subject</th><th>Status</th><th>Created By</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+                {% for allocation in allocations %}
+                    <tr>
+                        <td><strong>{{ allocation.teacher.get_full_name|default:allocation.teacher.username }}</strong></td>
+                        <td>{{ allocation.academic_year.name }}</td>
+                        <td>{{ allocation.batch.name }}</td>
+                        <td>{{ allocation.subject.name }}</td>
+                        <td><span class="rc-pill {% if not allocation.is_active %}rc-pill-inactive{% endif %}">{{ allocation.is_active|yesno:"Active,Inactive" }}</span></td>
+                        <td>{{ allocation.created_by.get_full_name|default:allocation.created_by.username|default:"-" }}</td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-secondary rc-btn" href="{% url 'report_card_admin:allocation_update' allocation.pk %}"><i class="bi bi-pencil"></i></a>
+                            <form class="d-inline" method="post" action="{% url 'report_card_admin:allocation_delete' allocation.pk %}" onsubmit="return confirm('Delete this teacher subject allocation?');">{% csrf_token %}<button class="btn btn-sm btn-outline-danger rc-btn" type="submit"><i class="bi bi-trash"></i></button></form>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7"><div class="rc-empty">No teacher subject allocations found. Create the first allocation to control report-card marks entry.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+</main>
+{% endblock content %}

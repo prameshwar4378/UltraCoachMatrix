@@ -11,6 +11,20 @@
     .rc-hero h2 { margin:0 0 7px; font-weight:900; font-size:1.45rem; }
     .rc-hero p { margin:0; color:#64748b; font-weight:700; max-width:850px; line-height:1.45; word-break:break-word; }
     .rc-hero .rc-actions { flex:0 0 auto; }
+    .rc-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+    .rc-default-panel { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-bottom:20px; }
+    .rc-default-card { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:16px; box-shadow:0 12px 35px rgba(15,23,42,.07); }
+    .rc-default-card h5 { font-weight:900; margin:0 0 6px; }
+    .rc-default-card p { color:#64748b; font-weight:700; margin:0 0 12px; line-height:1.45; }
+    .rc-inline-form { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .rc-inline-form .form-select { min-width:240px; }
+    .rc-warning { border:1px solid #fde68a; background:#fffbeb; color:#92400e; border-radius:8px; padding:12px 14px; font-weight:800; margin-bottom:14px; }
+    .rc-risk { border:1px solid #fecaca; background:#fff7f7; color:#991b1b; border-radius:8px; padding:14px; margin-bottom:20px; }
+    .rc-risk h5 { margin:0 0 8px; font-weight:900; }
+    .rc-risk-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:10px; }
+    .rc-risk-item { background:#fff; border:1px solid #fecaca; border-radius:8px; padding:10px 12px; }
+    .rc-risk-item strong { display:block; color:#7f1d1d; }
+    .rc-risk-item span { color:#64748b; font-size:.84rem; font-weight:750; }
     .rc-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 12px 35px rgba(15,23,42,.07); overflow: hidden; }
     .rc-table { margin: 0; }
     .rc-table th { background: #f8fafc; color: #475569; font-size: .76rem; text-transform: uppercase; white-space: nowrap; }
@@ -25,7 +39,8 @@
     .rc-btn { border-radius: 8px; font-weight: 800; }
     .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
     .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
-    @media(max-width: 768px) { .rc-hero { padding:18px; } .rc-hero .rc-actions, .rc-hero .btn { width:100%; } }
+    @media(max-width: 992px) { .rc-default-panel, .rc-risk-list { grid-template-columns:1fr; } }
+    @media(max-width: 768px) { .rc-hero { padding:18px; } .rc-hero .rc-actions, .rc-hero .btn, .rc-inline-form .form-select { width:100%; } }
 </style>
 
 <main id="main" class="main rc-grade-main">
@@ -47,6 +62,55 @@
             <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
         {% endfor %}
     {% endif %}
+
+    {% if has_active_default_rules %}
+        <div class="rc-warning"><i class="bi bi-exclamation-triangle me-1"></i> Active institute-default grade rules already exist. Create Default Rules is protected and will not add duplicate active ranges unless existing rules are edited or deleted first.</div>
+    {% endif %}
+
+    {% if blank_grade_assessments %}
+        <section class="rc-risk">
+            <h5><i class="bi bi-award me-1"></i> Assessments That May Generate Blank Grades</h5>
+            <div>These assessments do not have active academic-year rules or institute-default rules available. Marks can still generate, but grade fields may remain blank.</div>
+            <div class="rc-risk-list">
+                {% for assessment in blank_grade_assessments %}
+                    <div class="rc-risk-item">
+                        <strong>{{ assessment.title }}</strong>
+                        <span>{{ assessment.batch_name_snapshot }} | {{ assessment.academic_year_name_snapshot }} | {{ assessment.get_status_display }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+
+    <section class="rc-default-panel">
+        <div class="rc-default-card">
+            <h5>Institute Default Rules</h5>
+            <p>Create reusable default grade ranges for all academic years without their own rules.</p>
+            {% if has_active_default_rules %}
+                <div class="rc-warning mb-2">Defaults already exist for this institute.</div>
+            {% endif %}
+            <form method="post" action="{% url 'report_card_admin:grade_rule_create_defaults' %}">
+                {% csrf_token %}
+                <input type="hidden" name="scope" value="default">
+                <button class="btn btn-outline-primary rc-btn" type="submit" onclick="return confirm('Create institute default grade rules? Existing active defaults will be protected.');"><i class="bi bi-stars me-1"></i> Create Default Rules</button>
+            </form>
+        </div>
+        <div class="rc-default-card">
+            <h5>Academic-Year Rules</h5>
+            <p>Create a separate default set for one academic year. These rules take priority during result generation.</p>
+            <form class="rc-inline-form" method="post" action="{% url 'report_card_admin:grade_rule_create_defaults' %}">
+                {% csrf_token %}
+                <input type="hidden" name="scope" value="academic_year">
+                <select class="form-select" name="academic_year_id" required>
+                    <option value="">Select academic year</option>
+                    {% for year in academic_years %}
+                        <option value="{{ year.pk }}">{{ year.name }}{% if year.pk in academic_years_with_active_rules %} - active rules exist{% endif %}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn btn-outline-primary rc-btn" type="submit" onclick="return confirm('Create default grade rules for the selected academic year? Existing active rules for that year will be protected.');"><i class="bi bi-calendar-plus me-1"></i> Create Year Rules</button>
+            </form>
+        </div>
+    </section>
 
     <section class="rc-card table-responsive">
         <table class="table rc-table align-middle">
@@ -78,7 +142,10 @@
                                     <span>70-79.99: B1</span>
                                     <span>60-69.99: B2</span>
                                 </div>
-                                <a class="btn btn-gradient" href="{% url 'report_card_admin:grade_rule_create' %}"><i class="bi bi-plus-circle me-1"></i> Create First Rule</a>
+                                <form class="d-inline" method="post" action="{% url 'report_card_admin:grade_rule_create_defaults' %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-gradient" type="submit"><i class="bi bi-stars me-1"></i> Create {{ default_rule_count }} Default Rules</button>
+                                </form>
                             </div>
                         </td>
                     </tr>

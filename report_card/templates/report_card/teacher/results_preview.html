@@ -1,4 +1,4 @@
-{% extends "teacher_base.html" %}
+{% extends base_template|default:"teacher_base.html" %}
 
 {% block title %}Report Card Results{% endblock title %}
 
@@ -66,16 +66,26 @@
     @media(max-width: 576px) { .stat-grid { grid-template-columns:1fr; } .page-toolbar, .table-header { flex-direction:column; align-items:flex-start !important; } .rc-toolbar-actions, .rc-toolbar-actions form, .rc-action-top { width:100%; } }
 </style>
 <main id="main" class="main homework-page">
-    <div class="pagetitle"><h1>Report Card Results</h1><nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'report_card:assessment_detail' assessment.pk %}">{{ assessment.title }}</a></li><li class="breadcrumb-item active">Results</li></ol></nav></div>
+    <div class="pagetitle"><h1>Report Card Results</h1><nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% if admin_mode %}{% url 'report_card_admin:assessment_detail' assessment.pk %}{% else %}{% url 'report_card:assessment_detail' assessment.pk %}{% endif %}">{{ assessment.title }}</a></li><li class="breadcrumb-item active">Results</li></ol></nav></div>
     {% if messages %}{% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endif %}
     <div class="page-toolbar d-flex justify-content-between align-items-center gap-3 flex-wrap">
         <div><h2 class="page-title">Generated Results</h2><p class="page-subtitle">{{ assessment.title }} | {{ assessment.get_status_display }}</p></div>
         <div class="rc-toolbar-actions">
-            <a class="rc-action-top rc-action-export" href="{% url 'report_card:results_export' assessment.pk %}" title="Export generated results to Excel"><i class="bi bi-file-earmark-excel"></i> Export</a>
-            <form method="post" action="{% url 'report_card:publish_results' assessment.pk %}">{% csrf_token %}<button class="rc-action-top {% if assessment.status == 'PUBLISHED' or assessment.status == 'LOCKED' %}rc-action-published{% else %}rc-action-publish{% endif %}" type="submit" {% if assessment.status == 'PUBLISHED' or assessment.status == 'LOCKED' or not summary.generated or summary.stale %}disabled{% endif %} title="{% if summary.stale %}Regenerate stale results before publishing{% elif not summary.generated %}Generate results before publishing{% else %}Publish generated results{% endif %}"><i class="bi bi-send-check"></i> {% if assessment.status == 'PUBLISHED' or assessment.status == 'LOCKED' %}Published{% else %}Publish{% endif %}</button></form>
-            <form method="post" action="{% url 'report_card:lock_assessment' assessment.pk %}">{% csrf_token %}<button class="rc-action-top {% if assessment.status == 'LOCKED' %}rc-action-locked{% else %}rc-action-lock{% endif %}" type="submit" {% if assessment.status == 'LOCKED' or not summary.generated %}disabled{% endif %} title="{% if assessment.status == 'LOCKED' %}Assessment is already locked{% elif not summary.generated %}Generate results before locking{% else %}Lock this assessment{% endif %}"><i class="bi bi-lock"></i> {% if assessment.status == 'LOCKED' %}Locked{% else %}Lock{% endif %}</button></form>
+            {% if admin_mode %}
+                <form method="post" action="{% url 'report_card_admin:generate_results' assessment.pk %}">{% csrf_token %}<button class="rc-action-top rc-action-publish" type="submit" {% if assessment.status == 'PUBLISHED' or assessment.status == 'LOCKED' %}disabled{% endif %}><i class="bi bi-magic"></i> Generate</button></form>
+                <a class="rc-action-top rc-action-export" href="{% url 'report_card_admin:results_export' assessment.pk %}" title="Export generated results to Excel"><i class="bi bi-file-earmark-excel"></i> Export</a>
+                <form method="post" action="{% url 'report_card_admin:publish_results' assessment.pk %}">{% csrf_token %}<button class="rc-action-top {% if assessment.status == 'PUBLISHED' or assessment.status == 'LOCKED' %}rc-action-published{% else %}rc-action-publish{% endif %}" type="submit" {% if assessment.status == 'PUBLISHED' or assessment.status == 'LOCKED' or not summary.generated or summary.stale %}disabled{% endif %} title="{% if summary.stale %}Regenerate stale results before publishing{% elif not summary.generated %}Generate results before publishing{% else %}Publish generated results{% endif %}"><i class="bi bi-send-check"></i> {% if assessment.status == 'PUBLISHED' or assessment.status == 'LOCKED' %}Published{% else %}Publish{% endif %}</button></form>
+                <form method="post" action="{% url 'report_card_admin:lock_assessment' assessment.pk %}">{% csrf_token %}<button class="rc-action-top {% if assessment.status == 'LOCKED' %}rc-action-locked{% else %}rc-action-lock{% endif %}" type="submit" {% if assessment.status != 'PUBLISHED' %}disabled{% endif %} title="{% if assessment.status == 'LOCKED' %}Assessment is already locked{% elif assessment.status != 'PUBLISHED' %}Publish results before locking{% else %}Lock this assessment{% endif %}"><i class="bi bi-lock"></i> {% if assessment.status == 'LOCKED' %}Locked{% else %}Lock{% endif %}</button></form>
+            {% else %}
+                <a class="rc-action-top rc-action-export" href="{% url 'report_card:results_export' assessment.pk %}" title="Export generated results to Excel"><i class="bi bi-file-earmark-excel"></i> Export</a>
+            {% endif %}
         </div>
     </div>
+    {% if warning_messages %}
+        {% for warning in warning_messages %}
+            <div class="rc-warning"><i class="bi bi-exclamation-triangle me-1"></i>{{ warning }}</div>
+        {% endfor %}
+    {% endif %}
     <div class="stat-grid">
         <div class="stat-card" style="--stat-color:#6042c8; --stat-soft:#f1edff;"><div class="stat-icon"><i class="bi bi-bar-chart"></i></div><div class="stat-number">{{ summary.generated }}</div><div class="stat-label">Generated Results</div></div>
         <div class="stat-card" style="--stat-color:#16a34a; --stat-soft:#dcfce7;"><div class="stat-icon"><i class="bi bi-check-circle"></i></div><div class="stat-number">{{ summary.passed }}</div><div class="stat-label">Passed</div></div>
@@ -110,7 +120,7 @@
             </div>
             <div class="col-lg-2 col-md-6 d-flex gap-2">
                 <button class="btn btn-gradient flex-fill" type="submit"><i class="bi bi-search me-1"></i> Filter</button>
-                <a class="btn btn-light border rc-btn" href="{% url 'report_card:results_preview' assessment.pk %}" title="Clear filters"><i class="bi bi-x-lg"></i></a>
+                <a class="btn btn-light border rc-btn" href="{% if admin_mode %}{% url 'report_card_admin:results_preview' assessment.pk %}{% else %}{% url 'report_card:results_preview' assessment.pk %}{% endif %}" title="Clear filters"><i class="bi bi-x-lg"></i></a>
             </div>
         </div>
     </form>
@@ -121,7 +131,7 @@
         </div>
         <div class="table-responsive">
         <table class="table table-modern mb-0">
-            <thead><tr><th>Rank</th><th>Student</th><th>Admission No.</th><th>Total</th><th>Max</th><th>Percentage</th><th>Grade</th><th>Result</th><th>Stale</th><th class="text-end">PDF</th></tr></thead>
+            <thead><tr><th>Rank</th><th>Student</th><th>Admission No.</th><th>Obtained</th><th>Total</th><th>Percentage</th><th>Grade</th><th>Result</th><th>Stale</th><th class="text-end">PDF</th></tr></thead>
             <tbody>
                 {% for result in results %}
                     <tr>
@@ -138,7 +148,7 @@
                         <td>
                             <span class="rc-pill {% if result.is_stale %}rc-stale-yes{% else %}rc-stale-no{% endif %}">{{ result.is_stale|yesno:"Stale,Fresh" }}</span>
                         </td>
-                        <td class="text-end"><a class="btn btn-sm btn-outline-primary rc-btn rc-action-btn" href="{% url 'report_card:result_pdf_download' assessment.pk result.pk %}" title="Download PDF report card"><i class="bi bi-file-earmark-pdf me-1"></i> PDF</a></td>
+                        <td class="text-end"><a class="btn btn-sm btn-outline-primary rc-btn rc-action-btn" href="{% if admin_mode %}{% url 'report_card_admin:result_pdf_download' assessment.pk result.pk %}{% else %}{% url 'report_card:result_pdf_download' assessment.pk result.pk %}{% endif %}" title="Download PDF report card"><i class="bi bi-file-earmark-pdf me-1"></i> PDF</a></td>
                     </tr>
                 {% empty %}
                     <tr><td colspan="10" class="text-center text-muted p-4">No generated results yet. Complete marks entry, then generate results.</td></tr>

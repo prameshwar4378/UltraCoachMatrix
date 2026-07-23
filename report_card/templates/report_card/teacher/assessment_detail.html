@@ -35,17 +35,15 @@
     <div class="rc-toolbar d-flex justify-content-between align-items-center gap-3 flex-wrap">
         <div><h2 class="rc-title">{{ assessment.title }}</h2><p class="rc-subtitle">{{ assessment.batch_name_snapshot }} | {{ assessment.academic_year_name_snapshot }} | {{ assessment.get_status_display }}</p></div>
         <div class="d-flex gap-2 flex-wrap">
-            <a class="btn btn-outline-secondary rc-btn" href="{% url 'report_card:assessment_update' assessment.pk %}"><i class="bi bi-pencil-square me-1"></i> Edit</a>
-            <a class="btn btn-outline-primary rc-btn" href="{% url 'report_card:assessment_structure' assessment.pk %}"><i class="bi bi-list-check me-1"></i> Structure</a>
+            <a class="btn btn-outline-primary rc-btn" href="{% url 'report_card:assessment_structure' assessment.pk %}"><i class="bi bi-list-check me-1"></i> My Subjects</a>
             <a class="btn btn-outline-success rc-btn" href="{% url 'report_card:completion_summary' assessment.pk %}"><i class="bi bi-clipboard-check me-1"></i> Completion</a>
-            <a class="btn btn-gradient" href="{% url 'report_card:results_preview' assessment.pk %}"><i class="bi bi-bar-chart me-1"></i> Results</a>
         </div>
     </div>
     <div class="rc-grid">
         <div class="rc-stat" style="--stat-color:#6042c8; --stat-soft:#f1edff;"><div class="rc-stat-icon"><i class="bi bi-book"></i></div><strong>{{ subjects|length }}</strong><span>Subjects</span></div>
         <div class="rc-stat" style="--stat-color:#2563eb; --stat-soft:#dbeafe;"><div class="rc-stat-icon"><i class="bi bi-people"></i></div><strong>{{ summary.student_count }}</strong><span>Students</span></div>
         <div class="rc-stat" style="--stat-color:#dc2626; --stat-soft:#fee2e2;"><div class="rc-stat-icon"><i class="bi bi-exclamation-circle"></i></div><strong>{{ summary.missing_mark_count }}</strong><span>Missing Marks</span></div>
-        <div class="rc-stat" style="--stat-color:#16a34a; --stat-soft:#dcfce7;"><div class="rc-stat-icon"><i class="bi bi-bar-chart"></i></div><strong>{{ results.count }}</strong><span>Generated Results</span></div>
+        <div class="rc-stat" style="--stat-color:#16a34a; --stat-soft:#dcfce7;"><div class="rc-stat-icon"><i class="bi bi-person-check"></i></div><strong>{{ summary.subject_count }}</strong><span>My Subjects</span></div>
     </div>
     <div class="rc-card table-responsive">
         <table class="table rc-table">

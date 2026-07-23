@@ -3,6 +3,10 @@
 from super_admin.models import UserProfile
 
 from .models import ReportCardAssessment
+from .selectors import (
+    get_teacher_accessible_assessment_subjects,
+    teacher_has_subject_allocation as selector_teacher_has_subject_allocation,
+)
 
 
 EDIT_BLOCKED_STATUSES = {
@@ -64,17 +68,25 @@ def teacher_can_access_assessment(user, assessment):
         return False
     if not _same_institute(user, assessment.institute_id):
         return False
-    return assessment.batch.teachers.filter(pk=user.pk).exists()
+    return get_teacher_accessible_assessment_subjects(user, assessment).exists()
+
+
+def teacher_has_subject_allocation(user, assessment_subject):
+    if not user or not assessment_subject or not _is_teacher(user):
+        return False
+    if not _same_institute(user, assessment_subject.assessment.institute_id):
+        return False
+    return selector_teacher_has_subject_allocation(user, assessment_subject)
 
 
 def teacher_can_edit_assessment(user, assessment):
+    return False
+
+
+def teacher_can_enter_marks(user, assessment, assessment_subject=None):
     if not teacher_can_access_assessment(user, assessment):
         return False
-    return assessment.status not in EDIT_BLOCKED_STATUSES
-
-
-def teacher_can_enter_marks(user, assessment):
-    if not teacher_can_access_assessment(user, assessment):
+    if assessment_subject is not None and not teacher_has_subject_allocation(user, assessment_subject):
         return False
     return assessment.status in MARKS_ENTRY_STATUSES
 

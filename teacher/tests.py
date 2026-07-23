@@ -11,6 +11,8 @@ from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
 from institute_admin.models import AcademicYear, Batch, Course, Notice, NoticeRead, Subject
+from report_card.models import ReportCardAssessment, ReportCardTeacherSubjectAllocation
+from report_card.services import add_assessment_subject, create_assessment, open_marks_entry
 from student_parent.models import StudentAcademicSession, StudentEnrollment, StudentProfile
 from super_admin.mobile_auth import create_access_token
 from super_admin.models import Institute, UserProfile
@@ -213,6 +215,55 @@ class TeacherMobileReadApiTests(TestCase):
         self.assertEqual(payload["recent_homework"][0]["title"], "Assigned Homework")
         self.assertEqual(payload["recent_exams"][0]["title"], "Assigned Exam")
         self.assertEqual(payload["recent_results"][0]["exam_title"], "Assigned Exam")
+        self.assertIn("quick_actions", payload)
+        self.assertIn("report_cards", [action["key"] for action in payload["quick_actions"]])
+        report_card_action = next(action for action in payload["quick_actions"] if action["key"] == "report_cards")
+        self.assertEqual(report_card_action["label"], "Report Cards")
+        self.assertEqual(report_card_action["endpoint"], "/api/mobile/report-cards/teacher/assessments/")
+
+    def test_dashboard_exposes_allocated_report_card_workflow_for_android(self):
+        assessment = create_assessment(
+            institute=self.institute,
+            academic_year=self.year,
+            batch=self.batch,
+            title="Mobile Mid Term",
+            created_by=self.teacher_user,
+        )
+        add_assessment_subject(
+            assessment,
+            subject=self.subject,
+            max_marks="100",
+            passing_marks="35",
+            weightage="100",
+            display_order=1,
+            actor=self.teacher_user,
+        )
+        ReportCardTeacherSubjectAllocation.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            batch=self.batch,
+            subject=self.subject,
+            teacher=self.teacher_user,
+            created_by=self.teacher_user,
+        )
+        open_marks_entry(assessment, actor=self.teacher_user)
+
+        payload = self.get_json("/api/mobile/teacher/dashboard/")
+
+        self.assertEqual(payload["report_card_count"], 1)
+        self.assertEqual(payload["report_card_marks_entry_open_count"], 1)
+        self.assertEqual(
+            payload["report_card_status_counts"][ReportCardAssessment.Status.MARKS_ENTRY_OPEN],
+            1,
+        )
+        self.assertEqual(payload["recent_report_cards"][0]["title"], "Mobile Mid Term")
+        self.assertEqual(payload["recent_report_cards"][0]["status"], ReportCardAssessment.Status.MARKS_ENTRY_OPEN)
+        self.assertEqual(
+            payload["recent_report_cards"][0]["endpoint"],
+            f"/api/mobile/report-cards/teacher/assessments/{assessment.pk}/",
+        )
+        report_card_action = next(action for action in payload["quick_actions"] if action["key"] == "report_cards")
+        self.assertEqual(report_card_action["badge_count"], 1)
 
     def test_dashboard_reports_pending_submissions(self):
         self.attempt.submitted_at = None

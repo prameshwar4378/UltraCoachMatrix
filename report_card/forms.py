@@ -4,16 +4,19 @@ import json
 from decimal import Decimal
 
 from django import forms
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 
 from institute_admin.models import AcademicYear, Batch, Subject
 from student_parent.models import StudentAcademicSession
+from super_admin.models import UserProfile
 
 from .models import (
     ReportCardAssessment,
     ReportCardAssessmentSubject,
     ReportCardAssessmentSubjectComponent,
     ReportCardGradeRule,
+    ReportCardTeacherSubjectAllocation,
 )
 from .selectors import get_active_student_sessions_for_assessment, get_teacher_assigned_batches, get_teacher_institute
 
@@ -25,9 +28,6 @@ EDIT_BLOCKED_STATUSES = {
 STRUCTURE_EDIT_STATUSES = {
     ReportCardAssessment.Status.DRAFT,
     ReportCardAssessment.Status.STRUCTURE_READY,
-    ReportCardAssessment.Status.MARKS_ENTRY_OPEN,
-    ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED,
-    ReportCardAssessment.Status.GENERATED,
 }
 
 
@@ -234,7 +234,7 @@ class ReportCardAssessmentSubjectForm(forms.ModelForm):
         if not assessment:
             raise ValidationError("Assessment is required to configure a subject.")
         if assessment.status not in STRUCTURE_EDIT_STATUSES:
-            raise ValidationError("Assessment subjects cannot be edited after publish or lock.")
+            raise ValidationError("Assessment subjects can only be edited before marks entry opens.")
 
         subject = cleaned_data.get("subject")
         max_marks = cleaned_data.get("max_marks")
@@ -386,7 +386,7 @@ class ReportCardAssessmentSubjectComponentForm(forms.ModelForm):
         if not self.assessment_subject:
             raise ValidationError("Subject is required to configure a column.")
         if self.assessment_subject.assessment.status not in STRUCTURE_EDIT_STATUSES:
-            raise ValidationError("Subject columns cannot be edited after publish or lock.")
+            raise ValidationError("Subject columns can only be edited before marks entry opens.")
         max_marks = cleaned_data.get("max_marks")
         passing_marks = cleaned_data.get("passing_marks")
         weightage = cleaned_data.get("weightage")
@@ -572,6 +572,117 @@ class ReportCardGradeRuleForm(forms.ModelForm):
         instance = super().save(commit=False)
         if self.institute:
             instance.institute = self.institute
+        if commit:
+            instance.save()
+        return instance
+
+
+class ReportCardTeacherSubjectAllocationForm(forms.ModelForm):
+    class Meta:
+        model = ReportCardTeacherSubjectAllocation
+        fields = ("academic_year", "batch", "subject", "teacher", "is_active")
+        labels = {
+            "academic_year": "Academic year",
+            "batch": "Class / batch",
+            "subject": "Subject",
+            "teacher": "Teacher",
+            "is_active": "Active allocation",
+        }
+
+    def __init__(self, *args, institute=None, created_by=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.institute = institute or getattr(self.instance, "institute", None)
+        self.created_by = created_by
+        if self.institute:
+            self.instance.institute = self.institute
+        academic_year = self._selected_academic_year()
+
+        self.fields["academic_year"].queryset = AcademicYear.objects.none()
+        self.fields["batch"].queryset = Batch.objects.none()
+        self.fields["subject"].queryset = Subject.objects.none()
+        self.fields["teacher"].queryset = User.objects.none()
+
+        if self.institute:
+            self.fields["academic_year"].queryset = self.institute.academic_years.filter(is_active=True).order_by("-start_date")
+            self.fields["teacher"].queryset = User.objects.filter(
+                profile__institute=self.institute,
+                profile__role=UserProfile.Role.TEACHER,
+                is_active=True,
+            ).order_by("first_name", "last_name", "username")
+            if academic_year:
+                self.fields["batch"].queryset = Batch.objects.filter(
+                    institute=self.institute,
+                    academic_year=academic_year,
+                    is_active=True,
+                ).order_by("name")
+                self.fields["subject"].queryset = Subject.objects.filter(
+                    institute=self.institute,
+                    academic_year=academic_year,
+                    is_active=True,
+                ).order_by("name")
+
+        for field_name in ("academic_year", "batch", "subject", "teacher"):
+            _add_form_select(self.fields[field_name])
+        self.fields["is_active"].widget.attrs["class"] = "form-check-input"
+
+    def _selected_academic_year(self):
+        value = None
+        if self.data:
+            value = self.data.get(self.add_prefix("academic_year"))
+        if not value and self.instance.pk:
+            return self.instance.academic_year
+        if not value:
+            return None
+        try:
+            return AcademicYear.objects.get(pk=value)
+        except (AcademicYear.DoesNotExist, TypeError, ValueError):
+            return None
+
+    def clean(self):
+        cleaned_data = super().clean()
+        academic_year = cleaned_data.get("academic_year")
+        batch = cleaned_data.get("batch")
+        subject = cleaned_data.get("subject")
+        teacher = cleaned_data.get("teacher")
+
+        if self.institute and academic_year and academic_year.institute_id != self.institute.pk:
+            self.add_error("academic_year", "Selected academic year belongs to another institute.")
+        if self.institute and batch:
+            if batch.institute_id != self.institute.pk:
+                self.add_error("batch", "Selected batch belongs to another institute.")
+            if academic_year and batch.academic_year_id != academic_year.pk:
+                self.add_error("batch", "Selected batch belongs to another academic year.")
+        if self.institute and subject:
+            if subject.institute_id != self.institute.pk:
+                self.add_error("subject", "Selected subject belongs to another institute.")
+            if academic_year and subject.academic_year_id != academic_year.pk:
+                self.add_error("subject", "Selected subject belongs to another academic year.")
+        if self.institute and teacher:
+            profile = getattr(teacher, "profile", None)
+            if not profile or profile.role != UserProfile.Role.TEACHER:
+                self.add_error("teacher", "Selected user must be a teacher.")
+            elif profile.institute_id != self.institute.pk:
+                self.add_error("teacher", "Selected teacher belongs to another institute.")
+
+        if academic_year and batch and subject and teacher:
+            duplicate = ReportCardTeacherSubjectAllocation.objects.filter(
+                academic_year=academic_year,
+                batch=batch,
+                subject=subject,
+                teacher=teacher,
+            )
+            if self.instance.pk:
+                duplicate = duplicate.exclude(pk=self.instance.pk)
+            if duplicate.exists():
+                self.add_error("teacher", "This teacher is already allocated to this class and subject for the selected academic year.")
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if self.institute:
+            instance.institute = self.institute
+        if self.created_by and not instance.created_by_id:
+            instance.created_by = self.created_by
         if commit:
             instance.save()
         return instance

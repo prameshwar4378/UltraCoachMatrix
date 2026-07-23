@@ -320,6 +320,31 @@
                     </li>
                 </ul>
             </li>
+
+            <li class="nav-item menu-violet">
+                <a class="nav-link {% if request.resolver_match.namespace == 'report_card_admin' %}{% else %}collapsed{% endif %}" data-bs-target="#report-card-nav" data-bs-toggle="collapse" href="#">
+                    <i class="bi bi-journal-check"></i>
+                    <span>Report Card Generator</span>
+                    <i class="bi bi-chevron-down ms-auto"></i>
+                </a>
+                <ul id="report-card-nav" class="nav-content collapse {% if request.resolver_match.namespace == 'report_card_admin' %}show{% endif %}" data-bs-parent="#sidebar-nav">
+                    <li>
+                        <a href="{% url 'report_card_admin:assessment_list' %}" class="menu-violet {% if request.resolver_match.namespace == 'report_card_admin' and current_url == 'assessment_list' %}active{% endif %}" style="text-decoration:none;">
+                            <i class="bi bi-clipboard2-data" style="font-size:15px;"></i><span>Report Cards</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'report_card_admin:allocation_list' %}" class="menu-blue {% if request.resolver_match.namespace == 'report_card_admin' and current_url == 'allocation_list' %}active{% endif %}" style="text-decoration:none;">
+                            <i class="bi bi-person-lines-fill" style="font-size:15px;"></i><span>Teacher Subject Allocation</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'report_card_admin:grade_rule_list' %}" class="menu-orange {% if request.resolver_match.namespace == 'report_card_admin' and current_url == 'grade_rule_list' %}active{% endif %}" style="text-decoration:none;">
+                            <i class="bi bi-award-fill" style="font-size:15px;"></i><span>Grade Rules</span>
+                        </a>
+                    </li>
+                </ul>
+            </li>
         {% endif %}
 
         <li class="nav-item menu-indigo">

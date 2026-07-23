@@ -16,6 +16,7 @@ from .models import (
     ReportCardMarkEntry,
     ReportCardStudentResult,
     ReportCardSubjectResult,
+    ReportCardTeacherSubjectAllocation,
 )
 from .selectors import (
     get_assessment_subject_components,
@@ -32,15 +33,55 @@ EDIT_BLOCKED_STATUSES = {
 STRUCTURE_EDIT_STATUSES = {
     ReportCardAssessment.Status.DRAFT,
     ReportCardAssessment.Status.STRUCTURE_READY,
-    ReportCardAssessment.Status.MARKS_ENTRY_OPEN,
-    ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED,
-    ReportCardAssessment.Status.GENERATED,
 }
 MARKS_EDIT_STATUSES = {
     ReportCardAssessment.Status.MARKS_ENTRY_OPEN,
     ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED,
     ReportCardAssessment.Status.GENERATED,
 }
+
+
+def _actor_role(actor):
+    profile = getattr(actor, "profile", None)
+    return getattr(profile, "role", None)
+
+
+def _actor_institute_id(actor):
+    profile = getattr(actor, "profile", None)
+    return getattr(profile, "institute_id", None)
+
+
+def _actor_is_teacher(actor):
+    return _actor_role(actor) == "TEACHER"
+
+
+def _actor_can_admin_manage_marks(actor, assessment):
+    if not actor:
+        return True
+    if getattr(actor, "is_superuser", False):
+        return True
+    role = _actor_role(actor)
+    return role in {"INSTITUTE_ADMIN", "ACCOUNTANT"} and _actor_institute_id(actor) == assessment.institute_id
+
+
+def _enforce_marks_save_permission(assessment_subject, actor):
+    if not actor:
+        return
+    assessment = assessment_subject.assessment
+    if _actor_is_teacher(actor):
+        allowed = ReportCardTeacherSubjectAllocation.objects.filter(
+            institute=assessment.institute,
+            academic_year=assessment.academic_year,
+            batch=assessment.batch,
+            subject=assessment_subject.subject,
+            teacher=actor,
+            is_active=True,
+        ).exists()
+        if not allowed:
+            raise ValidationError("You can save marks only for your allocated report-card subject.")
+        return
+    if not _actor_can_admin_manage_marks(actor, assessment):
+        raise ValidationError("You do not have permission to save report-card marks.")
 TWO_PLACES = Decimal("0.01")
 
 
@@ -132,7 +173,7 @@ def add_assessment_subject(
     actor=None,
 ):
     if assessment.status not in STRUCTURE_EDIT_STATUSES:
-        raise ValidationError("Assessment structure cannot be changed after publish or lock.")
+        raise ValidationError("Assessment structure can only be changed before marks entry opens.")
     assessment_subject = ReportCardAssessmentSubject(
         assessment=assessment,
         subject=subject,
@@ -161,7 +202,7 @@ def add_assessment_subject(
 def update_assessment_subject(assessment_subject, *, actor=None, **fields):
     assessment = assessment_subject.assessment
     if assessment.status not in STRUCTURE_EDIT_STATUSES:
-        raise ValidationError("Assessment structure cannot be changed after publish or lock.")
+        raise ValidationError("Assessment structure can only be changed before marks entry opens.")
     allowed_fields = {
         "subject",
         "max_marks",
@@ -192,7 +233,7 @@ def update_assessment_subject(assessment_subject, *, actor=None, **fields):
 def remove_assessment_subject(assessment_subject, *, actor=None):
     assessment = assessment_subject.assessment
     if assessment.status not in STRUCTURE_EDIT_STATUSES:
-        raise ValidationError("Assessment structure cannot be changed after publish or lock.")
+        raise ValidationError("Assessment structure can only be changed before marks entry opens.")
     subject_name = assessment_subject.subject_name_snapshot
     subject_id = assessment_subject.pk
     assessment_subject.delete()
@@ -223,7 +264,7 @@ def add_assessment_subject_component(
 ):
     assessment = assessment_subject.assessment
     if assessment.status not in STRUCTURE_EDIT_STATUSES:
-        raise ValidationError("Subject columns cannot be changed after publish or lock.")
+        raise ValidationError("Subject columns can only be changed before marks entry opens.")
     component = ReportCardAssessmentSubjectComponent(
         assessment_subject=assessment_subject,
         name=name,
@@ -248,7 +289,7 @@ def add_assessment_subject_component(
 def update_assessment_subject_component(component, *, actor=None, **fields):
     assessment = component.assessment_subject.assessment
     if assessment.status not in STRUCTURE_EDIT_STATUSES:
-        raise ValidationError("Subject columns cannot be changed after publish or lock.")
+        raise ValidationError("Subject columns can only be changed before marks entry opens.")
     allowed_fields = {"name", "max_marks", "passing_marks", "weightage", "display_order", "include_in_total"}
     for field, value in fields.items():
         if field not in allowed_fields:
@@ -271,7 +312,7 @@ def update_assessment_subject_component(component, *, actor=None, **fields):
 def remove_assessment_subject_component(component, *, actor=None):
     assessment = component.assessment_subject.assessment
     if assessment.status not in STRUCTURE_EDIT_STATUSES:
-        raise ValidationError("Subject columns cannot be changed after publish or lock.")
+        raise ValidationError("Subject columns can only be changed before marks entry opens.")
     component_name = component.name_snapshot
     component_id = component.pk
     assessment_subject_id = component.assessment_subject_id
@@ -291,25 +332,44 @@ def remove_assessment_subject_component(component, *, actor=None):
 def sync_assessment_subject_components(assessment_subject, component_rows, *, actor=None):
     assessment = assessment_subject.assessment
     if assessment.status not in STRUCTURE_EDIT_STATUSES:
-        raise ValidationError("Subject columns cannot be changed after publish or lock.")
+        raise ValidationError("Subject columns can only be changed before marks entry opens.")
 
-    existing_count = ReportCardAssessmentSubjectComponent.objects.select_for_update().filter(
-        assessment_subject=assessment_subject
-    ).count()
-    ReportCardAssessmentSubjectComponent.objects.filter(assessment_subject=assessment_subject).delete()
+    existing_components = {
+        component.pk: component
+        for component in ReportCardAssessmentSubjectComponent.objects.select_for_update().filter(
+            assessment_subject=assessment_subject
+        )
+    }
+    existing_count = len(existing_components)
+    incoming_ids = {row.get("id") for row in component_rows if row.get("id")}
+
+    for component in existing_components.values():
+        component.name = f"__sync_{component.pk}"
+        component.display_order = 100000 + component.pk
+        component.save(update_fields=["name", "name_snapshot", "display_order", "updated_at"])
+
     saved_components = []
     for row in component_rows:
-        component = ReportCardAssessmentSubjectComponent(
-            assessment_subject=assessment_subject,
-            name=row["name"],
-            max_marks=_quantize(row["max_marks"]),
-            passing_marks=Decimal("0.00"),
-            weightage=_quantize(row["max_marks"]),
-            display_order=row["display_order"],
-            include_in_total=row["include_in_total"],
-        )
+        component = existing_components.get(row.get("id"))
+        if component is None:
+            component = ReportCardAssessmentSubjectComponent(assessment_subject=assessment_subject)
+        component.name = row["name"]
+        component.max_marks = _quantize(row["max_marks"])
+        component.passing_marks = Decimal("0.00")
+        component.weightage = _quantize(row["max_marks"])
+        component.display_order = row["display_order"]
+        component.include_in_total = row["include_in_total"]
         component.save()
         saved_components.append(component)
+
+    removed_components = [
+        component
+        for component_id, component in existing_components.items()
+        if component_id not in incoming_ids
+    ]
+    removed_count = len(removed_components)
+    for component in removed_components:
+        component.delete()
 
     if component_rows or existing_count:
         _mark_results_stale_after_change(assessment)
@@ -322,6 +382,7 @@ def sync_assessment_subject_components(assessment_subject, component_rows, *, ac
                 "assessment_subject_id": assessment_subject.pk,
                 "column_count": len(saved_components),
                 "previous_column_count": existing_count,
+                "removed_column_count": removed_count,
             },
         )
     return saved_components
@@ -331,6 +392,10 @@ def open_marks_entry(assessment, *, actor=None):
     _require_not_published_or_locked(assessment)
     if not assessment.assessment_subjects.exists():
         raise ValidationError("Add at least one subject before opening marks entry.")
+    if assessment.status == ReportCardAssessment.Status.MARKS_ENTRY_OPEN:
+        return assessment
+    if assessment.status != ReportCardAssessment.Status.STRUCTURE_READY:
+        raise ValidationError("Marks entry can only be opened after the assessment structure is ready.")
     assessment.status = ReportCardAssessment.Status.MARKS_ENTRY_OPEN
     assessment.save(update_fields=["status", "updated_at"])
     write_audit_log(
@@ -345,6 +410,7 @@ def open_marks_entry(assessment, *, actor=None):
 @transaction.atomic
 def bulk_save_subject_marks(assessment_subject, mark_rows, *, actor=None):
     assessment = assessment_subject.assessment
+    _enforce_marks_save_permission(assessment_subject, actor)
     if assessment.status not in MARKS_EDIT_STATUSES:
         raise ValidationError("Marks can only be entered after marks entry is opened.")
     if assessment.status in EDIT_BLOCKED_STATUSES:
@@ -446,6 +512,9 @@ def bulk_save_subject_marks(assessment_subject, mark_rows, *, actor=None):
     summary = validate_marks_completion(assessment)
     if summary["is_complete"]:
         assessment.status = ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED
+        assessment.save(update_fields=["status", "updated_at"])
+    elif assessment.status == ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED:
+        assessment.status = ReportCardAssessment.Status.MARKS_ENTRY_OPEN
         assessment.save(update_fields=["status", "updated_at"])
 
     write_audit_log(

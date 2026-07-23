@@ -1,0 +1,77 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Marks Grid{% endblock title %}
+
+{% block content %}
+<style>
+    .rc-admin-main { background:#f5f7fb; min-height:calc(100vh - 80px); }
+    .rc-card, .rc-hero { background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 12px 35px rgba(15,23,42,.07); }
+    .rc-hero { padding:22px 24px; margin-bottom:18px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+    .rc-hero h2 { margin:0 0 7px; font-size:1.45rem; font-weight:900; }
+    .rc-hero p { margin:0; color:#64748b; font-weight:750; }
+    .rc-card { overflow:hidden; }
+    .rc-table { margin:0; }
+    .rc-table th { background:#f8fafc; color:#475569; font-size:.76rem; text-transform:uppercase; white-space:nowrap; }
+    .rc-table td, .rc-table th { padding:13px 15px; vertical-align:middle; }
+    .rc-pill { display:inline-flex; align-items:center; justify-content:center; padding:6px 10px; border-radius:999px; font-size:.76rem; font-weight:850; }
+    .rc-absent { background:#e5e7eb; color:#374151; }
+    .rc-present { background:#dcfce7; color:#15803d; }
+    .rc-btn { border-radius:8px; font-weight:800; }
+</style>
+
+<main id="main" class="main rc-admin-main">
+    <section class="rc-hero">
+        <div>
+            <h2>{{ assessment_subject.subject_name_snapshot }} Marks Grid</h2>
+            <p>{{ assessment.title }} | {{ assessment.batch_name_snapshot }} | read-only admin inspection</p>
+        </div>
+        <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:completion_dashboard' assessment.pk %}"><i class="bi bi-arrow-left me-1"></i> Completion</a>
+    </section>
+    <section class="rc-card table-responsive">
+        <table class="table rc-table align-middle">
+            <thead>
+                <tr>
+                    <th>Admission No.</th>
+                    <th>Student</th>
+                    {% if components %}
+                        {% for component in components %}
+                            <th>{{ component.name_snapshot }}<br><small>Max {{ component.max_marks }}</small></th>
+                        {% endfor %}
+                    {% else %}
+                        <th>Marks<br><small>Max {{ assessment_subject.max_marks }}</small></th>
+                    {% endif %}
+                    <th>Total</th>
+                    <th>Absent</th>
+                    <th>Remark</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in grid %}
+                    <tr>
+                        <td>{{ item.academic_session.admission_number }}</td>
+                        <td><strong>{{ item.student.user.get_full_name|default:item.student.user.username }}</strong></td>
+                        {% if components %}
+                            {% for entry in item.component_values %}
+                                <td>{{ entry.marks_obtained|default:"-" }}</td>
+                            {% endfor %}
+                        {% else %}
+                            <td>{{ item.mark_entry.marks_obtained|default:"-" }}</td>
+                        {% endif %}
+                        <td>{{ item.mark_entry.marks_obtained|default:"-" }}</td>
+                        <td>
+                            {% if item.mark_entry.is_absent %}
+                                <span class="rc-pill rc-absent">Absent</span>
+                            {% else %}
+                                <span class="rc-pill rc-present">No</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.mark_entry.remark|default:"-" }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted p-4">No student sessions found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</main>
+{% endblock content %}

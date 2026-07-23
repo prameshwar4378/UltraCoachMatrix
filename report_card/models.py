@@ -8,6 +8,8 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
+from super_admin.models import UserProfile
+
 
 MARKS_VALIDATOR = MinValueValidator(Decimal("0.00"))
 POSITIVE_MARKS_VALIDATOR = MinValueValidator(Decimal("0.01"))
@@ -705,6 +707,97 @@ class ReportCardGradeRule(models.Model):
                 overlapping = overlapping.exclude(pk=self.pk)
             if self.is_active and overlapping.exists():
                 errors["min_percentage"] = "Grade percentage range overlaps with another active rule."
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class ReportCardTeacherSubjectAllocation(models.Model):
+    institute = models.ForeignKey(
+        "super_admin.Institute",
+        on_delete=models.CASCADE,
+        related_name="report_card_teacher_subject_allocations",
+    )
+    academic_year = models.ForeignKey(
+        "institute_admin.AcademicYear",
+        on_delete=models.PROTECT,
+        related_name="report_card_teacher_subject_allocations",
+    )
+    batch = models.ForeignKey(
+        "institute_admin.Batch",
+        on_delete=models.PROTECT,
+        related_name="report_card_teacher_subject_allocations",
+    )
+    subject = models.ForeignKey(
+        "institute_admin.Subject",
+        on_delete=models.PROTECT,
+        related_name="report_card_teacher_subject_allocations",
+    )
+    teacher = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="report_card_subject_allocations",
+    )
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_report_card_subject_allocations",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["academic_year__start_date", "batch__name", "subject__name", "teacher__username"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["academic_year", "batch", "subject", "teacher"],
+                name="rc_alloc_unique_year_batch_subject_teacher",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["teacher", "academic_year"], name="rc_alloc_teacher_year_idx"),
+            models.Index(fields=["batch", "subject"], name="rc_alloc_batch_subject_idx"),
+            models.Index(fields=["institute", "academic_year"], name="rc_alloc_inst_year_idx"),
+        ]
+
+    def __str__(self):
+        teacher_name = _user_display_name(self.teacher)
+        batch_name = self.batch.name if self.batch_id else ""
+        subject_name = self.subject.name if self.subject_id else ""
+        year_name = self.academic_year.name if self.academic_year_id else ""
+        return f"{teacher_name} - {batch_name} - {subject_name} ({year_name})"
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.academic_year_id and self.academic_year.institute_id != self.institute_id:
+            errors["academic_year"] = "Selected academic year belongs to another institute."
+        if self.batch_id:
+            if self.batch.institute_id != self.institute_id:
+                errors["batch"] = "Selected batch belongs to another institute."
+            if self.academic_year_id and self.batch.academic_year_id != self.academic_year_id:
+                errors["batch"] = "Selected batch belongs to another academic year."
+        if self.subject_id:
+            if self.subject.institute_id != self.institute_id:
+                errors["subject"] = "Selected subject belongs to another institute."
+            if self.academic_year_id and self.subject.academic_year_id != self.academic_year_id:
+                errors["subject"] = "Selected subject belongs to another academic year."
+        if self.teacher_id:
+            profile = getattr(self.teacher, "profile", None)
+            if not profile or profile.role != UserProfile.Role.TEACHER:
+                errors["teacher"] = "Selected user must be a teacher."
+            elif profile.institute_id != self.institute_id:
+                errors["teacher"] = "Selected teacher belongs to another institute."
+        if self.created_by_id:
+            creator_profile = getattr(self.created_by, "profile", None)
+            if creator_profile and creator_profile.institute_id and creator_profile.institute_id != self.institute_id:
+                errors["created_by"] = "Creator belongs to another institute."
         if errors:
             raise ValidationError(errors)
 

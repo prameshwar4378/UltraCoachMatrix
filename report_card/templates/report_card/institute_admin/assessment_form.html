@@ -1,0 +1,97 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}{{ page_title }}{% endblock title %}
+
+{% block content %}
+<style>
+    .rc-admin-main { background:#f5f7fb; min-height:calc(100vh - 80px); }
+    .rc-form-page { --primary:#6042c8; --dark:#442c9f; --border:#e2e8f0; max-width:1040px; margin:0 auto; color:#0f172a; }
+    .rc-form-card { background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 18px 45px rgba(15,23,42,.08); overflow:hidden; }
+    .rc-form-head { padding:24px; border-bottom:1px solid var(--border); }
+    .rc-form-head h2 { margin:0 0 7px; font-size:1.55rem; font-weight:900; }
+    .rc-form-head p { margin:0; color:#64748b; font-weight:700; }
+    .rc-section { margin:22px; padding:20px; border-radius:8px; background:#f8f7ff; border-left:4px solid var(--primary); }
+    .rc-section-title { display:flex; gap:12px; align-items:center; margin-bottom:18px; }
+    .rc-section-icon { width:42px; height:42px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#fff; background:linear-gradient(135deg,var(--primary),var(--dark)); }
+    .rc-section-title h3 { margin:0; font-size:1.25rem; font-weight:900; }
+    .rc-section-title p { margin:2px 0 0; color:#64748b; font-weight:650; }
+    .form-label { font-weight:850; color:#111827; }
+    .form-control, .form-select { border-radius:8px; border:1px solid #cbd5e1; padding:11px 13px; }
+    .field-help { color:#64748b; font-size:.82rem; font-weight:650; margin-top:5px; }
+    .invalid-feedback, .text-danger { font-weight:700; }
+    .rc-actions { padding:18px 22px 24px; display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #ede9fe; }
+    .rc-btn { border-radius:8px; font-weight:850; padding:10px 16px; }
+    .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; }
+    .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    @media(max-width:576px){ .rc-actions { flex-direction:column; } .rc-actions .btn { width:100%; } }
+</style>
+
+<main id="main" class="main rc-admin-main">
+<div class="rc-form-page">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+        {% endfor %}
+    {% endif %}
+
+    <form class="rc-form-card" method="post" novalidate>
+        {% csrf_token %}
+        <div class="rc-form-head">
+            <h2>{{ page_title }}</h2>
+            <p>Configure the class, academic year, and report-card dates from institute admin.</p>
+        </div>
+        <section class="rc-section">
+            <div class="rc-section-title">
+                <div class="rc-section-icon"><i class="bi bi-journal-check"></i></div>
+                <div>
+                    <h3>Assessment Information</h3>
+                    <p>Teachers will see this assessment according to their report-card subject allocations.</p>
+                </div>
+            </div>
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            {% endif %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="{{ form.academic_year.id_for_label }}">{{ form.academic_year.label }}</label>
+                    {{ form.academic_year }}
+                    <div class="field-help">Select the active academic year for this assessment.</div>
+                    {% for error in form.academic_year.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="{{ form.batch.id_for_label }}">{{ form.batch.label }}</label>
+                    {{ form.batch }}
+                    <div class="field-help">Select the class or batch where this report card applies.</div>
+                    {% for error in form.batch.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+                    {{ form.title }}
+                    {% for error in form.title.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="{{ form.assessment_date.id_for_label }}">{{ form.assessment_date.label }}</label>
+                    {{ form.assessment_date }}
+                    <div class="field-help">Exam or assessment date.</div>
+                    {% for error in form.assessment_date.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="{{ form.result_date.id_for_label }}">{{ form.result_date.label }}</label>
+                    {{ form.result_date }}
+                    <div class="field-help">Optional publish/result date.</div>
+                    {% for error in form.result_date.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+        </section>
+        <div class="rc-actions">
+            {% if assessment %}
+                <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:assessment_detail' assessment.pk %}"><i class="bi bi-x-circle me-1"></i> Cancel</a>
+            {% else %}
+                <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:assessment_list' %}"><i class="bi bi-x-circle me-1"></i> Cancel</a>
+            {% endif %}
+            <button class="btn btn-gradient rc-btn" type="submit"><i class="bi bi-check-circle me-1"></i> Save Assessment</button>
+        </div>
+    </form>
+</div>
+</main>
+{% endblock content %}

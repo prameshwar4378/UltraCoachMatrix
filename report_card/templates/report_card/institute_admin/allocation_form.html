@@ -1,0 +1,244 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}{{ page_title }}{% endblock title %}
+
+{% block content %}
+<style>
+    .rc-grade-main { background:#f5f7fb; min-height:calc(100vh - 80px); }
+    .rc-admin-page { --primary:#6042c8; --dark:#442c9f; --light:#f5f3ff; --border:#ddd6fe; width:100%; max-width:1180px; margin:0 auto; color:#0f172a; }
+    .rc-card { background:#fff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 12px 35px rgba(15,23,42,.07); }
+    .rc-head { padding:22px; border-bottom:1px solid #e2e8f0; }
+    .rc-head h2 { margin:0 0 6px; font-weight:900; }
+    .rc-head p { margin:0; color:#64748b; font-weight:700; }
+    .rc-body { padding:22px; }
+    .rc-btn { border-radius:8px; font-weight:800; }
+    .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
+    .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    .form-control, .form-select { border:2px solid var(--border); border-radius:10px; padding:10px 13px; }
+    .field-error { margin-top:6px; color:#dc2626; font-size:.82rem; font-weight:700; }
+    .help-text { color:#64748b; font-size:.82rem; font-weight:700; margin-top:5px; }
+    .rc-session-pill { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:999px; font-weight:900; color:#334155; }
+    .allocation-table-wrap { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#fff; }
+    .allocation-table { width:100%; margin:0; }
+    .allocation-table th { background:#f8fafc; color:#334155; font-size:.75rem; letter-spacing:.04em; text-transform:uppercase; padding:12px; }
+    .allocation-table td { padding:10px 12px; vertical-align:middle; border-top:1px solid #eef2f7; }
+    .row-number { width:70px; font-weight:900; color:#0f172a; }
+    .action-cell { width:100px; text-align:center; }
+    .btn-danger-soft { background:#e63946; color:#fff; border:none; border-radius:8px; width:42px; height:42px; display:inline-grid; place-items:center; }
+    .btn-add-row { margin-top:14px; float:right; }
+    .empty-row td { text-align:center; color:#64748b; font-weight:800; padding:24px; }
+    @media(max-width:768px){ .rc-body, .rc-head { padding:18px; } }
+</style>
+
+<main id="main" class="main rc-grade-main">
+<div class="rc-admin-page">
+    <section class="rc-card">
+        <div class="rc-head">
+            <h2>{{ page_title }}</h2>
+            {% if bulk_mode %}
+                <p>Select one class, add subject-teacher rows locally, then save all allocations in one bulk action. These allocations will work for every report-card assessment in the active session.</p>
+            {% else %}
+                <p>Assign one teacher to one class and subject for the selected academic year. The same allocation will work for every report-card assessment in that year.</p>
+            {% endif %}
+        </div>
+        {% if bulk_mode %}
+        {{ subjects_json|json_script:"allocation-subject-options" }}
+        {{ teachers_json|json_script:"allocation-teacher-options" }}
+        {{ allocations_json|json_script:"allocation-existing-data" }}
+        {{ posted_rows|json_script:"allocation-posted-rows" }}
+        <form method="post" class="rc-body" id="bulkAllocationForm">
+            {% csrf_token %}
+            {% for error in bulk_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+            <div class="row g-3 align-items-end mb-4">
+                <div class="col-md-5">
+                    <label class="form-label fw-bold">Active academic year</label><br>
+                    <span class="rc-session-pill"><i class="bi bi-calendar2-check"></i> {{ academic_year.name }}</span>
+                    <div class="help-text">Auto-selected from the current institute session. No manual year selection is needed here.</div>
+                </div>
+                <div class="col-md-7">
+                    <label class="form-label fw-bold" for="id_batch">Class / batch</label>
+                    <select class="form-select" id="id_batch" name="batch" required>
+                        <option value="">Select class / batch</option>
+                        {% for batch in batches %}
+                            <option value="{{ batch.pk }}" {% if selected_batch_id == batch.pk|stringformat:"s" %}selected{% endif %}>{{ batch.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="help-text">Choose class once. Add all subject-teacher allocations below.</div>
+                </div>
+            </div>
+
+            <div class="allocation-table-wrap">
+                <table class="allocation-table">
+                    <thead>
+                        <tr>
+                            <th class="row-number">No.</th>
+                            <th>Subject</th>
+                            <th>Teacher</th>
+                            <th class="action-cell">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="allocationRows"></tbody>
+                </table>
+            </div>
+            <button class="btn btn-gradient btn-add-row" type="button" id="addAllocationRow"><i class="bi bi-plus-circle me-1"></i> Add Row</button>
+            <div class="clearfix"></div>
+            <input type="hidden" name="allocation_rows_json" id="allocationRowsJson">
+
+            <div class="d-flex justify-content-between align-items-center gap-2 mt-4 pt-3 border-top">
+                <div class="help-text mb-0"><i class="bi bi-info-circle me-1"></i>Rows are stored locally until you click Save Allocations.</div>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:allocation_list' %}">Cancel</a>
+                    <button class="btn btn-gradient" type="submit"><i class="bi bi-check2-circle me-1"></i> Save Allocations</button>
+                </div>
+            </div>
+        </form>
+        <script>
+        (function(){
+            const subjects = JSON.parse(document.getElementById('allocation-subject-options').textContent || '[]');
+            const teachers = JSON.parse(document.getElementById('allocation-teacher-options').textContent || '[]');
+            const existing = JSON.parse(document.getElementById('allocation-existing-data').textContent || '[]');
+            const posted = JSON.parse(document.getElementById('allocation-posted-rows').textContent || '[]');
+            const batchSelect = document.getElementById('id_batch');
+            const tbody = document.getElementById('allocationRows');
+            const hiddenInput = document.getElementById('allocationRowsJson');
+            const addButton = document.getElementById('addAllocationRow');
+            let rows = [];
+
+            function optionHtml(items, selectedId, placeholder){
+                const selected = String(selectedId || '');
+                return [`<option value="">${placeholder}</option>`].concat(items.map(item => {
+                    const isSelected = String(item.id) === selected ? 'selected' : '';
+                    return `<option value="${item.id}" ${isSelected}>${escapeHtml(item.name)}</option>`;
+                })).join('');
+            }
+
+            function escapeHtml(value){
+                return String(value || '').replace(/[&<>"']/g, function(ch){
+                    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+                });
+            }
+
+            function loadRowsForBatch(){
+                const batchId = String(batchSelect.value || '');
+                if (!batchId) {
+                    rows = [];
+                } else if (posted.length) {
+                    rows = posted.map(row => ({
+                        id: row.id || '',
+                        subject_id: row.subject_id || '',
+                        teacher_id: row.teacher_id || ''
+                    }));
+                } else {
+                    rows = existing
+                        .filter(row => String(row.batch_id) === batchId)
+                        .map(row => ({
+                            id: row.id || '',
+                            subject_id: row.subject_id || '',
+                            teacher_id: row.teacher_id || ''
+                        }));
+                }
+                if (!rows.length && batchId) {
+                    addRow();
+                } else {
+                    renderRows();
+                }
+            }
+
+            function addRow(){
+                rows.push({id:'', subject_id:'', teacher_id:''});
+                renderRows();
+            }
+
+            function removeRow(index){
+                rows.splice(index, 1);
+                renderRows();
+            }
+
+            function updateRow(index, key, value){
+                rows[index][key] = value;
+                syncHidden();
+            }
+
+            function renderRows(){
+                if (!rows.length) {
+                    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">Select a class and add subject-teacher rows.</td></tr>';
+                    syncHidden();
+                    return;
+                }
+                tbody.innerHTML = rows.map((row, index) => `
+                    <tr>
+                        <td class="row-number">${index + 1}<input type="hidden" class="allocation-id" value="${escapeHtml(row.id)}"></td>
+                        <td><select class="form-select subject-select" required>${optionHtml(subjects, row.subject_id, 'Select subject')}</select></td>
+                        <td><select class="form-select teacher-select" required>${optionHtml(teachers, row.teacher_id, 'Select teacher')}</select></td>
+                        <td class="action-cell"><button class="btn-danger-soft remove-row" type="button" title="Delete row"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                `).join('');
+                tbody.querySelectorAll('.subject-select').forEach((select, index) => {
+                    select.addEventListener('change', () => updateRow(index, 'subject_id', select.value));
+                });
+                tbody.querySelectorAll('.teacher-select').forEach((select, index) => {
+                    select.addEventListener('change', () => updateRow(index, 'teacher_id', select.value));
+                });
+                tbody.querySelectorAll('.remove-row').forEach((button, index) => {
+                    button.addEventListener('click', () => removeRow(index));
+                });
+                syncHidden();
+            }
+
+            function syncHidden(){
+                hiddenInput.value = JSON.stringify(rows);
+            }
+
+            batchSelect.addEventListener('change', function(){
+                posted.splice(0, posted.length);
+                loadRowsForBatch();
+            });
+            addButton.addEventListener('click', addRow);
+            document.getElementById('bulkAllocationForm').addEventListener('submit', syncHidden);
+            loadRowsForBatch();
+        })();
+        </script>
+        {% else %}
+        <form method="post" class="rc-body">
+            {% csrf_token %}
+            {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold" for="{{ form.academic_year.id_for_label }}">{{ form.academic_year.label }}</label>
+                    {{ form.academic_year }}
+                    <div class="help-text">Choose the year first, then save or reload if batch/subject choices need refreshing.</div>
+                    {% for error in form.academic_year.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold" for="{{ form.teacher.id_for_label }}">{{ form.teacher.label }}</label>
+                    {{ form.teacher }}
+                    {% for error in form.teacher.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold" for="{{ form.batch.id_for_label }}">{{ form.batch.label }}</label>
+                    {{ form.batch }}
+                    {% for error in form.batch.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold" for="{{ form.subject.id_for_label }}">{{ form.subject.label }}</label>
+                    {{ form.subject }}
+                    {% for error in form.subject.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-12">
+                    <div class="form-check">
+                        {{ form.is_active }}
+                        <label class="form-check-label fw-bold" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>
+                    </div>
+                    {% for error in form.is_active.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:allocation_list' %}">Cancel</a>
+                <button class="btn btn-gradient" type="submit"><i class="bi bi-check2-circle me-1"></i> Save Allocation</button>
+            </div>
+        </form>
+        {% endif %}
+    </section>
+</div>
+</main>
+{% endblock content %}

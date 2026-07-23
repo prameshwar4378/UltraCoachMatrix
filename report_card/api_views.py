@@ -27,10 +27,11 @@ from .permissions import (
     teacher_can_access_assessment,
     teacher_can_edit_assessment,
     teacher_can_enter_marks,
+    teacher_has_subject_allocation,
 )
 from .selectors import (
-    get_assessment_subjects,
-    get_assessments_for_teacher,
+    get_teacher_accessible_assessments,
+    get_teacher_accessible_assessment_subjects,
     get_completion_summary,
     get_generated_results,
     get_marks_grid,
@@ -140,7 +141,7 @@ class TeacherReportCardAPIView(APIView):
     permission_classes = [IsAuthenticated, IsTeacherReportCardUser]
 
     def get_assessment(self, assessment_id):
-        assessment = get_object_or_404(get_assessments_for_teacher(self.request.user), pk=assessment_id)
+        assessment = get_object_or_404(get_teacher_accessible_assessments(self.request.user), pk=assessment_id)
         if not teacher_can_access_assessment(self.request.user, assessment):
             return None
         return assessment
@@ -153,7 +154,7 @@ class TeacherReportCardAssessmentsAPI(TeacherReportCardAPIView):
         if academic_year_id:
             institute = get_teacher_institute(request.user)
             academic_year = get_object_or_404(AcademicYear, pk=academic_year_id, institute=institute)
-        assessments = get_assessments_for_teacher(request.user, academic_year=academic_year).annotate(
+        assessments = get_teacher_accessible_assessments(request.user, academic_year=academic_year).annotate(
             subject_count=Count("assessment_subjects", distinct=True),
             result_count=Count("student_results", distinct=True),
         )
@@ -191,7 +192,7 @@ class TeacherReportCardAssessmentsAPI(TeacherReportCardAPIView):
 class TeacherReportCardAssessmentDetailAPI(TeacherReportCardAPIView):
     def get(self, request, assessment_id):
         assessment = self.get_assessment(assessment_id)
-        subjects = get_assessment_subjects(assessment)
+        subjects = get_teacher_accessible_assessment_subjects(request.user, assessment)
         results = get_generated_results(assessment)
         return api_response(
             {
@@ -231,7 +232,7 @@ class TeacherReportCardAssessmentDetailAPI(TeacherReportCardAPIView):
 class TeacherReportCardAssessmentSubjectsAPI(TeacherReportCardAPIView):
     def get(self, request, assessment_id):
         assessment = self.get_assessment(assessment_id)
-        subjects = get_assessment_subjects(assessment)
+        subjects = get_teacher_accessible_assessment_subjects(request.user, assessment)
         return list_response(ReportCardAssessmentSubjectSerializer(subjects, many=True).data)
 
     def post(self, request, assessment_id):
@@ -304,11 +305,16 @@ class TeacherReportCardAssessmentSubjectDetailAPI(TeacherReportCardAPIView):
 
 class TeacherReportCardMarksGridAPI(TeacherReportCardAPIView):
     def get_subject(self, assessment, assessment_subject_id):
-        return get_object_or_404(ReportCardAssessmentSubject, assessment=assessment, pk=assessment_subject_id)
+        assessment_subject = get_object_or_404(ReportCardAssessmentSubject, assessment=assessment, pk=assessment_subject_id)
+        if not teacher_has_subject_allocation(self.request.user, assessment_subject):
+            return None
+        return assessment_subject
 
     def get(self, request, assessment_id, assessment_subject_id):
         assessment = self.get_assessment(assessment_id)
         assessment_subject = self.get_subject(assessment, assessment_subject_id)
+        if not assessment_subject:
+            return api_response(message="You can access only your allocated report-card subject.", status_code=status.HTTP_403_FORBIDDEN)
         grid = get_marks_grid(assessment_subject)
         return api_response(
             {
@@ -319,9 +325,11 @@ class TeacherReportCardMarksGridAPI(TeacherReportCardAPIView):
 
     def post(self, request, assessment_id, assessment_subject_id):
         assessment = self.get_assessment(assessment_id)
-        if not teacher_can_enter_marks(request.user, assessment):
-            return api_response(message="Marks entry is not open.", status_code=status.HTTP_403_FORBIDDEN)
         assessment_subject = self.get_subject(assessment, assessment_subject_id)
+        if not assessment_subject:
+            return api_response(message="You can save marks only for your allocated report-card subject.", status_code=status.HTTP_403_FORBIDDEN)
+        if not teacher_can_enter_marks(request.user, assessment, assessment_subject):
+            return api_response(message="Marks entry is not open.", status_code=status.HTTP_403_FORBIDDEN)
         serializer = ReportCardBulkMarksSaveSerializer(data=request.data)
         if not serializer.is_valid():
             return validation_response(serializer.errors)
@@ -335,7 +343,8 @@ class TeacherReportCardMarksGridAPI(TeacherReportCardAPIView):
 class TeacherReportCardCompletionAPI(TeacherReportCardAPIView):
     def get(self, request, assessment_id):
         assessment = self.get_assessment(assessment_id)
-        return api_response({"summary": completion_summary_payload(validate_marks_completion(assessment))})
+        subjects = get_teacher_accessible_assessment_subjects(request.user, assessment)
+        return api_response({"summary": completion_summary_payload(get_completion_summary(assessment, assessment_subjects=subjects))})
 
 
 class TeacherReportCardGenerateAPI(TeacherReportCardAPIView):

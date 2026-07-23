@@ -1,0 +1,138 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Report Card Completion{% endblock title %}
+
+{% block content %}
+<style>
+    .rc-admin-main { background:#f5f7fb; min-height:calc(100vh - 80px); }
+    .rc-page { --primary:#6042c8; --dark:#442c9f; --border:#e2e8f0; --muted:#64748b; color:#0f172a; }
+    .rc-hero, .rc-card, .rc-stat, .rc-progress { background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 12px 35px rgba(15,23,42,.07); }
+    .rc-hero { padding:22px 24px; margin-bottom:18px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+    .rc-hero h2 { margin:0 0 7px; font-size:1.45rem; font-weight:900; }
+    .rc-hero p { margin:0; color:var(--muted); font-weight:750; }
+    .rc-stat-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+    .rc-stat { padding:16px; border-top:4px solid var(--stat-color); }
+    .rc-stat strong { display:block; font-size:1.45rem; line-height:1; font-weight:950; }
+    .rc-stat span { color:var(--muted); font-size:.82rem; font-weight:750; }
+    .rc-progress { padding:16px; margin-bottom:18px; }
+    .rc-progress-track { height:13px; border-radius:999px; background:#e5e7eb; overflow:hidden; }
+    .rc-progress-bar { height:100%; background:linear-gradient(90deg,var(--primary),var(--dark)); }
+    .rc-card { overflow:hidden; margin-bottom:18px; }
+    .rc-card-head { padding:16px 18px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .rc-card-head h5 { margin:0; font-weight:900; }
+    .rc-table { margin:0; }
+    .rc-table th { background:#f8fafc; color:#475569; font-size:.76rem; text-transform:uppercase; white-space:nowrap; }
+    .rc-table td, .rc-table th { padding:13px 15px; vertical-align:middle; }
+    .rc-pill { display:inline-flex; align-items:center; justify-content:center; min-width:86px; padding:6px 10px; border-radius:999px; font-size:.76rem; font-weight:850; white-space:nowrap; }
+    .rc-complete { background:#dcfce7; color:#15803d; }
+    .rc-pending { background:#ffedd5; color:#c2410c; }
+    .rc-unassigned { background:#fee2e2; color:#b91c1c; }
+    .rc-btn { border-radius:8px; font-weight:800; }
+    .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
+    .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    @media(max-width:1100px){ .rc-stat-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+    @media(max-width:640px){ .rc-stat-grid { grid-template-columns:1fr; } }
+</style>
+
+<main id="main" class="main rc-admin-main">
+<div class="rc-page">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+        {% endfor %}
+    {% endif %}
+
+    <section class="rc-hero">
+        <div>
+            <h2>Completion Dashboard</h2>
+            <p>{{ assessment.title }} | {{ assessment.batch_name_snapshot }} | {{ assessment.academic_year_name_snapshot }}</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:assessment_detail' assessment.pk %}"><i class="bi bi-arrow-left me-1"></i> Back</a>
+            <a class="btn btn-gradient" href="{% url 'report_card_admin:assessment_structure' assessment.pk %}"><i class="bi bi-list-check me-1"></i> Structure</a>
+        </div>
+    </section>
+
+    <div class="rc-progress">
+        <div class="d-flex justify-content-between fw-bold mb-2"><span>Overall marks completion</span><span>{{ completion_percentage }}%</span></div>
+        <div class="rc-progress-track"><div class="rc-progress-bar" style="width:{{ completion_percentage }}%;"></div></div>
+    </div>
+
+    <div class="rc-stat-grid">
+        <div class="rc-stat" style="--stat-color:#2563eb;"><strong>{{ summary.student_count }}</strong><span>Total Students</span></div>
+        <div class="rc-stat" style="--stat-color:#6042c8;"><strong>{{ summary.expected_mark_count }}</strong><span>Expected Marks</span></div>
+        <div class="rc-stat" style="--stat-color:#16a34a;"><strong>{{ summary.entered_mark_count }}</strong><span>Entered Marks</span></div>
+        <div class="rc-stat" style="--stat-color:#dc2626;"><strong>{{ summary.missing_mark_count }}</strong><span>Missing Marks</span></div>
+        <div class="rc-stat" style="--stat-color:#d97706;"><strong>{{ summary.absent_mark_count }}</strong><span>Absent Count</span></div>
+    </div>
+
+    <section class="rc-card table-responsive">
+        <div class="rc-card-head">
+            <h5><i class="bi bi-journal-check me-1"></i> Subject Completion</h5>
+            <span class="text-muted small">Assessment, batch/class, subject, and allocation-wise progress</span>
+        </div>
+        <table class="table rc-table align-middle">
+            <thead><tr><th>Assessment</th><th>Batch / Class</th><th>Subject</th><th>Teacher Allocation</th><th>Students</th><th>Expected</th><th>Entered</th><th>Missing</th><th>Absent</th><th>Status</th><th class="text-end">Inspect</th></tr></thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr>
+                        <td><strong>{{ assessment.title }}</strong></td>
+                        <td>{{ assessment.batch_name_snapshot }}</td>
+                        <td><strong>{{ row.assessment_subject.subject_name_snapshot }}</strong></td>
+                        <td>
+                            {% for allocation in row.allocations %}
+                                <div>{{ allocation.teacher.get_full_name|default:allocation.teacher.username }}</div>
+                            {% empty %}
+                                <span class="rc-pill rc-unassigned">Unassigned</span>
+                            {% endfor %}
+                        </td>
+                        <td>{{ summary.student_count }}</td>
+                        <td>{{ row.expected_mark_count }}</td>
+                        <td>{{ row.entered_mark_count }}</td>
+                        <td>{{ row.missing_mark_count }}</td>
+                        <td>{{ row.absent_mark_count }}</td>
+                        <td><span class="rc-pill {% if row.is_complete %}rc-complete{% else %}rc-pending{% endif %}">{{ row.is_complete|yesno:"Complete,Pending" }}</span></td>
+                        <td class="text-end"><a class="btn btn-sm btn-outline-primary rc-btn" href="{% url 'report_card_admin:marks_grid' assessment.pk row.assessment_subject.pk %}"><i class="bi bi-eye me-1"></i> Grid</a></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="11" class="text-center text-muted p-4">No subjects configured.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section class="rc-card table-responsive">
+        <div class="rc-card-head">
+            <h5><i class="bi bi-person-lines-fill me-1"></i> Teacher-Wise Pending Work</h5>
+            <span class="text-muted small">Shows pending work per teacher allocation.</span>
+        </div>
+        <table class="table rc-table align-middle">
+            <thead><tr><th>Teacher</th><th>Batch / Class</th><th>Subject</th><th>Expected</th><th>Entered</th><th>Missing</th><th>Absent</th><th>Status</th><th class="text-end">Inspect</th></tr></thead>
+            <tbody>
+                {% for row in teacher_rows %}
+                    <tr>
+                        <td>
+                            {% if row.allocation %}
+                                <strong>{{ row.allocation.teacher.get_full_name|default:row.allocation.teacher.username }}</strong>
+                            {% else %}
+                                <span class="rc-pill rc-unassigned">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ assessment.batch_name_snapshot }}</td>
+                        <td>{{ row.assessment_subject.subject_name_snapshot }}</td>
+                        <td>{{ row.expected_mark_count }}</td>
+                        <td>{{ row.entered_mark_count }}</td>
+                        <td>{{ row.missing_mark_count }}</td>
+                        <td>{{ row.absent_mark_count }}</td>
+                        <td><span class="rc-pill {% if row.is_complete %}rc-complete{% else %}rc-pending{% endif %}">{{ row.is_complete|yesno:"Complete,Pending" }}</span></td>
+                        <td class="text-end"><a class="btn btn-sm btn-outline-primary rc-btn" href="{% url 'report_card_admin:marks_grid' assessment.pk row.assessment_subject.pk %}"><i class="bi bi-eye me-1"></i> Grid</a></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="9" class="text-center text-muted p-4">No teacher allocations found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+</main>
+{% endblock content %}

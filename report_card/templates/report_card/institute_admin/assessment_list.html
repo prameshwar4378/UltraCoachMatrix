@@ -1,0 +1,124 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Report Card Assessments{% endblock title %}
+
+{% block content %}
+<style>
+    .rc-admin-main { background:#f5f7fb; min-height:calc(100vh - 80px); }
+    .rc-admin-page { --primary:#6042c8; --dark:#442c9f; --border:#e2e8f0; --muted:#64748b; color:#0f172a; }
+    .rc-hero, .rc-filter, .rc-card, .rc-stat { background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 12px 35px rgba(15,23,42,.07); }
+    .rc-hero { padding:22px 24px; margin-bottom:18px; }
+    .rc-title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; flex-wrap:wrap; }
+    .rc-hero h2 { margin:0 0 7px; font-weight:900; font-size:1.45rem; }
+    .rc-hero p { margin:0; color:var(--muted); font-weight:700; max-width:900px; }
+    .rc-stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+    .rc-stat { padding:16px; border-top:4px solid var(--stat-color); }
+    .rc-stat-icon { width:40px; height:40px; border-radius:8px; background:var(--stat-soft); color:var(--stat-color); display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
+    .rc-stat strong { display:block; font-size:1.55rem; line-height:1; font-weight:950; }
+    .rc-stat span { color:var(--muted); font-size:.84rem; font-weight:750; }
+    .rc-filter { padding:16px; margin-bottom:18px; }
+    .rc-card { overflow:hidden; }
+    .rc-table { margin:0; }
+    .rc-table th { background:#f8fafc; color:#475569; font-size:.76rem; text-transform:uppercase; white-space:nowrap; }
+    .rc-table td, .rc-table th { padding:13px 15px; vertical-align:middle; }
+    .rc-pill { display:inline-flex; align-items:center; padding:7px 10px; border-radius:999px; font-size:.78rem; font-weight:850; white-space:nowrap; }
+    .rc-pill-draft { background:#f1f5f9; color:#334155; }
+    .rc-pill-structure-ready { background:#dbeafe; color:#1d4ed8; }
+    .rc-pill-marks-entry-open { background:#ffedd5; color:#c2410c; }
+    .rc-pill-marks-entry-completed { background:#ccfbf1; color:#0f766e; }
+    .rc-pill-generated { background:#f3e8ff; color:#7e22ce; }
+    .rc-pill-published { background:#dcfce7; color:#15803d; }
+    .rc-pill-locked { background:#e5e7eb; color:#111827; }
+    .rc-btn { border-radius:8px; font-weight:800; }
+    .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
+    .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    .rc-empty { padding:38px 24px; text-align:center; color:var(--muted); font-weight:750; }
+    @media(max-width:992px){ .rc-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media(max-width:576px){ .rc-stat-grid { grid-template-columns:1fr; } .rc-hero .btn, .rc-filter .btn { width:100%; } }
+</style>
+
+<main id="main" class="main rc-admin-main">
+<div class="rc-admin-page">
+    <section class="rc-hero">
+        <div class="rc-title-row">
+            <div>
+                <h2>Report Card Assessments</h2>
+                <p>Create and maintain report-card assessments for classes. Teachers will use these assessments only for their allocated marks-entry work.</p>
+            </div>
+            <a class="btn btn-gradient" href="{% url 'report_card_admin:assessment_create' %}"><i class="bi bi-plus-circle me-1"></i> New Assessment</a>
+        </div>
+    </section>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="rc-stat-grid">
+        <div class="rc-stat" style="--stat-color:#6042c8; --stat-soft:#f1edff;"><div class="rc-stat-icon"><i class="bi bi-journal-check"></i></div><strong>{{ summary.total }}</strong><span>Total Assessments</span></div>
+        <div class="rc-stat" style="--stat-color:#64748b; --stat-soft:#f1f5f9;"><div class="rc-stat-icon"><i class="bi bi-pencil-square"></i></div><strong>{{ summary.draft }}</strong><span>Draft</span></div>
+        <div class="rc-stat" style="--stat-color:#d97706; --stat-soft:#ffedd5;"><div class="rc-stat-icon"><i class="bi bi-unlock"></i></div><strong>{{ summary.marks_entry_open }}</strong><span>Marks Entry Open</span></div>
+        <div class="rc-stat" style="--stat-color:#16a34a; --stat-soft:#dcfce7;"><div class="rc-stat-icon"><i class="bi bi-send-check"></i></div><strong>{{ summary.published }}</strong><span>Published</span></div>
+    </div>
+
+    <form class="rc-filter" method="get">
+        <div class="row g-2 align-items-end">
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-bold">Academic year</label>
+                <select class="form-select" name="academic_year">
+                    <option value="">All years</option>
+                    {% for year in academic_years %}<option value="{{ year.pk }}" {% if filter_academic_year == year.pk|stringformat:"s" %}selected{% endif %}>{{ year.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-bold">Class / batch</label>
+                <select class="form-select" name="batch">
+                    <option value="">All batches</option>
+                    {% for batch in batches %}<option value="{{ batch.pk }}" {% if filter_batch == batch.pk|stringformat:"s" %}selected{% endif %}>{{ batch.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label fw-bold">Status</label>
+                <select class="form-select" name="status">
+                    <option value="">All statuses</option>
+                    {% for value, label in status_choices %}<option value="{{ value }}" {% if filter_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label fw-bold">Search</label>
+                <input class="form-control" type="search" name="q" value="{{ search_query }}" placeholder="Assessment, class, year">
+            </div>
+            <div class="col-lg-1 d-flex gap-2">
+                <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:assessment_list' %}" title="Reset"><i class="bi bi-x-lg"></i></a>
+                <button class="btn btn-gradient" type="submit" title="Filter"><i class="bi bi-funnel"></i></button>
+            </div>
+        </div>
+    </form>
+
+    <section class="rc-card table-responsive">
+        <table class="table rc-table align-middle">
+            <thead><tr><th>Assessment</th><th>Academic Year</th><th>Class / Batch</th><th>Status</th><th>Subjects</th><th>Date</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+                {% for assessment in assessments %}
+                    <tr>
+                        <td><strong>{{ assessment.title }}</strong><br><small class="text-muted">Created {{ assessment.created_at|date:"d M Y" }}</small></td>
+                        <td>{{ assessment.academic_year_name_snapshot|default:assessment.academic_year.name }}</td>
+                        <td>{{ assessment.batch_name_snapshot|default:assessment.batch.name }}</td>
+                        <td><span class="rc-pill {% if assessment.status == 'DRAFT' %}rc-pill-draft{% elif assessment.status == 'STRUCTURE_READY' %}rc-pill-structure-ready{% elif assessment.status == 'MARKS_ENTRY_OPEN' %}rc-pill-marks-entry-open{% elif assessment.status == 'MARKS_ENTRY_COMPLETED' %}rc-pill-marks-entry-completed{% elif assessment.status == 'GENERATED' %}rc-pill-generated{% elif assessment.status == 'PUBLISHED' %}rc-pill-published{% elif assessment.status == 'LOCKED' %}rc-pill-locked{% endif %}">{{ assessment.get_status_display }}</span></td>
+                        <td>{{ assessment.assessment_subjects.count }}</td>
+                        <td>{{ assessment.assessment_date|date:"d M Y"|default:"-" }}</td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-primary rc-btn" href="{% url 'report_card_admin:assessment_detail' assessment.pk %}" title="View"><i class="bi bi-eye"></i></a>
+                            <a class="btn btn-sm btn-outline-secondary rc-btn" href="{% url 'report_card_admin:assessment_update' assessment.pk %}" title="Edit"><i class="bi bi-pencil"></i></a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7"><div class="rc-empty">No report-card assessments found. Create the first assessment to make it available for teacher marks entry.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+</main>
+{% endblock content %}

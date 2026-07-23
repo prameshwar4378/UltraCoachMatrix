@@ -1,13 +1,23 @@
 from datetime import date
 from decimal import Decimal
+from io import BytesIO
 import json
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.test import TestCase
+from django.urls import reverse
+from openpyxl import Workbook
+from rest_framework.test import APIClient
 
 from institute_admin.models import AcademicYear, Batch, Course, Subject
-from report_card.forms import ReportCardAssessmentForm, ReportCardAssessmentSubjectForm, ReportCardGradeRuleForm
+from report_card.forms import (
+    ReportCardAssessmentForm,
+    ReportCardAssessmentSubjectForm,
+    ReportCardGradeRuleForm,
+    ReportCardTeacherSubjectAllocationForm,
+)
+from report_card.exports import import_marks_workbook, report_card_pdf_response
 from report_card.models import (
     ReportCardAssessment,
     ReportCardAssessmentSubject,
@@ -17,9 +27,24 @@ from report_card.models import (
     ReportCardMarkEntry,
     ReportCardSubjectResult,
     ReportCardStudentResult,
+    ReportCardTeacherSubjectAllocation,
 )
-from report_card.permissions import student_can_view_result, teacher_can_edit_assessment
-from report_card.selectors import get_assessments_for_teacher, get_completion_summary, get_published_results_for_student
+from report_card.permissions import (
+    student_can_view_result,
+    teacher_can_edit_assessment,
+    teacher_has_subject_allocation as permission_teacher_has_subject_allocation,
+)
+from report_card.selectors import (
+    get_assessments_for_teacher,
+    get_completion_summary,
+    get_published_results_for_student,
+    get_teacher_accessible_assessment_subjects,
+    get_teacher_accessible_assessments,
+    get_teacher_allocated_batches,
+    get_teacher_allocated_subjects,
+    get_teacher_report_card_allocations,
+    teacher_has_subject_allocation,
+)
 from report_card.services import (
     add_assessment_subject,
     add_assessment_subject_component,
@@ -162,7 +187,1114 @@ class ReportCardFeatureTests(TestCase):
         if assessment.status != ReportCardAssessment.Status.MARKS_ENTRY_OPEN:
             open_marks_entry(assessment, actor=self.teacher)
             assessment.refresh_from_db()
+        self._ensure_allocation(assessment_subject)
         return bulk_save_subject_marks(assessment_subject, rows, actor=self.teacher)
+
+    def _ensure_allocation(self, assessment_subject, teacher=None):
+        return ReportCardTeacherSubjectAllocation.objects.get_or_create(
+            institute=assessment_subject.assessment.institute,
+            academic_year=assessment_subject.assessment.academic_year,
+            batch=assessment_subject.assessment.batch,
+            subject=assessment_subject.subject,
+            teacher=teacher or self.teacher,
+            defaults={"created_by": self.teacher},
+        )[0]
+
+    def _allocation(self, teacher=None, batch=None, subject=None, academic_year=None, is_active=True):
+        return ReportCardTeacherSubjectAllocation.objects.create(
+            institute=self.institute,
+            academic_year=academic_year or self.year,
+            batch=batch or self.batch,
+            subject=subject or self.math,
+            teacher=teacher or self.teacher,
+            is_active=is_active,
+            created_by=self.teacher,
+        )
+
+    def _admin_user(self, username="report-admin"):
+        user = User.objects.create_user(username=username, password="pass")
+        UserProfile.objects.create(
+            user=user,
+            institute=self.institute,
+            role=UserProfile.Role.INSTITUTE_ADMIN,
+        )
+        return user
+
+    def test_teacher_subject_allocation_can_be_created_for_same_institute_master_data(self):
+        allocation = ReportCardTeacherSubjectAllocation.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            batch=self.batch,
+            subject=self.math,
+            teacher=self.teacher,
+            created_by=self.teacher,
+        )
+
+        self.assertTrue(allocation.is_active)
+        self.assertIn("report-teacher", str(allocation))
+        self.assertIn("8-A", str(allocation))
+        self.assertIn("Mathematics", str(allocation))
+
+    def test_teacher_subject_allocation_validates_master_data_scope(self):
+        with self.assertRaises(ValidationError):
+            ReportCardTeacherSubjectAllocation.objects.create(
+                institute=self.institute,
+                academic_year=self.year,
+                batch=self.batch,
+                subject=self.other_subject,
+                teacher=self.teacher,
+            )
+        with self.assertRaises(ValidationError):
+            ReportCardTeacherSubjectAllocation.objects.create(
+                institute=self.institute,
+                academic_year=self.year,
+                batch=self.batch,
+                subject=self.next_year_subject,
+                teacher=self.teacher,
+            )
+
+    def test_teacher_subject_allocation_requires_same_institute_teacher(self):
+        outside_teacher = User.objects.create_user(username="outside-teacher", password="pass")
+        UserProfile.objects.create(
+            user=outside_teacher,
+            institute=self.other_institute,
+            role=UserProfile.Role.TEACHER,
+        )
+        student_user = User.objects.create_user(username="allocation-student", password="pass")
+        UserProfile.objects.create(
+            user=student_user,
+            institute=self.institute,
+            role=UserProfile.Role.STUDENT_PARENT,
+        )
+
+        with self.assertRaises(ValidationError):
+            ReportCardTeacherSubjectAllocation.objects.create(
+                institute=self.institute,
+                academic_year=self.year,
+                batch=self.batch,
+                subject=self.math,
+                teacher=outside_teacher,
+            )
+        with self.assertRaises(ValidationError):
+            ReportCardTeacherSubjectAllocation.objects.create(
+                institute=self.institute,
+                academic_year=self.year,
+                batch=self.batch,
+                subject=self.math,
+                teacher=student_user,
+            )
+
+    def test_teacher_subject_allocation_is_unique_per_year_batch_subject_teacher(self):
+        ReportCardTeacherSubjectAllocation.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            batch=self.batch,
+            subject=self.math,
+            teacher=self.teacher,
+        )
+
+        with self.assertRaises(ValidationError):
+            ReportCardTeacherSubjectAllocation.objects.create(
+                institute=self.institute,
+                academic_year=self.year,
+                batch=self.batch,
+                subject=self.math,
+                teacher=self.teacher,
+            )
+
+    def test_teacher_allocation_selectors_are_institute_and_year_safe(self):
+        self._allocation(subject=self.math)
+        self._allocation(subject=self.science)
+        self._allocation(subject=self.art, academic_year=self.year, is_active=False)
+        ReportCardTeacherSubjectAllocation.objects.create(
+            institute=self.institute,
+            academic_year=self.year,
+            batch=self.unassigned_batch,
+            subject=self.science,
+            teacher=self.other_teacher,
+        )
+
+        allocations = list(get_teacher_report_card_allocations(self.teacher, academic_year=self.year))
+        batches = list(get_teacher_allocated_batches(self.teacher, academic_year=self.year))
+        subjects = list(get_teacher_allocated_subjects(self.teacher, batch=self.batch, academic_year=self.year))
+
+        self.assertEqual({allocation.subject for allocation in allocations}, {self.math, self.science})
+        self.assertEqual(batches, [self.batch])
+        self.assertEqual(set(subjects), {self.math, self.science})
+        self.assertEqual(list(get_teacher_report_card_allocations(self.teacher, academic_year=self.next_year)), [])
+
+    def test_teacher_accessible_assessment_subjects_use_exact_allocated_subjects(self):
+        self._allocation(subject=self.math)
+        assessment = self._assessment()
+        math = self._subject(assessment, self.math)
+        science = self._subject(assessment, self.science)
+
+        accessible_subjects = list(get_teacher_accessible_assessment_subjects(self.teacher, assessment))
+
+        self.assertEqual(accessible_subjects, [math])
+        self.assertTrue(teacher_has_subject_allocation(self.teacher, math))
+        self.assertTrue(permission_teacher_has_subject_allocation(self.teacher, math))
+        self.assertFalse(teacher_has_subject_allocation(self.teacher, science))
+        self.assertFalse(permission_teacher_has_subject_allocation(self.teacher, science))
+
+    def test_teacher_accessible_assessments_use_allocated_batch_and_subject(self):
+        self._allocation(subject=self.math)
+        visible_assessment = self._assessment("Visible Allocation")
+        self._subject(visible_assessment, self.math)
+        hidden_subject_assessment = self._assessment("Hidden Subject")
+        self._subject(hidden_subject_assessment, self.science)
+        hidden_batch_assessment = create_assessment(
+            institute=self.institute,
+            academic_year=self.year,
+            batch=self.unassigned_batch,
+            title="Hidden Batch",
+            created_by=self.teacher,
+        )
+        add_assessment_subject(
+            hidden_batch_assessment,
+            subject=self.math,
+            max_marks=Decimal("100"),
+            passing_marks=Decimal("35"),
+            weightage=Decimal("100"),
+            display_order=1,
+            actor=self.teacher,
+        )
+
+        assessments = list(get_teacher_accessible_assessments(self.teacher, academic_year=self.year))
+
+        self.assertEqual(assessments, [visible_assessment])
+        self.assertFalse(teacher_can_edit_assessment(self.teacher, visible_assessment))
+        self.assertFalse(teacher_can_edit_assessment(self.teacher, hidden_subject_assessment))
+        self.assertFalse(teacher_can_edit_assessment(self.teacher, hidden_batch_assessment))
+
+    def test_allocation_form_prevents_duplicates_gracefully(self):
+        self._allocation(subject=self.math)
+        form = ReportCardTeacherSubjectAllocationForm(
+            data={
+                "academic_year": self.year.pk,
+                "batch": self.batch.pk,
+                "subject": self.math.pk,
+                "teacher": self.teacher.pk,
+                "is_active": "on",
+            },
+            institute=self.institute,
+            created_by=self.teacher,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("teacher", form.errors)
+
+    def test_institute_admin_can_create_teacher_subject_allocation_from_ui(self):
+        admin_user = self._admin_user("allocation-admin")
+        self.client.force_login(admin_user)
+
+        response = self.client.post(
+            reverse("report_card_admin:allocation_create"),
+            data={
+                "academic_year": self.year.pk,
+                "batch": self.batch.pk,
+                "subject": self.math.pk,
+                "teacher": self.teacher.pk,
+                "is_active": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        allocation = ReportCardTeacherSubjectAllocation.objects.get(
+            academic_year=self.year,
+            batch=self.batch,
+            subject=self.math,
+            teacher=self.teacher,
+        )
+        self.assertEqual(allocation.institute, self.institute)
+        self.assertEqual(allocation.created_by, admin_user)
+
+    def test_institute_admin_can_bulk_save_class_subject_allocations_from_ui(self):
+        admin_user = self._admin_user("allocation-bulk-admin")
+        self.client.force_login(admin_user)
+        session = self.client.session
+        session["academic_year_id"] = self.year.pk
+        session.save()
+
+        response = self.client.post(
+            reverse("report_card_admin:allocation_create"),
+            data={
+                "batch": self.batch.pk,
+                "allocation_rows_json": json.dumps(
+                    [
+                        {"subject_id": self.math.pk, "teacher_id": self.teacher.pk},
+                        {"subject_id": self.science.pk, "teacher_id": self.teacher.pk},
+                    ]
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        allocations = ReportCardTeacherSubjectAllocation.objects.filter(
+            academic_year=self.year,
+            batch=self.batch,
+            teacher=self.teacher,
+        )
+        self.assertEqual(allocations.count(), 2)
+        self.assertSetEqual(set(allocations.values_list("subject_id", flat=True)), {self.math.pk, self.science.pk})
+        self.assertTrue(allocations.filter(created_by=admin_user).exists())
+
+    def test_institute_admin_can_filter_update_and_delete_allocations_from_ui(self):
+        admin_user = self._admin_user("allocation-admin-two")
+        allocation = self._allocation(subject=self.math)
+        self.client.force_login(admin_user)
+
+        list_response = self.client.get(
+            reverse("report_card_admin:allocation_list"),
+            data={"academic_year": self.year.pk, "teacher": self.teacher.pk, "q": "Mathematics"},
+        )
+        self.assertEqual(list_response.status_code, 200)
+        self.assertContains(list_response, "Mathematics")
+
+        update_response = self.client.post(
+            reverse("report_card_admin:allocation_update", args=[allocation.pk]),
+            data={
+                "academic_year": self.year.pk,
+                "batch": self.batch.pk,
+                "subject": self.science.pk,
+                "teacher": self.teacher.pk,
+                "is_active": "",
+            },
+        )
+        self.assertEqual(update_response.status_code, 302)
+        allocation.refresh_from_db()
+        self.assertEqual(allocation.subject, self.science)
+        self.assertFalse(allocation.is_active)
+
+        delete_response = self.client.post(reverse("report_card_admin:allocation_delete", args=[allocation.pk]))
+        self.assertEqual(delete_response.status_code, 302)
+        self.assertFalse(ReportCardTeacherSubjectAllocation.objects.filter(pk=allocation.pk).exists())
+
+    def test_institute_admin_sidebar_shows_report_card_management_links(self):
+        admin_user = self._admin_user("navigation-admin")
+        self.client.force_login(admin_user)
+
+        response = self.client.get(reverse("report_card_admin:assessment_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Tests / Exams")
+        self.assertContains(response, "Report Card Generator")
+        self.assertContains(response, 'data-bs-target="#report-card-nav"')
+        self.assertContains(response, 'id="report-card-nav"')
+        self.assertContains(response, "Report Cards")
+        self.assertContains(response, "Teacher Subject Allocation")
+        self.assertContains(response, "Grade Rules")
+        self.assertContains(response, reverse("report_card_admin:assessment_list"))
+        self.assertContains(response, reverse("report_card_admin:allocation_list"))
+        self.assertContains(response, reverse("report_card_admin:grade_rule_list"))
+
+    def test_institute_admin_cannot_edit_other_institute_allocation(self):
+        admin_user = self._admin_user("allocation-admin-three")
+        outside_teacher = User.objects.create_user(username="outside-allocation-teacher", password="pass")
+        UserProfile.objects.create(
+            user=outside_teacher,
+            institute=self.other_institute,
+            role=UserProfile.Role.TEACHER,
+        )
+        other_batch = Batch.objects.create(institute=self.other_institute, academic_year=self.other_year, name="Other Batch")
+        other_allocation = ReportCardTeacherSubjectAllocation.objects.create(
+            institute=self.other_institute,
+            academic_year=self.other_year,
+            batch=other_batch,
+            subject=self.other_subject,
+            teacher=outside_teacher,
+        )
+        self.client.force_login(admin_user)
+
+        response = self.client.get(reverse("report_card_admin:allocation_update", args=[other_allocation.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_institute_admin_can_create_and_edit_report_card_assessment_from_ui(self):
+        admin_user = self._admin_user("assessment-admin")
+        online_exam_count = Exam.objects.count()
+        self.client.force_login(admin_user)
+
+        create_response = self.client.post(
+            reverse("report_card_admin:assessment_create"),
+            data={
+                "academic_year": self.year.pk,
+                "batch": self.batch.pk,
+                "title": "Admin Mid Term",
+                "assessment_date": "2026-07-19",
+                "result_date": "2026-07-24",
+            },
+        )
+
+        self.assertEqual(create_response.status_code, 302)
+        assessment = ReportCardAssessment.objects.get(title="Admin Mid Term")
+        self.assertEqual(assessment.institute, self.institute)
+        self.assertEqual(assessment.created_by, admin_user)
+        self.assertEqual(Exam.objects.count(), online_exam_count)
+
+        update_response = self.client.post(
+            reverse("report_card_admin:assessment_update", args=[assessment.pk]),
+            data={
+                "academic_year": self.year.pk,
+                "batch": self.batch.pk,
+                "title": "Admin Final Term",
+                "assessment_date": "2026-08-19",
+                "result_date": "2026-08-24",
+            },
+        )
+
+        self.assertEqual(update_response.status_code, 302)
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.title, "Admin Final Term")
+        self.assertEqual(assessment.assessment_date, date(2026, 8, 19))
+        self.assertEqual(Exam.objects.count(), online_exam_count)
+
+    def test_teacher_cannot_create_or_edit_report_card_assessment_from_ui(self):
+        assessment = self._assessment("Teacher Blocked Edit")
+        self._subject(assessment, self.math)
+        self._allocation(subject=self.math)
+        online_exam_count = Exam.objects.count()
+        self.client.force_login(self.teacher)
+
+        create_response = self.client.post(
+            reverse("report_card:assessment_create"),
+            data={
+                "academic_year": self.year.pk,
+                "batch": self.batch.pk,
+                "title": "Teacher Created Assessment",
+                "assessment_date": "2026-07-19",
+            },
+        )
+
+        self.assertEqual(create_response.status_code, 302)
+        self.assertFalse(ReportCardAssessment.objects.filter(title="Teacher Created Assessment").exists())
+
+        update_response = self.client.post(
+            reverse("report_card:assessment_update", args=[assessment.pk]),
+            data={
+                "academic_year": self.year.pk,
+                "batch": self.batch.pk,
+                "title": "Teacher Edited Assessment",
+                "assessment_date": "2026-07-20",
+            },
+        )
+
+        self.assertEqual(update_response.status_code, 302)
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.title, "Teacher Blocked Edit")
+        self.assertEqual(Exam.objects.count(), online_exam_count)
+
+    def test_institute_admin_can_create_update_and_delete_assessment_subject_structure_from_ui(self):
+        admin_user = self._admin_user("structure-admin")
+        assessment = self._assessment("Admin Structure")
+        self.client.force_login(admin_user)
+        components = [
+            {
+                "id": None,
+                "name": "Theory Exam",
+                "max_marks": "70",
+                "passing_marks": "0",
+                "weightage": "70",
+                "display_order": 1,
+                "include_in_total": True,
+                "is_primary": True,
+            },
+            {
+                "id": None,
+                "name": "Practical",
+                "max_marks": "30",
+                "passing_marks": "0",
+                "weightage": "30",
+                "display_order": 2,
+                "include_in_total": True,
+                "is_primary": False,
+            },
+        ]
+
+        create_response = self.client.post(
+            reverse("report_card_admin:assessment_subject_create", args=[assessment.pk]),
+            data={
+                "subject": self.math.pk,
+                "max_marks": "",
+                "passing_marks": "35",
+                "weightage": "",
+                "display_order": "",
+                "is_optional": "",
+                "include_in_total": "on",
+                "components_json": json.dumps(components),
+            },
+        )
+
+        self.assertEqual(create_response.status_code, 302)
+        assessment_subject = ReportCardAssessmentSubject.objects.get(assessment=assessment, subject=self.math)
+        self.assertEqual(assessment_subject.max_marks, Decimal("100.00"))
+        self.assertEqual(
+            list(assessment_subject.components.order_by("display_order").values_list("name_snapshot", "max_marks")),
+            [("Theory Exam", Decimal("70.00")), ("Practical", Decimal("30.00"))],
+        )
+
+        existing_component_id = assessment_subject.components.order_by("display_order").first().pk
+        updated_components = [
+            {
+                "id": existing_component_id,
+                "name": "Theory Exam",
+                "max_marks": "80",
+                "passing_marks": "0",
+                "weightage": "80",
+                "display_order": 1,
+                "include_in_total": True,
+                "is_primary": True,
+            },
+            {
+                "id": None,
+                "name": "Notebook",
+                "max_marks": "20",
+                "passing_marks": "0",
+                "weightage": "20",
+                "display_order": 2,
+                "include_in_total": True,
+                "is_primary": False,
+            },
+        ]
+        update_response = self.client.post(
+            reverse("report_card_admin:assessment_subject_update", args=[assessment.pk, assessment_subject.pk]),
+            data={
+                "subject": self.math.pk,
+                "max_marks": "",
+                "passing_marks": "40",
+                "weightage": "",
+                "display_order": "",
+                "is_optional": "",
+                "include_in_total": "on",
+                "components_json": json.dumps(updated_components),
+            },
+        )
+
+        self.assertEqual(update_response.status_code, 302)
+        assessment_subject.refresh_from_db()
+        self.assertEqual(assessment_subject.max_marks, Decimal("100.00"))
+        self.assertTrue(assessment_subject.components.filter(pk=existing_component_id, max_marks=Decimal("80.00")).exists())
+        self.assertTrue(assessment_subject.components.filter(name_snapshot="Notebook", max_marks=Decimal("20.00")).exists())
+
+        delete_response = self.client.post(
+            reverse("report_card_admin:assessment_subject_delete", args=[assessment.pk, assessment_subject.pk])
+        )
+        self.assertEqual(delete_response.status_code, 302)
+        self.assertFalse(ReportCardAssessmentSubject.objects.filter(pk=assessment_subject.pk).exists())
+
+    def test_teacher_cannot_create_update_delete_assessment_subject_or_components_from_ui(self):
+        assessment = self._assessment("Teacher Structure Blocked")
+        assessment_subject = self._subject(assessment, self.math)
+        component = assessment_subject.components.create(
+            name="Theory Exam",
+            max_marks=Decimal("100"),
+            passing_marks=Decimal("0"),
+            weightage=Decimal("100"),
+            display_order=1,
+            include_in_total=True,
+        )
+        self._allocation(subject=self.math)
+        self.client.force_login(self.teacher)
+
+        create_response = self.client.post(
+            reverse("report_card:assessment_subject_create", args=[assessment.pk]),
+            data={
+                "subject": self.science.pk,
+                "passing_marks": "35",
+                "include_in_total": "on",
+                "components_json": json.dumps([{"name": "Theory Exam", "max_marks": "100", "include_in_total": True}]),
+            },
+        )
+        self.assertEqual(create_response.status_code, 302)
+        self.assertFalse(ReportCardAssessmentSubject.objects.filter(assessment=assessment, subject=self.science).exists())
+
+        update_response = self.client.post(
+            reverse("report_card:assessment_subject_update", args=[assessment.pk, assessment_subject.pk]),
+            data={
+                "subject": self.math.pk,
+                "passing_marks": "10",
+                "include_in_total": "on",
+                "components_json": json.dumps([{"id": component.pk, "name": "Changed", "max_marks": "50", "include_in_total": True}]),
+            },
+        )
+        self.assertEqual(update_response.status_code, 302)
+        assessment_subject.refresh_from_db()
+        component.refresh_from_db()
+        self.assertEqual(assessment_subject.passing_marks, Decimal("35.00"))
+        self.assertEqual(component.name_snapshot, "Theory Exam")
+
+        component_update_response = self.client.post(
+            reverse("report_card:assessment_subject_component_update", args=[assessment.pk, assessment_subject.pk, component.pk]),
+            data={
+                "name": "Oral",
+                "max_marks": "20",
+                "passing_marks": "0",
+                "weightage": "20",
+                "display_order": "1",
+                "include_in_total": "on",
+            },
+        )
+        self.assertEqual(component_update_response.status_code, 302)
+        component.refresh_from_db()
+        self.assertEqual(component.name_snapshot, "Theory Exam")
+
+        delete_response = self.client.post(
+            reverse("report_card:assessment_subject_delete", args=[assessment.pk, assessment_subject.pk])
+        )
+        component_delete_response = self.client.post(
+            reverse("report_card:assessment_subject_component_delete", args=[assessment.pk, assessment_subject.pk, component.pk])
+        )
+        self.assertEqual(delete_response.status_code, 302)
+        self.assertEqual(component_delete_response.status_code, 302)
+        self.assertTrue(ReportCardAssessmentSubject.objects.filter(pk=assessment_subject.pk).exists())
+        self.assertTrue(ReportCardAssessmentSubjectComponent.objects.filter(pk=component.pk).exists())
+
+    def test_teacher_dashboard_shows_only_allocated_subjects_and_own_completion(self):
+        assessment = self._assessment("Allocated Subject Dashboard")
+        math = self._subject(assessment, self.math)
+        science = self._subject(assessment, self.science)
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=self._admin_user("open-admin"))
+        bulk_save_subject_marks(
+            math,
+            [{"academic_session": self.session_1, "marks_obtained": "45"}],
+            actor=self.teacher,
+        )
+        self.client.force_login(self.teacher)
+
+        detail_response = self.client.get(reverse("report_card:assessment_detail", args=[assessment.pk]))
+        structure_response = self.client.get(reverse("report_card:assessment_structure", args=[assessment.pk]))
+        completion_response = self.client.get(reverse("report_card:completion_summary", args=[assessment.pk]))
+
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, "Mathematics")
+        self.assertNotContains(detail_response, "Science")
+        self.assertEqual(list(detail_response.context["subjects"]), [math])
+        self.assertEqual(list(structure_response.context["subjects"]), [math])
+        self.assertEqual(completion_response.context["summary"]["subject_count"], 1)
+        self.assertEqual(
+            completion_response.context["summary"]["subjects"][0]["assessment_subject"],
+            math,
+        )
+        self.assertNotIn(science, [item["assessment_subject"] for item in completion_response.context["summary"]["subjects"]])
+
+    def test_teacher_sidebar_keeps_report_cards_separate_from_online_exams(self):
+        self.client.force_login(self.teacher)
+
+        response = self.client.get(reverse("report_card:assessment_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Exams")
+        self.assertContains(response, "Report Cards")
+        self.assertContains(response, reverse("report_card:assessment_list"))
+        self.assertNotContains(response, "Teacher Subject Allocation")
+        self.assertNotContains(response, "Grade Rules")
+
+    def test_teacher_marks_entry_and_template_are_limited_to_allocated_subject(self):
+        assessment = self._assessment("Allocated Marks Only")
+        math = self._subject(assessment, self.math)
+        science = self._subject(assessment, self.science)
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=self._admin_user("marks-open-admin"))
+        self.client.force_login(self.teacher)
+
+        allowed_response = self.client.post(
+            reverse("report_card:marks_entry", args=[assessment.pk, math.pk]),
+            data={
+                f"{self.session_1.pk}-academic_session_id": self.session_1.pk,
+                f"{self.session_1.pk}-marks_obtained": "40",
+                f"{self.session_1.pk}-is_absent": "",
+                f"{self.session_1.pk}-remark": "",
+                f"{self.session_2.pk}-academic_session_id": self.session_2.pk,
+                f"{self.session_2.pk}-marks_obtained": "",
+                f"{self.session_2.pk}-is_absent": "",
+                f"{self.session_2.pk}-remark": "",
+                f"{self.session_3.pk}-academic_session_id": self.session_3.pk,
+                f"{self.session_3.pk}-marks_obtained": "",
+                f"{self.session_3.pk}-is_absent": "",
+                f"{self.session_3.pk}-remark": "",
+            },
+        )
+        self.assertEqual(allowed_response.status_code, 302)
+        self.assertTrue(
+            ReportCardMarkEntry.objects.filter(
+                assessment_subject=math,
+                academic_session=self.session_1,
+                marks_obtained=Decimal("40.00"),
+            ).exists()
+        )
+
+        blocked_response = self.client.post(
+            reverse("report_card:marks_entry", args=[assessment.pk, science.pk]),
+            data={
+                f"{self.session_1.pk}-academic_session_id": self.session_1.pk,
+                f"{self.session_1.pk}-marks_obtained": "50",
+            },
+        )
+        self.assertEqual(blocked_response.status_code, 302)
+        self.assertFalse(ReportCardMarkEntry.objects.filter(assessment_subject=science).exists())
+
+        template_response = self.client.get(reverse("report_card:marks_entry_template", args=[assessment.pk, math.pk]))
+        blocked_template_response = self.client.get(reverse("report_card:marks_entry_template", args=[assessment.pk, science.pk]))
+        self.assertEqual(template_response.status_code, 200)
+        self.assertEqual(blocked_template_response.status_code, 302)
+
+    def test_bulk_save_subject_marks_rejects_teacher_without_allocation(self):
+        assessment = self._assessment("Service Allocation Guard")
+        science = self._subject(assessment, self.science)
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=self._admin_user("service-open-admin"))
+
+        with self.assertRaisesMessage(ValidationError, "allocated report-card subject"):
+            bulk_save_subject_marks(
+                science,
+                [{"academic_session": self.session_1, "marks_obtained": "50"}],
+                actor=self.teacher,
+            )
+
+        self.assertFalse(ReportCardMarkEntry.objects.filter(assessment_subject=science).exists())
+
+    def test_bulk_save_subject_marks_allows_same_institute_admin(self):
+        assessment = self._assessment("Admin Marks Save")
+        science = self._subject(assessment, self.science)
+        admin_user = self._admin_user("service-marks-admin")
+        open_marks_entry(assessment, actor=admin_user)
+
+        saved = bulk_save_subject_marks(
+            science,
+            [{"academic_session": self.session_1, "marks_obtained": "50"}],
+            actor=admin_user,
+        )
+
+        self.assertEqual(len(saved), 1)
+        self.assertTrue(ReportCardMarkEntry.objects.filter(assessment_subject=science).exists())
+
+    def test_teacher_url_tampering_cannot_save_marks_for_unallocated_subject(self):
+        assessment = self._assessment("URL Tampering Guard")
+        self._subject(assessment, self.math)
+        science = self._subject(assessment, self.science)
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=self._admin_user("url-tamper-admin"))
+        self.client.force_login(self.teacher)
+
+        response = self.client.post(
+            reverse("report_card:marks_entry", args=[assessment.pk, science.pk]),
+            data={
+                f"{self.session_1.pk}-academic_session_id": self.session_1.pk,
+                f"{self.session_1.pk}-marks_obtained": "70",
+                f"{self.session_1.pk}-is_absent": "",
+                f"{self.session_1.pk}-remark": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(ReportCardMarkEntry.objects.filter(assessment_subject=science).exists())
+
+    def test_excel_import_cannot_save_unallocated_subject_marks(self):
+        assessment = self._assessment("Excel Allocation Guard")
+        self._subject(assessment, self.math)
+        science = self._subject(assessment, self.science)
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=self._admin_user("excel-tamper-admin"))
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(["Academic Session ID", "Admission Number", "Student Name", "Marks", "Absent", "Remark"])
+        sheet.append([self.session_1.pk, self.session_1.admission_number, "Ada Lovelace", 55, "", ""])
+        upload = BytesIO()
+        workbook.save(upload)
+        upload.seek(0)
+
+        result = import_marks_workbook(science, upload, actor=self.teacher)
+
+        self.assertEqual(result["saved_count"], 0)
+        self.assertEqual(len(result["errors"]), 1)
+        self.assertIn("allocated report-card subject", result["errors"][0]["errors"][0])
+        self.assertFalse(ReportCardMarkEntry.objects.filter(assessment_subject=science).exists())
+
+    def test_api_marks_save_cannot_save_unallocated_subject_marks(self):
+        assessment = self._assessment("API Allocation Guard")
+        self._subject(assessment, self.math)
+        science = self._subject(assessment, self.science)
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=self._admin_user("api-tamper-admin"))
+        api_client = APIClient()
+        api_client.force_authenticate(user=self.teacher)
+
+        response = api_client.post(
+            f"/api/mobile/report-cards/teacher/assessments/{assessment.pk}/subjects/{science.pk}/marks/",
+            data={
+                "rows": [
+                    {
+                        "academic_session_id": self.session_1.pk,
+                        "marks_obtained": "65",
+                        "is_absent": False,
+                        "remark": "",
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(ReportCardMarkEntry.objects.filter(assessment_subject=science).exists())
+
+    def test_teacher_api_returns_only_allocated_assessments_and_subjects(self):
+        visible_assessment = self._assessment("API Visible Assessment")
+        math = self._subject(visible_assessment, self.math)
+        science = self._subject(visible_assessment, self.science)
+        hidden_assessment = self._assessment("API Hidden Assessment")
+        self._subject(hidden_assessment, self.art)
+        self._allocation(subject=self.math)
+        api_client = APIClient()
+        api_client.force_authenticate(user=self.teacher)
+
+        list_response = api_client.get("/api/mobile/report-cards/teacher/assessments/")
+        detail_response = api_client.get(f"/api/mobile/report-cards/teacher/assessments/{visible_assessment.pk}/")
+        subjects_response = api_client.get(f"/api/mobile/report-cards/teacher/assessments/{visible_assessment.pk}/subjects/")
+        hidden_response = api_client.get(f"/api/mobile/report-cards/teacher/assessments/{hidden_assessment.pk}/")
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual([item["id"] for item in list_response.data["results"]], [visible_assessment.pk])
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual([item["id"] for item in detail_response.data["subjects"]], [math.pk])
+        self.assertNotIn(science.pk, [item["id"] for item in detail_response.data["subjects"]])
+        self.assertEqual(subjects_response.status_code, 200)
+        self.assertEqual([item["id"] for item in subjects_response.data["results"]], [math.pk])
+        self.assertEqual(hidden_response.status_code, 404)
+
+    def test_teacher_api_saves_and_returns_component_marks_for_allocated_subject(self):
+        assessment = self._assessment("API Component Marks")
+        math = self._subject(assessment, self.math, max_marks=Decimal("60"), passing_marks=Decimal("21"))
+        theory = add_assessment_subject_component(
+            math,
+            name="Theory Exam",
+            max_marks=Decimal("50"),
+            weightage=Decimal("50"),
+            display_order=1,
+            actor=self.teacher,
+        )
+        notebook = add_assessment_subject_component(
+            math,
+            name="Notebook",
+            max_marks=Decimal("10"),
+            weightage=Decimal("10"),
+            display_order=2,
+            actor=self.teacher,
+        )
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=self._admin_user("api-component-admin"))
+        api_client = APIClient()
+        api_client.force_authenticate(user=self.teacher)
+
+        save_response = api_client.post(
+            f"/api/mobile/report-cards/teacher/assessments/{assessment.pk}/subjects/{math.pk}/marks/",
+            data={
+                "rows": [
+                    {
+                        "academic_session_id": self.session_1.pk,
+                        "component_marks": {
+                            str(theory.pk): "42",
+                            str(notebook.pk): "8",
+                        },
+                        "is_absent": False,
+                        "remark": "API save",
+                    }
+                ]
+            },
+            format="json",
+        )
+        grid_response = api_client.get(
+            f"/api/mobile/report-cards/teacher/assessments/{assessment.pk}/subjects/{math.pk}/marks/"
+        )
+
+        self.assertEqual(save_response.status_code, 200)
+        subject_entry = ReportCardMarkEntry.objects.get(assessment_subject=math, academic_session=self.session_1)
+        self.assertEqual(subject_entry.marks_obtained, Decimal("50.00"))
+        self.assertEqual(grid_response.status_code, 200)
+        self.assertEqual([component["id"] for component in grid_response.data["subject"]["components"]], [theory.pk, notebook.pk])
+        first_row = next(row for row in grid_response.data["rows"] if row["academic_session_id"] == self.session_1.pk)
+        self.assertEqual(first_row["mark_entry"]["marks_obtained"], "50.00")
+        self.assertEqual(first_row["mark_entry"]["component_marks"][str(theory.pk)]["marks_obtained"], "42.00")
+        self.assertEqual(first_row["mark_entry"]["component_marks"][str(notebook.pk)]["marks_obtained"], "8.00")
+
+    def test_teacher_cannot_run_report_card_admin_workflow_actions(self):
+        assessment = self._assessment("Teacher Admin Actions Blocked")
+        math = self._subject(assessment, self.math)
+        self._allocation(subject=self.math)
+        self.client.force_login(self.teacher)
+
+        blocked_posts = [
+            reverse("report_card:open_marks_entry", args=[assessment.pk]),
+            reverse("report_card:generate_results", args=[assessment.pk]),
+            reverse("report_card:publish_results", args=[assessment.pk]),
+            reverse("report_card:lock_assessment", args=[assessment.pk]),
+        ]
+        for url in blocked_posts:
+            response = self.client.post(url)
+            self.assertEqual(response.status_code, 302)
+
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.status, ReportCardAssessment.Status.STRUCTURE_READY)
+
+        results_response = self.client.get(reverse("report_card:results_preview", args=[assessment.pk]))
+        export_response = self.client.get(reverse("report_card:results_export", args=[assessment.pk]))
+        self.assertEqual(results_response.status_code, 302)
+        self.assertEqual(export_response.status_code, 302)
+
+    def test_admin_structure_shows_warnings_before_opening_marks_entry(self):
+        admin_user = self._admin_user("open-warning-admin")
+        no_subject_assessment = create_assessment(
+            institute=self.institute,
+            academic_year=self.year,
+            batch=self.batch,
+            title="No Subject Warning",
+            created_by=admin_user,
+        )
+        assessment = self._assessment("Missing Allocation Warning")
+        self._subject(assessment, self.math)
+        self.client.force_login(admin_user)
+
+        no_subject_response = self.client.get(
+            reverse("report_card_admin:assessment_structure", args=[no_subject_assessment.pk])
+        )
+        missing_allocation_response = self.client.get(
+            reverse("report_card_admin:assessment_structure", args=[assessment.pk])
+        )
+
+        self.assertContains(no_subject_response, "Add at least one subject before opening marks entry.")
+        self.assertContains(missing_allocation_response, "Teacher allocation is missing for: Mathematics")
+
+        blocked_response = self.client.post(reverse("report_card_admin:open_marks_entry", args=[assessment.pk]))
+        self.assertEqual(blocked_response.status_code, 302)
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.status, ReportCardAssessment.Status.STRUCTURE_READY)
+
+    def test_admin_can_open_marks_entry_after_structure_and_allocations_are_ready(self):
+        admin_user = self._admin_user("open-marks-admin")
+        assessment = self._assessment("Ready For Marks")
+        self._subject(assessment, self.math)
+        self._allocation(subject=self.math)
+        self.client.force_login(admin_user)
+
+        response = self.client.post(reverse("report_card_admin:open_marks_entry", args=[assessment.pk]))
+
+        self.assertEqual(response.status_code, 302)
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.status, ReportCardAssessment.Status.MARKS_ENTRY_OPEN)
+
+    def test_teacher_can_enter_marks_only_after_admin_opens_marks_entry(self):
+        admin_user = self._admin_user("teacher-open-admin")
+        assessment = self._assessment("Teacher Waits For Admin")
+        math = self._subject(assessment, self.math)
+        self._allocation(subject=self.math)
+        self.client.force_login(self.teacher)
+
+        before_open_response = self.client.post(
+            reverse("report_card:marks_entry", args=[assessment.pk, math.pk]),
+            data={
+                f"{self.session_1.pk}-academic_session_id": self.session_1.pk,
+                f"{self.session_1.pk}-marks_obtained": "40",
+            },
+        )
+        self.assertEqual(before_open_response.status_code, 302)
+        self.assertFalse(ReportCardMarkEntry.objects.filter(assessment_subject=math).exists())
+
+        self.client.force_login(admin_user)
+        self.client.post(reverse("report_card_admin:open_marks_entry", args=[assessment.pk]))
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.status, ReportCardAssessment.Status.MARKS_ENTRY_OPEN)
+
+        self.client.force_login(self.teacher)
+        after_open_response = self.client.post(
+            reverse("report_card:marks_entry", args=[assessment.pk, math.pk]),
+            data={
+                f"{self.session_1.pk}-academic_session_id": self.session_1.pk,
+                f"{self.session_1.pk}-marks_obtained": "40",
+                f"{self.session_1.pk}-is_absent": "",
+                f"{self.session_1.pk}-remark": "",
+                f"{self.session_2.pk}-academic_session_id": self.session_2.pk,
+                f"{self.session_2.pk}-marks_obtained": "",
+                f"{self.session_2.pk}-is_absent": "",
+                f"{self.session_2.pk}-remark": "",
+                f"{self.session_3.pk}-academic_session_id": self.session_3.pk,
+                f"{self.session_3.pk}-marks_obtained": "",
+                f"{self.session_3.pk}-is_absent": "",
+                f"{self.session_3.pk}-remark": "",
+            },
+        )
+
+        self.assertEqual(after_open_response.status_code, 302)
+        self.assertTrue(
+            ReportCardMarkEntry.objects.filter(
+                assessment_subject=math,
+                academic_session=self.session_1,
+                marks_obtained=Decimal("40.00"),
+            ).exists()
+        )
+
+    def test_institute_admin_completion_dashboard_shows_subject_and_teacher_pending_work(self):
+        admin_user = self._admin_user("completion-admin")
+        assessment = self._assessment("Completion Dashboard")
+        math = self._subject(assessment, self.math)
+        science = self._subject(assessment, self.science)
+        self._allocation(subject=self.math, teacher=self.teacher)
+        self._allocation(subject=self.science, teacher=self.other_teacher)
+        open_marks_entry(assessment, actor=admin_user)
+        bulk_save_subject_marks(
+            math,
+            [{"academic_session": self.session_1, "marks_obtained": "45"}],
+            actor=self.teacher,
+        )
+        self.client.force_login(admin_user)
+
+        response = self.client.get(reverse("report_card_admin:completion_dashboard", args=[assessment.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["summary"]["student_count"], 3)
+        self.assertEqual(response.context["summary"]["expected_mark_count"], 6)
+        self.assertEqual(response.context["summary"]["entered_mark_count"], 1)
+        self.assertEqual(response.context["summary"]["missing_mark_count"], 5)
+        subject_rows = {row["assessment_subject"]: row for row in response.context["rows"]}
+        self.assertEqual(subject_rows[math]["missing_mark_count"], 2)
+        self.assertEqual(subject_rows[science]["missing_mark_count"], 3)
+        self.assertEqual(len(response.context["teacher_rows"]), 2)
+        self.assertContains(response, "report-teacher")
+        self.assertContains(response, "other-report-teacher")
+        self.assertContains(response, "Grid")
+
+    def test_institute_admin_can_inspect_subject_marks_grid_read_only(self):
+        admin_user = self._admin_user("grid-admin")
+        assessment = self._assessment("Admin Grid")
+        math = self._subject(assessment, self.math)
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=admin_user)
+        bulk_save_subject_marks(
+            math,
+            [{"academic_session": self.session_1, "marks_obtained": "45"}],
+            actor=self.teacher,
+        )
+        self.client.force_login(admin_user)
+
+        response = self.client.get(reverse("report_card_admin:marks_grid", args=[assessment.pk, math.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Mathematics Marks Grid")
+        self.assertContains(response, "A001")
+        self.assertContains(response, "45.00")
+
+    def test_teacher_completion_page_remains_limited_to_assigned_subjects(self):
+        assessment = self._assessment("Teacher Completion Scope")
+        math = self._subject(assessment, self.math)
+        science = self._subject(assessment, self.science)
+        self._allocation(subject=self.math, teacher=self.teacher)
+        self._allocation(subject=self.science, teacher=self.other_teacher)
+        open_marks_entry(assessment, actor=self._admin_user("scope-admin"))
+        self.client.force_login(self.teacher)
+
+        response = self.client.get(reverse("report_card:completion_summary", args=[assessment.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["summary"]["subject_count"], 1)
+        self.assertEqual(response.context["summary"]["subjects"][0]["assessment_subject"], math)
+        self.assertNotIn(science, [item["assessment_subject"] for item in response.context["summary"]["subjects"]])
+
+    def test_admin_results_preview_shows_generation_warnings(self):
+        admin_user = self._admin_user("result-warning-admin")
+        assessment = self._assessment("Result Warning")
+        self._subject(assessment, self.math)
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=admin_user)
+        self.client.force_login(admin_user)
+
+        response = self.client.get(reverse("report_card_admin:results_preview", args=[assessment.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "required mark field(s) are still missing")
+        self.assertContains(response, "No active grade rules are configured")
+
+    def test_admin_can_generate_publish_and_lock_report_card_results(self):
+        admin_user = self._admin_user("result-admin")
+        assessment = self._assessment("Admin Result Lifecycle")
+        math = self._subject(assessment, self.math)
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=admin_user)
+        bulk_save_subject_marks(
+            math,
+            [
+                {"academic_session": self.session_1, "marks_obtained": "90"},
+                {"academic_session": self.session_2, "marks_obtained": "80"},
+                {"academic_session": self.session_3, "marks_obtained": "70"},
+            ],
+            actor=self.teacher,
+        )
+        self.client.force_login(admin_user)
+
+        generate_response = self.client.post(reverse("report_card_admin:generate_results", args=[assessment.pk]))
+        self.assertEqual(generate_response.status_code, 302)
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.status, ReportCardAssessment.Status.GENERATED)
+        self.assertEqual(ReportCardStudentResult.objects.filter(assessment=assessment, is_stale=False).count(), 3)
+
+        publish_response = self.client.post(reverse("report_card_admin:publish_results", args=[assessment.pk]))
+        self.assertEqual(publish_response.status_code, 302)
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.status, ReportCardAssessment.Status.PUBLISHED)
+
+        lock_response = self.client.post(reverse("report_card_admin:lock_assessment", args=[assessment.pk]))
+        self.assertEqual(lock_response.status_code, 302)
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.status, ReportCardAssessment.Status.LOCKED)
+
+    def test_admin_publish_blocks_stale_results_until_regenerated(self):
+        admin_user = self._admin_user("stale-result-admin")
+        assessment = self._assessment("Stale Result Safety")
+        math = self._subject(assessment, self.math)
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=admin_user)
+        bulk_save_subject_marks(
+            math,
+            [
+                {"academic_session": self.session_1, "marks_obtained": "90"},
+                {"academic_session": self.session_2, "marks_obtained": "80"},
+                {"academic_session": self.session_3, "marks_obtained": "70"},
+            ],
+            actor=self.teacher,
+        )
+        generate_assessment_results(assessment, actor=admin_user)
+        bulk_save_subject_marks(
+            math,
+            [{"academic_session": self.session_1, "marks_obtained": "91"}],
+            actor=self.teacher,
+        )
+        self.client.force_login(admin_user)
+
+        preview_response = self.client.get(reverse("report_card_admin:results_preview", args=[assessment.pk]))
+        publish_response = self.client.post(reverse("report_card_admin:publish_results", args=[assessment.pk]))
+
+        self.assertContains(preview_response, "generated result(s) are stale")
+        self.assertEqual(publish_response.status_code, 302)
+        assessment.refresh_from_db()
+        self.assertNotEqual(assessment.status, ReportCardAssessment.Status.PUBLISHED)
+
+    def test_teacher_cannot_generate_publish_or_lock_after_admin_move(self):
+        assessment = self._assessment("Teacher Result Lifecycle Blocked")
+        math = self._subject(assessment, self.math)
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=self._admin_user("teacher-block-admin"))
+        self.client.force_login(self.teacher)
+
+        for url in [
+            reverse("report_card:generate_results", args=[assessment.pk]),
+            reverse("report_card:publish_results", args=[assessment.pk]),
+            reverse("report_card:lock_assessment", args=[assessment.pk]),
+        ]:
+            response = self.client.post(url)
+            self.assertEqual(response.status_code, 302)
+
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.status, ReportCardAssessment.Status.MARKS_ENTRY_OPEN)
+        self.assertFalse(ReportCardStudentResult.objects.filter(assessment=assessment).exists())
 
     def test_report_card_assessment_creation_does_not_create_or_modify_teacher_exam(self):
         exam = Exam.objects.create(
@@ -233,15 +1365,17 @@ class ReportCardFeatureTests(TestCase):
         self.assertNotIn(unassigned, assessments)
 
     def test_teacher_profile_institute_is_used_for_report_card_scoping(self):
+        self._allocation(subject=self.math)
         self.teacher.profile.institute = self.other_institute
         self.teacher.profile.save(update_fields=["institute"])
         TeacherProfile.objects.create(user=self.teacher, institute=self.institute)
         assessment = self._assessment("Teacher Profile Scoped")
+        self._subject(assessment, self.math)
 
         assessments = list(get_assessments_for_teacher(self.teacher, academic_year=self.year))
 
         self.assertIn(assessment, assessments)
-        self.assertTrue(teacher_can_edit_assessment(self.teacher, assessment))
+        self.assertFalse(teacher_can_edit_assessment(self.teacher, assessment))
 
     def test_assigned_batch_institute_is_used_when_user_profile_institute_is_stale(self):
         self.teacher.profile.institute = self.other_institute
@@ -324,6 +1458,8 @@ class ReportCardFeatureTests(TestCase):
             weightage=Decimal("150"),
         )
         open_marks_entry(assessment, actor=self.teacher)
+        self._ensure_allocation(math)
+        self._ensure_allocation(science)
         bulk_save_subject_marks(math, [{"academic_session": self.session_1, "marks_obtained": "45"}], actor=self.teacher)
         bulk_save_subject_marks(science, [{"academic_session": self.session_1, "marks_obtained": "60"}], actor=self.teacher)
 
@@ -376,6 +1512,32 @@ class ReportCardFeatureTests(TestCase):
         self.assertEqual(summary["missing_mark_count"], 2)
         self.assertFalse(summary["is_complete"])
 
+    def test_incomplete_resave_moves_completed_assessment_back_to_open(self):
+        assessment = self._assessment()
+        math = self._subject(assessment)
+        self._open_and_save(
+            math,
+            [
+                {"academic_session": self.session_1, "marks_obtained": "76"},
+                {"academic_session": self.session_2, "marks_obtained": "82"},
+                {"academic_session": self.session_3, "marks_obtained": "68"},
+            ],
+        )
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.status, ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED)
+
+        bulk_save_subject_marks(
+            math,
+            [{"academic_session": self.session_2, "marks_obtained": ""}],
+            actor=self.teacher,
+        )
+
+        assessment.refresh_from_db()
+        summary = get_completion_summary(assessment)
+        self.assertEqual(assessment.status, ReportCardAssessment.Status.MARKS_ENTRY_OPEN)
+        self.assertFalse(summary["is_complete"])
+        self.assertEqual(summary["missing_mark_count"], 1)
+
     def test_bulk_marks_save_allows_partial_component_marks(self):
         assessment = self._assessment()
         math = self._subject(assessment, max_marks=Decimal("60"), passing_marks=Decimal("21"))
@@ -416,6 +1578,163 @@ class ReportCardFeatureTests(TestCase):
         self.assertEqual(summary["entered_mark_count"], 1)
         self.assertEqual(summary["missing_mark_count"], 5)
         self.assertFalse(summary["is_complete"])
+
+    def test_excel_import_allows_partial_component_marks(self):
+        assessment = self._assessment()
+        math = self._subject(assessment, max_marks=Decimal("60"), passing_marks=Decimal("21"))
+        theory = add_assessment_subject_component(
+            math,
+            name="Theory Exam",
+            max_marks=Decimal("50"),
+            weightage=Decimal("50"),
+            display_order=1,
+            actor=self.teacher,
+        )
+        notebook = add_assessment_subject_component(
+            math,
+            name="Notebook",
+            max_marks=Decimal("10"),
+            weightage=Decimal("10"),
+            display_order=2,
+            actor=self.teacher,
+        )
+        open_marks_entry(assessment, actor=self.teacher)
+        self._ensure_allocation(math)
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(["Academic Session ID", "Admission Number", "Student Name", "Theory Exam", "Notebook", "Absent", "Remark"])
+        sheet.append([self.session_1.pk, self.session_1.admission_number, "Ada Lovelace", 42, "", "", "Notebook later"])
+        upload = BytesIO()
+        workbook.save(upload)
+        upload.seek(0)
+
+        result = import_marks_workbook(math, upload, actor=self.teacher)
+
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(result["saved_count"], 1)
+        self.assertEqual(len(result["warnings"]), 1)
+        self.assertIn("Notebook", result["warnings"][0]["missing_fields"])
+        subject_entry = ReportCardMarkEntry.objects.get(assessment_subject=math, academic_session=self.session_1)
+        theory_entry = ReportCardComponentMarkEntry.objects.get(component=theory, academic_session=self.session_1)
+        notebook_entry = ReportCardComponentMarkEntry.objects.get(component=notebook, academic_session=self.session_1)
+        self.assertIsNone(subject_entry.marks_obtained)
+        self.assertEqual(theory_entry.marks_obtained, Decimal("42.00"))
+        self.assertIsNone(notebook_entry.marks_obtained)
+
+    def test_excel_import_rejects_invalid_filled_component_marks(self):
+        assessment = self._assessment()
+        math = self._subject(assessment, max_marks=Decimal("50"), passing_marks=Decimal("18"))
+        add_assessment_subject_component(
+            math,
+            name="Theory Exam",
+            max_marks=Decimal("50"),
+            weightage=Decimal("50"),
+            display_order=1,
+            actor=self.teacher,
+        )
+        open_marks_entry(assessment, actor=self.teacher)
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(["Academic Session ID", "Admission Number", "Student Name", "Theory Exam", "Absent", "Remark"])
+        sheet.append([self.session_1.pk, self.session_1.admission_number, "Ada Lovelace", 55, "", ""])
+        upload = BytesIO()
+        workbook.save(upload)
+        upload.seek(0)
+
+        result = import_marks_workbook(math, upload, actor=self.teacher)
+
+        self.assertEqual(result["saved_count"], 0)
+        self.assertEqual(len(result["errors"]), 1)
+        self.assertIn("cannot exceed", result["errors"][0]["errors"][0])
+
+    def test_structure_edit_is_blocked_after_marks_entry_opens(self):
+        assessment = self._assessment()
+        math = self._subject(assessment, max_marks=Decimal("60"), passing_marks=Decimal("21"))
+        theory = add_assessment_subject_component(
+            math,
+            name="Theory Exam",
+            max_marks=Decimal("50"),
+            weightage=Decimal("50"),
+            display_order=1,
+            actor=self.teacher,
+        )
+        open_marks_entry(assessment, actor=self.teacher)
+
+        with self.assertRaisesMessage(ValidationError, "before marks entry opens"):
+            sync_assessment_subject_components(
+                math,
+                [
+                    {
+                        "id": theory.pk,
+                        "name": "Theory Exam",
+                        "max_marks": Decimal("60"),
+                        "display_order": 1,
+                        "include_in_total": True,
+                    }
+                ],
+                actor=self.teacher,
+            )
+
+        theory.refresh_from_db()
+        self.assertEqual(theory.max_marks, Decimal("50.00"))
+
+    def test_component_sync_updates_existing_components_without_recreating_them(self):
+        assessment = self._assessment()
+        math = self._subject(assessment, max_marks=Decimal("60"), passing_marks=Decimal("21"))
+        theory = add_assessment_subject_component(
+            math,
+            name="Theory Exam",
+            max_marks=Decimal("50"),
+            weightage=Decimal("50"),
+            display_order=1,
+            actor=self.teacher,
+        )
+        notebook = add_assessment_subject_component(
+            math,
+            name="Notebook",
+            max_marks=Decimal("10"),
+            weightage=Decimal("10"),
+            display_order=2,
+            actor=self.teacher,
+        )
+        mark_entry = ReportCardComponentMarkEntry.objects.create(
+            component=theory,
+            academic_session=self.session_1,
+            marks_obtained=Decimal("40"),
+            entered_by=self.teacher,
+            updated_by=self.teacher,
+        )
+
+        sync_assessment_subject_components(
+            math,
+            [
+                {
+                    "id": notebook.pk,
+                    "name": "Notebook",
+                    "max_marks": Decimal("10"),
+                    "display_order": 1,
+                    "include_in_total": True,
+                },
+                {
+                    "id": theory.pk,
+                    "name": "Theory Exam",
+                    "max_marks": Decimal("50"),
+                    "display_order": 2,
+                    "include_in_total": True,
+                },
+            ],
+            actor=self.teacher,
+        )
+
+        theory.refresh_from_db()
+        notebook.refresh_from_db()
+        mark_entry.refresh_from_db()
+        self.assertEqual(theory.display_order, 2)
+        self.assertEqual(notebook.display_order, 1)
+        self.assertEqual(mark_entry.component_id, theory.pk)
+        self.assertEqual(mark_entry.marks_obtained, Decimal("40.00"))
 
     def test_marks_above_max_and_negative_marks_are_rejected(self):
         assessment = self._assessment()
@@ -458,6 +1777,8 @@ class ReportCardFeatureTests(TestCase):
             include_in_total=False,
         )
         open_marks_entry(assessment, actor=self.teacher)
+        self._ensure_allocation(math)
+        self._ensure_allocation(art)
         bulk_save_subject_marks(math, [{"academic_session": self.session_1, "marks_obtained": "50"}], actor=self.teacher)
         bulk_save_subject_marks(art, [{"academic_session": self.session_1, "marks_obtained": "10"}], actor=self.teacher)
 
@@ -519,6 +1840,90 @@ class ReportCardFeatureTests(TestCase):
 
         self.assertEqual(result.grade, "A")
         self.assertEqual(result.remark, "Excellent")
+
+    def test_generation_without_grade_rules_keeps_grade_blank(self):
+        assessment = self._assessment()
+        math = self._subject(assessment)
+        self._open_and_save(math, [{"academic_session": self.session_1, "marks_obtained": "88"}])
+
+        result = generate_assessment_results(assessment, actor=self.teacher, require_complete=False)[0]
+
+        self.assertEqual(result.grade, "")
+        self.assertEqual(result.remark, "")
+
+    def test_institute_admin_can_create_default_grade_rules(self):
+        admin_user = User.objects.create_user(username="grade-admin", password="pass")
+        UserProfile.objects.create(
+            user=admin_user,
+            institute=self.institute,
+            role=UserProfile.Role.INSTITUTE_ADMIN,
+        )
+        self.client.force_login(admin_user)
+
+        response = self.client.post(reverse("report_card_admin:grade_rule_create_defaults"))
+
+        self.assertEqual(response.status_code, 302)
+        rules = ReportCardGradeRule.objects.filter(institute=self.institute, academic_year__isnull=True).order_by("display_order")
+        self.assertEqual(rules.count(), 7)
+        self.assertEqual(rules.first().grade, "A1")
+        self.assertEqual(rules.last().grade, "F")
+
+    def test_default_grade_rule_creation_warns_when_active_defaults_exist(self):
+        admin_user = self._admin_user("grade-existing-admin")
+        ReportCardGradeRule.objects.create(
+            institute=self.institute,
+            academic_year=None,
+            min_percentage=Decimal("90"),
+            max_percentage=Decimal("100"),
+            grade="A1",
+            display_order=1,
+            is_active=True,
+        )
+        self.client.force_login(admin_user)
+
+        list_response = self.client.get(reverse("report_card_admin:grade_rule_list"))
+        create_response = self.client.post(reverse("report_card_admin:grade_rule_create_defaults"), follow=True)
+
+        self.assertContains(list_response, "Active institute-default grade rules already exist")
+        self.assertContains(create_response, "Active grade rules already exist for institute default")
+        self.assertEqual(ReportCardGradeRule.objects.filter(institute=self.institute, academic_year__isnull=True).count(), 1)
+
+    def test_institute_admin_can_create_academic_year_default_grade_rules(self):
+        admin_user = self._admin_user("grade-year-admin")
+        self.client.force_login(admin_user)
+
+        response = self.client.post(
+            reverse("report_card_admin:grade_rule_create_defaults"),
+            data={"scope": "academic_year", "academic_year_id": self.year.pk},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        rules = ReportCardGradeRule.objects.filter(institute=self.institute, academic_year=self.year).order_by("display_order")
+        self.assertEqual(rules.count(), 7)
+        self.assertEqual(rules.first().grade, "A1")
+        self.assertFalse(ReportCardGradeRule.objects.filter(institute=self.institute, academic_year__isnull=True).exists())
+
+    def test_grade_rule_list_shows_assessments_that_may_generate_blank_grades(self):
+        admin_user = self._admin_user("grade-risk-admin")
+        assessment = self._assessment("Blank Grade Risk")
+        self._subject(assessment, self.math)
+        self.client.force_login(admin_user)
+
+        response = self.client.get(reverse("report_card_admin:grade_rule_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Assessments That May Generate Blank Grades")
+        self.assertContains(response, "Blank Grade Risk")
+
+    def test_teacher_cannot_manage_report_card_grade_rules(self):
+        self.client.force_login(self.teacher)
+
+        list_response = self.client.get(reverse("report_card_admin:grade_rule_list"))
+        create_response = self.client.post(reverse("report_card_admin:grade_rule_create_defaults"))
+
+        self.assertNotEqual(list_response.status_code, 200)
+        self.assertNotEqual(create_response.status_code, 200)
+        self.assertFalse(ReportCardGradeRule.objects.filter(institute=self.institute).exists())
 
     def test_grade_rule_form_accepts_matching_academic_year(self):
         form = ReportCardGradeRuleForm(
@@ -598,6 +2003,7 @@ class ReportCardFeatureTests(TestCase):
             actor=self.teacher,
         )
         open_marks_entry(assessment, actor=self.teacher)
+        self._ensure_allocation(english)
 
         bulk_save_subject_marks(
             english,
@@ -744,7 +2150,7 @@ class ReportCardFeatureTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("passing_marks", form.errors)
 
-    def test_subject_form_can_be_edited_after_marks_entry_opens(self):
+    def test_subject_form_cannot_be_edited_after_marks_entry_opens(self):
         assessment = self._assessment()
         math = self._subject(assessment)
         open_marks_entry(assessment, actor=self.teacher)
@@ -774,7 +2180,8 @@ class ReportCardFeatureTests(TestCase):
             assessment=assessment,
         )
 
-        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(form.is_valid())
+        self.assertIn("before marks entry opens", form.errors["__all__"][0])
 
     def test_rank_generation_works(self):
         assessment = self._assessment()
@@ -798,6 +2205,29 @@ class ReportCardFeatureTests(TestCase):
         self.assertEqual(ranks["A001"], 2)
         self.assertEqual(ranks["A003"], 2)
 
+    def test_report_card_pdf_supports_multiple_pages_without_truncation_notice(self):
+        assessment = self._assessment()
+        for index in range(24):
+            subject = Subject.objects.create(
+                institute=self.institute,
+                academic_year=self.year,
+                name=f"Long PDF Subject {index + 1}",
+            )
+            self._subject(
+                assessment,
+                subject=subject,
+                max_marks=Decimal("100"),
+                passing_marks=Decimal("35"),
+                weightage=Decimal("100"),
+            )
+        result = generate_assessment_results(assessment, actor=self.teacher, require_complete=False)[0]
+
+        response = report_card_pdf_response(result)
+        pdf_content = bytes(response.content)
+
+        self.assertIn(b"/Count 2", pdf_content)
+        self.assertNotIn(b"Continued on next page is not supported", pdf_content)
+
     def test_published_results_are_visible_and_unpublished_results_are_hidden(self):
         assessment = self._assessment("Visible Term")
         math = self._subject(assessment)
@@ -820,6 +2250,38 @@ class ReportCardFeatureTests(TestCase):
 
         self.assertTrue(student_can_view_result(self.session_1.student.user, unpublished_result))
         self.assertEqual(list(get_published_results_for_student(self.session_1.student)), [unpublished_result])
+
+    def test_student_api_shows_only_published_or_locked_report_cards(self):
+        assessment = self._assessment("Student API Visibility")
+        math = self._subject(assessment)
+        self._open_and_save(
+            math,
+            [
+                {"academic_session": self.session_1, "marks_obtained": "88"},
+                {"academic_session": self.session_2, "marks_obtained": "77"},
+                {"academic_session": self.session_3, "marks_obtained": "66"},
+            ],
+        )
+        generated = generate_assessment_results(assessment, actor=self.teacher)
+        student_result = next(result for result in generated if result.academic_session_id == self.session_1.pk)
+        api_client = APIClient()
+        api_client.force_authenticate(user=self.session_1.student.user)
+
+        unpublished_list = api_client.get("/api/mobile/report-cards/student/")
+        unpublished_detail = api_client.get(f"/api/mobile/report-cards/student/{student_result.pk}/")
+        publish_assessment_results(assessment, actor=self.teacher)
+        published_list = api_client.get("/api/mobile/report-cards/student/")
+        published_detail = api_client.get(f"/api/mobile/report-cards/student/{student_result.pk}/")
+        lock_assessment(assessment, actor=self.teacher)
+        locked_list = api_client.get("/api/mobile/report-cards/student/")
+
+        self.assertEqual(unpublished_list.status_code, 200)
+        self.assertEqual(unpublished_list.data["results"], [])
+        self.assertEqual(unpublished_detail.status_code, 404)
+        self.assertEqual([item["id"] for item in published_list.data["results"]], [student_result.pk])
+        self.assertEqual(published_detail.status_code, 200)
+        self.assertEqual(published_detail.data["result"]["id"], student_result.pk)
+        self.assertEqual([item["id"] for item in locked_list.data["results"]], [student_result.pk])
 
     def test_locked_assessments_cannot_be_edited_by_teacher(self):
         assessment = self._assessment()

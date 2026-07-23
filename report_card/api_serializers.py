@@ -3,6 +3,15 @@ from rest_framework import serializers
 from .models import ReportCardAssessment, ReportCardAssessmentSubject
 
 
+class ReportCardAssessmentSubjectComponentSerializer(serializers.Serializer):
+    id = serializers.IntegerField(source="pk")
+    name = serializers.CharField(source="name_snapshot")
+    max_marks = serializers.DecimalField(max_digits=7, decimal_places=2)
+    weightage = serializers.DecimalField(max_digits=7, decimal_places=2)
+    display_order = serializers.IntegerField()
+    include_in_total = serializers.BooleanField()
+
+
 class ReportCardAssessmentSerializer(serializers.Serializer):
     id = serializers.IntegerField(source="pk")
     title = serializers.CharField()
@@ -51,6 +60,13 @@ class ReportCardAssessmentSubjectSerializer(serializers.Serializer):
     display_order = serializers.IntegerField()
     is_optional = serializers.BooleanField()
     include_in_total = serializers.BooleanField()
+    components = serializers.SerializerMethodField()
+
+    def get_components(self, assessment_subject):
+        return ReportCardAssessmentSubjectComponentSerializer(
+            assessment_subject.components.order_by("display_order", "name_snapshot", "id"),
+            many=True,
+        ).data
 
 
 class ReportCardAssessmentSubjectWriteSerializer(serializers.Serializer):
@@ -102,19 +118,35 @@ class ReportCardMarksGridRowSerializer(serializers.Serializer):
 
     def get_mark_entry(self, row):
         entry = row.get("mark_entry")
+        component_entries = row.get("component_entries", {})
+        component_marks = {
+            str(component_id): {
+                "id": component_entry.pk,
+                "marks_obtained": str(component_entry.marks_obtained) if component_entry.marks_obtained is not None else None,
+                "is_absent": component_entry.is_absent,
+                "remark": component_entry.remark,
+            }
+            for component_id, component_entry in component_entries.items()
+        }
         if not entry:
-            return None
+            return {"component_marks": component_marks} if component_marks else None
         return {
             "id": entry.pk,
             "marks_obtained": str(entry.marks_obtained) if entry.marks_obtained is not None else None,
             "is_absent": entry.is_absent,
             "remark": entry.remark,
+            "component_marks": component_marks,
         }
 
 
 class ReportCardMarkRowWriteSerializer(serializers.Serializer):
     academic_session_id = serializers.IntegerField()
     marks_obtained = serializers.DecimalField(max_digits=7, decimal_places=2, required=False, allow_null=True)
+    component_marks = serializers.DictField(
+        child=serializers.DecimalField(max_digits=7, decimal_places=2, allow_null=True),
+        required=False,
+        allow_empty=True,
+    )
     is_absent = serializers.BooleanField(required=False, default=False)
     remark = serializers.CharField(required=False, allow_blank=True, default="")
 
