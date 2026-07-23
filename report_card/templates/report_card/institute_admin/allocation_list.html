@@ -31,7 +31,7 @@
         <div class="rc-title-row">
             <div>
                 <h2>Teacher Subject Allocations</h2>
-                <p>Assign teachers to class-subject combinations once for the academic year. Report-card marks entry will use these allocations.</p>
+                <p>Assign teachers to class-subject combinations for report-card marks entry.</p>
             </div>
             <a class="btn btn-gradient" href="{% url 'report_card_admin:allocation_create' %}"><i class="bi bi-plus-circle me-1"></i> New Allocation</a>
         </div>
@@ -45,13 +45,6 @@
 
     <form class="rc-filter" method="get">
         <div class="row g-2 align-items-end">
-            <div class="col-lg-2 col-md-4">
-                <label class="form-label fw-bold">Academic year</label>
-                <select class="form-select" name="academic_year">
-                    <option value="">All years</option>
-                    {% for year in academic_years %}<option value="{{ year.pk }}" {% if filter_academic_year == year.pk|stringformat:"s" %}selected{% endif %}>{{ year.name }}</option>{% endfor %}
-                </select>
-            </div>
             <div class="col-lg-2 col-md-4">
                 <label class="form-label fw-bold">Teacher</label>
                 <select class="form-select" name="teacher">
@@ -94,12 +87,11 @@
 
     <section class="rc-card table-responsive">
         <table class="table rc-table align-middle">
-            <thead><tr><th>Teacher</th><th>Academic Year</th><th>Class / Batch</th><th>Subject</th><th>Status</th><th>Created By</th><th class="text-end">Actions</th></tr></thead>
+            <thead><tr><th>Teacher</th><th>Class / Batch</th><th>Subject</th><th>Status</th><th>Created By</th><th class="text-end">Actions</th></tr></thead>
             <tbody>
                 {% for allocation in allocations %}
                     <tr>
                         <td><strong>{{ allocation.teacher.get_full_name|default:allocation.teacher.username }}</strong></td>
-                        <td>{{ allocation.academic_year.name }}</td>
                         <td>{{ allocation.batch.name }}</td>
                         <td>{{ allocation.subject.name }}</td>
                         <td><span class="rc-pill {% if not allocation.is_active %}rc-pill-inactive{% endif %}">{{ allocation.is_active|yesno:"Active,Inactive" }}</span></td>
@@ -110,7 +102,7 @@
                         </td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="7"><div class="rc-empty">No teacher subject allocations found. Create the first allocation to control report-card marks entry.</div></td></tr>
+                    <tr><td colspan="6"><div class="rc-empty">No teacher subject allocations found. Create the first allocation to control report-card marks entry.</div></td></tr>
                 {% endfor %}
             </tbody>
         </table>

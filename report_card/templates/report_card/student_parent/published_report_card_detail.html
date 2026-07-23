@@ -69,7 +69,7 @@
             <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
                 <div>
                     <h1 class="rc-school">{{ assessment.institute_name_snapshot }}</h1>
-                    <div class="rc-assessment">{{ assessment.title }} | {{ assessment.academic_year_name_snapshot }} | {{ assessment.batch_name_snapshot }}</div>
+        <div class="rc-assessment">{{ assessment.title }} | {{ assessment.batch_name_snapshot }}</div>
                 </div>
                 <div class="d-flex gap-2 align-items-center">
                     <span class="rc-badge {% if result.result_status == 'PASS' %}rc-badge-pass{% elif result.result_status == 'FAIL' %}rc-badge-fail{% elif result.result_status == 'ABSENT' %}rc-badge-absent{% else %}rc-badge-incomplete{% endif %}">{{ result.get_result_status_display }}</span>
@@ -83,7 +83,6 @@
                 <div class="rc-info"><span>Student Name</span><strong>{{ result.student_name_snapshot }}</strong></div>
                 <div class="rc-info"><span>Admission No.</span><strong>{{ result.admission_number_snapshot }}</strong></div>
                 <div class="rc-info"><span>Class / Batch</span><strong>{{ assessment.batch_name_snapshot }}</strong></div>
-                <div class="rc-info"><span>Academic Year</span><strong>{{ assessment.academic_year_name_snapshot }}</strong></div>
             </div>
 
             <div class="rc-summary">

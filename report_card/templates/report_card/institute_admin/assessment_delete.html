@@ -1,0 +1,164 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Delete Report Card Assessment{% endblock title %}
+
+{% block content %}
+<style>
+    .rc-main { background:#f5f7fb; min-height:calc(100vh - 80px); }
+    .rc-page { --primary:#6042c8; --dark:#442c9f; --border:#e2e8f0; --muted:#64748b; color:#0f172a; }
+    .rc-card { background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 12px 35px rgba(15,23,42,.07); overflow:hidden; }
+    .rc-header { padding:22px 24px; border-bottom:1px solid var(--border); }
+    .rc-title-row { display:flex; justify-content:space-between; gap:18px; flex-wrap:wrap; align-items:flex-start; }
+    .rc-header h2 { margin:0 0 6px; font-weight:900; font-size:1.45rem; }
+    .rc-header p { margin:0; color:var(--muted); font-weight:700; }
+    .rc-body { padding:22px 24px; }
+    .rc-impact { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+    .rc-impact-item { border:1px solid var(--border); border-radius:8px; padding:14px; background:#f8fafc; min-height:86px; }
+    .rc-impact-item strong { display:block; font-size:1.25rem; font-weight:900; }
+    .rc-impact-item span { color:var(--muted); font-weight:750; font-size:.82rem; }
+    .rc-pill { display:inline-flex; align-items:center; border-radius:999px; padding:8px 11px; font-weight:850; font-size:.8rem; background:#fee2e2; color:#991b1b; }
+    .rc-warning { display:flex; gap:12px; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; border-radius:8px; padding:14px 16px; font-weight:750; }
+    .rc-warning i { font-size:1.2rem; line-height:1; margin-top:2px; }
+    .rc-danger { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+    .rc-simple { background:#f8fafc; border-color:#e2e8f0; color:#475569; }
+    .rc-confirm-box { border:1px solid var(--border); border-radius:8px; padding:16px; background:#fff; }
+    .rc-confirm-box + .rc-confirm-box { margin-top:12px; }
+    .rc-required-note { color:#dc2626; font-size:.84rem; font-weight:750; display:none; margin-top:6px; }
+    .rc-required-note.is-visible { display:block; }
+    .rc-btn { border-radius:8px; font-weight:800; }
+    .rc-btn:disabled { cursor:not-allowed; opacity:.55; }
+    @media(max-width:992px){ .rc-impact { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media(max-width:576px){ .rc-impact { grid-template-columns:1fr; } }
+</style>
+
+<main id="main" class="main rc-main">
+<div class="rc-page">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+        {% endfor %}
+    {% endif %}
+
+    <section class="rc-card">
+        <div class="rc-header">
+            <div class="rc-title-row">
+                <div>
+                    <h2>Delete Report Card Assessment</h2>
+                    <p>{{ assessment.title }} | {{ assessment.batch_name_snapshot }} | {{ assessment.get_status_display }}</p>
+                </div>
+                <span class="rc-pill"><i class="bi bi-trash3 me-1"></i> Move to Recycle Bin</span>
+            </div>
+        </div>
+        <div class="rc-body">
+            <div class="rc-impact">
+                <div class="rc-impact-item"><strong>{{ impact.subject_count }}</strong><span>Subjects</span></div>
+                <div class="rc-impact-item"><strong>{{ impact.component_count }}</strong><span>Components</span></div>
+                <div class="rc-impact-item"><strong>{{ impact.mark_entry_count|add:impact.component_mark_entry_count }}</strong><span>Mark Entries</span></div>
+                <div class="rc-impact-item"><strong>{{ impact.generated_result_count }}</strong><span>Generated Results</span></div>
+                <div class="rc-impact-item"><strong>{{ impact.published_result_count }}</strong><span>Published Results</span></div>
+                <div class="rc-impact-item"><strong>{{ impact.student_count }}</strong><span>Students Affected</span></div>
+                <div class="rc-impact-item"><strong>{{ assessment.get_status_display }}</strong><span>Current Status</span></div>
+            </div>
+
+            {% if impact.has_data %}
+                <div class="rc-warning mb-3">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <div>
+                        <strong>Important:</strong> this assessment already has structure, marks, or generated results.
+                        It will be moved to the recycle bin, not permanently removed. A delete reason is required.
+                    </div>
+                </div>
+            {% else %}
+                <div class="rc-warning rc-simple mb-3">
+                    <i class="bi bi-info-circle"></i>
+                    <div>
+                        This assessment has no report-card data yet. It will still be moved to the recycle bin so it can be restored if needed.
+                    </div>
+                </div>
+            {% endif %}
+            {% if assessment.status == "PUBLISHED" or assessment.status == "LOCKED" %}
+                <div class="rc-warning rc-danger mb-3">
+                    <i class="bi bi-shield-exclamation"></i>
+                    <div>
+                        <strong>Critical:</strong> this assessment is {{ assessment.get_status_display }}.
+                        Enter a detailed reason and type the exact assessment title before deleting.
+                    </div>
+                </div>
+            {% endif %}
+
+            <form id="assessment-delete-form" method="post" data-has-data="{{ impact.has_data|yesno:'true,false' }}" data-critical="{% if assessment.status == 'PUBLISHED' or assessment.status == 'LOCKED' %}true{% else %}false{% endif %}" data-title="{{ assessment.title|escape }}">
+                {% csrf_token %}
+                <div class="rc-confirm-box">
+                    <label class="form-label fw-bold">Delete reason {% if impact.has_data %}<span class="text-danger">*</span>{% endif %}</label>
+                    <textarea id="delete-reason" class="form-control" name="delete_reason" rows="4" placeholder="Example: duplicate assessment created for wrong class"></textarea>
+                    <div id="reason-warning" class="rc-required-note">Delete reason is required because this assessment has report-card data.</div>
+                </div>
+
+                {% if assessment.status == "PUBLISHED" or assessment.status == "LOCKED" %}
+                    <div class="rc-confirm-box">
+                        <label class="form-label fw-bold">Type exact assessment title <span class="text-danger">*</span></label>
+                        <input id="title-confirmation" class="form-control" type="text" autocomplete="off" placeholder="{{ assessment.title }}">
+                        <div class="form-text fw-bold">Required title: {{ assessment.title }}</div>
+                        <div id="title-warning" class="rc-required-note">The title must match exactly before delete is enabled.</div>
+                    </div>
+                {% endif %}
+
+                <div class="rc-confirm-box">
+                    <div class="form-check">
+                        <input id="delete-acknowledgement" class="form-check-input" type="checkbox">
+                        <label class="form-check-label fw-bold" for="delete-acknowledgement">
+                            I understand this assessment will be moved to recycle bin.
+                        </label>
+                    </div>
+                    <div id="ack-warning" class="rc-required-note">Please confirm that you understand this assessment will move to recycle bin.</div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:assessment_detail' assessment.pk %}"><i class="bi bi-x-circle me-1"></i> Cancel</a>
+                    <button id="delete-submit" class="btn btn-danger rc-btn" type="submit" disabled><i class="bi bi-trash me-1"></i> Move to Bin</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+</main>
+<script>
+    (function () {
+        const form = document.getElementById("assessment-delete-form");
+        if (!form) return;
+
+        const hasData = form.dataset.hasData === "true";
+        const isCritical = form.dataset.critical === "true";
+        const title = form.dataset.title || "";
+        const reasonInput = document.getElementById("delete-reason");
+        const acknowledgement = document.getElementById("delete-acknowledgement");
+        const titleInput = document.getElementById("title-confirmation");
+        const submitButton = document.getElementById("delete-submit");
+        const reasonWarning = document.getElementById("reason-warning");
+        const ackWarning = document.getElementById("ack-warning");
+        const titleWarning = document.getElementById("title-warning");
+
+        function setWarning(element, visible) {
+            if (element) element.classList.toggle("is-visible", visible);
+        }
+
+        function validate() {
+            const hasReason = (reasonInput.value || "").trim().length > 0;
+            const ackReady = acknowledgement.checked;
+            const titleReady = !isCritical || ((titleInput.value || "").trim() === title);
+            const reasonReady = !hasData || hasReason;
+            const ready = ackReady && reasonReady && titleReady;
+
+            submitButton.disabled = !ready;
+            setWarning(reasonWarning, hasData && !hasReason);
+            setWarning(ackWarning, !ackReady);
+            setWarning(titleWarning, isCritical && !titleReady);
+        }
+
+        reasonInput.addEventListener("input", validate);
+        acknowledgement.addEventListener("change", validate);
+        if (titleInput) titleInput.addEventListener("input", validate);
+        validate();
+    })();
+</script>
+{% endblock content %}

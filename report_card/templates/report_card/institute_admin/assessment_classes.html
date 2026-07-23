@@ -1,0 +1,85 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}{{ assessment.title }} Classes{% endblock title %}
+
+{% block content %}
+<style>
+    .rc-admin-main { background:#f5f7fb; min-height:calc(100vh - 80px); }
+    .rc-admin-page { --primary:#6042c8; --dark:#442c9f; --border:#e2e8f0; --muted:#64748b; color:#0f172a; }
+    .rc-hero, .rc-card, .rc-stat { background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 12px 35px rgba(15,23,42,.07); }
+    .rc-hero { padding:22px 24px; margin-bottom:18px; }
+    .rc-title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; flex-wrap:wrap; }
+    .rc-hero h2 { margin:0 0 7px; font-weight:900; font-size:1.45rem; }
+    .rc-hero p { margin:0; color:var(--muted); font-weight:750; }
+    .rc-stat-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
+    .rc-stat { padding:16px; border-top:4px solid var(--stat-color); }
+    .rc-stat-icon { width:40px; height:40px; border-radius:8px; background:var(--stat-soft); color:var(--stat-color); display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
+    .rc-stat strong { display:block; font-size:1.55rem; line-height:1; font-weight:950; }
+    .rc-stat span { color:var(--muted); font-size:.84rem; font-weight:750; }
+    .rc-card { overflow:hidden; }
+    .rc-table { margin:0; }
+    .rc-table th { background:#f8fafc; color:#475569; font-size:.76rem; text-transform:uppercase; white-space:nowrap; }
+    .rc-table td, .rc-table th { padding:13px 15px; vertical-align:middle; }
+    .rc-pill { display:inline-flex; align-items:center; padding:7px 10px; border-radius:999px; font-size:.78rem; font-weight:850; white-space:nowrap; }
+    .rc-pill-draft { background:#f1f5f9; color:#334155; }
+    .rc-pill-structure-ready { background:#dbeafe; color:#1d4ed8; }
+    .rc-pill-marks-entry-open { background:#ffedd5; color:#c2410c; }
+    .rc-pill-marks-entry-completed { background:#ccfbf1; color:#0f766e; }
+    .rc-pill-generated { background:#f3e8ff; color:#7e22ce; }
+    .rc-pill-published { background:#dcfce7; color:#15803d; }
+    .rc-pill-locked { background:#e5e7eb; color:#111827; }
+    .rc-btn { border-radius:8px; font-weight:800; }
+    .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
+    .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    .rc-empty { padding:38px 24px; text-align:center; color:var(--muted); font-weight:750; }
+    @media(max-width:992px){ .rc-stat-grid { grid-template-columns:1fr; } }
+</style>
+
+<main id="main" class="main rc-admin-main">
+<div class="rc-admin-page">
+    <section class="rc-hero">
+        <div class="rc-title-row">
+            <div>
+                <h2>{{ assessment.title }}</h2>
+                <p>Select a class/division to manage subjects, completion, marks, and results.</p>
+            </div>
+            <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:assessment_list' %}"><i class="bi bi-arrow-left me-1"></i> Back</a>
+        </div>
+    </section>
+
+    <div class="rc-stat-grid">
+        <div class="rc-stat" style="--stat-color:#6042c8; --stat-soft:#f1edff;"><div class="rc-stat-icon"><i class="bi bi-layers"></i></div><strong>{{ class_assessments|length }}</strong><span>Classes / Divisions</span></div>
+        <div class="rc-stat" style="--stat-color:#16a34a; --stat-soft:#dcfce7;"><div class="rc-stat-icon"><i class="bi bi-calendar-event"></i></div><strong>{{ assessment.assessment_date|date:"d M"|default:"-" }}</strong><span>Assessment Date</span></div>
+    </div>
+
+    <section class="rc-card table-responsive">
+        <table class="table rc-table align-middle">
+            <thead>
+                <tr>
+                    <th>Class / Division</th>
+                    <th>Status</th>
+                    <th>Subjects</th>
+                    <th>Created</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in class_assessments %}
+                    <tr>
+                        <td><strong>{{ item.batch_name_snapshot|default:item.batch.name }}</strong></td>
+                        <td><span class="rc-pill {% if item.status == 'DRAFT' %}rc-pill-draft{% elif item.status == 'STRUCTURE_READY' %}rc-pill-structure-ready{% elif item.status == 'MARKS_ENTRY_OPEN' %}rc-pill-marks-entry-open{% elif item.status == 'MARKS_ENTRY_COMPLETED' %}rc-pill-marks-entry-completed{% elif item.status == 'GENERATED' %}rc-pill-generated{% elif item.status == 'PUBLISHED' %}rc-pill-published{% elif item.status == 'LOCKED' %}rc-pill-locked{% endif %}">{{ item.get_status_display }}</span></td>
+                        <td>{{ item.assessment_subjects.count }}</td>
+                        <td>{{ item.created_at|date:"d M Y" }}</td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-gradient rc-btn" href="{% url 'report_card_admin:assessment_detail' item.pk %}"><i class="bi bi-box-arrow-in-right me-1"></i> Enter</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5"><div class="rc-empty">No class/division records found for this assessment.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+</main>
+{% endblock content %}

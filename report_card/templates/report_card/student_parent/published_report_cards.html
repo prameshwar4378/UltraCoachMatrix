@@ -52,28 +52,10 @@
         </div>
     </div>
 
-    <form method="get" class="filter-panel">
-        <div class="row g-3 align-items-end">
-            <div class="col-md-8">
-                <label class="form-label fw-bold" for="academic_session_id"><i class="bi bi-calendar-range me-1"></i> Academic Session</label>
-                <select class="form-select" id="academic_session_id" name="academic_session_id" onchange="this.form.submit()">
-                    {% for session in sessions %}
-                        <option value="{{ session.pk }}" {% if selected_session and selected_session.pk == session.pk %}selected{% endif %}>
-                            {{ session.academic_year.name }} - {{ session.admission_number }}
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-4 text-md-end text-muted fw-semibold">
-                Published report cards only
-            </div>
-        </div>
-    </form>
-
     <div class="table-card">
         <div class="table-header">
             <h5><i class="bi bi-journal-check me-1"></i> Published Report Cards</h5>
-            <span class="text-muted small">Academic session wise results</span>
+            <span class="text-muted small">Published report-card results</span>
         </div>
         <div class="table-responsive">
             <table class="table rc-table align-middle mb-0">
@@ -92,7 +74,7 @@
                 <tbody>
                     {% for result in results %}
                         <tr>
-                            <td><strong>{{ result.assessment.title }}</strong><br><small class="text-muted">{{ result.assessment.academic_year_name_snapshot }}</small></td>
+                            <td><strong>{{ result.assessment.title }}</strong></td>
                             <td>{{ result.assessment.batch_name_snapshot }}</td>
                             <td class="total-cell">{{ result.total_obtained }} / {{ result.total_max_marks }}</td>
                             <td>{{ result.percentage|default:"-" }}</td>
@@ -109,7 +91,7 @@
                                 <div class="empty-state">
                                     <div class="empty-icon"><i class="bi bi-journal-x"></i></div>
                                     <div class="h5 fw-bold text-dark mb-2">No published report cards found</div>
-                                    <div>Published or locked report cards for this academic session will appear here.</div>
+                                    <div>Published or locked report cards will appear here.</div>
                                 </div>
                             </td>
                         </tr>

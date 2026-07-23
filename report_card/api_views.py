@@ -23,6 +23,7 @@ from .api_serializers import (
 )
 from .models import ReportCardAssessmentSubject
 from .permissions import (
+    MARKS_ENTRY_STATUSES,
     student_can_view_result,
     teacher_can_access_assessment,
     teacher_can_edit_assessment,
@@ -81,6 +82,13 @@ def validation_response(error):
     if hasattr(error, "message_dict"):
         return api_response({"errors": error.message_dict}, message="Validation failed.", status_code=status.HTTP_400_BAD_REQUEST)
     return api_response(message=" ".join(getattr(error, "messages", [str(error)])), status_code=status.HTTP_400_BAD_REQUEST)
+
+
+def marks_entry_closed_message(assessment):
+    return (
+        f"Marks entry is not open. Current status: {assessment.get_status_display()}. "
+        "Institute admin must open or reopen marks entry before teachers can save marks."
+    )
 
 
 def completion_summary_payload(summary):
@@ -329,7 +337,9 @@ class TeacherReportCardMarksGridAPI(TeacherReportCardAPIView):
         if not assessment_subject:
             return api_response(message="You can save marks only for your allocated report-card subject.", status_code=status.HTTP_403_FORBIDDEN)
         if not teacher_can_enter_marks(request.user, assessment, assessment_subject):
-            return api_response(message="Marks entry is not open.", status_code=status.HTTP_403_FORBIDDEN)
+            if assessment.status not in MARKS_ENTRY_STATUSES:
+                return api_response(message=marks_entry_closed_message(assessment), status_code=status.HTTP_403_FORBIDDEN)
+            return api_response(message="You can save marks only for your allocated report-card subject.", status_code=status.HTTP_403_FORBIDDEN)
         serializer = ReportCardBulkMarksSaveSerializer(data=request.data)
         if not serializer.is_valid():
             return validation_response(serializer.errors)

@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from django.db.models import Case, IntegerField, Prefetch, Value, When
+from django.db.models import Case, IntegerField, Prefetch, Q, Value, When
 from django.utils import timezone
 
 from institute_admin.models import AcademicYear, Batch, Subject
@@ -67,16 +67,6 @@ def get_selected_academic_year(request):
     institute = get_teacher_institute(request.user)
     if not institute:
         return None
-
-    requested_year_id = (
-        getattr(request, "query_params", {}).get("academic_year_id")
-        if hasattr(request, "query_params")
-        else request.GET.get("academic_year_id")
-    )
-    if requested_year_id:
-        academic_year = institute.academic_years.filter(pk=requested_year_id, is_active=True).first()
-        if academic_year:
-            return academic_year
 
     session_year_id = request.session.get("academic_year_id")
     if session_year_id:
@@ -168,6 +158,8 @@ def get_teacher_allocated_subjects(user, batch=None, academic_year=None):
 def get_teacher_accessible_assessment_subjects(user, assessment):
     if not user or not assessment:
         return ReportCardAssessmentSubject.objects.none()
+    if assessment.is_deleted:
+        return ReportCardAssessmentSubject.objects.none()
     allocations = get_teacher_report_card_allocations(user, academic_year=assessment.academic_year).filter(
         institute=assessment.institute,
         batch=assessment.batch,
@@ -188,13 +180,24 @@ def get_teacher_accessible_assessments(user, academic_year=None):
     if not allocations.exists():
         return ReportCardAssessment.objects.none()
 
-    assessments = (
-        ReportCardAssessment.objects.filter(
-            institute__in=allocations.values("institute"),
-            academic_year__in=allocations.values("academic_year"),
-            batch__in=allocations.values("batch"),
-            assessment_subjects__subject__in=allocations.values("subject"),
+    allocation_scope = Q()
+    for institute_id, academic_year_id, batch_id, subject_id in allocations.values_list(
+        "institute_id",
+        "academic_year_id",
+        "batch_id",
+        "subject_id",
+    ).distinct():
+        allocation_scope |= Q(
+            institute_id=institute_id,
+            academic_year_id=academic_year_id,
+            batch_id=batch_id,
+            assessment_subjects__subject_id=subject_id,
         )
+    if not allocation_scope:
+        return ReportCardAssessment.objects.none()
+
+    assessments = (
+        ReportCardAssessment.objects.filter(allocation_scope, is_deleted=False)
         .select_related("institute", "academic_year", "batch", "created_by")
         .prefetch_related(
             Prefetch(
@@ -220,7 +223,7 @@ def get_assessments_for_teacher(user, academic_year=None):
 
     assigned_batches = get_teacher_assigned_batches(user, academic_year=academic_year)
     assessments = (
-        ReportCardAssessment.objects.filter(institute=institute, batch__in=assigned_batches)
+        ReportCardAssessment.objects.filter(institute=institute, batch__in=assigned_batches, is_deleted=False)
         .select_related("institute", "academic_year", "batch", "created_by")
         .prefetch_related(
             Prefetch(
@@ -439,6 +442,7 @@ def get_published_results_for_student(student, academic_session=None):
                 ReportCardAssessment.Status.PUBLISHED,
                 ReportCardAssessment.Status.LOCKED,
             ],
+            assessment__is_deleted=False,
             is_stale=False,
         )
         .select_related("assessment", "assessment__academic_year", "assessment__batch", "academic_session")
@@ -447,6 +451,21 @@ def get_published_results_for_student(student, academic_session=None):
     if academic_session:
         results = results.filter(academic_session=academic_session)
     return results
+
+
+def get_deleted_assessments_for_admin(institute, academic_year=None):
+    if not institute:
+        return ReportCardAssessment.objects.none()
+
+    assessments = (
+        ReportCardAssessment.objects.filter(institute=institute, is_deleted=True)
+        .select_related("institute", "academic_year", "batch", "created_by", "deleted_by")
+        .prefetch_related("assessment_subjects")
+        .order_by("-deleted_at", "-updated_at", "title")
+    )
+    if academic_year:
+        assessments = assessments.filter(academic_year=academic_year)
+    return assessments
 
 
 def get_result_subject_rows(result):

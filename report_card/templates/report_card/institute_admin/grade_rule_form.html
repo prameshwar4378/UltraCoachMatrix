@@ -24,18 +24,21 @@
     <section class="rc-card">
         <div class="rc-head">
             <h2>{{ page_title }}</h2>
-            <p>Use an empty academic year for institute default rules. Academic-year rules take priority during result generation.</p>
+            <p>Configure percentage ranges for generated report-card grades.</p>
         </div>
         <form method="post" class="rc-body">
             {% csrf_token %}
+            {{ form.academic_year }}
             {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
             <div class="row g-3">
                 {% for field in form %}
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                        {{ field }}
-                        {% for error in field.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
-                    </div>
+                    {% if field.name != "academic_year" %}
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% for error in field.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                        </div>
+                    {% endif %}
                 {% endfor %}
             </div>
             <div class="d-flex justify-content-end gap-2 mt-4">

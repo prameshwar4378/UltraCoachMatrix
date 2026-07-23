@@ -42,6 +42,13 @@ def _add_form_select(field):
 
 
 class ReportCardAssessmentForm(forms.ModelForm):
+    batches = forms.ModelMultipleChoiceField(
+        queryset=Batch.objects.none(),
+        required=False,
+        label="Classes / batches",
+        widget=forms.SelectMultiple,
+    )
+
     class Meta:
         model = ReportCardAssessment
         fields = ("academic_year", "batch", "title", "assessment_date", "result_date")
@@ -58,6 +65,12 @@ class ReportCardAssessmentForm(forms.ModelForm):
         }
 
     def __init__(self, *args, user=None, institute=None, academic_year=None, **kwargs):
+        if args and academic_year:
+            data = args[0]
+            if data is not None and not data.get("academic_year"):
+                data = data.copy()
+                data["academic_year"] = str(academic_year.pk)
+                args = (data, *args[1:])
         super().__init__(*args, **kwargs)
         self.user = user
         self.institute = institute or get_teacher_institute(user)
@@ -82,13 +95,21 @@ class ReportCardAssessmentForm(forms.ModelForm):
 
         self.fields["academic_year"].queryset = academic_years
         self.fields["batch"].queryset = batches
+        self.fields["batches"].queryset = batches
         for field_name in ("academic_year", "batch"):
             _add_form_select(self.fields[field_name])
+        _add_form_select(self.fields["batches"])
         for field_name in ("title", "assessment_date", "result_date"):
             _add_form_control(self.fields[field_name])
         self.fields["title"].widget.attrs.update({"placeholder": "Example: Mid Term Assessment"})
+        self.fields["batches"].widget.attrs.update({"data-searchable": "false", "size": "5"})
         if self.selected_academic_year:
             self.fields["academic_year"].initial = self.selected_academic_year
+            self.fields["academic_year"].widget = forms.HiddenInput()
+        if not self.instance.pk:
+            self.fields["batch"].required = False
+        else:
+            self.fields["batches"].required = False
 
     def clean(self):
         cleaned_data = super().clean()
@@ -97,6 +118,14 @@ class ReportCardAssessmentForm(forms.ModelForm):
 
         academic_year = cleaned_data.get("academic_year")
         batch = cleaned_data.get("batch")
+        selected_batches = cleaned_data.get("batches")
+        if not self.instance.pk and selected_batches:
+            batch = selected_batches.first()
+            cleaned_data["batch"] = batch
+        elif not self.instance.pk and batch:
+            cleaned_data["batches"] = Batch.objects.filter(pk=batch.pk)
+        elif not self.instance.pk and not selected_batches:
+            self.add_error("batches", "Select at least one class / batch.")
         if batch and self.user and not self.user.assigned_batches.filter(pk=batch.pk).exists():
             self.add_error("batch", "Selected batch is not assigned to this teacher.")
         if batch:
@@ -110,6 +139,14 @@ class ReportCardAssessmentForm(forms.ModelForm):
             self.add_error("batch", "Selected batch belongs to another institute.")
         if academic_year and batch and batch.academic_year_id != academic_year.pk:
             self.add_error("batch", "Selected batch belongs to another academic year.")
+        if self.effective_institute and selected_batches:
+            for selected_batch in selected_batches:
+                if selected_batch.institute_id != self.effective_institute.pk:
+                    self.add_error("batches", "One selected batch belongs to another institute.")
+                    break
+                if academic_year and selected_batch.academic_year_id != academic_year.pk:
+                    self.add_error("batches", "One selected batch belongs to another academic year.")
+                    break
         if self.effective_institute:
             self.instance.institute = self.effective_institute
 
@@ -516,9 +553,16 @@ class ReportCardGradeRuleForm(forms.ModelForm):
             "is_active": "Active",
         }
 
-    def __init__(self, *args, institute=None, **kwargs):
+    def __init__(self, *args, institute=None, academic_year=None, **kwargs):
+        if args and academic_year:
+            data = args[0]
+            if data is not None and not data.get("academic_year"):
+                data = data.copy()
+                data["academic_year"] = str(academic_year.pk)
+                args = (data, *args[1:])
         super().__init__(*args, **kwargs)
         self.institute = institute or getattr(self.instance, "institute", None)
+        self.selected_academic_year = academic_year or getattr(self.instance, "academic_year", None)
         if self.institute:
             self.instance.institute = self.institute
         academic_years = AcademicYear.objects.none()
@@ -526,7 +570,11 @@ class ReportCardGradeRuleForm(forms.ModelForm):
             academic_years = self.institute.academic_years.filter(is_active=True).order_by("-start_date")
         self.fields["academic_year"].queryset = academic_years
         self.fields["academic_year"].required = False
-        _add_form_select(self.fields["academic_year"])
+        if self.selected_academic_year:
+            self.fields["academic_year"].initial = self.selected_academic_year
+            self.fields["academic_year"].widget = forms.HiddenInput()
+        else:
+            _add_form_select(self.fields["academic_year"])
         for field_name in ("min_percentage", "max_percentage", "grade", "remark", "display_order"):
             _add_form_control(self.fields[field_name])
         self.fields["is_active"].widget.attrs["class"] = "form-check-input"
@@ -589,13 +637,20 @@ class ReportCardTeacherSubjectAllocationForm(forms.ModelForm):
             "is_active": "Active allocation",
         }
 
-    def __init__(self, *args, institute=None, created_by=None, **kwargs):
+    def __init__(self, *args, institute=None, created_by=None, academic_year=None, **kwargs):
+        if args and academic_year:
+            data = args[0]
+            if data is not None and not data.get("academic_year"):
+                data = data.copy()
+                data["academic_year"] = str(academic_year.pk)
+                args = (data, *args[1:])
         super().__init__(*args, **kwargs)
         self.institute = institute or getattr(self.instance, "institute", None)
         self.created_by = created_by
+        self.selected_academic_year = academic_year or getattr(self.instance, "academic_year", None)
         if self.institute:
             self.instance.institute = self.institute
-        academic_year = self._selected_academic_year()
+        academic_year = self.selected_academic_year or self._selected_academic_year()
 
         self.fields["academic_year"].queryset = AcademicYear.objects.none()
         self.fields["batch"].queryset = Batch.objects.none()
@@ -623,6 +678,9 @@ class ReportCardTeacherSubjectAllocationForm(forms.ModelForm):
 
         for field_name in ("academic_year", "batch", "subject", "teacher"):
             _add_form_select(self.fields[field_name])
+        if academic_year:
+            self.fields["academic_year"].initial = academic_year
+            self.fields["academic_year"].widget = forms.HiddenInput()
         self.fields["is_active"].widget.attrs["class"] = "form-check-input"
 
     def _selected_academic_year(self):

@@ -15,14 +15,63 @@
     .rc-section-icon { width:42px; height:42px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#fff; background:linear-gradient(135deg,var(--primary),var(--dark)); }
     .rc-section-title h3 { margin:0; font-size:1.25rem; font-weight:900; }
     .rc-section-title p { margin:2px 0 0; color:#64748b; font-weight:650; }
+    .rc-assessment-grid { display:grid; grid-template-columns:minmax(0,1.02fr) minmax(0,1fr); gap:18px; align-items:start; }
+    .rc-field-stack { display:grid; gap:16px; }
+    .rc-date-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    .rc-field-card { min-width:0; }
+    .rc-label-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:.5rem; }
     .form-label { font-weight:850; color:#111827; }
-    .form-control, .form-select { border-radius:8px; border:1px solid #cbd5e1; padding:11px 13px; }
+    .rc-help-btn { display:inline-flex; align-items:center; gap:7px; border:1px solid #c4b5fd; color:var(--primary); background:#fff; border-radius:999px; padding:7px 11px; font-size:.78rem; font-weight:900; line-height:1; }
+    .rc-help-btn:hover { background:#f1edff; color:var(--dark); }
+    .form-control, .form-select { width:100%; border-radius:8px; border:1px solid #cbd5e1; padding:11px 13px; }
+    select[multiple].form-select { min-height:144px; }
     .field-help { color:#64748b; font-size:.82rem; font-weight:650; margin-top:5px; }
+    .rc-selected-batches { margin-top:12px; border:1px solid #ddd6fe; border-radius:8px; background:#fff; overflow:hidden; }
+    .rc-selected-batches-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; background:#f8fafc; border-bottom:1px solid #e2e8f0; color:#334155; font-size:.82rem; font-weight:900; }
+    .rc-selected-batches-list { display:flex; flex-direction:column; }
+    .rc-selected-batch-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-top:1px solid #f1f5f9; }
+    .rc-selected-batch-row:first-child { border-top:0; }
+    .rc-selected-batch-name { display:flex; align-items:center; gap:8px; min-width:0; color:#0f172a; font-weight:850; }
+    .rc-selected-batch-name span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .rc-selected-batch-index { width:26px; height:26px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; background:#f1edff; color:var(--primary); font-size:.78rem; font-weight:950; flex:0 0 auto; }
+    .rc-selected-batch-remove { width:34px; height:32px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; border:1px solid #fecaca; background:#fff; color:#dc2626; }
+    .rc-selected-batch-remove:hover { background:#fee2e2; color:#b91c1c; }
+    .rc-selected-batches-empty { padding:12px; color:#64748b; font-size:.85rem; font-weight:700; }
     .invalid-feedback, .text-danger { font-weight:700; }
     .rc-actions { padding:18px 22px 24px; display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #ede9fe; }
     .rc-btn { border-radius:8px; font-weight:850; padding:10px 16px; }
     .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; }
     .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    .rc-tour-backdrop { position:fixed; inset:0; z-index:1060; display:none; place-items:center; padding:24px; background:rgba(15,23,42,.5); backdrop-filter:blur(8px); }
+    .rc-tour-backdrop.is-open { display:grid; animation:tourFadeIn .2s ease-out; }
+    .rc-tour-card { width:min(820px, 100%); max-height:calc(100vh - 48px); display:flex; flex-direction:column; background:#fff; border:1px solid rgba(255,255,255,.76); border-radius:18px; box-shadow:0 30px 90px rgba(15,23,42,.36); overflow:hidden; transform:translateY(10px) scale(.98); animation:tourCardIn .26s ease-out forwards; }
+    .rc-tour-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:20px 24px; background:linear-gradient(135deg,#6042c8,#442c9f); color:#fff; flex:0 0 auto; }
+    .rc-tour-head h3 { margin:0 0 5px; font-size:1.35rem; font-weight:950; color:#fff; }
+    .rc-tour-head p { margin:0; opacity:.9; font-weight:700; }
+    .rc-tour-close { width:36px; height:36px; border:1px solid rgba(255,255,255,.38); border-radius:10px; background:rgba(255,255,255,.14); color:#fff; display:grid; place-items:center; flex:0 0 auto; }
+    .rc-tour-body { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px; padding:20px 24px; overflow:auto; }
+    .rc-tour-demo { position:relative; min-height:310px; border:1px solid #ddd6fe; border-radius:16px; background:linear-gradient(180deg,#fbfaff,#f5f7fb); overflow:hidden; padding:18px; }
+    .rc-demo-select { position:relative; z-index:2; border:2px solid #c4b5fd; border-radius:12px; background:#fff; padding:8px; box-shadow:0 14px 35px rgba(96,66,200,.12); }
+    .rc-demo-option { height:38px; display:flex; align-items:center; padding:0 12px; border-radius:9px; color:#334155; font-weight:850; margin-bottom:6px; }
+    .rc-demo-option:last-child { margin-bottom:0; }
+    .rc-demo-option.is-selected { background:#2f6fd1; color:#fff; }
+    .rc-keycap { position:absolute; right:28px; top:30px; z-index:4; display:inline-flex; align-items:center; gap:7px; padding:9px 13px; border-radius:12px; background:#111827; color:#fff; font-weight:950; box-shadow:0 14px 28px rgba(15,23,42,.25); animation:keyPulse 2.9s ease-in-out infinite; }
+    .rc-pointer { position:absolute; left:96px; top:92px; z-index:5; width:22px; height:22px; color:#111827; filter:drop-shadow(0 10px 18px rgba(15,23,42,.25)); animation:pointerMove 2.9s ease-in-out infinite; }
+    .rc-drag-band { position:absolute; left:26px; right:26px; top:96px; z-index:3; height:128px; border:2px dashed #6042c8; border-radius:12px; background:rgba(96,66,200,.08); animation:dragBand 2.9s ease-in-out infinite; pointer-events:none; }
+    .rc-tour-steps { display:grid; gap:12px; align-content:start; }
+    .rc-tour-step { display:grid; grid-template-columns:40px 1fr; gap:12px; padding:14px; border:1px solid #e2e8f0; border-radius:14px; background:#fff; box-shadow:0 10px 26px rgba(15,23,42,.06); }
+    .rc-tour-step strong { display:block; color:#111827; font-weight:950; margin-bottom:2px; }
+    .rc-tour-step span { color:#64748b; font-size:.9rem; font-weight:700; line-height:1.45; }
+    .rc-tour-step-icon { width:40px; height:40px; border-radius:12px; display:grid; place-items:center; background:#f1edff; color:var(--primary); font-size:1.1rem; }
+    .rc-tour-actions { display:flex; justify-content:flex-end; padding:16px 24px 20px; border-top:1px solid #e2e8f0; background:#fff; flex:0 0 auto; }
+    @keyframes tourFadeIn { from { opacity:0; } to { opacity:1; } }
+    @keyframes tourCardIn { to { transform:translateY(0) scale(1); } }
+    @keyframes keyPulse { 0%,100% { transform:scale(1); opacity:.82; } 35%,65% { transform:scale(1.06); opacity:1; } }
+    @keyframes pointerMove { 0% { transform:translate(0,0); } 30% { transform:translate(0,43px); } 62% { transform:translate(0,86px); } 100% { transform:translate(0,0); } }
+    @keyframes dragBand { 0%,20% { opacity:0; transform:scaleY(.25); transform-origin:top; } 38%,72% { opacity:1; transform:scaleY(1); } 100% { opacity:0; transform:scaleY(.25); } }
+    body.rc-tour-open { overflow:hidden; }
+    @media(max-width:768px){ .rc-assessment-grid, .rc-date-grid, .rc-tour-body { grid-template-columns:1fr; } .rc-tour-demo { min-height:260px; } .rc-tour-head { padding:18px; } .rc-tour-body { padding:18px; } .rc-tour-actions { padding:14px 18px 18px; } }
+    @media(max-width:768px){ .rc-assessment-grid, .rc-date-grid { grid-template-columns:1fr; } }
     @media(max-width:576px){ .rc-actions { flex-direction:column; } .rc-actions .btn { width:100%; } }
 </style>
 
@@ -38,7 +87,7 @@
         {% csrf_token %}
         <div class="rc-form-head">
             <h2>{{ page_title }}</h2>
-            <p>Configure the class, academic year, and report-card dates from institute admin.</p>
+            <p>{% if assessment %}Configure the class and report-card dates from institute admin.{% else %}Create one assessment for multiple classes/divisions in one step. Each class will receive its own safe marks-entry record.{% endif %}</p>
         </div>
         <section class="rc-section">
             <div class="rc-section-title">
@@ -51,35 +100,55 @@
             {% if form.non_field_errors %}
                 <div class="alert alert-danger">{{ form.non_field_errors }}</div>
             {% endif %}
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label" for="{{ form.academic_year.id_for_label }}">{{ form.academic_year.label }}</label>
-                    {{ form.academic_year }}
-                    <div class="field-help">Select the active academic year for this assessment.</div>
-                    {% for error in form.academic_year.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            <div class="rc-assessment-grid">
+                {{ form.academic_year }}
+                <div class="rc-field-stack">
+                    {% if assessment %}
+                    <div class="rc-field-card">
+                        <label class="form-label" for="{{ form.batch.id_for_label }}">{{ form.batch.label }}</label>
+                        {{ form.batch }}
+                        <div class="field-help">Select the class or batch where this report card applies.</div>
+                        {% for error in form.batch.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="rc-field-card">
+                        <div class="rc-label-row">
+                            <label class="form-label mb-0" for="{{ form.batches.id_for_label }}">{{ form.batches.label }}</label>
+                            <button class="rc-help-btn" type="button" id="batchHelpButton"><i class="bi bi-question-circle"></i> Help</button>
+                        </div>
+                        {{ form.batches }}
+                        <div class="field-help">Select one or more classes/divisions for the same assessment.</div>
+                        <div class="rc-selected-batches" id="selectedBatchPanel">
+                            <div class="rc-selected-batches-head">
+                                <span><i class="bi bi-collection me-1"></i> Selected classes/divisions</span>
+                                <span id="selectedBatchCount">0 selected</span>
+                            </div>
+                            <div class="rc-selected-batches-list" id="selectedBatchList"></div>
+                        </div>
+                        {% for error in form.batches.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label" for="{{ form.batch.id_for_label }}">{{ form.batch.label }}</label>
-                    {{ form.batch }}
-                    <div class="field-help">Select the class or batch where this report card applies.</div>
-                    {% for error in form.batch.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
-                    {{ form.title }}
-                    {% for error in form.title.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label" for="{{ form.assessment_date.id_for_label }}">{{ form.assessment_date.label }}</label>
-                    {{ form.assessment_date }}
-                    <div class="field-help">Exam or assessment date.</div>
-                    {% for error in form.assessment_date.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label" for="{{ form.result_date.id_for_label }}">{{ form.result_date.label }}</label>
-                    {{ form.result_date }}
-                    <div class="field-help">Optional publish/result date.</div>
-                    {% for error in form.result_date.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                <div class="rc-field-stack">
+                    <div class="rc-field-card">
+                        <label class="form-label" for="{{ form.title.id_for_label }}">{{ form.title.label }}</label>
+                        {{ form.title }}
+                        {% for error in form.title.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="rc-date-grid">
+                        <div class="rc-field-card">
+                            <label class="form-label" for="{{ form.assessment_date.id_for_label }}">{{ form.assessment_date.label }}</label>
+                            {{ form.assessment_date }}
+                            <div class="field-help">Exam or assessment date.</div>
+                            {% for error in form.assessment_date.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                        </div>
+                        <div class="rc-field-card">
+                            <label class="form-label" for="{{ form.result_date.id_for_label }}">{{ form.result_date.label }}</label>
+                            {{ form.result_date }}
+                            <div class="field-help">Optional publish/result date.</div>
+                            {% for error in form.result_date.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -94,4 +163,152 @@
     </form>
 </div>
 </main>
+{% if not assessment %}
+<div class="rc-tour-backdrop" id="batchHelpTour" aria-hidden="true">
+    <div class="rc-tour-card" role="dialog" aria-modal="true" aria-labelledby="batchHelpTitle">
+        <div class="rc-tour-head">
+            <div>
+                <h3 id="batchHelpTitle"><i class="bi bi-magic me-1"></i> Select Multiple Classes</h3>
+                <p>Use these shortcuts to create one assessment for many classes/divisions quickly.</p>
+            </div>
+            <button class="rc-tour-close" type="button" id="batchHelpClose" aria-label="Close help"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="rc-tour-body">
+            <div class="rc-tour-demo" aria-hidden="true">
+                <div class="rc-drag-band"></div>
+                <div class="rc-keycap"><i class="bi bi-command"></i> Ctrl</div>
+                <div class="rc-demo-select">
+                    <div class="rc-demo-option is-selected">8th</div>
+                    <div class="rc-demo-option">9th</div>
+                    <div class="rc-demo-option is-selected">10th</div>
+                    <div class="rc-demo-option is-selected">10th A</div>
+                    <div class="rc-demo-option">10th B</div>
+                </div>
+                <div class="rc-pointer"><i class="bi bi-cursor-fill"></i></div>
+            </div>
+            <div class="rc-tour-steps">
+                <div class="rc-tour-step">
+                    <div class="rc-tour-step-icon"><i class="bi bi-keyboard"></i></div>
+                    <div><strong>Ctrl + Click</strong><span>Press and hold Ctrl, then click each class/division you want to add.</span></div>
+                </div>
+                <div class="rc-tour-step">
+                    <div class="rc-tour-step-icon"><i class="bi bi-mouse"></i></div>
+                    <div><strong>Drag Select</strong><span>Click inside the list and drag over nearby classes to select multiple items together.</span></div>
+                </div>
+                <div class="rc-tour-step">
+                    <div class="rc-tour-step-icon"><i class="bi bi-trash3"></i></div>
+                    <div><strong>Remove One</strong><span>Use the delete icon in the selected list to remove only that class/division.</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="rc-tour-actions">
+            <button class="btn btn-gradient rc-btn" type="button" id="batchHelpDone"><i class="bi bi-check2-circle me-1"></i> Got it</button>
+        </div>
+    </div>
+</div>
+<script>
+    (function() {
+        const batchSelect = document.getElementById("{{ form.batches.id_for_label }}");
+        const list = document.getElementById("selectedBatchList");
+        const count = document.getElementById("selectedBatchCount");
+        if (!batchSelect || !list || !count) return;
+
+        function getSelectedOptions() {
+            return Array.from(batchSelect.options).filter((option) => option.selected && option.value);
+        }
+
+        function notifyChoiceUi() {
+            batchSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+
+        function removeBatch(value) {
+            const option = Array.from(batchSelect.options).find((item) => item.value === value);
+            if (option) {
+                option.selected = false;
+                notifyChoiceUi();
+                renderSelectedBatches();
+            }
+        }
+
+        function renderSelectedBatches() {
+            const selected = getSelectedOptions();
+            count.textContent = selected.length === 1 ? "1 selected" : `${selected.length} selected`;
+            list.innerHTML = "";
+
+            if (!selected.length) {
+                const empty = document.createElement("div");
+                empty.className = "rc-selected-batches-empty";
+                empty.textContent = "No class/division selected yet.";
+                list.appendChild(empty);
+                return;
+            }
+
+            selected.forEach((option, index) => {
+                const row = document.createElement("div");
+                row.className = "rc-selected-batch-row";
+
+                const nameWrap = document.createElement("div");
+                nameWrap.className = "rc-selected-batch-name";
+
+                const number = document.createElement("strong");
+                number.className = "rc-selected-batch-index";
+                number.textContent = index + 1;
+
+                const label = document.createElement("span");
+                label.textContent = option.textContent.trim();
+
+                const button = document.createElement("button");
+                button.className = "rc-selected-batch-remove";
+                button.type = "button";
+                button.title = "Remove class/division";
+                button.setAttribute("aria-label", `Remove ${option.textContent.trim()}`);
+                button.innerHTML = '<i class="bi bi-trash"></i>';
+                button.addEventListener("click", () => removeBatch(option.value));
+
+                nameWrap.appendChild(number);
+                nameWrap.appendChild(label);
+                row.appendChild(nameWrap);
+                row.appendChild(button);
+                list.appendChild(row);
+            });
+        }
+
+        batchSelect.addEventListener("change", renderSelectedBatches);
+        document.addEventListener("DOMContentLoaded", renderSelectedBatches);
+        renderSelectedBatches();
+    })();
+
+    (function() {
+        const helpButton = document.getElementById("batchHelpButton");
+        const tour = document.getElementById("batchHelpTour");
+        const closeButton = document.getElementById("batchHelpClose");
+        const doneButton = document.getElementById("batchHelpDone");
+        if (!helpButton || !tour) return;
+
+        function openTour() {
+            tour.classList.add("is-open");
+            tour.setAttribute("aria-hidden", "false");
+            document.body.classList.add("rc-tour-open");
+            setTimeout(() => closeButton && closeButton.focus(), 80);
+        }
+
+        function closeTour() {
+            tour.classList.remove("is-open");
+            tour.setAttribute("aria-hidden", "true");
+            document.body.classList.remove("rc-tour-open");
+            helpButton.focus();
+        }
+
+        helpButton.addEventListener("click", openTour);
+        if (closeButton) closeButton.addEventListener("click", closeTour);
+        if (doneButton) doneButton.addEventListener("click", closeTour);
+        tour.addEventListener("click", (event) => {
+            if (event.target === tour) closeTour();
+        });
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && tour.classList.contains("is-open")) closeTour();
+        });
+    })();
+</script>
+{% endif %}
 {% endblock content %}

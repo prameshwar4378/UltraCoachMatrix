@@ -123,6 +123,168 @@ def write_audit_log(assessment, action, *, actor=None, message="", metadata=None
     )
 
 
+def get_assessment_delete_impact(assessment):
+    if not assessment:
+        return {
+            "subject_count": 0,
+            "component_count": 0,
+            "mark_entry_count": 0,
+            "component_mark_entry_count": 0,
+            "generated_result_count": 0,
+            "published_result_count": 0,
+            "student_count": 0,
+            "current_status": "",
+            "has_data": False,
+        }
+
+    subjects = ReportCardAssessmentSubject.objects.filter(assessment=assessment)
+    components = ReportCardAssessmentSubjectComponent.objects.filter(assessment_subject__assessment=assessment)
+    mark_entries = ReportCardMarkEntry.objects.filter(assessment_subject__assessment=assessment)
+    component_mark_entries = ReportCardComponentMarkEntry.objects.filter(
+        component__assessment_subject__assessment=assessment
+    )
+    results = ReportCardStudentResult.objects.filter(assessment=assessment)
+    student_session_ids = set(
+        get_active_student_sessions_for_assessment(assessment).values_list("pk", flat=True)
+    )
+    student_session_ids.update(mark_entries.values_list("academic_session_id", flat=True))
+    student_session_ids.update(component_mark_entries.values_list("academic_session_id", flat=True))
+    student_session_ids.update(results.values_list("academic_session_id", flat=True))
+
+    impact = {
+        "subject_count": subjects.count(),
+        "component_count": components.count(),
+        "mark_entry_count": mark_entries.count(),
+        "component_mark_entry_count": component_mark_entries.count(),
+        "generated_result_count": results.count(),
+        "published_result_count": results.filter(published_at__isnull=False).count(),
+        "student_count": len({pk for pk in student_session_ids if pk}),
+        "current_status": assessment.status,
+    }
+    impact["has_data"] = any(
+        impact[key]
+        for key in [
+            "subject_count",
+            "component_count",
+            "mark_entry_count",
+            "component_mark_entry_count",
+            "generated_result_count",
+        ]
+    )
+    return impact
+
+
+def _clean_delete_reason(reason):
+    return (reason or "").strip()
+
+
+def _assessment_audit_metadata(assessment, *, reason="", impact=None, extra=None):
+    metadata = {
+        "assessment_id": assessment.pk,
+        "assessment_title": assessment.title,
+        "institute_id": assessment.institute_id,
+        "academic_year_id": assessment.academic_year_id,
+        "batch_id": assessment.batch_id,
+        "reason": reason,
+        "impact": impact if impact is not None else get_assessment_delete_impact(assessment),
+    }
+    if extra:
+        metadata.update(extra)
+    return metadata
+
+
+@transaction.atomic
+def soft_delete_assessment(assessment, actor, reason):
+    assessment = ReportCardAssessment.objects.select_for_update().get(pk=assessment.pk)
+    if assessment.is_deleted:
+        raise ValidationError("This assessment is already in the recycle bin.")
+
+    impact = get_assessment_delete_impact(assessment)
+    clean_reason = _clean_delete_reason(reason)
+    if impact["has_data"] and not clean_reason:
+        raise ValidationError("A delete reason is required because this assessment already has structure, marks, or results.")
+    if assessment.status in {ReportCardAssessment.Status.PUBLISHED, ReportCardAssessment.Status.LOCKED}:
+        if len(clean_reason) < 20:
+            raise ValidationError("Published or locked assessments require a detailed delete reason.")
+
+    now = timezone.now()
+    assessment.is_deleted = True
+    assessment.deleted_at = now
+    assessment.deleted_by = actor
+    assessment.delete_reason = clean_reason
+    assessment.save(update_fields=["is_deleted", "deleted_at", "deleted_by", "delete_reason", "updated_at"])
+    write_audit_log(
+        assessment,
+        ReportCardAuditLog.Action.ASSESSMENT_DELETED,
+        actor=actor,
+        message="Assessment moved to recycle bin.",
+        metadata=_assessment_audit_metadata(assessment, reason=clean_reason, impact=impact),
+    )
+    return assessment
+
+
+@transaction.atomic
+def restore_deleted_assessment(assessment, actor):
+    assessment = ReportCardAssessment.objects.select_for_update().get(pk=assessment.pk)
+    if not assessment.is_deleted:
+        raise ValidationError("Only deleted assessments can be restored.")
+    duplicate_exists = ReportCardAssessment.objects.filter(
+        institute=assessment.institute,
+        academic_year=assessment.academic_year,
+        batch=assessment.batch,
+        title=assessment.title,
+        is_deleted=False,
+    ).exclude(pk=assessment.pk).exists()
+    if duplicate_exists:
+        raise ValidationError("An active assessment with the same name already exists for this class.")
+
+    impact = get_assessment_delete_impact(assessment)
+    restore_reason = assessment.delete_reason
+    assessment.is_deleted = False
+    assessment.deleted_at = None
+    assessment.deleted_by = None
+    assessment.delete_reason = ""
+    assessment.save(update_fields=["is_deleted", "deleted_at", "deleted_by", "delete_reason", "updated_at"])
+    write_audit_log(
+        assessment,
+        ReportCardAuditLog.Action.ASSESSMENT_RESTORED,
+        actor=actor,
+        message="Assessment restored from recycle bin.",
+        metadata=_assessment_audit_metadata(
+            assessment,
+            reason=restore_reason,
+            impact=impact,
+            extra={"previous_delete_reason": restore_reason},
+        ),
+    )
+    return assessment
+
+
+@transaction.atomic
+def permanent_delete_assessment(assessment, actor, confirmation_text, reason):
+    assessment = ReportCardAssessment.objects.select_for_update().get(pk=assessment.pk)
+    if not assessment.is_deleted:
+        raise ValidationError("Permanent delete is allowed only from the recycle bin.")
+    if (confirmation_text or "").strip() != assessment.title:
+        raise ValidationError("Type the exact assessment name to permanently delete this assessment.")
+    clean_reason = _clean_delete_reason(reason)
+    if not clean_reason:
+        raise ValidationError("A permanent delete reason is required.")
+
+    impact = get_assessment_delete_impact(assessment)
+    audit_log = write_audit_log(
+        assessment,
+        ReportCardAuditLog.Action.ASSESSMENT_PERMANENTLY_DELETED,
+        actor=actor,
+        message="Assessment permanently deleted.",
+        metadata=_assessment_audit_metadata(assessment, reason=clean_reason, impact=impact),
+    )
+    assessment.delete()
+    audit_log.assessment = None
+    audit_log.save(update_fields=["assessment"])
+    return impact
+
+
 def create_assessment(*, institute, academic_year, batch, title, created_by=None, assessment_date=None, result_date=None):
     assessment = ReportCardAssessment(
         institute=institute,
@@ -403,6 +565,57 @@ def open_marks_entry(assessment, *, actor=None):
         ReportCardAuditLog.Action.MARKS_ENTRY_OPENED,
         actor=actor,
         message="Marks entry opened.",
+    )
+    return assessment
+
+
+@transaction.atomic
+def reopen_marks_entry(assessment, *, actor=None, reason="", assessment_subject=None):
+    assessment = ReportCardAssessment.objects.select_for_update().get(pk=assessment.pk)
+    if assessment.is_deleted:
+        raise ValidationError("Deleted assessments cannot be reopened.")
+    if not assessment.assessment_subjects.exists():
+        raise ValidationError("Add at least one subject before reopening marks entry.")
+    if assessment.status == ReportCardAssessment.Status.MARKS_ENTRY_OPEN:
+        return assessment
+    if assessment.status not in {
+        ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED,
+        ReportCardAssessment.Status.GENERATED,
+        ReportCardAssessment.Status.PUBLISHED,
+        ReportCardAssessment.Status.LOCKED,
+    }:
+        raise ValidationError("Marks entry can be reopened only after marks entry was previously opened.")
+
+    previous_status = assessment.status
+    assessment.status = ReportCardAssessment.Status.MARKS_ENTRY_OPEN
+    assessment.published_at = None
+    assessment.published_by = None
+    assessment.locked_at = None
+    assessment.locked_by = None
+    assessment.save(
+        update_fields=[
+            "status",
+            "published_at",
+            "published_by",
+            "locked_at",
+            "locked_by",
+            "updated_at",
+        ]
+    )
+    ReportCardStudentResult.objects.filter(assessment=assessment).update(is_stale=True, published_at=None)
+    metadata = {
+        "previous_status": previous_status,
+        "reason": (reason or "").strip(),
+    }
+    if assessment_subject:
+        metadata["assessment_subject_id"] = assessment_subject.pk
+        metadata["subject_name"] = assessment_subject.subject_name_snapshot
+    write_audit_log(
+        assessment,
+        ReportCardAuditLog.Action.MARKS_ENTRY_OPENED,
+        actor=actor,
+        message="Marks entry reopened.",
+        metadata=metadata,
     )
     return assessment
 

@@ -17,7 +17,6 @@
     .form-control, .form-select { border:2px solid var(--border); border-radius:10px; padding:10px 13px; }
     .field-error { margin-top:6px; color:#dc2626; font-size:.82rem; font-weight:700; }
     .help-text { color:#64748b; font-size:.82rem; font-weight:700; margin-top:5px; }
-    .rc-session-pill { display:inline-flex; align-items:center; gap:8px; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:999px; font-weight:900; color:#334155; }
     .allocation-table-wrap { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#fff; }
     .allocation-table { width:100%; margin:0; }
     .allocation-table th { background:#f8fafc; color:#334155; font-size:.75rem; letter-spacing:.04em; text-transform:uppercase; padding:12px; }
@@ -36,9 +35,9 @@
         <div class="rc-head">
             <h2>{{ page_title }}</h2>
             {% if bulk_mode %}
-                <p>Select one class, add subject-teacher rows locally, then save all allocations in one bulk action. These allocations will work for every report-card assessment in the active session.</p>
+                <p>Select one class, add subject-teacher rows locally, then save all allocations in one bulk action.</p>
             {% else %}
-                <p>Assign one teacher to one class and subject for the selected academic year. The same allocation will work for every report-card assessment in that year.</p>
+                <p>Assign one teacher to one class and subject for report-card marks entry.</p>
             {% endif %}
         </div>
         {% if bulk_mode %}
@@ -50,11 +49,6 @@
             {% csrf_token %}
             {% for error in bulk_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
             <div class="row g-3 align-items-end mb-4">
-                <div class="col-md-5">
-                    <label class="form-label fw-bold">Active academic year</label><br>
-                    <span class="rc-session-pill"><i class="bi bi-calendar2-check"></i> {{ academic_year.name }}</span>
-                    <div class="help-text">Auto-selected from the current institute session. No manual year selection is needed here.</div>
-                </div>
                 <div class="col-md-7">
                     <label class="form-label fw-bold" for="id_batch">Class / batch</label>
                     <select class="form-select" id="id_batch" name="batch" required>
@@ -203,12 +197,7 @@
             {% csrf_token %}
             {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
             <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label fw-bold" for="{{ form.academic_year.id_for_label }}">{{ form.academic_year.label }}</label>
-                    {{ form.academic_year }}
-                    <div class="help-text">Choose the year first, then save or reload if batch/subject choices need refreshing.</div>
-                    {% for error in form.academic_year.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
-                </div>
+                {{ form.academic_year }}
                 <div class="col-md-6">
                     <label class="form-label fw-bold" for="{{ form.teacher.id_for_label }}">{{ form.teacher.label }}</label>
                     {{ form.teacher }}

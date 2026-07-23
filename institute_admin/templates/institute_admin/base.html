@@ -334,6 +334,11 @@
                         </a>
                     </li>
                     <li>
+                        <a href="{% url 'report_card_admin:assessment_bin' %}" class="menu-red {% if request.resolver_match.namespace == 'report_card_admin' and current_url == 'assessment_bin' %}active{% endif %}" style="text-decoration:none;">
+                            <i class="bi bi-trash3" style="font-size:15px;"></i><span>Recycle Bin</span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="{% url 'report_card_admin:allocation_list' %}" class="menu-blue {% if request.resolver_match.namespace == 'report_card_admin' and current_url == 'allocation_list' %}active{% endif %}" style="text-decoration:none;">
                             <i class="bi bi-person-lines-fill" style="font-size:15px;"></i><span>Teacher Subject Allocation</span>
                         </a>

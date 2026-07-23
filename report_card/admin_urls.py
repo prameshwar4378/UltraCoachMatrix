@@ -7,6 +7,15 @@ app_name = "report_card_admin"
 urlpatterns = [
     path("assessments/", views.admin_assessment_list, name="assessment_list"),
     path("assessments/create/", views.admin_assessment_create, name="assessment_create"),
+    path("assessments/<int:assessment_id>/delete/", views.admin_assessment_delete, name="assessment_delete"),
+    path("bin/", views.admin_assessment_bin, name="assessment_bin"),
+    path("bin/<int:assessment_id>/restore/", views.admin_assessment_restore, name="assessment_restore"),
+    path(
+        "bin/<int:assessment_id>/permanent-delete/",
+        views.admin_assessment_permanent_delete,
+        name="assessment_permanent_delete",
+    ),
+    path("assessments/<int:assessment_id>/classes/", views.admin_assessment_classes, name="assessment_classes"),
     path("assessments/<int:assessment_id>/", views.admin_assessment_detail, name="assessment_detail"),
     path("assessments/<int:assessment_id>/edit/", views.admin_assessment_update, name="assessment_update"),
     path("assessments/<int:assessment_id>/completion/", views.admin_completion_dashboard, name="completion_dashboard"),
@@ -27,6 +36,12 @@ urlpatterns = [
     path("assessments/<int:assessment_id>/results/lock/", views.admin_lock_assessment, name="lock_assessment"),
     path("assessments/<int:assessment_id>/structure/", views.admin_assessment_structure, name="assessment_structure"),
     path("assessments/<int:assessment_id>/open-marks-entry/", views.admin_open_marks_entry, name="open_marks_entry"),
+    path("assessments/<int:assessment_id>/reopen-marks-entry/", views.admin_reopen_marks_entry, name="reopen_marks_entry"),
+    path(
+        "assessments/<int:assessment_id>/subjects/<int:assessment_subject_id>/reopen-marks-entry/",
+        views.admin_reopen_subject_marks_entry,
+        name="reopen_subject_marks_entry",
+    ),
     path(
         "assessments/<int:assessment_id>/subjects/create/",
         views.admin_assessment_subject_create,

@@ -1,0 +1,137 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Report Card Recycle Bin{% endblock title %}
+
+{% block content %}
+<style>
+    .rc-main { background:#f5f7fb; min-height:calc(100vh - 80px); }
+    .rc-page { --primary:#6042c8; --dark:#442c9f; --border:#e2e8f0; --muted:#64748b; color:#0f172a; }
+    .rc-hero, .rc-filter, .rc-card { background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 12px 35px rgba(15,23,42,.07); }
+    .rc-hero { padding:22px 24px; margin-bottom:18px; }
+    .rc-title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; flex-wrap:wrap; }
+    .rc-hero h2 { margin:0 0 7px; font-weight:900; font-size:1.45rem; }
+    .rc-hero p { margin:0; color:var(--muted); font-weight:700; max-width:880px; }
+    .rc-filter { padding:16px; margin-bottom:18px; }
+    .rc-card { overflow:hidden; }
+    .rc-table { margin:0; }
+    .rc-table th { background:#f8fafc; color:#475569; font-size:.76rem; text-transform:uppercase; white-space:nowrap; }
+    .rc-table td, .rc-table th { padding:13px 15px; vertical-align:middle; }
+    .rc-pill { display:inline-flex; padding:7px 10px; border-radius:999px; background:#fee2e2; color:#991b1b; font-size:.78rem; font-weight:850; white-space:nowrap; }
+    .rc-status { background:#f1f5f9; color:#334155; }
+    .rc-metric { display:block; font-weight:900; color:#0f172a; }
+    .rc-metric span { color:#64748b; font-size:.78rem; font-weight:750; }
+    .rc-btn { border-radius:8px; font-weight:800; }
+    .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
+    .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    .rc-empty { padding:38px 24px; text-align:center; color:var(--muted); font-weight:750; }
+</style>
+
+<main id="main" class="main rc-main">
+<div class="rc-page">
+    <section class="rc-hero">
+        <div class="rc-title-row">
+            <div>
+                <h2>Report Card Recycle Bin</h2>
+                <p>Deleted report-card assessments are kept here for restore or controlled permanent deletion.</p>
+            </div>
+            <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:assessment_list' %}"><i class="bi bi-arrow-left me-1"></i> Back to Assessments</a>
+        </div>
+    </section>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+        {% endfor %}
+    {% endif %}
+
+    <form class="rc-filter" method="get">
+        <div class="row g-2 align-items-end">
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label fw-bold">Class / batch</label>
+                <select class="form-select" name="batch">
+                    <option value="">All batches</option>
+                    {% for batch in batches %}
+                        <option value="{{ batch.pk }}" {% if filter_batch == batch.pk|stringformat:"s" %}selected{% endif %}>{{ batch.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label fw-bold">Status before delete</label>
+                <select class="form-select" name="status">
+                    <option value="">All statuses</option>
+                    {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if filter_status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label fw-bold">Deleted by</label>
+                <select class="form-select" name="deleted_by">
+                    <option value="">Anyone</option>
+                    {% for user in deleted_by_options %}
+                        <option value="{{ user.pk }}" {% if filter_deleted_by == user.pk|stringformat:"s" %}selected{% endif %}>{{ user.get_full_name|default:user.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-4 col-md-6">
+                <label class="form-label fw-bold">Search</label>
+                <input class="form-control" type="search" name="q" value="{{ search_query }}" placeholder="Assessment, class, delete reason">
+            </div>
+            <div class="col-lg-2 col-md-12 d-flex gap-2 justify-content-end">
+                <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:assessment_bin' %}"><i class="bi bi-x-lg"></i></a>
+                <button class="btn btn-gradient" type="submit"><i class="bi bi-funnel me-1"></i> Filter</button>
+            </div>
+        </div>
+    </form>
+
+    <section class="rc-card table-responsive">
+        <table class="table rc-table align-middle">
+            <thead>
+                <tr>
+                    <th>Assessment</th>
+                    <th>Class / Batch</th>
+                    <th>Status Before Delete</th>
+                    <th>Deleted</th>
+                    <th>Deleted By</th>
+                    <th>Reason</th>
+                    <th>Subjects</th>
+                    <th>Marks</th>
+                    <th>Results</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                    {% with assessment=row.assessment impact=row.impact %}
+                    <tr>
+                        <td><strong>{{ assessment.title }}</strong></td>
+                        <td>{{ assessment.batch_name_snapshot }}</td>
+                        <td><span class="rc-pill rc-status">{{ assessment.get_status_display }}</span></td>
+                        <td><span class="rc-pill">{{ assessment.deleted_at|date:"d M Y H:i"|default:"Deleted" }}</span></td>
+                        <td>{{ assessment.deleted_by.get_full_name|default:assessment.deleted_by.username|default:"-" }}</td>
+                        <td style="min-width:220px;">{{ assessment.delete_reason|default:"-" }}</td>
+                        <td>
+                            <span class="rc-metric">{{ impact.subject_count }} <span>subject(s)</span></span>
+                        </td>
+                        <td><span class="rc-metric">{{ impact.mark_entry_count|add:impact.component_mark_entry_count }} <span>entry(s)</span></span></td>
+                        <td><span class="rc-metric">{{ impact.generated_result_count }} <span>result(s)</span></span></td>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end gap-2 flex-wrap">
+                                <form method="post" action="{% url 'report_card_admin:assessment_restore' assessment.pk %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-sm btn-outline-success rc-btn" type="submit"><i class="bi bi-arrow-counterclockwise me-1"></i> Restore</button>
+                                </form>
+                                <a class="btn btn-sm btn-danger rc-btn" href="{% url 'report_card_admin:assessment_permanent_delete' assessment.pk %}"><i class="bi bi-trash3 me-1"></i> Permanent Delete</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endwith %}
+                {% empty %}
+                    <tr><td colspan="10"><div class="rc-empty"><i class="bi bi-trash3 d-block mb-2 fs-2"></i>Recycle bin is empty. Deleted report-card assessments will appear here.</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+</main>
+{% endblock content %}

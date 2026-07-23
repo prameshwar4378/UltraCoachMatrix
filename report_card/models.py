@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 from super_admin.models import UserProfile
@@ -74,6 +75,16 @@ class ReportCardAssessment(models.Model):
         blank=True,
         related_name="locked_report_card_assessments",
     )
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deleted_report_card_assessments",
+    )
+    delete_reason = models.TextField(blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     published_at = models.DateTimeField(null=True, blank=True)
@@ -84,6 +95,7 @@ class ReportCardAssessment(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["institute", "academic_year", "batch", "title"],
+                condition=Q(is_deleted=False),
                 name="rc_assessment_unique_title",
             ),
         ]
@@ -91,6 +103,8 @@ class ReportCardAssessment(models.Model):
             models.Index(fields=["institute", "academic_year", "status"], name="rc_assess_scope_idx"),
             models.Index(fields=["batch", "status", "-created_at"], name="rc_assess_batch_idx"),
             models.Index(fields=["created_by", "-created_at"], name="rc_assess_creator_idx"),
+            models.Index(fields=["institute", "is_deleted", "academic_year"], name="rc_assess_deleted_idx"),
+            models.Index(fields=["is_deleted", "deleted_at"], name="rc_assess_bin_idx"),
         ]
 
     def __str__(self):
@@ -817,10 +831,15 @@ class ReportCardAuditLog(models.Model):
         RESULTS_PUBLISHED = "RESULTS_PUBLISHED", "Results published"
         ASSESSMENT_LOCKED = "ASSESSMENT_LOCKED", "Assessment locked"
         ASSESSMENT_UNLOCKED = "ASSESSMENT_UNLOCKED", "Assessment unlocked"
+        ASSESSMENT_DELETED = "ASSESSMENT_DELETED", "Assessment deleted"
+        ASSESSMENT_RESTORED = "ASSESSMENT_RESTORED", "Assessment restored"
+        ASSESSMENT_PERMANENTLY_DELETED = "ASSESSMENT_PERMANENTLY_DELETED", "Assessment permanently deleted"
 
     assessment = models.ForeignKey(
         ReportCardAssessment,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="audit_logs",
     )
     actor = models.ForeignKey(
@@ -845,4 +864,5 @@ class ReportCardAuditLog(models.Model):
 
     def __str__(self):
         actor = _user_display_name(self.actor) or "System"
-        return f"{self.get_action_display()} - {self.assessment} - {actor}"
+        assessment = self.assessment or self.metadata.get("assessment_title", "Deleted assessment")
+        return f"{self.get_action_display()} - {assessment} - {actor}"

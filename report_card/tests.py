@@ -7,6 +7,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from openpyxl import Workbook
 from rest_framework.test import APIClient
 
@@ -22,6 +23,7 @@ from report_card.models import (
     ReportCardAssessment,
     ReportCardAssessmentSubject,
     ReportCardAssessmentSubjectComponent,
+    ReportCardAuditLog,
     ReportCardComponentMarkEntry,
     ReportCardGradeRule,
     ReportCardMarkEntry,
@@ -36,6 +38,7 @@ from report_card.permissions import (
 )
 from report_card.selectors import (
     get_assessments_for_teacher,
+    get_deleted_assessments_for_admin,
     get_completion_summary,
     get_published_results_for_student,
     get_teacher_accessible_assessment_subjects,
@@ -51,9 +54,14 @@ from report_card.services import (
     bulk_save_subject_marks,
     create_assessment,
     generate_assessment_results,
+    get_assessment_delete_impact,
     lock_assessment,
     open_marks_entry,
+    permanent_delete_assessment,
     publish_assessment_results,
+    reopen_marks_entry,
+    restore_deleted_assessment,
+    soft_delete_assessment,
     sync_assessment_subject_components,
     update_assessment,
 )
@@ -367,6 +375,33 @@ class ReportCardFeatureTests(TestCase):
         self.assertFalse(teacher_can_edit_assessment(self.teacher, hidden_subject_assessment))
         self.assertFalse(teacher_can_edit_assessment(self.teacher, hidden_batch_assessment))
 
+    def test_teacher_accessible_assessments_do_not_mix_allocation_tuples(self):
+        self._allocation(batch=self.batch, subject=self.math)
+        self._allocation(batch=self.unassigned_batch, subject=self.science)
+        visible_assessment = self._assessment("Visible Exact Tuple")
+        self._subject(visible_assessment, self.math)
+        mixed_tuple_assessment = create_assessment(
+            institute=self.institute,
+            academic_year=self.year,
+            batch=self.unassigned_batch,
+            title="Hidden Mixed Tuple",
+            created_by=self.teacher,
+        )
+        add_assessment_subject(
+            mixed_tuple_assessment,
+            subject=self.math,
+            max_marks=Decimal("100"),
+            passing_marks=Decimal("35"),
+            weightage=Decimal("100"),
+            display_order=1,
+            actor=self.teacher,
+        )
+
+        assessments = list(get_teacher_accessible_assessments(self.teacher, academic_year=self.year))
+
+        self.assertIn(visible_assessment, assessments)
+        self.assertNotIn(mixed_tuple_assessment, assessments)
+
     def test_allocation_form_prevents_duplicates_gracefully(self):
         self._allocation(subject=self.math)
         form = ReportCardTeacherSubjectAllocationForm(
@@ -482,9 +517,11 @@ class ReportCardFeatureTests(TestCase):
         self.assertContains(response, 'data-bs-target="#report-card-nav"')
         self.assertContains(response, 'id="report-card-nav"')
         self.assertContains(response, "Report Cards")
+        self.assertContains(response, "Recycle Bin")
         self.assertContains(response, "Teacher Subject Allocation")
         self.assertContains(response, "Grade Rules")
         self.assertContains(response, reverse("report_card_admin:assessment_list"))
+        self.assertContains(response, reverse("report_card_admin:assessment_bin"))
         self.assertContains(response, reverse("report_card_admin:allocation_list"))
         self.assertContains(response, reverse("report_card_admin:grade_rule_list"))
 
@@ -510,6 +547,22 @@ class ReportCardFeatureTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_admin_assessment_create_form_scopes_batches_to_selected_session(self):
+        admin_user = self._admin_user("assessment-scope-admin")
+        next_course = Course.objects.create(institute=self.institute, academic_year=self.next_year, name="Future Class")
+        next_batch = Batch.objects.create(institute=self.institute, academic_year=self.next_year, name="Future 8-A")
+        next_batch.courses.add(next_course)
+        self.client.force_login(admin_user)
+        session = self.client.session
+        session["academic_year_id"] = self.year.pk
+        session.save()
+
+        response = self.client.get(reverse("report_card_admin:assessment_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.batch.name)
+        self.assertNotContains(response, next_batch.name)
+
     def test_institute_admin_can_create_and_edit_report_card_assessment_from_ui(self):
         admin_user = self._admin_user("assessment-admin")
         online_exam_count = Exam.objects.count()
@@ -532,6 +585,31 @@ class ReportCardFeatureTests(TestCase):
         self.assertEqual(assessment.created_by, admin_user)
         self.assertEqual(Exam.objects.count(), online_exam_count)
 
+        multi_response = self.client.post(
+            reverse("report_card_admin:assessment_create"),
+            data={
+                "academic_year": self.year.pk,
+                "batches": [self.batch.pk, self.unassigned_batch.pk],
+                "title": "Admin Multi Batch Test",
+                "assessment_date": "2026-07-20",
+                "result_date": "2026-07-25",
+            },
+        )
+
+        self.assertEqual(multi_response.status_code, 302)
+        multi_assessments = ReportCardAssessment.objects.filter(title="Admin Multi Batch Test")
+        self.assertEqual(multi_assessments.count(), 2)
+        self.assertSetEqual(set(multi_assessments.values_list("batch_id", flat=True)), {self.batch.pk, self.unassigned_batch.pk})
+        self.assertEqual(Exam.objects.count(), online_exam_count)
+
+        class_list_response = self.client.get(
+            reverse("report_card_admin:assessment_classes", args=[multi_assessments.first().pk])
+        )
+        self.assertEqual(class_list_response.status_code, 200)
+        self.assertContains(class_list_response, self.batch.name)
+        self.assertContains(class_list_response, self.unassigned_batch.name)
+        self.assertContains(class_list_response, reverse("report_card_admin:assessment_detail", args=[assessment.pk]), count=0)
+
         update_response = self.client.post(
             reverse("report_card_admin:assessment_update", args=[assessment.pk]),
             data={
@@ -548,6 +626,618 @@ class ReportCardFeatureTests(TestCase):
         self.assertEqual(assessment.title, "Admin Final Term")
         self.assertEqual(assessment.assessment_date, date(2026, 8, 19))
         self.assertEqual(Exam.objects.count(), online_exam_count)
+
+    def test_soft_deleted_assessment_is_hidden_from_admin_pages(self):
+        admin_user = self._admin_user("soft-delete-admin")
+        assessment = self._assessment("Soft Deleted Admin Assessment")
+        assessment.is_deleted = True
+        assessment.deleted_at = timezone.now()
+        assessment.deleted_by = admin_user
+        assessment.delete_reason = "Created by mistake."
+        assessment.save()
+        self.client.force_login(admin_user)
+
+        list_response = self.client.get(reverse("report_card_admin:assessment_list"))
+        detail_response = self.client.get(reverse("report_card_admin:assessment_detail", args=[assessment.pk]))
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertNotContains(list_response, "Soft Deleted Admin Assessment")
+        self.assertEqual(detail_response.status_code, 404)
+
+    def test_soft_deleted_assessment_is_hidden_from_teacher_access(self):
+        assessment = self._assessment("Soft Deleted Teacher Assessment")
+        subject = self._subject(assessment, self.math)
+        self._ensure_allocation(subject)
+        assessment.is_deleted = True
+        assessment.deleted_at = timezone.now()
+        assessment.deleted_by = self._admin_user("soft-delete-teacher-admin")
+        assessment.delete_reason = "Duplicate assessment."
+        assessment.save()
+        self.client.force_login(self.teacher)
+
+        selector_assessments = list(get_teacher_accessible_assessments(self.teacher, academic_year=self.year))
+        list_response = self.client.get(reverse("report_card:assessment_list"))
+        detail_response = self.client.get(reverse("report_card:assessment_detail", args=[assessment.pk]))
+
+        self.assertNotIn(assessment, selector_assessments)
+        self.assertNotIn(assessment, list(get_assessments_for_teacher(self.teacher, academic_year=self.year)))
+        self.assertEqual(list(get_teacher_accessible_assessment_subjects(self.teacher, assessment)), [])
+        self.assertEqual(list_response.status_code, 200)
+        self.assertNotContains(list_response, "Soft Deleted Teacher Assessment")
+        self.assertEqual(detail_response.status_code, 404)
+
+    def test_recycle_bin_selector_shows_only_deleted_assessments_for_scope(self):
+        admin_user = self._admin_user("recycle-bin-admin")
+        active_assessment = self._assessment("Active Assessment Outside Bin")
+        deleted_assessment = self._assessment("Deleted Assessment In Bin")
+        next_year_assessment = create_assessment(
+            institute=self.institute,
+            academic_year=self.next_year,
+            batch=Batch.objects.create(
+                institute=self.institute,
+                academic_year=self.next_year,
+                name="Future 8-C",
+            ),
+            title="Future Deleted Assessment",
+            created_by=admin_user,
+        )
+        other_batch = Batch.objects.create(
+            institute=self.other_institute,
+            academic_year=self.other_year,
+            name="Other Deleted Batch",
+        )
+        other_deleted = create_assessment(
+            institute=self.other_institute,
+            academic_year=self.other_year,
+            batch=other_batch,
+            title="Other Institute Deleted Assessment",
+            created_by=admin_user,
+        )
+        for assessment in [deleted_assessment, next_year_assessment, other_deleted]:
+            assessment.is_deleted = True
+            assessment.deleted_at = timezone.now()
+            assessment.deleted_by = admin_user
+            assessment.delete_reason = "Recycle bin scope test."
+            assessment.save()
+
+        current_year_bin = list(get_deleted_assessments_for_admin(self.institute, academic_year=self.year))
+        all_institute_bin = list(get_deleted_assessments_for_admin(self.institute))
+        other_institute_bin = list(get_deleted_assessments_for_admin(self.other_institute, academic_year=self.other_year))
+
+        self.assertIn(deleted_assessment, current_year_bin)
+        self.assertNotIn(active_assessment, current_year_bin)
+        self.assertNotIn(next_year_assessment, current_year_bin)
+        self.assertNotIn(other_deleted, current_year_bin)
+        self.assertIn(next_year_assessment, all_institute_bin)
+        self.assertEqual(other_institute_bin, [other_deleted])
+
+    def test_soft_deleted_assessment_results_are_hidden_from_student_parent(self):
+        admin_user = self._admin_user("soft-delete-result-admin")
+        assessment = self._assessment("Soft Deleted Published Assessment")
+        subject = self._subject(assessment, self.math)
+        self._ensure_allocation(subject)
+        self._open_and_save(
+            subject,
+            [
+                {"academic_session": self.session_1, "marks_obtained": "80"},
+                {"academic_session": self.session_2, "marks_obtained": "75"},
+                {"academic_session": self.session_3, "marks_obtained": "70"},
+            ],
+        )
+        generate_assessment_results(assessment, actor=admin_user)
+        publish_assessment_results(assessment, actor=admin_user)
+        result = ReportCardStudentResult.objects.get(assessment=assessment, academic_session=self.session_1)
+
+        self.assertEqual(list(get_published_results_for_student(self.session_1.student)), [result])
+        self.assertTrue(student_can_view_result(self.session_1.student.user, result))
+
+        assessment.is_deleted = True
+        assessment.deleted_at = timezone.now()
+        assessment.deleted_by = admin_user
+        assessment.delete_reason = "Confidential duplicate deletion."
+        assessment.save()
+        result.refresh_from_db()
+
+        self.assertEqual(list(get_published_results_for_student(self.session_1.student)), [])
+        self.assertFalse(student_can_view_result(self.session_1.student.user, result))
+
+    def test_soft_deleted_assessment_title_can_be_reused_for_same_class(self):
+        admin_user = self._admin_user("soft-delete-reuse-admin")
+        assessment = self._assessment("Reusable Assessment Title")
+        assessment.is_deleted = True
+        assessment.deleted_at = timezone.now()
+        assessment.deleted_by = admin_user
+        assessment.delete_reason = "Recreate with corrected setup."
+        assessment.save()
+
+        replacement = create_assessment(
+            institute=self.institute,
+            academic_year=self.year,
+            batch=self.batch,
+            title="Reusable Assessment Title",
+            created_by=admin_user,
+        )
+
+        self.assertNotEqual(assessment.pk, replacement.pk)
+        self.assertFalse(replacement.is_deleted)
+
+    def test_assessment_delete_impact_counts_dependent_report_card_data(self):
+        assessment = self._assessment("Delete Impact")
+        subject = self._subject(assessment, self.math)
+        add_assessment_subject_component(
+            subject,
+            name="Theory Exam",
+            max_marks=Decimal("100"),
+            weightage=Decimal("100"),
+            include_in_total=True,
+            display_order=1,
+            actor=self.teacher,
+        )
+        self._ensure_allocation(subject)
+        self._open_and_save(
+            subject,
+            [{"academic_session": self.session_1, "component_marks": {subject.components.first().pk: "82"}}],
+        )
+        generate_assessment_results(assessment, actor=self._admin_user("impact-admin"), require_complete=False)
+
+        impact = get_assessment_delete_impact(assessment)
+
+        self.assertEqual(impact["subject_count"], 1)
+        self.assertEqual(impact["component_count"], 1)
+        self.assertEqual(impact["mark_entry_count"], 1)
+        self.assertEqual(impact["component_mark_entry_count"], 1)
+        self.assertEqual(impact["generated_result_count"], 3)
+        self.assertEqual(impact["student_count"], 3)
+        self.assertTrue(impact["has_data"])
+
+    def test_soft_delete_requires_reason_when_assessment_has_data(self):
+        admin_user = self._admin_user("soft-delete-reason-admin")
+        assessment = self._assessment("Needs Delete Reason")
+        self._subject(assessment, self.math)
+
+        with self.assertRaisesMessage(ValidationError, "delete reason is required"):
+            soft_delete_assessment(assessment, actor=admin_user, reason="")
+
+        assessment.refresh_from_db()
+        self.assertFalse(assessment.is_deleted)
+
+    def test_soft_delete_allows_empty_reason_when_assessment_has_no_data(self):
+        admin_user = self._admin_user("simple-soft-delete-admin")
+        assessment = self._assessment("Empty Draft Delete")
+
+        soft_delete_assessment(assessment, actor=admin_user, reason="")
+
+        assessment.refresh_from_db()
+        self.assertTrue(assessment.is_deleted)
+        self.assertEqual(assessment.deleted_by, admin_user)
+        self.assertTrue(
+            ReportCardAuditLog.objects.filter(
+                assessment=assessment,
+                action=ReportCardAuditLog.Action.ASSESSMENT_DELETED,
+            ).exists()
+        )
+
+    def test_soft_delete_published_assessment_requires_detailed_reason(self):
+        admin_user = self._admin_user("published-soft-delete-admin")
+        assessment = self._assessment("Published Delete Guard")
+        subject = self._subject(assessment, self.math)
+        self._ensure_allocation(subject)
+        self._open_and_save(
+            subject,
+            [
+                {"academic_session": self.session_1, "marks_obtained": "80"},
+                {"academic_session": self.session_2, "marks_obtained": "75"},
+                {"academic_session": self.session_3, "marks_obtained": "70"},
+            ],
+        )
+        generate_assessment_results(assessment, actor=admin_user)
+        publish_assessment_results(assessment, actor=admin_user)
+
+        with self.assertRaisesMessage(ValidationError, "detailed delete reason"):
+            soft_delete_assessment(assessment, actor=admin_user, reason="Wrong")
+
+        soft_delete_assessment(
+            assessment,
+            actor=admin_user,
+            reason="Published duplicate assessment created for the wrong class.",
+        )
+        assessment.refresh_from_db()
+        self.assertTrue(assessment.is_deleted)
+
+    def test_published_delete_confirmation_page_requires_exact_title_in_ui(self):
+        admin_user = self._admin_user("published-delete-ui-admin")
+        assessment = self._assessment("Published Delete UI Guard")
+        subject = self._subject(assessment, self.math)
+        self._ensure_allocation(subject)
+        self._open_and_save(
+            subject,
+            [
+                {"academic_session": self.session_1, "marks_obtained": "80"},
+                {"academic_session": self.session_2, "marks_obtained": "75"},
+                {"academic_session": self.session_3, "marks_obtained": "70"},
+            ],
+        )
+        generate_assessment_results(assessment, actor=admin_user)
+        publish_assessment_results(assessment, actor=admin_user)
+        self.client.force_login(admin_user)
+
+        response = self.client.get(reverse("report_card_admin:assessment_delete", args=[assessment.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Critical:")
+        self.assertContains(response, "Type exact assessment title")
+        self.assertContains(response, assessment.title)
+
+    def test_soft_delete_assessment_with_marks_and_results_requires_reason(self):
+        admin_user = self._admin_user("marks-results-delete-admin")
+        assessment = self._assessment("Marks Results Delete Guard")
+        subject = self._subject(assessment, self.math)
+        self._ensure_allocation(subject)
+        self._open_and_save(
+            subject,
+            [
+                {"academic_session": self.session_1, "marks_obtained": "80"},
+                {"academic_session": self.session_2, "marks_obtained": "70"},
+                {"academic_session": self.session_3, "marks_obtained": "60"},
+            ],
+        )
+        generate_assessment_results(assessment, actor=admin_user)
+
+        with self.assertRaisesMessage(ValidationError, "delete reason is required"):
+            soft_delete_assessment(assessment, actor=admin_user, reason="")
+
+        soft_delete_assessment(
+            assessment,
+            actor=admin_user,
+            reason="Generated results exist and this duplicate assessment must be removed.",
+        )
+        assessment.refresh_from_db()
+        self.assertTrue(assessment.is_deleted)
+
+    def test_restore_deleted_assessment_blocks_active_duplicate(self):
+        admin_user = self._admin_user("restore-duplicate-admin")
+        assessment = self._assessment("Restore Duplicate Guard")
+        soft_delete_assessment(assessment, actor=admin_user, reason="")
+        create_assessment(
+            institute=self.institute,
+            academic_year=self.year,
+            batch=self.batch,
+            title="Restore Duplicate Guard",
+            created_by=admin_user,
+        )
+
+        with self.assertRaisesMessage(ValidationError, "same name already exists"):
+            restore_deleted_assessment(assessment, actor=admin_user)
+
+    def test_restore_deleted_assessment_clears_delete_fields_and_writes_audit(self):
+        admin_user = self._admin_user("restore-soft-delete-admin")
+        assessment = self._assessment("Restore Soft Delete")
+        soft_delete_assessment(assessment, actor=admin_user, reason="")
+
+        restore_deleted_assessment(assessment, actor=admin_user)
+
+        assessment.refresh_from_db()
+        self.assertFalse(assessment.is_deleted)
+        self.assertIsNone(assessment.deleted_at)
+        self.assertIsNone(assessment.deleted_by)
+        self.assertEqual(assessment.delete_reason, "")
+        self.assertTrue(
+            ReportCardAuditLog.objects.filter(
+                assessment=assessment,
+                action=ReportCardAuditLog.Action.ASSESSMENT_RESTORED,
+            ).exists()
+        )
+
+    def test_permanent_delete_requires_recycle_bin_exact_title_and_reason(self):
+        admin_user = self._admin_user("permanent-delete-admin")
+        assessment = self._assessment("Permanent Delete Guard")
+
+        with self.assertRaisesMessage(ValidationError, "only from the recycle bin"):
+            permanent_delete_assessment(assessment, actor=admin_user, confirmation_text=assessment.title, reason="Cleanup")
+
+        soft_delete_assessment(assessment, actor=admin_user, reason="")
+
+        with self.assertRaisesMessage(ValidationError, "exact assessment name"):
+            permanent_delete_assessment(assessment, actor=admin_user, confirmation_text="Wrong", reason="Cleanup")
+
+        with self.assertRaisesMessage(ValidationError, "permanent delete reason is required"):
+            permanent_delete_assessment(assessment, actor=admin_user, confirmation_text=assessment.title, reason="")
+
+    def test_permanent_delete_removes_assessment_and_preserves_audit_log(self):
+        admin_user = self._admin_user("permanent-delete-audit-admin")
+        assessment = self._assessment("Permanent Delete Audit")
+        assessment_id = assessment.pk
+        soft_delete_assessment(assessment, actor=admin_user, reason="")
+
+        impact = permanent_delete_assessment(
+            assessment,
+            actor=admin_user,
+            confirmation_text="Permanent Delete Audit",
+            reason="Cleanup empty duplicate assessment.",
+        )
+
+        self.assertFalse(ReportCardAssessment.objects.filter(pk=assessment_id).exists())
+        self.assertEqual(impact["subject_count"], 0)
+        audit = ReportCardAuditLog.objects.get(
+            action=ReportCardAuditLog.Action.ASSESSMENT_PERMANENTLY_DELETED,
+            metadata__assessment_id=assessment_id,
+        )
+        self.assertIsNone(audit.assessment)
+        self.assertEqual(audit.metadata["assessment_title"], "Permanent Delete Audit")
+
+    def test_permanent_delete_removes_dependent_report_card_data_only(self):
+        admin_user = self._admin_user("permanent-delete-dependent-admin")
+        exam = Exam.objects.create(
+            academic_year=self.year,
+            batch=self.batch,
+            course=self.course,
+            subject=self.math,
+            title="Online Exam Untouched By Report Card Delete",
+            exam_date=date(2026, 9, 1),
+            total_marks=50,
+            created_by=self.teacher,
+        )
+        ExamResult.objects.create(
+            exam=exam,
+            student=self.session_1.student,
+            marks_obtained=Decimal("42"),
+            remark="Keep online result.",
+        )
+        before_exams = list(Exam.objects.values("id", "title", "total_marks", "is_published"))
+        before_exam_results = list(ExamResult.objects.values("id", "exam_id", "student_id", "marks_obtained", "remark"))
+
+        assessment = self._assessment("Permanent Delete Dependencies")
+        subject = self._subject(assessment, self.math)
+        component = add_assessment_subject_component(
+            subject,
+            name="Theory Exam",
+            max_marks=Decimal("100"),
+            weightage=Decimal("100"),
+            include_in_total=True,
+            display_order=1,
+            actor=admin_user,
+        )
+        self._ensure_allocation(subject)
+        self._open_and_save(
+            subject,
+            [
+                {"academic_session": self.session_1, "component_marks": {component.pk: "80"}},
+                {"academic_session": self.session_2, "component_marks": {component.pk: "70"}},
+                {"academic_session": self.session_3, "component_marks": {component.pk: "60"}},
+            ],
+        )
+        generate_assessment_results(assessment, actor=admin_user)
+        assessment_id = assessment.pk
+        subject_id = subject.pk
+        component_id = component.pk
+
+        self.assertTrue(ReportCardMarkEntry.objects.filter(assessment_subject_id=subject_id).exists())
+        self.assertTrue(ReportCardComponentMarkEntry.objects.filter(component_id=component_id).exists())
+        self.assertTrue(ReportCardStudentResult.objects.filter(assessment_id=assessment_id).exists())
+        self.assertTrue(ReportCardSubjectResult.objects.filter(assessment_subject_id=subject_id).exists())
+
+        soft_delete_assessment(
+            assessment,
+            actor=admin_user,
+            reason="Removing duplicate assessment with dependent report-card records.",
+        )
+        permanent_delete_assessment(
+            assessment,
+            actor=admin_user,
+            confirmation_text=assessment.title,
+            reason="Permanent cleanup after confirming duplicate report-card assessment.",
+        )
+
+        self.assertFalse(ReportCardAssessment.objects.filter(pk=assessment_id).exists())
+        self.assertFalse(ReportCardAssessmentSubject.objects.filter(pk=subject_id).exists())
+        self.assertFalse(ReportCardAssessmentSubjectComponent.objects.filter(pk=component_id).exists())
+        self.assertFalse(ReportCardMarkEntry.objects.filter(assessment_subject_id=subject_id).exists())
+        self.assertFalse(ReportCardComponentMarkEntry.objects.filter(component_id=component_id).exists())
+        self.assertFalse(ReportCardStudentResult.objects.filter(assessment_id=assessment_id).exists())
+        self.assertFalse(ReportCardSubjectResult.objects.filter(assessment_subject_id=subject_id).exists())
+        self.assertEqual(list(Exam.objects.values("id", "title", "total_marks", "is_published")), before_exams)
+        self.assertEqual(
+            list(ExamResult.objects.values("id", "exam_id", "student_id", "marks_obtained", "remark")),
+            before_exam_results,
+        )
+
+    def test_delete_restore_and_permanent_delete_audit_logs_store_scope_reason_and_impact(self):
+        admin_user = self._admin_user("delete-audit-metadata-admin")
+        assessment = self._assessment("Delete Audit Metadata")
+        self._subject(assessment, self.math)
+        soft_reason = "Duplicate report-card assessment for the same class."
+
+        soft_delete_assessment(assessment, actor=admin_user, reason=soft_reason)
+        soft_audit = ReportCardAuditLog.objects.get(
+            assessment=assessment,
+            action=ReportCardAuditLog.Action.ASSESSMENT_DELETED,
+        )
+
+        self.assertEqual(soft_audit.actor, admin_user)
+        self.assertEqual(soft_audit.metadata["reason"], soft_reason)
+        self.assertEqual(soft_audit.metadata["assessment_id"], assessment.pk)
+        self.assertEqual(soft_audit.metadata["assessment_title"], assessment.title)
+        self.assertEqual(soft_audit.metadata["institute_id"], self.institute.pk)
+        self.assertEqual(soft_audit.metadata["academic_year_id"], self.year.pk)
+        self.assertEqual(soft_audit.metadata["batch_id"], self.batch.pk)
+        self.assertEqual(soft_audit.metadata["impact"]["subject_count"], 1)
+
+        restore_deleted_assessment(assessment, actor=admin_user)
+        restore_audit = ReportCardAuditLog.objects.get(
+            assessment=assessment,
+            action=ReportCardAuditLog.Action.ASSESSMENT_RESTORED,
+        )
+        self.assertEqual(restore_audit.actor, admin_user)
+        self.assertEqual(restore_audit.metadata["reason"], soft_reason)
+        self.assertEqual(restore_audit.metadata["previous_delete_reason"], soft_reason)
+        self.assertEqual(restore_audit.metadata["impact"]["subject_count"], 1)
+        self.assertEqual(restore_audit.metadata["institute_id"], self.institute.pk)
+
+        permanent_assessment = self._assessment("Permanent Audit Metadata")
+        permanent_reason = "Permanent cleanup after duplicate assessment review."
+        soft_delete_assessment(permanent_assessment, actor=admin_user, reason="")
+        permanent_assessment_id = permanent_assessment.pk
+        permanent_delete_assessment(
+            permanent_assessment,
+            actor=admin_user,
+            confirmation_text=permanent_assessment.title,
+            reason=permanent_reason,
+        )
+        permanent_audit = ReportCardAuditLog.objects.get(
+            action=ReportCardAuditLog.Action.ASSESSMENT_PERMANENTLY_DELETED,
+            metadata__assessment_id=permanent_assessment_id,
+        )
+        self.assertIsNone(permanent_audit.assessment)
+        self.assertEqual(permanent_audit.actor, admin_user)
+        self.assertEqual(permanent_audit.metadata["reason"], permanent_reason)
+        self.assertEqual(permanent_audit.metadata["assessment_title"], "Permanent Audit Metadata")
+        self.assertEqual(permanent_audit.metadata["institute_id"], self.institute.pk)
+        self.assertEqual(permanent_audit.metadata["impact"]["generated_result_count"], 0)
+
+    def test_institute_admin_can_soft_delete_assessment_from_view(self):
+        admin_user = self._admin_user("delete-view-admin")
+        assessment = self._assessment("Delete View Assessment")
+        self._subject(assessment, self.math)
+        self.client.force_login(admin_user)
+
+        get_response = self.client.get(reverse("report_card_admin:assessment_delete", args=[assessment.pk]))
+        post_response = self.client.post(
+            reverse("report_card_admin:assessment_delete", args=[assessment.pk]),
+            data={"delete_reason": "Created for wrong class by mistake."},
+        )
+
+        self.assertEqual(get_response.status_code, 200)
+        self.assertContains(get_response, "Delete Report Card Assessment")
+        self.assertEqual(post_response.status_code, 302)
+        assessment.refresh_from_db()
+        self.assertTrue(assessment.is_deleted)
+        self.assertEqual(assessment.deleted_by, admin_user)
+
+    def test_assessment_bin_shows_deleted_assessments_only(self):
+        admin_user = self._admin_user("bin-view-admin")
+        active_assessment = self._assessment("Active Bin Hidden")
+        deleted_assessment = self._assessment("Deleted Bin Visible")
+        soft_delete_assessment(deleted_assessment, actor=admin_user, reason="")
+        self.client.force_login(admin_user)
+
+        response = self.client.get(reverse("report_card_admin:assessment_bin"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Deleted Bin Visible")
+        self.assertNotContains(response, "Active Bin Hidden")
+
+    def test_assessment_bin_filters_by_batch_status_deleted_by_and_search(self):
+        admin_user = self._admin_user("bin-filter-admin")
+        other_admin = self._admin_user("bin-filter-other-admin")
+        draft_deleted = self._assessment("Draft Deleted Searchable")
+        open_deleted = self._assessment("Open Deleted Filter Target")
+        open_deleted.status = ReportCardAssessment.Status.MARKS_ENTRY_OPEN
+        open_deleted.save()
+        other_batch_deleted = create_assessment(
+            institute=self.institute,
+            academic_year=self.year,
+            batch=self.unassigned_batch,
+            title="Other Batch Deleted",
+            created_by=admin_user,
+        )
+        other_admin_deleted = self._assessment("Other Admin Deleted")
+        soft_delete_assessment(draft_deleted, actor=admin_user, reason="Searchable reason")
+        soft_delete_assessment(open_deleted, actor=admin_user, reason="Status filter reason")
+        soft_delete_assessment(other_batch_deleted, actor=admin_user, reason="Other batch reason")
+        soft_delete_assessment(other_admin_deleted, actor=other_admin, reason="Other user reason")
+        self.client.force_login(admin_user)
+
+        batch_response = self.client.get(reverse("report_card_admin:assessment_bin"), {"batch": self.unassigned_batch.pk})
+        status_response = self.client.get(
+            reverse("report_card_admin:assessment_bin"),
+            {"status": ReportCardAssessment.Status.MARKS_ENTRY_OPEN},
+        )
+        deleted_by_response = self.client.get(reverse("report_card_admin:assessment_bin"), {"deleted_by": other_admin.pk})
+        search_response = self.client.get(reverse("report_card_admin:assessment_bin"), {"q": "Searchable"})
+
+        self.assertContains(batch_response, "Other Batch Deleted")
+        self.assertNotContains(batch_response, "Draft Deleted Searchable")
+        self.assertContains(status_response, "Open Deleted Filter Target")
+        self.assertNotContains(status_response, "Draft Deleted Searchable")
+        self.assertContains(deleted_by_response, "Other Admin Deleted")
+        self.assertNotContains(deleted_by_response, "Open Deleted Filter Target")
+        self.assertContains(search_response, "Draft Deleted Searchable")
+        self.assertNotContains(search_response, "Open Deleted Filter Target")
+
+    def test_restore_assessment_view_requires_post_and_recycle_bin(self):
+        admin_user = self._admin_user("restore-view-admin")
+        assessment = self._assessment("Restore View Assessment")
+        self.client.force_login(admin_user)
+
+        active_post = self.client.post(reverse("report_card_admin:assessment_restore", args=[assessment.pk]))
+        soft_delete_assessment(assessment, actor=admin_user, reason="")
+        get_response = self.client.get(reverse("report_card_admin:assessment_restore", args=[assessment.pk]))
+        restore_response = self.client.post(reverse("report_card_admin:assessment_restore", args=[assessment.pk]))
+
+        self.assertEqual(active_post.status_code, 404)
+        self.assertEqual(get_response.status_code, 405)
+        self.assertEqual(restore_response.status_code, 302)
+        assessment.refresh_from_db()
+        self.assertFalse(assessment.is_deleted)
+
+    def test_restore_brings_assessment_back_to_normal_admin_and_teacher_lists(self):
+        admin_user = self._admin_user("restore-normal-list-admin")
+        assessment = self._assessment("Restore Normal Lists")
+        subject = self._subject(assessment, self.math)
+        self._ensure_allocation(subject)
+        soft_delete_assessment(assessment, actor=admin_user, reason="Temporary bin test.")
+        self.client.force_login(admin_user)
+
+        deleted_admin_list = self.client.get(reverse("report_card_admin:assessment_list"))
+        self.assertNotContains(deleted_admin_list, "Restore Normal Lists")
+
+        restore_deleted_assessment(assessment, actor=admin_user)
+
+        restored_admin_list = self.client.get(reverse("report_card_admin:assessment_list"))
+        self.assertContains(restored_admin_list, "Restore Normal Lists")
+        self.assertIn(assessment, list(get_teacher_accessible_assessments(self.teacher, academic_year=self.year)))
+
+    def test_permanent_delete_view_requires_post_bin_exact_title_and_reason(self):
+        admin_user = self._admin_user("permanent-delete-view-admin")
+        assessment = self._assessment("Permanent Delete View")
+        assessment_id = assessment.pk
+        soft_delete_assessment(assessment, actor=admin_user, reason="")
+        self.client.force_login(admin_user)
+
+        get_response = self.client.get(reverse("report_card_admin:assessment_permanent_delete", args=[assessment.pk]))
+        bad_response = self.client.post(
+            reverse("report_card_admin:assessment_permanent_delete", args=[assessment.pk]),
+            data={"confirmation_text": "Wrong", "delete_reason": "Cleanup duplicate."},
+        )
+        assessment.refresh_from_db()
+        self.assertTrue(ReportCardAssessment.objects.filter(pk=assessment_id).exists())
+        good_response = self.client.post(
+            reverse("report_card_admin:assessment_permanent_delete", args=[assessment.pk]),
+            data={
+                "confirmation_text": "Permanent Delete View",
+                "delete_reason": "Cleanup duplicate empty assessment.",
+            },
+        )
+
+        self.assertEqual(get_response.status_code, 200)
+        self.assertContains(get_response, "Permanent Delete Assessment")
+        self.assertContains(get_response, "I understand this action is permanent and cannot be restored.")
+        self.assertEqual(bad_response.status_code, 302)
+        self.assertEqual(good_response.status_code, 302)
+        self.assertFalse(ReportCardAssessment.objects.filter(pk=assessment_id).exists())
+
+    def test_teacher_cannot_access_admin_assessment_delete_routes(self):
+        assessment = self._assessment("Teacher Delete Route Blocked")
+        soft_delete_assessment(assessment, actor=self._admin_user("teacher-delete-route-admin"), reason="")
+        self.client.force_login(self.teacher)
+
+        delete_response = self.client.get(reverse("report_card_admin:assessment_delete", args=[assessment.pk]))
+        bin_response = self.client.get(reverse("report_card_admin:assessment_bin"))
+        restore_response = self.client.post(reverse("report_card_admin:assessment_restore", args=[assessment.pk]))
+
+        self.assertNotEqual(delete_response.status_code, 200)
+        self.assertNotEqual(bin_response.status_code, 200)
+        self.assertNotEqual(restore_response.status_code, 200)
 
     def test_teacher_cannot_create_or_edit_report_card_assessment_from_ui(self):
         assessment = self._assessment("Teacher Blocked Edit")
@@ -787,6 +1477,8 @@ class ReportCardFeatureTests(TestCase):
         self.assertContains(response, "Exams")
         self.assertContains(response, "Report Cards")
         self.assertContains(response, reverse("report_card:assessment_list"))
+        self.assertNotContains(response, "Recycle Bin")
+        self.assertNotContains(response, "assessment_delete")
         self.assertNotContains(response, "Teacher Subject Allocation")
         self.assertNotContains(response, "Grade Rules")
 
@@ -1018,6 +1710,58 @@ class ReportCardFeatureTests(TestCase):
         self.assertEqual(first_row["mark_entry"]["component_marks"][str(theory.pk)]["marks_obtained"], "42.00")
         self.assertEqual(first_row["mark_entry"]["component_marks"][str(notebook.pk)]["marks_obtained"], "8.00")
 
+    def test_teacher_api_allows_blank_component_marks_for_partial_save(self):
+        assessment = self._assessment("API Partial Component Marks")
+        math = self._subject(assessment, self.math, max_marks=Decimal("60"), passing_marks=Decimal("21"))
+        theory = add_assessment_subject_component(
+            math,
+            name="Theory Exam",
+            max_marks=Decimal("50"),
+            weightage=Decimal("50"),
+            display_order=1,
+            actor=self.teacher,
+        )
+        notebook = add_assessment_subject_component(
+            math,
+            name="Notebook",
+            max_marks=Decimal("10"),
+            weightage=Decimal("10"),
+            display_order=2,
+            actor=self.teacher,
+        )
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=self._admin_user("api-partial-admin"))
+        api_client = APIClient()
+        api_client.force_authenticate(user=self.teacher)
+
+        save_response = api_client.post(
+            f"/api/mobile/report-cards/teacher/assessments/{assessment.pk}/subjects/{math.pk}/marks/",
+            data={
+                "rows": [
+                    {
+                        "academic_session_id": self.session_1.pk,
+                        "component_marks": {
+                            str(theory.pk): "42",
+                            str(notebook.pk): "",
+                        },
+                        "is_absent": False,
+                        "remark": "",
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(save_response.status_code, 200)
+        subject_entry = ReportCardMarkEntry.objects.get(assessment_subject=math, academic_session=self.session_1)
+        self.assertIsNone(subject_entry.marks_obtained)
+        theory_entry = ReportCardComponentMarkEntry.objects.get(component=theory, academic_session=self.session_1)
+        self.assertEqual(theory_entry.marks_obtained, Decimal("42.00"))
+        notebook_entry = ReportCardComponentMarkEntry.objects.get(component=notebook, academic_session=self.session_1)
+        self.assertIsNone(notebook_entry.marks_obtained)
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.status, ReportCardAssessment.Status.MARKS_ENTRY_OPEN)
+
     def test_teacher_cannot_run_report_card_admin_workflow_actions(self):
         assessment = self._assessment("Teacher Admin Actions Blocked")
         math = self._subject(assessment, self.math)
@@ -1082,6 +1826,98 @@ class ReportCardFeatureTests(TestCase):
         self.assertEqual(response.status_code, 302)
         assessment.refresh_from_db()
         self.assertEqual(assessment.status, ReportCardAssessment.Status.MARKS_ENTRY_OPEN)
+
+    def test_admin_can_reopen_completed_generated_published_and_locked_marks_entry(self):
+        admin_user = self._admin_user("reopen-service-admin")
+        for status in [
+            ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED,
+            ReportCardAssessment.Status.GENERATED,
+            ReportCardAssessment.Status.PUBLISHED,
+            ReportCardAssessment.Status.LOCKED,
+        ]:
+            assessment = self._assessment(f"Reopen {status}")
+            self._subject(assessment)
+            assessment.status = status
+            if status in {ReportCardAssessment.Status.PUBLISHED, ReportCardAssessment.Status.LOCKED}:
+                assessment.published_at = timezone.now()
+                assessment.published_by = admin_user
+            if status == ReportCardAssessment.Status.LOCKED:
+                assessment.locked_at = timezone.now()
+                assessment.locked_by = admin_user
+            assessment.save()
+
+            reopen_marks_entry(assessment, actor=admin_user, reason="Allow teachers to correct entered marks.")
+
+            assessment.refresh_from_db()
+            self.assertEqual(assessment.status, ReportCardAssessment.Status.MARKS_ENTRY_OPEN)
+            self.assertIsNone(assessment.published_at)
+            self.assertIsNone(assessment.published_by)
+            self.assertIsNone(assessment.locked_at)
+            self.assertIsNone(assessment.locked_by)
+
+    def test_reopen_marks_entry_marks_generated_results_stale(self):
+        admin_user = self._admin_user("reopen-stale-admin")
+        assessment = self._assessment("Reopen Stale Results")
+        subject = self._subject(assessment)
+        self._ensure_allocation(subject)
+        self._open_and_save(
+            subject,
+            [
+                {"academic_session": self.session_1, "marks_obtained": "80"},
+                {"academic_session": self.session_2, "marks_obtained": "70"},
+                {"academic_session": self.session_3, "marks_obtained": "60"},
+            ],
+        )
+        generate_assessment_results(assessment, actor=admin_user)
+
+        reopen_marks_entry(assessment, actor=admin_user, reason="Marks correction required.")
+
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.status, ReportCardAssessment.Status.MARKS_ENTRY_OPEN)
+        self.assertEqual(ReportCardStudentResult.objects.filter(assessment=assessment, is_stale=True).count(), 3)
+
+    def test_admin_reopen_marks_entry_view_and_subject_route(self):
+        admin_user = self._admin_user("reopen-view-admin")
+        assessment = self._assessment("Reopen View")
+        subject = self._subject(assessment)
+        assessment.status = ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED
+        assessment.save()
+        self.client.force_login(admin_user)
+
+        detail_response = self.client.get(reverse("report_card_admin:assessment_detail", args=[assessment.pk]))
+        subject_response = self.client.post(
+            reverse("report_card_admin:reopen_subject_marks_entry", args=[assessment.pk, subject.pk]),
+            data={"reason": "Subject marks need correction."},
+        )
+
+        self.assertContains(detail_response, "Reopen Marks")
+        self.assertEqual(subject_response.status_code, 302)
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.status, ReportCardAssessment.Status.MARKS_ENTRY_OPEN)
+        self.assertTrue(
+            ReportCardAuditLog.objects.filter(
+                assessment=assessment,
+                action=ReportCardAuditLog.Action.MARKS_ENTRY_OPENED,
+                metadata__assessment_subject_id=subject.pk,
+            ).exists()
+        )
+
+    def test_teacher_cannot_reopen_marks_entry_from_admin_routes(self):
+        assessment = self._assessment("Teacher Reopen Blocked")
+        subject = self._subject(assessment)
+        assessment.status = ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED
+        assessment.save()
+        self.client.force_login(self.teacher)
+
+        whole_response = self.client.post(reverse("report_card_admin:reopen_marks_entry", args=[assessment.pk]))
+        subject_response = self.client.post(
+            reverse("report_card_admin:reopen_subject_marks_entry", args=[assessment.pk, subject.pk])
+        )
+
+        self.assertNotEqual(whole_response.status_code, 200)
+        self.assertNotEqual(subject_response.status_code, 200)
+        assessment.refresh_from_db()
+        self.assertEqual(assessment.status, ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED)
 
     def test_teacher_can_enter_marks_only_after_admin_opens_marks_entry(self):
         admin_user = self._admin_user("teacher-open-admin")
@@ -1863,16 +2699,17 @@ class ReportCardFeatureTests(TestCase):
         response = self.client.post(reverse("report_card_admin:grade_rule_create_defaults"))
 
         self.assertEqual(response.status_code, 302)
-        rules = ReportCardGradeRule.objects.filter(institute=self.institute, academic_year__isnull=True).order_by("display_order")
+        rules = ReportCardGradeRule.objects.filter(institute=self.institute, academic_year=self.year).order_by("display_order")
         self.assertEqual(rules.count(), 7)
         self.assertEqual(rules.first().grade, "A1")
         self.assertEqual(rules.last().grade, "F")
+        self.assertFalse(ReportCardGradeRule.objects.filter(institute=self.institute, academic_year__isnull=True).exists())
 
     def test_default_grade_rule_creation_warns_when_active_defaults_exist(self):
         admin_user = self._admin_user("grade-existing-admin")
         ReportCardGradeRule.objects.create(
             institute=self.institute,
-            academic_year=None,
+            academic_year=self.year,
             min_percentage=Decimal("90"),
             max_percentage=Decimal("100"),
             grade="A1",
@@ -1884,9 +2721,9 @@ class ReportCardFeatureTests(TestCase):
         list_response = self.client.get(reverse("report_card_admin:grade_rule_list"))
         create_response = self.client.post(reverse("report_card_admin:grade_rule_create_defaults"), follow=True)
 
-        self.assertContains(list_response, "Active institute-default grade rules already exist")
-        self.assertContains(create_response, "Active grade rules already exist for institute default")
-        self.assertEqual(ReportCardGradeRule.objects.filter(institute=self.institute, academic_year__isnull=True).count(), 1)
+        self.assertContains(list_response, "Default Grade Rules")
+        self.assertContains(create_response, f"Active grade rules already exist for {self.year.name}")
+        self.assertEqual(ReportCardGradeRule.objects.filter(institute=self.institute, academic_year=self.year).count(), 1)
 
     def test_institute_admin_can_create_academic_year_default_grade_rules(self):
         admin_user = self._admin_user("grade-year-admin")

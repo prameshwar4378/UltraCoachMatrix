@@ -66,6 +66,8 @@ def _is_student_parent(user):
 def teacher_can_access_assessment(user, assessment):
     if not user or not assessment or not _is_teacher(user):
         return False
+    if assessment.is_deleted:
+        return False
     if not _same_institute(user, assessment.institute_id):
         return False
     return get_teacher_accessible_assessment_subjects(user, assessment).exists()
@@ -108,6 +110,8 @@ def student_can_view_result(user, result):
     if not student:
         return False
     if result.assessment.status not in PUBLISHED_RESULT_STATUSES:
+        return False
+    if result.assessment.is_deleted:
         return False
     if result.is_stale:
         return False

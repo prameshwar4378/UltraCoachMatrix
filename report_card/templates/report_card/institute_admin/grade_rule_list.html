@@ -70,12 +70,12 @@
     {% if blank_grade_assessments %}
         <section class="rc-risk">
             <h5><i class="bi bi-award me-1"></i> Assessments That May Generate Blank Grades</h5>
-            <div>These assessments do not have active academic-year rules or institute-default rules available. Marks can still generate, but grade fields may remain blank.</div>
+            <div>These assessments do not have active grade rules available. Marks can still generate, but grade fields may remain blank.</div>
             <div class="rc-risk-list">
                 {% for assessment in blank_grade_assessments %}
                     <div class="rc-risk-item">
                         <strong>{{ assessment.title }}</strong>
-                        <span>{{ assessment.batch_name_snapshot }} | {{ assessment.academic_year_name_snapshot }} | {{ assessment.get_status_display }}</span>
+                        <span>{{ assessment.batch_name_snapshot }} | {{ assessment.get_status_display }}</span>
                     </div>
                 {% endfor %}
             </div>
@@ -84,41 +84,23 @@
 
     <section class="rc-default-panel">
         <div class="rc-default-card">
-            <h5>Institute Default Rules</h5>
-            <p>Create reusable default grade ranges for all academic years without their own rules.</p>
-            {% if has_active_default_rules %}
-                <div class="rc-warning mb-2">Defaults already exist for this institute.</div>
-            {% endif %}
-            <form method="post" action="{% url 'report_card_admin:grade_rule_create_defaults' %}">
-                {% csrf_token %}
-                <input type="hidden" name="scope" value="default">
-                <button class="btn btn-outline-primary rc-btn" type="submit" onclick="return confirm('Create institute default grade rules? Existing active defaults will be protected.');"><i class="bi bi-stars me-1"></i> Create Default Rules</button>
-            </form>
-        </div>
-        <div class="rc-default-card">
-            <h5>Academic-Year Rules</h5>
-            <p>Create a separate default set for one academic year. These rules take priority during result generation.</p>
+            <h5>Default Grade Rules</h5>
+            <p>Create default grade ranges for report-card result generation.</p>
             <form class="rc-inline-form" method="post" action="{% url 'report_card_admin:grade_rule_create_defaults' %}">
                 {% csrf_token %}
                 <input type="hidden" name="scope" value="academic_year">
-                <select class="form-select" name="academic_year_id" required>
-                    <option value="">Select academic year</option>
-                    {% for year in academic_years %}
-                        <option value="{{ year.pk }}">{{ year.name }}{% if year.pk in academic_years_with_active_rules %} - active rules exist{% endif %}</option>
-                    {% endfor %}
-                </select>
-                <button class="btn btn-outline-primary rc-btn" type="submit" onclick="return confirm('Create default grade rules for the selected academic year? Existing active rules for that year will be protected.');"><i class="bi bi-calendar-plus me-1"></i> Create Year Rules</button>
+                <input type="hidden" name="academic_year_id" value="{{ academic_year.pk }}">
+                <button class="btn btn-outline-primary rc-btn" type="submit" onclick="return confirm('Create default grade rules? Existing active rules will be protected.');"><i class="bi bi-calendar-plus me-1"></i> Create Default Rules</button>
             </form>
         </div>
     </section>
 
     <section class="rc-card table-responsive">
         <table class="table rc-table align-middle">
-            <thead><tr><th>Scope</th><th>Grade</th><th>Range</th><th>Remark</th><th>Order</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+            <thead><tr><th>Grade</th><th>Range</th><th>Remark</th><th>Order</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
             <tbody>
                 {% for rule in rules %}
                     <tr>
-                        <td>{{ rule.academic_year.name|default:"Institute Default" }}</td>
                         <td><strong>{{ rule.grade }}</strong></td>
                         <td>{{ rule.min_percentage }}% - {{ rule.max_percentage }}%</td>
                         <td>{{ rule.remark|default:"-" }}</td>
@@ -131,7 +113,7 @@
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="7">
+                        <td colspan="6">
                             <div class="rc-empty">
                                 <div class="rc-empty-icon"><i class="bi bi-award"></i></div>
                                 <h3>No grade rules configured yet</h3>

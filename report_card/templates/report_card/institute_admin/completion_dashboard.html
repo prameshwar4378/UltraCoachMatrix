@@ -45,11 +45,18 @@
     <section class="rc-hero">
         <div>
             <h2>Completion Dashboard</h2>
-            <p>{{ assessment.title }} | {{ assessment.batch_name_snapshot }} | {{ assessment.academic_year_name_snapshot }}</p>
+            <p>{{ assessment.title }} | {{ assessment.batch_name_snapshot }}</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:assessment_detail' assessment.pk %}"><i class="bi bi-arrow-left me-1"></i> Back</a>
             <a class="btn btn-gradient" href="{% url 'report_card_admin:assessment_structure' assessment.pk %}"><i class="bi bi-list-check me-1"></i> Structure</a>
+            {% if can_reopen_marks_entry %}
+                <form method="post" action="{% url 'report_card_admin:reopen_marks_entry' assessment.pk %}" class="d-inline" onsubmit="const reason = prompt('Reason for reopening marks entry for all subjects?'); if (reason === null) return false; this.querySelector('[name=reason]').value = reason; return true;">
+                    {% csrf_token %}
+                    <input type="hidden" name="reason" value="">
+                    <button class="btn btn-outline-warning rc-btn" type="submit"><i class="bi bi-unlock me-1"></i> Reopen All Marks</button>
+                </form>
+            {% endif %}
         </div>
     </section>
 
@@ -92,7 +99,18 @@
                         <td>{{ row.missing_mark_count }}</td>
                         <td>{{ row.absent_mark_count }}</td>
                         <td><span class="rc-pill {% if row.is_complete %}rc-complete{% else %}rc-pending{% endif %}">{{ row.is_complete|yesno:"Complete,Pending" }}</span></td>
-                        <td class="text-end"><a class="btn btn-sm btn-outline-primary rc-btn" href="{% url 'report_card_admin:marks_grid' assessment.pk row.assessment_subject.pk %}"><i class="bi bi-eye me-1"></i> Grid</a></td>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end gap-2 flex-wrap">
+                                {% if can_reopen_marks_entry %}
+                                    <form method="post" action="{% url 'report_card_admin:reopen_subject_marks_entry' assessment.pk row.assessment_subject.pk %}" class="d-inline" onsubmit="const reason = prompt('Reason for reopening marks entry for {{ row.assessment_subject.subject_name_snapshot|escapejs }}?'); if (reason === null) return false; this.querySelector('[name=reason]').value = reason; return true;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="reason" value="">
+                                        <button class="btn btn-sm btn-outline-warning rc-btn" type="submit"><i class="bi bi-unlock me-1"></i> Reopen</button>
+                                    </form>
+                                {% endif %}
+                                <a class="btn btn-sm btn-outline-primary rc-btn" href="{% url 'report_card_admin:marks_grid' assessment.pk row.assessment_subject.pk %}"><i class="bi bi-eye me-1"></i> Grid</a>
+                            </div>
+                        </td>
                     </tr>
                 {% empty %}
                     <tr><td colspan="11" class="text-center text-muted p-4">No subjects configured.</td></tr>

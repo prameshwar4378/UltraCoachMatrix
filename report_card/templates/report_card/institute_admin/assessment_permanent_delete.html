@@ -1,0 +1,139 @@
+{% extends "institute_admin/base.html" %}
+
+{% block title %}Permanent Delete Report Card Assessment{% endblock title %}
+
+{% block content %}
+<style>
+    .rc-main { background:#f5f7fb; min-height:calc(100vh - 80px); }
+    .rc-page { --danger:#dc2626; --danger-dark:#991b1b; --border:#e2e8f0; --muted:#64748b; color:#0f172a; }
+    .rc-card { background:#fff; border:1px solid var(--border); border-radius:8px; box-shadow:0 16px 44px rgba(127,29,29,.12); overflow:hidden; }
+    .rc-header { padding:24px; border-bottom:1px solid #fecaca; background:linear-gradient(135deg,#fef2f2,#fff); }
+    .rc-title-row { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap; }
+    .rc-header h2 { margin:0 0 7px; font-weight:950; font-size:1.55rem; color:#7f1d1d; }
+    .rc-header p { margin:0; color:#7f1d1d; font-weight:750; }
+    .rc-danger-badge { display:inline-flex; align-items:center; gap:7px; border-radius:999px; padding:9px 12px; background:#fee2e2; color:#991b1b; font-weight:900; }
+    .rc-body { padding:22px 24px; }
+    .rc-critical { display:flex; gap:13px; padding:16px; border-radius:8px; border:1px solid #fca5a5; background:#fef2f2; color:#7f1d1d; font-weight:800; margin-bottom:18px; }
+    .rc-critical i { font-size:1.35rem; line-height:1; margin-top:2px; }
+    .rc-impact { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+    .rc-impact-item { border:1px solid var(--border); border-left:4px solid var(--danger); border-radius:8px; padding:14px; background:#fff; min-height:86px; }
+    .rc-impact-item strong { display:block; font-size:1.25rem; font-weight:950; color:#111827; }
+    .rc-impact-item span { color:var(--muted); font-weight:750; font-size:.82rem; }
+    .rc-confirm-box { border:1px solid var(--border); border-radius:8px; padding:16px; background:#fff; }
+    .rc-confirm-box + .rc-confirm-box { margin-top:12px; }
+    .rc-required-note { display:none; margin-top:6px; color:var(--danger); font-weight:750; font-size:.84rem; }
+    .rc-required-note.is-visible { display:block; }
+    .rc-btn { border-radius:8px; font-weight:850; }
+    .rc-btn:disabled { cursor:not-allowed; opacity:.55; }
+    .btn-danger-strong { background:linear-gradient(135deg,#ef4444,#991b1b); border:none; color:#fff; }
+    .btn-danger-strong:hover { color:#fff; transform:translateY(-1px); }
+    @media(max-width:992px){ .rc-impact { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media(max-width:576px){ .rc-impact { grid-template-columns:1fr; } .rc-actions { flex-direction:column; } .rc-actions .btn { width:100%; } }
+</style>
+
+<main id="main" class="main rc-main">
+<div class="rc-page">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+        {% endfor %}
+    {% endif %}
+
+    <section class="rc-card">
+        <div class="rc-header">
+            <div class="rc-title-row">
+                <div>
+                    <h2>Permanent Delete Assessment</h2>
+                    <p>{{ assessment.title }} | {{ assessment.batch_name_snapshot }} | {{ assessment.get_status_display }}</p>
+                </div>
+                <span class="rc-danger-badge"><i class="bi bi-exclamation-octagon"></i> Irreversible Action</span>
+            </div>
+        </div>
+        <div class="rc-body">
+            <div class="rc-critical">
+                <i class="bi bi-shield-exclamation"></i>
+                <div>
+                    <strong>Critical warning:</strong> permanent delete will remove this report-card assessment and all related report-card structure, marks, and results. This action cannot be restored from recycle bin.
+                </div>
+            </div>
+
+            <div class="rc-impact">
+                <div class="rc-impact-item"><strong>{{ impact.subject_count }}</strong><span>Subjects</span></div>
+                <div class="rc-impact-item"><strong>{{ impact.component_count }}</strong><span>Components</span></div>
+                <div class="rc-impact-item"><strong>{{ impact.mark_entry_count|add:impact.component_mark_entry_count }}</strong><span>Mark Entries</span></div>
+                <div class="rc-impact-item"><strong>{{ impact.generated_result_count }}</strong><span>Generated Results</span></div>
+                <div class="rc-impact-item"><strong>{{ impact.published_result_count }}</strong><span>Published Results</span></div>
+                <div class="rc-impact-item"><strong>{{ impact.student_count }}</strong><span>Students Affected</span></div>
+                <div class="rc-impact-item"><strong>{{ assessment.get_status_display }}</strong><span>Status Before Delete</span></div>
+            </div>
+
+            <form id="permanent-delete-form" method="post" data-title="{{ assessment.title|escape }}">
+                {% csrf_token %}
+                <div class="rc-confirm-box">
+                    <label class="form-label fw-bold">Type exact assessment title <span class="text-danger">*</span></label>
+                    <input id="confirmation-text" class="form-control" name="confirmation_text" type="text" autocomplete="off" placeholder="{{ assessment.title }}">
+                    <div class="form-text fw-bold">Required title: {{ assessment.title }}</div>
+                    <div id="title-warning" class="rc-required-note">The title must match exactly.</div>
+                </div>
+
+                <div class="rc-confirm-box">
+                    <label class="form-label fw-bold">Permanent delete reason <span class="text-danger">*</span></label>
+                    <textarea id="delete-reason" class="form-control" name="delete_reason" rows="4" placeholder="Explain why this report-card assessment must be permanently deleted."></textarea>
+                    <div id="reason-warning" class="rc-required-note">Delete reason is required.</div>
+                </div>
+
+                <div class="rc-confirm-box">
+                    <div class="form-check">
+                        <input id="permanent-acknowledgement" class="form-check-input" type="checkbox">
+                        <label class="form-check-label fw-bold" for="permanent-acknowledgement">
+                            I understand this action is permanent and cannot be restored.
+                        </label>
+                    </div>
+                    <div id="ack-warning" class="rc-required-note">Please confirm that you understand this action is permanent.</div>
+                </div>
+
+                <div class="rc-actions d-flex justify-content-end gap-2 mt-4">
+                    <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:assessment_bin' %}"><i class="bi bi-arrow-left me-1"></i> Back to Bin</a>
+                    <button id="permanent-delete-submit" class="btn btn-danger-strong rc-btn" type="submit" disabled><i class="bi bi-trash3 me-1"></i> Permanently Delete</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+</main>
+
+<script>
+    (function () {
+        const form = document.getElementById("permanent-delete-form");
+        if (!form) return;
+
+        const title = form.dataset.title || "";
+        const titleInput = document.getElementById("confirmation-text");
+        const reasonInput = document.getElementById("delete-reason");
+        const acknowledgement = document.getElementById("permanent-acknowledgement");
+        const submitButton = document.getElementById("permanent-delete-submit");
+        const titleWarning = document.getElementById("title-warning");
+        const reasonWarning = document.getElementById("reason-warning");
+        const ackWarning = document.getElementById("ack-warning");
+
+        function setWarning(element, visible) {
+            if (element) element.classList.toggle("is-visible", visible);
+        }
+
+        function validate() {
+            const titleReady = (titleInput.value || "").trim() === title;
+            const reasonReady = (reasonInput.value || "").trim().length > 0;
+            const ackReady = acknowledgement.checked;
+            submitButton.disabled = !(titleReady && reasonReady && ackReady);
+            setWarning(titleWarning, !titleReady);
+            setWarning(reasonWarning, !reasonReady);
+            setWarning(ackWarning, !ackReady);
+        }
+
+        titleInput.addEventListener("input", validate);
+        reasonInput.addEventListener("input", validate);
+        acknowledgement.addEventListener("change", validate);
+        validate();
+    })();
+</script>
+{% endblock content %}

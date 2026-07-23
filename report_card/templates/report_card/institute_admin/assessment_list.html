@@ -45,7 +45,10 @@
                 <h2>Report Card Assessments</h2>
                 <p>Create and maintain report-card assessments for classes. Teachers will use these assessments only for their allocated marks-entry work.</p>
             </div>
-            <a class="btn btn-gradient" href="{% url 'report_card_admin:assessment_create' %}"><i class="bi bi-plus-circle me-1"></i> New Assessment</a>
+            <div class="d-flex gap-2 flex-wrap">
+                <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:assessment_bin' %}"><i class="bi bi-trash3 me-1"></i> Recycle Bin</a>
+                <a class="btn btn-gradient" href="{% url 'report_card_admin:assessment_create' %}"><i class="bi bi-plus-circle me-1"></i> New Assessment</a>
+            </div>
         </div>
     </section>
 
@@ -64,13 +67,6 @@
 
     <form class="rc-filter" method="get">
         <div class="row g-2 align-items-end">
-            <div class="col-lg-3 col-md-6">
-                <label class="form-label fw-bold">Academic year</label>
-                <select class="form-select" name="academic_year">
-                    <option value="">All years</option>
-                    {% for year in academic_years %}<option value="{{ year.pk }}" {% if filter_academic_year == year.pk|stringformat:"s" %}selected{% endif %}>{{ year.name }}</option>{% endfor %}
-                </select>
-            </div>
             <div class="col-lg-3 col-md-6">
                 <label class="form-label fw-bold">Class / batch</label>
                 <select class="form-select" name="batch">
@@ -98,23 +94,23 @@
 
     <section class="rc-card table-responsive">
         <table class="table rc-table align-middle">
-            <thead><tr><th>Assessment</th><th>Academic Year</th><th>Class / Batch</th><th>Status</th><th>Subjects</th><th>Date</th><th class="text-end">Actions</th></tr></thead>
+            <thead><tr><th>Assessment</th><th>Class / Batch</th><th>Status</th><th>Subjects</th><th>Date</th><th class="text-end">Actions</th></tr></thead>
             <tbody>
                 {% for assessment in assessments %}
                     <tr>
                         <td><strong>{{ assessment.title }}</strong><br><small class="text-muted">Created {{ assessment.created_at|date:"d M Y" }}</small></td>
-                        <td>{{ assessment.academic_year_name_snapshot|default:assessment.academic_year.name }}</td>
                         <td>{{ assessment.batch_name_snapshot|default:assessment.batch.name }}</td>
                         <td><span class="rc-pill {% if assessment.status == 'DRAFT' %}rc-pill-draft{% elif assessment.status == 'STRUCTURE_READY' %}rc-pill-structure-ready{% elif assessment.status == 'MARKS_ENTRY_OPEN' %}rc-pill-marks-entry-open{% elif assessment.status == 'MARKS_ENTRY_COMPLETED' %}rc-pill-marks-entry-completed{% elif assessment.status == 'GENERATED' %}rc-pill-generated{% elif assessment.status == 'PUBLISHED' %}rc-pill-published{% elif assessment.status == 'LOCKED' %}rc-pill-locked{% endif %}">{{ assessment.get_status_display }}</span></td>
                         <td>{{ assessment.assessment_subjects.count }}</td>
                         <td>{{ assessment.assessment_date|date:"d M Y"|default:"-" }}</td>
                         <td class="text-end">
-                            <a class="btn btn-sm btn-outline-primary rc-btn" href="{% url 'report_card_admin:assessment_detail' assessment.pk %}" title="View"><i class="bi bi-eye"></i></a>
+                            <a class="btn btn-sm btn-outline-primary rc-btn" href="{% url 'report_card_admin:assessment_classes' assessment.pk %}" title="View classes / divisions"><i class="bi bi-eye"></i></a>
                             <a class="btn btn-sm btn-outline-secondary rc-btn" href="{% url 'report_card_admin:assessment_update' assessment.pk %}" title="Edit"><i class="bi bi-pencil"></i></a>
+                            <a class="btn btn-sm btn-outline-danger rc-btn" href="{% url 'report_card_admin:assessment_delete' assessment.pk %}" title="Delete"><i class="bi bi-trash"></i></a>
                         </td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="7"><div class="rc-empty">No report-card assessments found. Create the first assessment to make it available for teacher marks entry.</div></td></tr>
+                    <tr><td colspan="6"><div class="rc-empty">No report-card assessments found. Create the first assessment to make it available for teacher marks entry.</div></td></tr>
                 {% endfor %}
             </tbody>
         </table>

@@ -3,6 +3,13 @@ from rest_framework import serializers
 from .models import ReportCardAssessment, ReportCardAssessmentSubject
 
 
+class BlankableDecimalField(serializers.DecimalField):
+    def to_internal_value(self, data):
+        if data == "":
+            return None
+        return super().to_internal_value(data)
+
+
 class ReportCardAssessmentSubjectComponentSerializer(serializers.Serializer):
     id = serializers.IntegerField(source="pk")
     name = serializers.CharField(source="name_snapshot")
@@ -141,9 +148,9 @@ class ReportCardMarksGridRowSerializer(serializers.Serializer):
 
 class ReportCardMarkRowWriteSerializer(serializers.Serializer):
     academic_session_id = serializers.IntegerField()
-    marks_obtained = serializers.DecimalField(max_digits=7, decimal_places=2, required=False, allow_null=True)
+    marks_obtained = BlankableDecimalField(max_digits=7, decimal_places=2, required=False, allow_null=True)
     component_marks = serializers.DictField(
-        child=serializers.DecimalField(max_digits=7, decimal_places=2, allow_null=True),
+        child=BlankableDecimalField(max_digits=7, decimal_places=2, allow_null=True),
         required=False,
         allow_empty=True,
     )
