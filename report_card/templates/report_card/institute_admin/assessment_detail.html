@@ -53,7 +53,7 @@
                         <button class="btn btn-outline-warning rc-btn" type="submit"><i class="bi bi-unlock me-1"></i> Reopen Marks</button>
                     </form>
                 {% endif %}
-                <a class="btn btn-gradient" href="{% url 'report_card_admin:assessment_update' assessment.pk %}"><i class="bi bi-pencil-square me-1"></i> Edit</a>
+                <a class="btn btn-gradient" href="{% url 'report_card_admin:assessment_update' assessment.pk %}?popup=1" data-url="{% url 'report_card_admin:assessment_update' assessment.pk %}?popup=1" onclick="return openReportCardAssessmentWindow(this);"><i class="bi bi-pencil-square me-1"></i> Edit</a>
                 <a class="btn btn-outline-danger rc-btn" href="{% url 'report_card_admin:assessment_delete' assessment.pk %}"><i class="bi bi-trash me-1"></i> Delete</a>
             </div>
         </div>
@@ -87,4 +87,35 @@
     </section>
 </div>
 </main>
+<script>
+    function openReportCardAssessmentWindow(element, customWidth = 1080, customHeight = 820) {
+        const url = element.dataset.url || element.href;
+        const left = Math.max(0, (window.screen.width - customWidth) / 2);
+        const top = Math.max(0, (window.screen.height - customHeight) / 2);
+        const features = [
+            `width=${customWidth}`,
+            `height=${customHeight}`,
+            `left=${left}`,
+            `top=${top}`,
+            "scrollbars=yes",
+            "resizable=yes",
+            "location=no",
+            "menubar=no",
+            "toolbar=no",
+            "status=no"
+        ].join(",");
+
+        const newWindow = window.open(url, "reportCardAssessmentWindow", features);
+        if (newWindow) {
+            newWindow.focus();
+            const checkWindow = setInterval(function () {
+                if (newWindow.closed) {
+                    clearInterval(checkWindow);
+                    window.location.reload();
+                }
+            }, 500);
+        }
+        return false;
+    }
+</script>
 {% endblock content %}

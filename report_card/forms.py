@@ -106,10 +106,7 @@ class ReportCardAssessmentForm(forms.ModelForm):
         if self.selected_academic_year:
             self.fields["academic_year"].initial = self.selected_academic_year
             self.fields["academic_year"].widget = forms.HiddenInput()
-        if not self.instance.pk:
-            self.fields["batch"].required = False
-        else:
-            self.fields["batches"].required = False
+        self.fields["batch"].required = False
 
     def clean(self):
         cleaned_data = super().clean()
@@ -119,12 +116,12 @@ class ReportCardAssessmentForm(forms.ModelForm):
         academic_year = cleaned_data.get("academic_year")
         batch = cleaned_data.get("batch")
         selected_batches = cleaned_data.get("batches")
-        if not self.instance.pk and selected_batches:
+        if selected_batches:
             batch = selected_batches.first()
             cleaned_data["batch"] = batch
-        elif not self.instance.pk and batch:
+        elif batch:
             cleaned_data["batches"] = Batch.objects.filter(pk=batch.pk)
-        elif not self.instance.pk and not selected_batches:
+        elif not selected_batches:
             self.add_error("batches", "Select at least one class / batch.")
         if batch and self.user and not self.user.assigned_batches.filter(pk=batch.pk).exists():
             self.add_error("batch", "Selected batch is not assigned to this teacher.")

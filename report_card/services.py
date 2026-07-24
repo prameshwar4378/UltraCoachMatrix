@@ -1,9 +1,9 @@
 """Business logic for the Report Card Generator app."""
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from .models import (
@@ -88,7 +88,28 @@ TWO_PLACES = Decimal("0.01")
 def _quantize(value):
     if value is None:
         return None
-    return Decimal(value).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    try:
+        return Decimal(str(value).strip()).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValidationError("Enter valid numeric marks.")
+
+
+def _row_session_from_payload(row, active_sessions):
+    session = row.get("academic_session") or active_sessions.get(row.get("academic_session_id"))
+    if not session and str(row.get("academic_session_id", "")).isdigit():
+        session = active_sessions.get(int(row.get("academic_session_id")))
+    if not session or session.pk not in active_sessions:
+        raise ValidationError("One or more students are not active in this assessment batch.")
+    return session
+
+
+def _component_payload_value(component_marks, component):
+    if not isinstance(component_marks, dict):
+        raise ValidationError("Invalid component marks payload.")
+    raw_component_marks = component_marks.get(component.pk)
+    if raw_component_marks is None and str(component.pk) in component_marks:
+        raw_component_marks = component_marks.get(str(component.pk))
+    return raw_component_marks
 
 
 def _require_not_published_or_locked(assessment):
@@ -634,12 +655,9 @@ def bulk_save_subject_marks(assessment_subject, mark_rows, *, actor=None):
         for session in get_active_student_sessions_for_assessment(assessment).select_for_update()
     }
     components = list(get_assessment_subject_components(assessment_subject).select_for_update())
-    components_by_id = {component.pk: component for component in components}
     saved_entries = []
     for row in mark_rows:
-        session = row.get("academic_session") or active_sessions.get(row.get("academic_session_id"))
-        if not session or session.pk not in active_sessions:
-            raise ValidationError("One or more students are not active in this assessment batch.")
+        session = _row_session_from_payload(row, active_sessions)
 
         is_absent = bool(row.get("is_absent", False))
         component_marks = row.get("component_marks") or {}
@@ -649,9 +667,7 @@ def bulk_save_subject_marks(assessment_subject, mark_rows, *, actor=None):
         if components:
             if not is_absent:
                 for component in components:
-                    raw_component_marks = component_marks.get(component.pk)
-                    if raw_component_marks is None and str(component.pk) in component_marks:
-                        raw_component_marks = component_marks.get(str(component.pk))
+                    raw_component_marks = _component_payload_value(component_marks, component)
                     component_value = None if raw_component_marks in ("", None) else _quantize(raw_component_marks)
                     if component_value is None:
                         if component.include_in_total:
@@ -673,18 +689,25 @@ def bulk_save_subject_marks(assessment_subject, mark_rows, *, actor=None):
         if not is_absent and marks_obtained is not None and marks_obtained > assessment_subject.max_marks:
             raise ValidationError("Marks cannot exceed subject max marks.")
 
-        entry, _created = ReportCardMarkEntry.objects.select_for_update().get_or_create(
-            assessment_subject=assessment_subject,
-            academic_session=session,
-            defaults={
-                "student": session.student,
-                "marks_obtained": marks_obtained,
-                "is_absent": is_absent,
-                "remark": row.get("remark", ""),
-                "entered_by": actor,
-                "updated_by": actor,
-            },
-        )
+        try:
+            with transaction.atomic():
+                entry, _created = ReportCardMarkEntry.objects.select_for_update().get_or_create(
+                    assessment_subject=assessment_subject,
+                    academic_session=session,
+                    defaults={
+                        "student": session.student,
+                        "marks_obtained": marks_obtained,
+                        "is_absent": is_absent,
+                        "remark": row.get("remark", ""),
+                        "entered_by": actor,
+                        "updated_by": actor,
+                    },
+                )
+        except IntegrityError:
+            entry = ReportCardMarkEntry.objects.select_for_update().get(
+                assessment_subject=assessment_subject,
+                academic_session=session,
+            )
         entry.student = session.student
         entry.marks_obtained = marks_obtained
         entry.is_absent = is_absent
@@ -696,22 +719,27 @@ def bulk_save_subject_marks(assessment_subject, mark_rows, *, actor=None):
         saved_entries.append(entry)
 
         for component in components:
-            raw_component_marks = component_marks.get(component.pk)
-            if raw_component_marks is None and str(component.pk) in component_marks:
-                raw_component_marks = component_marks.get(str(component.pk))
+            raw_component_marks = _component_payload_value(component_marks, component)
             component_marks_obtained = None if is_absent or raw_component_marks in ("", None) else _quantize(raw_component_marks)
-            component_entry, _created = ReportCardComponentMarkEntry.objects.select_for_update().get_or_create(
-                component=component,
-                academic_session=session,
-                defaults={
-                    "student": session.student,
-                    "marks_obtained": component_marks_obtained,
-                    "is_absent": is_absent,
-                    "remark": row.get("remark", ""),
-                    "entered_by": actor,
-                    "updated_by": actor,
-                },
-            )
+            try:
+                with transaction.atomic():
+                    component_entry, _created = ReportCardComponentMarkEntry.objects.select_for_update().get_or_create(
+                        component=component,
+                        academic_session=session,
+                        defaults={
+                            "student": session.student,
+                            "marks_obtained": component_marks_obtained,
+                            "is_absent": is_absent,
+                            "remark": row.get("remark", ""),
+                            "entered_by": actor,
+                            "updated_by": actor,
+                        },
+                    )
+            except IntegrityError:
+                component_entry = ReportCardComponentMarkEntry.objects.select_for_update().get(
+                    component=component,
+                    academic_session=session,
+                )
             component_entry.student = session.student
             component_entry.marks_obtained = component_marks_obtained
             component_entry.is_absent = is_absent

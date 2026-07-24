@@ -610,6 +610,13 @@ class ReportCardFeatureTests(TestCase):
         self.assertContains(class_list_response, self.unassigned_batch.name)
         self.assertContains(class_list_response, reverse("report_card_admin:assessment_detail", args=[assessment.pk]), count=0)
 
+        list_response = self.client.get(reverse("report_card_admin:assessment_list"))
+        self.assertEqual(list_response.status_code, 200)
+        self.assertContains(list_response, "Admin Multi Batch Test", count=1)
+        self.assertContains(list_response, self.batch.name)
+        self.assertContains(list_response, self.unassigned_batch.name)
+        self.assertContains(list_response, "2 classes/divisions")
+
         update_response = self.client.post(
             reverse("report_card_admin:assessment_update", args=[assessment.pk]),
             data={
@@ -1761,6 +1768,70 @@ class ReportCardFeatureTests(TestCase):
         self.assertIsNone(notebook_entry.marks_obtained)
         assessment.refresh_from_db()
         self.assertEqual(assessment.status, ReportCardAssessment.Status.MARKS_ENTRY_OPEN)
+
+    def test_teacher_api_returns_validation_error_for_invalid_component_marks(self):
+        assessment = self._assessment("API Invalid Component Marks")
+        math = self._subject(assessment, self.math, max_marks=Decimal("60"), passing_marks=Decimal("21"))
+        theory = add_assessment_subject_component(
+            math,
+            name="Theory Exam",
+            max_marks=Decimal("50"),
+            weightage=Decimal("50"),
+            display_order=1,
+            actor=self.teacher,
+        )
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=self._admin_user("api-invalid-admin"))
+        api_client = APIClient()
+        api_client.force_authenticate(user=self.teacher)
+
+        response = api_client.post(
+            f"/api/mobile/report-cards/teacher/assessments/{assessment.pk}/subjects/{math.pk}/marks/",
+            data={
+                "rows": [
+                    {
+                        "academic_session_id": self.session_1.pk,
+                        "component_marks": {str(theory.pk): "abc"},
+                        "is_absent": False,
+                        "remark": "",
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(ReportCardMarkEntry.objects.filter(assessment_subject=math).exists())
+        self.assertFalse(ReportCardComponentMarkEntry.objects.filter(component=theory).exists())
+
+    def test_bulk_marks_save_rejects_invalid_numeric_payload_without_server_error(self):
+        assessment = self._assessment("Service Invalid Component Marks")
+        math = self._subject(assessment, self.math, max_marks=Decimal("60"), passing_marks=Decimal("21"))
+        theory = add_assessment_subject_component(
+            math,
+            name="Theory Exam",
+            max_marks=Decimal("50"),
+            weightage=Decimal("50"),
+            display_order=1,
+            actor=self.teacher,
+        )
+        self._allocation(subject=self.math)
+        open_marks_entry(assessment, actor=self._admin_user("service-invalid-admin"))
+
+        with self.assertRaisesMessage(ValidationError, "Enter valid numeric marks."):
+            bulk_save_subject_marks(
+                math,
+                [
+                    {
+                        "academic_session_id": self.session_1.pk,
+                        "component_marks": {theory.pk: "not-a-number"},
+                    }
+                ],
+                actor=self.teacher,
+            )
+
+        self.assertFalse(ReportCardMarkEntry.objects.filter(assessment_subject=math).exists())
+        self.assertFalse(ReportCardComponentMarkEntry.objects.filter(component=theory).exists())
 
     def test_teacher_cannot_run_report_card_admin_workflow_actions(self):
         assessment = self._assessment("Teacher Admin Actions Blocked")

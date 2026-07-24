@@ -25,10 +25,6 @@ CSRF_COOKIE_SECURE=false
 DJANGO_ALLOWED_HOSTS=173.249.33.152
 EMAIL_BASE_URL=http://173.249.33.152
 
-
-
-
-
 #nano /etc/systemd/system/ultracoachmatrix.service
 
 [Unit]

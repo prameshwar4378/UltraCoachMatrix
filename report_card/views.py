@@ -8,6 +8,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from institute_admin.models import AcademicYear, Batch, Subject
@@ -111,6 +112,32 @@ def _validation_messages(error):
 def _handle_validation_error(request, error):
     for message in _validation_messages(error):
         messages.error(request, message)
+
+
+def _is_popup_request(request):
+    return request.GET.get("popup") == "1" or request.POST.get("popup") == "1"
+
+
+def _popup_close_response(fallback_url):
+    return HttpResponse(
+        f"""
+        <!doctype html>
+        <html>
+        <head><title>Saved</title></head>
+        <body>
+            <script>
+                if (window.opener && !window.opener.closed) {{
+                    window.opener.location.reload();
+                    window.close();
+                }} else {{
+                    window.location.href = "{fallback_url}";
+                }}
+            </script>
+            <p>Saved successfully. You can close this window.</p>
+        </body>
+        </html>
+        """
+    )
 
 
 def _marks_entry_closed_message(assessment):
@@ -723,12 +750,40 @@ def admin_assessment_list(request):
             | Q(academic_year_name_snapshot__icontains=search_query)
         )
 
+    grouped_assessments = []
+    grouped_by_key = {}
+    for assessment in assessments:
+        group_key = (
+            assessment.title,
+            assessment.academic_year_id,
+            assessment.assessment_date,
+            assessment.result_date,
+            assessment.status,
+            assessment.created_at.date(),
+        )
+        row = grouped_by_key.get(group_key)
+        if not row:
+            row = {
+                "assessment": assessment,
+                "batch_names": [],
+                "batch_count": 0,
+                "subject_count": 0,
+            }
+            grouped_by_key[group_key] = row
+            grouped_assessments.append(row)
+        batch_name = assessment.batch_name_snapshot or getattr(assessment.batch, "name", "")
+        if batch_name and batch_name not in row["batch_names"]:
+            row["batch_names"].append(batch_name)
+        row["batch_count"] = len(row["batch_names"])
+        row["subject_count"] += assessment.assessment_subjects.count()
+
     return render(
         request,
         "report_card/institute_admin/assessment_list.html",
         {
             "institute": institute,
             "assessments": assessments,
+            "assessment_rows": grouped_assessments,
             "batches": batches,
             "filter_batch": filter_batch,
             "filter_status": filter_status,
@@ -822,6 +877,8 @@ def admin_assessment_create(request):
                         created_by=request.user,
                     )
             messages.success(request, f"Report card assessment created for {len(selected_batches)} class(es).")
+            if _is_popup_request(request):
+                return _popup_close_response(reverse("report_card_admin:assessment_list"))
             return redirect("report_card_admin:assessment_list")
         except ValidationError as error:
             _handle_validation_error(request, error)
@@ -833,6 +890,7 @@ def admin_assessment_create(request):
             "page_title": "Create Report Card Assessment",
             "cancel_url": "report_card_admin:assessment_list",
             "academic_year": academic_year,
+            "is_popup": _is_popup_request(request),
         },
     )
 
@@ -844,25 +902,89 @@ def admin_assessment_update(request, assessment_id):
         messages.error(request, "You cannot edit this assessment.")
         return redirect("report_card_admin:assessment_detail", assessment_id=assessment.pk)
 
+    original_group = {
+        "institute": assessment.institute,
+        "academic_year": assessment.academic_year,
+        "title": assessment.title,
+        "assessment_date": assessment.assessment_date,
+        "result_date": assessment.result_date,
+    }
     form = ReportCardAssessmentForm(
         request.POST or None,
         instance=assessment,
         institute=assessment.institute,
         academic_year=assessment.academic_year,
     )
+    if request.method != "POST":
+        sibling_assessments = ReportCardAssessment.objects.filter(
+            institute=original_group["institute"],
+            academic_year=original_group["academic_year"],
+            title=original_group["title"],
+            assessment_date=original_group["assessment_date"],
+            result_date=original_group["result_date"],
+            is_deleted=False,
+        )
+        form.fields["batches"].initial = list(sibling_assessments.values_list("batch_id", flat=True))
     if request.method == "POST" and form.is_valid():
         try:
-            update_assessment(
-                assessment,
-                actor=request.user,
-                academic_year=form.cleaned_data["academic_year"],
-                batch=form.cleaned_data["batch"],
-                title=form.cleaned_data["title"],
-                assessment_date=form.cleaned_data.get("assessment_date"),
-                result_date=form.cleaned_data.get("result_date"),
+            selected_batches = list(form.cleaned_data.get("batches") or [])
+            if not selected_batches and form.cleaned_data.get("batch"):
+                selected_batches = [form.cleaned_data["batch"]]
+            sibling_assessments = list(
+                ReportCardAssessment.objects.filter(
+                    institute=original_group["institute"],
+                    academic_year=original_group["academic_year"],
+                    title=original_group["title"],
+                    assessment_date=original_group["assessment_date"],
+                    result_date=original_group["result_date"],
+                    is_deleted=False,
+                )
             )
-            messages.success(request, "Report card assessment updated.")
-            return redirect("report_card_admin:assessment_detail", assessment_id=assessment.pk)
+            sibling_by_batch = {item.batch_id: item for item in sibling_assessments}
+            selected_batch_ids = {batch.pk for batch in selected_batches}
+            skipped_batches = [
+                item.batch_name_snapshot or item.batch.name
+                for item in sibling_assessments
+                if item.batch_id not in selected_batch_ids
+            ]
+            with transaction.atomic():
+                target_assessment = assessment
+                for batch in selected_batches:
+                    existing_assessment = sibling_by_batch.get(batch.pk)
+                    if existing_assessment:
+                        updated_assessment = update_assessment(
+                            existing_assessment,
+                            actor=request.user,
+                            academic_year=form.cleaned_data["academic_year"],
+                            batch=batch,
+                            title=form.cleaned_data["title"],
+                            assessment_date=form.cleaned_data.get("assessment_date"),
+                            result_date=form.cleaned_data.get("result_date"),
+                        )
+                        if existing_assessment.pk == assessment.pk:
+                            target_assessment = updated_assessment
+                    else:
+                        created_assessment = create_assessment(
+                            institute=form.effective_institute,
+                            academic_year=form.cleaned_data["academic_year"],
+                            batch=batch,
+                            title=form.cleaned_data["title"],
+                            assessment_date=form.cleaned_data.get("assessment_date"),
+                            result_date=form.cleaned_data.get("result_date"),
+                            created_by=request.user,
+                        )
+                        target_assessment = created_assessment
+            messages.success(request, f"Report card assessment updated for {len(selected_batches)} class(es).")
+            if skipped_batches:
+                messages.warning(
+                    request,
+                    "Removed classes were not deleted for data safety: "
+                    + ", ".join(skipped_batches)
+                    + ". Use the delete/recycle-bin workflow to remove them.",
+                )
+            if _is_popup_request(request):
+                return _popup_close_response(reverse("report_card_admin:assessment_classes", args=[target_assessment.pk]))
+            return redirect("report_card_admin:assessment_classes", assessment_id=target_assessment.pk)
         except ValidationError as error:
             _handle_validation_error(request, error)
     return render(
@@ -874,6 +996,7 @@ def admin_assessment_update(request, assessment_id):
             "page_title": "Edit Report Card Assessment",
             "cancel_url": "report_card_admin:assessment_detail",
             "academic_year": assessment.academic_year,
+            "is_popup": _is_popup_request(request),
         },
     )
 

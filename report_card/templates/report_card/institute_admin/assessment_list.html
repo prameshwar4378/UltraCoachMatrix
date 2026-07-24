@@ -32,6 +32,9 @@
     .rc-btn { border-radius:8px; font-weight:800; }
     .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
     .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    .rc-batch-wrap { display:flex; flex-wrap:wrap; gap:6px; max-width:420px; }
+    .rc-batch-badge { display:inline-flex; align-items:center; border:1px solid #dbeafe; background:#eff6ff; color:#1d4ed8; border-radius:999px; padding:5px 9px; font-size:.78rem; font-weight:850; }
+    .rc-batch-count { color:#64748b; font-size:.78rem; font-weight:800; margin-top:5px; }
     .rc-empty { padding:38px 24px; text-align:center; color:var(--muted); font-weight:750; }
     @media(max-width:992px){ .rc-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media(max-width:576px){ .rc-stat-grid { grid-template-columns:1fr; } .rc-hero .btn, .rc-filter .btn { width:100%; } }
@@ -47,7 +50,7 @@
             </div>
             <div class="d-flex gap-2 flex-wrap">
                 <a class="btn btn-light border rc-btn" href="{% url 'report_card_admin:assessment_bin' %}"><i class="bi bi-trash3 me-1"></i> Recycle Bin</a>
-                <a class="btn btn-gradient" href="{% url 'report_card_admin:assessment_create' %}"><i class="bi bi-plus-circle me-1"></i> New Assessment</a>
+                <a class="btn btn-gradient" href="{% url 'report_card_admin:assessment_create' %}?popup=1" data-url="{% url 'report_card_admin:assessment_create' %}?popup=1" onclick="return openReportCardAssessmentWindow(this);"><i class="bi bi-plus-circle me-1"></i> New Assessment</a>
             </div>
         </div>
     </section>
@@ -96,19 +99,28 @@
         <table class="table rc-table align-middle">
             <thead><tr><th>Assessment</th><th>Class / Batch</th><th>Status</th><th>Subjects</th><th>Date</th><th class="text-end">Actions</th></tr></thead>
             <tbody>
-                {% for assessment in assessments %}
+                {% for row in assessment_rows %}
+                    {% with assessment=row.assessment %}
                     <tr>
                         <td><strong>{{ assessment.title }}</strong><br><small class="text-muted">Created {{ assessment.created_at|date:"d M Y" }}</small></td>
-                        <td>{{ assessment.batch_name_snapshot|default:assessment.batch.name }}</td>
+                        <td>
+                            <div class="rc-batch-wrap">
+                                {% for batch_name in row.batch_names %}
+                                    <span class="rc-batch-badge">{{ batch_name }}</span>
+                                {% endfor %}
+                            </div>
+                            {% if row.batch_count > 1 %}<div class="rc-batch-count">{{ row.batch_count }} classes/divisions</div>{% endif %}
+                        </td>
                         <td><span class="rc-pill {% if assessment.status == 'DRAFT' %}rc-pill-draft{% elif assessment.status == 'STRUCTURE_READY' %}rc-pill-structure-ready{% elif assessment.status == 'MARKS_ENTRY_OPEN' %}rc-pill-marks-entry-open{% elif assessment.status == 'MARKS_ENTRY_COMPLETED' %}rc-pill-marks-entry-completed{% elif assessment.status == 'GENERATED' %}rc-pill-generated{% elif assessment.status == 'PUBLISHED' %}rc-pill-published{% elif assessment.status == 'LOCKED' %}rc-pill-locked{% endif %}">{{ assessment.get_status_display }}</span></td>
-                        <td>{{ assessment.assessment_subjects.count }}</td>
+                        <td>{{ row.subject_count }}</td>
                         <td>{{ assessment.assessment_date|date:"d M Y"|default:"-" }}</td>
                         <td class="text-end">
                             <a class="btn btn-sm btn-outline-primary rc-btn" href="{% url 'report_card_admin:assessment_classes' assessment.pk %}" title="View classes / divisions"><i class="bi bi-eye"></i></a>
-                            <a class="btn btn-sm btn-outline-secondary rc-btn" href="{% url 'report_card_admin:assessment_update' assessment.pk %}" title="Edit"><i class="bi bi-pencil"></i></a>
+                            <a class="btn btn-sm btn-outline-secondary rc-btn" href="{% url 'report_card_admin:assessment_update' assessment.pk %}?popup=1" data-url="{% url 'report_card_admin:assessment_update' assessment.pk %}?popup=1" onclick="return openReportCardAssessmentWindow(this);" title="Edit"><i class="bi bi-pencil"></i></a>
                             <a class="btn btn-sm btn-outline-danger rc-btn" href="{% url 'report_card_admin:assessment_delete' assessment.pk %}" title="Delete"><i class="bi bi-trash"></i></a>
                         </td>
                     </tr>
+                    {% endwith %}
                 {% empty %}
                     <tr><td colspan="6"><div class="rc-empty">No report-card assessments found. Create the first assessment to make it available for teacher marks entry.</div></td></tr>
                 {% endfor %}
@@ -117,4 +129,35 @@
     </section>
 </div>
 </main>
+<script>
+    function openReportCardAssessmentWindow(element, customWidth = 1080, customHeight = 820) {
+        const url = element.dataset.url || element.href;
+        const left = Math.max(0, (window.screen.width - customWidth) / 2);
+        const top = Math.max(0, (window.screen.height - customHeight) / 2);
+        const features = [
+            `width=${customWidth}`,
+            `height=${customHeight}`,
+            `left=${left}`,
+            `top=${top}`,
+            "scrollbars=yes",
+            "resizable=yes",
+            "location=no",
+            "menubar=no",
+            "toolbar=no",
+            "status=no"
+        ].join(",");
+
+        const newWindow = window.open(url, "reportCardAssessmentWindow", features);
+        if (newWindow) {
+            newWindow.focus();
+            const checkWindow = setInterval(function () {
+                if (newWindow.closed) {
+                    clearInterval(checkWindow);
+                    window.location.reload();
+                }
+            }, 500);
+        }
+        return false;
+    }
+</script>
 {% endblock content %}
