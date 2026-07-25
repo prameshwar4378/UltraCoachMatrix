@@ -150,6 +150,13 @@ def _marks_entry_closed_message(assessment):
     )
 
 
+def _safe_exception_message(error):
+    message = str(error).strip()
+    if len(message) > 180:
+        message = message[:177] + "..."
+    return f"{error.__class__.__name__}: {message or 'No details available'}"
+
+
 def _has_active_grade_rules(institute, academic_year=None):
     if not institute:
         return False
@@ -458,11 +465,37 @@ def marks_entry(request, assessment_id, assessment_subject_id):
             )
             if request.method == "POST" and not form.is_valid():
                 all_valid = False
-            component_fields = [
-                {"component": component, "field": form[f"component_{component.pk}"]}
-                for component in components
-            ]
-            forms.append({"row": row, "form": form, "component_fields": component_fields})
+            component_fields = []
+            for component in components:
+                field_name = f"component_{component.pk}"
+                component_fields.append(
+                    {
+                        "component": component,
+                        "field_name": f"{prefix}-{field_name}",
+                        "value": form.data.get(f"{prefix}-{field_name}", initial.get(field_name, "")) if form.is_bound else initial.get(field_name, ""),
+                        "errors": form.errors.get(field_name) if form.is_bound else None,
+                    }
+                )
+            marks_value = form.data.get(f"{prefix}-marks_obtained", initial.get("marks_obtained", "")) if form.is_bound else initial.get("marks_obtained", "")
+            remark_value = form.data.get(f"{prefix}-remark", initial.get("remark", "")) if form.is_bound else initial.get("remark", "")
+            is_absent = form.data.get(f"{prefix}-is_absent") in {"on", "true", "True", "1", "yes"} if form.is_bound else bool(initial.get("is_absent"))
+            forms.append(
+                {
+                    "row": row,
+                    "form": form,
+                    "prefix": prefix,
+                    "academic_session_field_name": f"{prefix}-academic_session_id",
+                    "marks_field_name": f"{prefix}-marks_obtained",
+                    "marks_value": marks_value,
+                    "marks_errors": form.errors.get("marks_obtained") if form.is_bound else None,
+                    "is_absent_field_name": f"{prefix}-is_absent",
+                    "is_absent": is_absent,
+                    "remark_field_name": f"{prefix}-remark",
+                    "remark_value": remark_value,
+                    "non_field_errors": form.non_field_errors() if form.is_bound else None,
+                    "component_fields": component_fields,
+                }
+            )
 
         if request.method == "POST" and all_valid:
             try:
@@ -495,7 +528,12 @@ def marks_entry(request, assessment_id, assessment_subject_id):
             assessment_subject_id,
             request.user.pk,
         )
-        messages.error(request, "Unable to open marks entry right now. Please contact admin to verify report-card setup and server migration.")
+        messages.error(
+            request,
+            "Unable to open marks entry right now. "
+            f"Technical reason: {_safe_exception_message(error)}. "
+            "Please share this message with admin.",
+        )
         return redirect("report_card:assessment_detail", assessment_id=assessment.pk)
 
 

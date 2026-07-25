@@ -95,6 +95,13 @@ def marks_entry_closed_message(assessment):
     )
 
 
+def safe_exception_message(error):
+    message = str(error).strip()
+    if len(message) > 180:
+        message = message[:177] + "..."
+    return f"{error.__class__.__name__}: {message or 'No details available'}"
+
+
 def completion_summary_payload(summary):
     return {
         "student_count": summary["student_count"],
@@ -335,7 +342,7 @@ class TeacherReportCardMarksGridAPI(TeacherReportCardAPIView):
                     "rows": ReportCardMarksGridRowSerializer(grid, many=True).data,
                 }
             )
-        except Exception:
+        except Exception as error:
             logger.exception(
                 "Report-card API marks grid failed for assessment_id=%s assessment_subject_id=%s user_id=%s",
                 assessment_id,
@@ -343,7 +350,7 @@ class TeacherReportCardMarksGridAPI(TeacherReportCardAPIView):
                 request.user.pk,
             )
             return api_response(
-                message="Unable to load report-card marks grid. Please contact admin to verify report-card setup and server migration.",
+                message=f"Unable to load report-card marks grid. Technical reason: {safe_exception_message(error)}.",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -363,7 +370,7 @@ class TeacherReportCardMarksGridAPI(TeacherReportCardAPIView):
             saved = bulk_save_subject_marks(assessment_subject, serializer.validated_data["rows"], actor=request.user)
         except ValidationError as error:
             return validation_response(error)
-        except Exception:
+        except Exception as error:
             logger.exception(
                 "Report-card API marks save failed for assessment_id=%s assessment_subject_id=%s user_id=%s",
                 assessment_id,
@@ -371,7 +378,7 @@ class TeacherReportCardMarksGridAPI(TeacherReportCardAPIView):
                 request.user.pk,
             )
             return api_response(
-                message="Unable to save report-card marks. Please contact admin to verify report-card setup and server migration.",
+                message=f"Unable to save report-card marks. Technical reason: {safe_exception_message(error)}.",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
         return api_response({"saved_count": len(saved)}, message="Marks saved.")

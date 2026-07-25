@@ -116,19 +116,37 @@
                 <tbody>
                     {% for item in form_rows %}
                         <tr data-student-name="{{ item.row.student_name }}" data-admission-number="{{ item.row.admission_number }}">
-                            <td class="rc-sticky-admission">{{ item.row.admission_number }}{{ item.form.academic_session_id }}</td>
+                            <td class="rc-sticky-admission">
+                                {{ item.row.admission_number }}
+                                <input type="hidden" name="{{ item.academic_session_field_name }}" value="{{ item.row.academic_session.pk }}">
+                            </td>
                             <td class="rc-sticky-student"><strong>{{ item.row.student_name }}</strong><br><small class="text-muted">Roll {{ item.row.roll_number|default:"-" }}</small></td>
                             {% if components %}
                                 {% for component_field in item.component_fields %}
-                                    <td data-max-marks="{{ component_field.component.max_marks }}" data-mark-label="{{ component_field.component.name_snapshot }}"><div class="marks-input">{{ component_field.field }}</div><div class="text-danger small rc-mark-error d-none"></div>{% if component_field.field.errors %}<div class="text-danger small">{{ component_field.field.errors|striptags }}</div>{% endif %}</td>
+                                    <td data-max-marks="{{ component_field.component.max_marks }}" data-mark-label="{{ component_field.component.name_snapshot }}">
+                                        <div class="marks-input">
+                                            <input type="number" name="{{ component_field.field_name }}" value="{{ component_field.value|default_if_none:'' }}" step="0.01" min="0" max="{{ component_field.component.max_marks }}" class="form-control">
+                                        </div>
+                                        <div class="text-danger small rc-mark-error d-none"></div>
+                                        {% if component_field.errors %}<div class="text-danger small">{{ component_field.errors|striptags }}</div>{% endif %}
+                                    </td>
                                 {% endfor %}
                             {% else %}
-                                <td data-max-marks="{{ assessment_subject.max_marks }}" data-mark-label="Marks"><div class="marks-input">{{ item.form.marks_obtained }}</div><div class="text-danger small rc-mark-error d-none"></div>{% if item.form.marks_obtained.errors %}<div class="text-danger small">{{ item.form.marks_obtained.errors|striptags }}</div>{% endif %}</td>
+                                <td data-max-marks="{{ assessment_subject.max_marks }}" data-mark-label="Marks">
+                                    <div class="marks-input">
+                                        <input type="number" name="{{ item.marks_field_name }}" value="{{ item.marks_value|default_if_none:'' }}" step="0.01" min="0" max="{{ assessment_subject.max_marks }}" class="form-control">
+                                    </div>
+                                    <div class="text-danger small rc-mark-error d-none"></div>
+                                    {% if item.marks_errors %}<div class="text-danger small">{{ item.marks_errors|striptags }}</div>{% endif %}
+                                </td>
                             {% endif %}
                             <td><span class="rc-row-total">0</span></td>
-                            <td>{{ item.form.is_absent }}</td>
+                            <td><input type="checkbox" name="{{ item.is_absent_field_name }}" class="form-check-input" {% if item.is_absent %}checked{% endif %}></td>
                             <td><span class="rc-status rc-status-missing">Missing</span></td>
-                            <td>{{ item.form.remark }}{% if item.form.non_field_errors %}<div class="text-danger small">{{ item.form.non_field_errors|striptags }}</div>{% endif %}</td>
+                            <td>
+                                <input type="text" name="{{ item.remark_field_name }}" value="{{ item.remark_value|default_if_none:'' }}" maxlength="255" class="form-control">
+                                {% if item.non_field_errors %}<div class="text-danger small">{{ item.non_field_errors|striptags }}</div>{% endif %}
+                            </td>
                         </tr>
                     {% empty %}
                         <tr><td colspan="8" class="text-center text-muted p-4">No active students found for this assessment batch.</td></tr>
