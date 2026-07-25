@@ -115,13 +115,25 @@ class ReportCardMarksGridRowSerializer(serializers.Serializer):
     academic_session_id = serializers.IntegerField(source="academic_session.pk")
     student_id = serializers.IntegerField(source="student.pk")
     student_name = serializers.SerializerMethodField()
-    admission_number = serializers.CharField(source="academic_session.admission_number")
-    roll_number = serializers.CharField(source="student.roll_number", allow_blank=True)
+    admission_number = serializers.SerializerMethodField()
+    roll_number = serializers.SerializerMethodField()
     mark_entry = serializers.SerializerMethodField()
 
     def get_student_name(self, row):
+        if row.get("student_name"):
+            return row["student_name"]
         student = row["student"]
         return student.user.get_full_name() or student.user.username
+
+    def get_admission_number(self, row):
+        if row.get("admission_number"):
+            return row["admission_number"]
+        return row["academic_session"].admission_number or row["student"].admission_number
+
+    def get_roll_number(self, row):
+        if row.get("roll_number"):
+            return row["roll_number"]
+        return row["student"].roll_number or ""
 
     def get_mark_entry(self, row):
         entry = row.get("mark_entry")

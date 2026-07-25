@@ -2,6 +2,7 @@
 
 from datetime import date
 
+from django.contrib.auth.models import User
 from django.db.models import Case, IntegerField, Prefetch, Q, Value, When
 from django.utils import timezone
 
@@ -316,15 +317,25 @@ def get_marks_grid(assessment_subject):
         ).select_related("component", "student", "student__user", "academic_session"):
             component_entries.setdefault(entry.academic_session_id, {})[entry.component_id] = entry
 
-    return [
-        {
-            "academic_session": session,
-            "student": session.student,
-            "mark_entry": mark_entries.get(session.pk),
-            "component_entries": component_entries.get(session.pk, {}),
-        }
-        for session in sessions
-    ]
+    rows = []
+    for session in sessions:
+        student = session.student
+        try:
+            student_name = student.user.get_full_name() or student.user.username
+        except User.DoesNotExist:
+            student_name = session.admission_number or student.admission_number or "Student"
+        rows.append(
+            {
+                "academic_session": session,
+                "student": student,
+                "student_name": student_name,
+                "admission_number": session.admission_number or student.admission_number,
+                "roll_number": student.roll_number or "",
+                "mark_entry": mark_entries.get(session.pk),
+                "component_entries": component_entries.get(session.pk, {}),
+            }
+        )
+    return rows
 
 
 def get_completion_summary(assessment, assessment_subjects=None):

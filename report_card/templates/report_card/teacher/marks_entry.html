@@ -115,9 +115,9 @@
                 </thead>
                 <tbody>
                     {% for item in form_rows %}
-                        <tr data-student-name="{{ item.row.student.user.get_full_name|default:item.row.student.user.username }}" data-admission-number="{{ item.row.academic_session.admission_number }}">
-                            <td class="rc-sticky-admission">{{ item.row.academic_session.admission_number }}{{ item.form.academic_session_id }}</td>
-                            <td class="rc-sticky-student"><strong>{{ item.row.student.user.get_full_name|default:item.row.student.user.username }}</strong><br><small class="text-muted">Roll {{ item.row.student.roll_number|default:"-" }}</small></td>
+                        <tr data-student-name="{{ item.row.student_name }}" data-admission-number="{{ item.row.admission_number }}">
+                            <td class="rc-sticky-admission">{{ item.row.admission_number }}{{ item.form.academic_session_id }}</td>
+                            <td class="rc-sticky-student"><strong>{{ item.row.student_name }}</strong><br><small class="text-muted">Roll {{ item.row.roll_number|default:"-" }}</small></td>
                             {% if components %}
                                 {% for component_field in item.component_fields %}
                                     <td data-max-marks="{{ component_field.component.max_marks }}" data-mark-label="{{ component_field.component.name_snapshot }}"><div class="marks-input">{{ component_field.field }}</div><div class="text-danger small rc-mark-error d-none"></div>{% if component_field.field.errors %}<div class="text-danger small">{{ component_field.field.errors|striptags }}</div>{% endif %}</td>

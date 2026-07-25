@@ -1,4 +1,5 @@
 import json
+import logging
 from decimal import Decimal
 
 from django.contrib import messages
@@ -97,6 +98,8 @@ DEFAULT_GRADE_RULES = [
     (Decimal("40.00"), Decimal("49.99"), "C2", "Needs Improvement"),
     (Decimal("0.00"), Decimal("39.99"), "F", "Fail"),
 ]
+
+logger = logging.getLogger(__name__)
 
 
 def _validation_messages(error):
@@ -428,62 +431,72 @@ def marks_entry(request, assessment_id, assessment_subject_id):
             messages.error(request, "You are not allowed to enter marks for this assessment.")
         return redirect("report_card:assessment_detail", assessment_id=assessment.pk)
 
-    grid = get_marks_grid(assessment_subject)
-    components = list(get_assessment_subject_components(assessment_subject))
-    forms = []
-    all_valid = True
-    for row in grid:
-        session = row["academic_session"]
-        mark_entry = row["mark_entry"]
-        prefix = str(session.pk)
-        initial = {
-            "academic_session_id": session.pk,
-            "marks_obtained": getattr(mark_entry, "marks_obtained", None),
-            "is_absent": getattr(mark_entry, "is_absent", False),
-            "remark": getattr(mark_entry, "remark", ""),
-        }
-        for component in components:
-            component_entry = row["component_entries"].get(component.pk)
-            initial[f"component_{component.pk}"] = getattr(component_entry, "marks_obtained", None)
-        form = BulkMarksEntryForm(
-            request.POST or None,
-            prefix=prefix,
-            initial=initial,
-            assessment_subject=assessment_subject,
-            components=components,
-        )
-        if request.method == "POST" and not form.is_valid():
-            all_valid = False
-        component_fields = [
-            {"component": component, "field": form[f"component_{component.pk}"]}
-            for component in components
-        ]
-        forms.append({"row": row, "form": form, "component_fields": component_fields})
-
-    if request.method == "POST" and all_valid:
-        try:
-            mark_rows = [item["form"].to_service_row() for item in forms]
-            bulk_save_subject_marks(assessment_subject, mark_rows, actor=request.user)
-            messages.success(request, "Marks saved successfully.")
-            return redirect(
-                "report_card:marks_entry",
-                assessment_id=assessment.pk,
-                assessment_subject_id=assessment_subject.pk,
+    try:
+        grid = get_marks_grid(assessment_subject)
+        components = list(get_assessment_subject_components(assessment_subject))
+        forms = []
+        all_valid = True
+        for row in grid:
+            session = row["academic_session"]
+            mark_entry = row["mark_entry"]
+            prefix = str(session.pk)
+            initial = {
+                "academic_session_id": session.pk,
+                "marks_obtained": getattr(mark_entry, "marks_obtained", None),
+                "is_absent": getattr(mark_entry, "is_absent", False),
+                "remark": getattr(mark_entry, "remark", ""),
+            }
+            for component in components:
+                component_entry = row["component_entries"].get(component.pk)
+                initial[f"component_{component.pk}"] = getattr(component_entry, "marks_obtained", None)
+            form = BulkMarksEntryForm(
+                request.POST or None,
+                prefix=prefix,
+                initial=initial,
+                assessment_subject=assessment_subject,
+                components=components,
             )
-        except ValidationError as error:
-            _handle_validation_error(request, error)
+            if request.method == "POST" and not form.is_valid():
+                all_valid = False
+            component_fields = [
+                {"component": component, "field": form[f"component_{component.pk}"]}
+                for component in components
+            ]
+            forms.append({"row": row, "form": form, "component_fields": component_fields})
 
-    return render(
-        request,
-        "report_card/teacher/marks_entry.html",
-        {
-            "assessment": assessment,
-            "assessment_subject": assessment_subject,
-            "components": components,
-            "form_rows": forms,
-            "student_count": len(forms),
-        },
-    )
+        if request.method == "POST" and all_valid:
+            try:
+                mark_rows = [item["form"].to_service_row() for item in forms]
+                bulk_save_subject_marks(assessment_subject, mark_rows, actor=request.user)
+                messages.success(request, "Marks saved successfully.")
+                return redirect(
+                    "report_card:marks_entry",
+                    assessment_id=assessment.pk,
+                    assessment_subject_id=assessment_subject.pk,
+                )
+            except ValidationError as error:
+                _handle_validation_error(request, error)
+
+        return render(
+            request,
+            "report_card/teacher/marks_entry.html",
+            {
+                "assessment": assessment,
+                "assessment_subject": assessment_subject,
+                "components": components,
+                "form_rows": forms,
+                "student_count": len(forms),
+            },
+        )
+    except Exception as error:
+        logger.exception(
+            "Report-card marks entry failed for assessment_id=%s assessment_subject_id=%s user_id=%s",
+            assessment_id,
+            assessment_subject_id,
+            request.user.pk,
+        )
+        messages.error(request, "Unable to open marks entry right now. Please contact admin to verify report-card setup and server migration.")
+        return redirect("report_card:assessment_detail", assessment_id=assessment.pk)
 
 
 @teacher_required

@@ -1,3 +1,5 @@
+import logging
+
 from django.core.exceptions import ValidationError
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
@@ -53,6 +55,8 @@ from .services import (
     update_assessment_subject,
     validate_marks_completion,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def api_response(data=None, *, message="", status_code=200, meta=None):
@@ -323,13 +327,25 @@ class TeacherReportCardMarksGridAPI(TeacherReportCardAPIView):
         assessment_subject = self.get_subject(assessment, assessment_subject_id)
         if not assessment_subject:
             return api_response(message="You can access only your allocated report-card subject.", status_code=status.HTTP_403_FORBIDDEN)
-        grid = get_marks_grid(assessment_subject)
-        return api_response(
-            {
-                "subject": ReportCardAssessmentSubjectSerializer(assessment_subject).data,
-                "rows": ReportCardMarksGridRowSerializer(grid, many=True).data,
-            }
-        )
+        try:
+            grid = get_marks_grid(assessment_subject)
+            return api_response(
+                {
+                    "subject": ReportCardAssessmentSubjectSerializer(assessment_subject).data,
+                    "rows": ReportCardMarksGridRowSerializer(grid, many=True).data,
+                }
+            )
+        except Exception:
+            logger.exception(
+                "Report-card API marks grid failed for assessment_id=%s assessment_subject_id=%s user_id=%s",
+                assessment_id,
+                assessment_subject_id,
+                request.user.pk,
+            )
+            return api_response(
+                message="Unable to load report-card marks grid. Please contact admin to verify report-card setup and server migration.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
     def post(self, request, assessment_id, assessment_subject_id):
         assessment = self.get_assessment(assessment_id)
@@ -347,6 +363,17 @@ class TeacherReportCardMarksGridAPI(TeacherReportCardAPIView):
             saved = bulk_save_subject_marks(assessment_subject, serializer.validated_data["rows"], actor=request.user)
         except ValidationError as error:
             return validation_response(error)
+        except Exception:
+            logger.exception(
+                "Report-card API marks save failed for assessment_id=%s assessment_subject_id=%s user_id=%s",
+                assessment_id,
+                assessment_subject_id,
+                request.user.pk,
+            )
+            return api_response(
+                message="Unable to save report-card marks. Please contact admin to verify report-card setup and server migration.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
         return api_response({"saved_count": len(saved)}, message="Marks saved.")
 
 
