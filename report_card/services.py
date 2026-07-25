@@ -6,6 +6,8 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from student_parent.models import StudentAcademicSession
+
 from .models import (
     ReportCardAssessment,
     ReportCardAssessmentSubject,
@@ -650,9 +652,12 @@ def bulk_save_subject_marks(assessment_subject, mark_rows, *, actor=None):
     if assessment.status in EDIT_BLOCKED_STATUSES:
         raise ValidationError("Published or locked assessments cannot be changed.")
 
+    active_session_ids = list(get_active_student_sessions_for_assessment(assessment).values_list("pk", flat=True))
     active_sessions = {
         session.pk: session
-        for session in get_active_student_sessions_for_assessment(assessment).select_for_update()
+        for session in StudentAcademicSession.objects.select_for_update()
+        .filter(pk__in=active_session_ids)
+        .select_related("student", "student__user", "academic_year", "institute")
     }
     components = list(get_assessment_subject_components(assessment_subject).select_for_update())
     saved_entries = []
