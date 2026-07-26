@@ -333,6 +333,17 @@ def _pdf_centered_text(x, width, y, text, *, size=10, bold=False, color="111827"
     return _pdf_text(x + max((width - estimated_width) / 2, 0), y, text, size=size, bold=bold, color=color)
 
 
+def _pdf_fit_text(x, y, text, width, *, size=8, min_size=6, bold=False, color="111827"):
+    text = str(text or "")
+    current_size = size
+    while current_size > min_size and len(text) * current_size * 0.52 > width:
+        current_size -= 0.4
+    if len(text) * current_size * 0.52 > width:
+        allowed = max(int(width / (current_size * 0.52)) - 1, 1)
+        text = text[:allowed] + "..."
+    return _pdf_text(x, y, text, size=round(current_size, 1), bold=bold, color=color)
+
+
 def _pdf_image(x, y, width, height, image_name="Im1"):
     return f"q {width} 0 0 {height} {x} {y} cm /{image_name} Do Q\n"
 
@@ -345,7 +356,7 @@ def _prepare_pdf_logo(institute, *, max_size=180):
         with default_storage.open(logo.name, "rb") as logo_file:
             image = Image.open(logo_file)
             image.thumbnail((max_size, max_size))
-            canvas = Image.new("RGB", image.size, "white")
+            canvas = Image.new("RGB", image.size, "#F8FAFC")
             if image.mode in {"RGBA", "LA"}:
                 canvas.paste(image.convert("RGBA"), mask=image.convert("RGBA").getchannel("A"))
             else:
@@ -473,22 +484,22 @@ def report_card_pdf_response(result, *, download=True):
         return current_stream, current_y - table_header_height
 
     stream += page_base(1)
-    header_height = 132
+    header_height = 118
     header_bottom = y - header_height
     logo_x = margin + 18
-    logo_y = y - 92
-    text_x = margin + 90
-    text_width = width - margin - text_x - 16
+    logo_y = y - 82
+    text_x = margin + 82
+    text_width = width - margin - text_x - 10
     identity_width_chars = 52
     name_lines = wrap(institute_name, width=identity_width_chars) or [institute_name]
-    name_size = 12.2 if len(institute_name) > 58 else 13.6
-    name_line_gap = 13
+    name_size = 11.2 if len(institute_name) > 58 else 12.8
+    name_line_gap = 12
 
     stream += _pdf_rect(margin, header_bottom, width - (margin * 2), header_height, stroke="CBD5E1", fill="F8FAFC")
     stream += _pdf_line(margin, y - 10, width - margin, y - 10, color="6042C8", line_width=2.4)
     stream += _pdf_line(margin, header_bottom + 22, width - margin, header_bottom + 22, color="CBD5E1", line_width=.8)
     if logo_image:
-        logo_box_size = 58
+        logo_box_size = 50
         scale = min(logo_box_size / logo_image["width"], logo_box_size / logo_image["height"])
         draw_width = logo_image["width"] * scale
         draw_height = logo_image["height"] * scale
@@ -508,32 +519,32 @@ def report_card_pdf_response(result, *, download=True):
     if len(name_lines) > 3:
         stream += _pdf_centered_text(text_x, text_width, name_y + 2, "...", size=10, bold=True, color="111827")
 
-    address_lines = wrap(institute_address, width=68)[:2] or [institute_address]
+    address_lines = wrap(institute_address, width=76)[:2] or [institute_address]
     address_y = max(name_y - 2, header_bottom + 48)
     for address_line in address_lines:
         stream += _pdf_centered_text(text_x, text_width, address_y, address_line, size=7.6, color="475569")
         address_y -= 9
 
-    for contact_line_part in wrap(contact_line, width=72)[:2]:
+    for contact_line_part in wrap(contact_line, width=78)[:2]:
         stream += _pdf_centered_text(text_x, text_width, address_y - 1, contact_line_part, size=7.6, color="334155")
         address_y -= 9
 
     stream += _pdf_centered_text(text_x, text_width, header_bottom + 8, "OFFICIAL RESULT | REPORT CARD", size=8.6, bold=True, color="6042C8")
 
-    y = header_bottom - 24
-    stream += _pdf_text(margin, y, assessment.title.upper(), size=12.5, bold=True, color="111827")
+    y = header_bottom - 20
+    stream += _pdf_fit_text(margin, y, assessment.title.upper(), width - (margin * 2), size=12.2, min_size=8.8, bold=True, color="111827")
     stream += _pdf_text(margin, y - 15, f"Academic Year: {assessment.academic_year_name_snapshot}    Class / Batch: {assessment.batch_name_snapshot}", size=8.5, color="475569")
 
-    y -= 34
-    stream += _pdf_rect(margin, y - 50, width - (margin * 2), 50, stroke="CBD5E1", fill="FFFFFF")
+    y -= 31
+    stream += _pdf_rect(margin, y - 44, width - (margin * 2), 44, stroke="CBD5E1", fill="FFFFFF")
     stream += _pdf_text(margin + 14, y - 15, "Student Name", size=6.8, bold=True, color="64748B")
-    stream += _pdf_text(margin + 14, y - 31, result.student_name_snapshot, size=9.3, bold=True)
+    stream += _pdf_fit_text(margin + 14, y - 31, result.student_name_snapshot, 210, size=9.3, min_size=7, bold=True)
     stream += _pdf_text(margin + 250, y - 15, "Admission Number", size=6.8, bold=True, color="64748B")
     stream += _pdf_text(margin + 250, y - 31, result.admission_number_snapshot, size=9.3, bold=True)
     stream += _pdf_text(margin + 410, y - 15, "Result Date", size=6.8, bold=True, color="64748B")
     stream += _pdf_text(margin + 410, y - 31, _display(assessment.result_date), size=9.3, bold=True)
 
-    y -= 72
+    y -= 63
     stream += _pdf_text(margin, y, "SUBJECT-WISE PERFORMANCE", size=10, bold=True, color="111827")
     y -= 15
     stream, y = draw_table_header(stream, y)
@@ -542,8 +553,9 @@ def report_card_pdf_response(result, *, download=True):
         page_number = len(pages) + 2
         current_stream = page_base(page_number)
         current_y = height - 58
-        current_stream += _pdf_text(margin, current_y, institute_name, size=9.4, bold=True, color="111827")
-        current_stream += _pdf_text(margin, current_y - 14, f"{assessment.title} | {result.student_name_snapshot} | {result.admission_number_snapshot}", size=8.2, color="475569")
+        for offset, line in enumerate(wrap(institute_name, width=70)[:2]):
+            current_stream += _pdf_fit_text(margin, current_y - (offset * 10), line, width - (margin * 2), size=9.2, min_size=7.4, bold=True, color="111827")
+        current_stream += _pdf_fit_text(margin, current_y - 22, f"{assessment.title} | {result.student_name_snapshot} | {result.admission_number_snapshot}", width - (margin * 2), size=8.0, min_size=6.6, color="475569")
         current_y -= 34
         current_stream += _pdf_text(margin, current_y, "SUBJECT-WISE PERFORMANCE CONTINUED", size=10, bold=True, color="111827")
         current_y -= 15
@@ -565,8 +577,9 @@ def report_card_pdf_response(result, *, download=True):
         percentage = subject_result.percentage if subject_result else "-"
         grade = subject_result.grade if subject_result else "-"
 
-        wrapped_components = wrap(component_text, width=50) or [component_text]
-        row_height = max(30, 16 + (len(wrapped_components) * 8))
+        wrapped_components = wrap(component_text, width=54) or [component_text]
+        subject_lines = wrap(subject.subject_name_snapshot, width=24)[:2] or [subject.subject_name_snapshot]
+        row_height = max(27, 14 + (max(len(wrapped_components), len(subject_lines)) * 7))
         if y - row_height < 76:
             pages.append(stream)
             stream, y = start_continued_subject_page()
@@ -576,25 +589,28 @@ def report_card_pdf_response(result, *, download=True):
             if x > table_x:
                 stream += _pdf_line(x, y, x, y - row_height, color="E5E7EB")
             x += col_w
-        stream += _pdf_text(table_x + 8, y - 17, subject.subject_name_snapshot, size=8.3, bold=True)
-        component_y = y - 16
+        subject_y = y - 15
+        for subject_line in subject_lines:
+            stream += _pdf_fit_text(table_x + 8, subject_y, subject_line, 128, size=7.8, min_size=6.4, bold=True)
+            subject_y -= 7
+        component_y = y - 14
         for component_line in wrapped_components:
-            stream += _pdf_text(table_x + 153, component_y, component_line, size=6.4, color="475569")
-            component_y -= 8
-        stream += _pdf_text(table_x + 318, y - 17, _display(marks), size=8.2, bold=True)
-        stream += _pdf_text(table_x + 382, y - 17, _display(max_marks), size=8.2)
-        stream += _pdf_text(table_x + 438, y - 17, _display(percentage), size=8.2)
-        stream += _pdf_text(table_x + 485, y - 17, _display(grade), size=8.2, bold=True, color="6042C8")
+            stream += _pdf_fit_text(table_x + 153, component_y, component_line, 154, size=6.2, min_size=5.6, color="475569")
+            component_y -= 7
+        stream += _pdf_fit_text(table_x + 318, y - 15, _display(marks), 52, size=7.8, min_size=6.4, bold=True)
+        stream += _pdf_fit_text(table_x + 382, y - 15, _display(max_marks), 44, size=7.8, min_size=6.4)
+        stream += _pdf_fit_text(table_x + 438, y - 15, _display(percentage), 36, size=7.8, min_size=6.4)
+        stream += _pdf_fit_text(table_x + 485, y - 15, _display(grade), 44, size=7.8, min_size=6.4, bold=True, color="6042C8")
         y -= row_height
 
-    summary_required_height = 168
+    summary_required_height = 142
     if y - summary_required_height < 76:
         pages.append(stream)
         page_number = len(pages) + 1
         stream = page_base(page_number)
         y = height - 70
-        stream += _pdf_text(margin, y, institute_name, size=9.4, bold=True, color="111827")
-        stream += _pdf_text(margin, y - 14, f"{assessment.title} | {result.student_name_snapshot} | {result.admission_number_snapshot}", size=8.2, color="475569")
+        stream += _pdf_fit_text(margin, y, institute_name, width - (margin * 2), size=9.4, min_size=7.4, bold=True, color="111827")
+        stream += _pdf_fit_text(margin, y - 14, f"{assessment.title} | {result.student_name_snapshot} | {result.admission_number_snapshot}", width - (margin * 2), size=8.2, min_size=6.6, color="475569")
         y -= 42
 
     y -= 18
@@ -606,11 +622,11 @@ def report_card_pdf_response(result, *, download=True):
     ]
     for index, (label, value, color) in enumerate(summary_boxes):
         x = margin + index * (box_width + 10)
-        stream += _pdf_rect(x, y - 42, box_width, 42, stroke="CBD5E1", fill="F8FAFC")
+        stream += _pdf_rect(x, y - 38, box_width, 38, stroke="CBD5E1", fill="F8FAFC")
         stream += _pdf_text(x + 10, y - 15, label, size=6.8, bold=True, color="64748B")
-        stream += _pdf_text(x + 10, y - 32, value, size=10.5, bold=True, color=color)
+        stream += _pdf_fit_text(x + 10, y - 30, value, box_width - 20, size=10.0, min_size=7, bold=True, color=color)
 
-    y -= 58
+    y -= 52
     result_color = "15803D" if result.result_status == "PASS" else "B91C1C" if result.result_status == "FAIL" else "C2410C"
     stream += _pdf_rect(margin, y - 27, width - (margin * 2), 27, stroke="CBD5E1", fill="F8FAFC")
     stream += _pdf_text(margin + 12, y - 18, f"Final Result: {result.get_result_status_display()}", size=10, bold=True, color=result_color)

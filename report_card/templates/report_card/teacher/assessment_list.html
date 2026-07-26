@@ -124,10 +124,10 @@
                         <td class="text-end">
                             <div class="d-inline-flex gap-1">
                                 <a class="btn btn-sm btn-outline-primary rc-btn rc-action-btn" href="{% url 'report_card:assessment_detail' assessment.pk %}" title="View assessment" aria-label="View assessment"><i class="bi bi-eye"></i></a>
-                                {% if assessment.first_assessment_subject %}
+                                {% if assessment.first_assessment_subject and assessment.first_assessment_subject_can_enter %}
                                     <a class="btn btn-sm btn-outline-success rc-btn rc-action-btn" href="{% url 'report_card:marks_entry' assessment.pk assessment.first_assessment_subject.pk %}" title="Enter marks" aria-label="Enter marks"><i class="bi bi-pencil-square"></i></a>
                                 {% else %}
-                                    <a class="btn btn-sm btn-outline-success rc-btn rc-action-btn disabled" href="#" title="Add subjects before marks entry" aria-label="Marks unavailable"><i class="bi bi-pencil-square"></i></a>
+                                    <a class="btn btn-sm btn-outline-secondary rc-btn rc-action-btn disabled" href="#" title="Marks entry is not open for your subject" aria-label="Marks unavailable"><i class="bi bi-lock"></i></a>
                                 {% endif %}
                                 <a class="btn btn-sm btn-outline-info rc-btn rc-action-btn" href="{% url 'report_card:completion_summary' assessment.pk %}" title="View subject completion" aria-label="View subject completion"><i class="bi bi-clipboard-check"></i></a>
                             </div>

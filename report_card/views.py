@@ -176,7 +176,7 @@ def _has_active_grade_rules(institute, academic_year=None):
     return rules.exists()
 
 
-def _assessments_missing_grade_rules(institute):
+def _assessments_missing_grade_rules(institute, academic_year=None):
     grade_sensitive_statuses = [
         ReportCardAssessment.Status.STRUCTURE_READY,
         ReportCardAssessment.Status.MARKS_ENTRY_OPEN,
@@ -192,6 +192,8 @@ def _assessments_missing_grade_rules(institute):
         .select_related("academic_year", "batch")
         .order_by("academic_year__start_date", "batch__name", "title")
     )
+    if academic_year:
+        assessments = assessments.filter(academic_year=academic_year)
     return [
         assessment
         for assessment in assessments
@@ -302,6 +304,11 @@ def assessment_list(request):
         assessment.first_assessment_subject = next(
             iter(get_teacher_accessible_assessment_subjects(request.user, assessment)),
             None,
+        )
+        assessment.first_assessment_subject_can_enter = (
+            teacher_can_enter_marks(request.user, assessment, assessment.first_assessment_subject)
+            if assessment.first_assessment_subject
+            else False
         )
 
     return render(
@@ -2023,7 +2030,7 @@ def grade_rule_list(request):
             "academic_year": academic_year,
             "has_active_default_rules": None in active_scope_ids,
             "academic_years_with_active_rules": active_scope_ids - {None},
-            "blank_grade_assessments": _assessments_missing_grade_rules(institute),
+            "blank_grade_assessments": _assessments_missing_grade_rules(institute, academic_year=academic_year),
             "default_rule_count": len(DEFAULT_GRADE_RULES),
         },
     )

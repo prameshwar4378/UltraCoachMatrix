@@ -3195,6 +3195,40 @@ class ReportCardFeatureTests(TestCase):
         self.assertContains(response, "Assessments That May Generate Blank Grades")
         self.assertContains(response, "Blank Grade Risk")
 
+    def test_grade_rule_list_blank_grade_warning_is_active_session_scoped(self):
+        admin_user = self._admin_user("grade-risk-session-admin")
+        active_assessment = self._assessment("Active Session Grade Risk")
+        self._subject(active_assessment, self.math)
+        future_batch = Batch.objects.create(institute=self.institute, academic_year=self.next_year, name="Future Grade Batch")
+        future_subject = Subject.objects.create(institute=self.institute, academic_year=self.next_year, name="Future Grade Subject")
+        future_assessment = create_assessment(
+            institute=self.institute,
+            academic_year=self.next_year,
+            batch=future_batch,
+            title="Future Session Grade Risk",
+            created_by=admin_user,
+        )
+        self._subject(future_assessment, future_subject)
+        self.client.force_login(admin_user)
+
+        response = self.client.get(reverse("report_card_admin:grade_rule_list"))
+
+        self.assertContains(response, "Active Session Grade Risk")
+        self.assertNotContains(response, "Future Session Grade Risk")
+
+    def test_admin_results_preview_warns_before_generation_and_links_grade_rules(self):
+        admin_user = self._admin_user("generation-warning-admin")
+        assessment = self._assessment("Warning Before Generation")
+        self._subject(assessment, self.math)
+        self.client.force_login(admin_user)
+
+        response = self.client.get(reverse("report_card_admin:results_preview", args=[assessment.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Generate Report Card Results?")
+        self.assertContains(response, "No active grade rules are configured")
+        self.assertContains(response, reverse("report_card_admin:grade_rule_list"))
+
     def test_teacher_cannot_manage_report_card_grade_rules(self):
         self.client.force_login(self.teacher)
 
