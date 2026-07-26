@@ -41,6 +41,11 @@ MARKS_EDIT_STATUSES = {
     ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED,
     ReportCardAssessment.Status.GENERATED,
 }
+MARKS_CLOSE_STATUSES = {
+    ReportCardAssessment.Status.MARKS_ENTRY_OPEN,
+    ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED,
+    ReportCardAssessment.Status.GENERATED,
+}
 
 
 def _actor_role(actor):
@@ -644,6 +649,36 @@ def reopen_marks_entry(assessment, *, actor=None, reason="", assessment_subject=
 
 
 @transaction.atomic
+def close_marks_entry_for_structure_edit(assessment, *, actor=None, reason=""):
+    if not _actor_can_admin_manage_marks(actor, assessment):
+        raise ValidationError("Only institute admin can close report-card marks entry.")
+    assessment = ReportCardAssessment.objects.select_for_update().get(pk=assessment.pk)
+    if assessment.is_deleted:
+        raise ValidationError("Deleted assessments cannot be closed for structure editing.")
+    if assessment.status in EDIT_BLOCKED_STATUSES:
+        raise ValidationError("Published or locked assessments cannot be closed for structure editing.")
+    if assessment.status not in MARKS_CLOSE_STATUSES:
+        raise ValidationError("Marks entry can be closed only after marks entry has been opened.")
+
+    previous_status = assessment.status
+    assessment.status = ReportCardAssessment.Status.STRUCTURE_READY
+    assessment.save(update_fields=["status", "updated_at"])
+    ReportCardStudentResult.objects.filter(assessment=assessment).update(is_stale=True, published_at=None)
+    write_audit_log(
+        assessment,
+        ReportCardAuditLog.Action.STRUCTURE_CHANGED,
+        actor=actor,
+        message="Marks entry closed for structure editing.",
+        metadata={
+            "previous_status": previous_status,
+            "new_status": assessment.status,
+            "reason": (reason or "").strip(),
+        },
+    )
+    return assessment
+
+
+@transaction.atomic
 def bulk_save_subject_marks(assessment_subject, mark_rows, *, actor=None):
     assessment = assessment_subject.assessment
     _enforce_marks_save_permission(assessment_subject, actor)
@@ -655,11 +690,14 @@ def bulk_save_subject_marks(assessment_subject, mark_rows, *, actor=None):
     active_session_ids = list(get_active_student_sessions_for_assessment(assessment).values_list("pk", flat=True))
     active_sessions = {
         session.pk: session
-        for session in StudentAcademicSession.objects.select_for_update()
-        .filter(pk__in=active_session_ids)
-        .select_related("student", "student__user", "academic_year", "institute")
+        for session in StudentAcademicSession.objects.filter(pk__in=active_session_ids).select_related(
+            "student",
+            "student__user",
+            "academic_year",
+            "institute",
+        )
     }
-    components = list(get_assessment_subject_components(assessment_subject).select_for_update())
+    components = list(get_assessment_subject_components(assessment_subject))
     saved_entries = []
     for row in mark_rows:
         session = _row_session_from_payload(row, active_sessions)

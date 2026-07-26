@@ -53,11 +53,6 @@ def _is_institute_admin(user):
     return bool(profile and profile.role == UserProfile.Role.INSTITUTE_ADMIN)
 
 
-def _is_accountant_manager(user):
-    profile = _user_profile(user)
-    return bool(profile and profile.role == UserProfile.Role.ACCOUNTANT)
-
-
 def _is_student_parent(user):
     profile = _user_profile(user)
     return bool(profile and profile.role == UserProfile.Role.STUDENT_PARENT)
@@ -98,7 +93,7 @@ def admin_can_manage_assessment(user, assessment):
         return False
     if getattr(user, "is_superuser", False):
         return True
-    if not (_is_institute_admin(user) or _is_accountant_manager(user)):
+    if not _is_institute_admin(user):
         return False
     return _same_institute(user, assessment.institute_id)
 

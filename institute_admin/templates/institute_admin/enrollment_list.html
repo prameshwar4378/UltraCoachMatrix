@@ -312,13 +312,23 @@
             </div>
             <div class="modal-body p-4">
                 <h6 class="fw-bold mb-2">Are you sure you want to delete this enrollment?</h6>
-                <p class="mb-0"><strong id="deleteEnrollmentName"></strong> will be removed.</p>
+                <p><strong id="deleteEnrollmentName"></strong> will be removed.</p>
+                <div class="alert alert-danger mb-3">
+                    This will permanently delete this enrollment, its linked fee invoices, payment transactions, and payment activity records.
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="accepted" id="deleteEnrollmentAcceptTerms" name="accept_delete_terms" form="deleteEnrollmentForm">
+                    <label class="form-check-label fw-semibold" for="deleteEnrollmentAcceptTerms">
+                        I understand and accept that this enrollment and its related records will be permanently deleted.
+                    </label>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-light border" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancel</button>
                 <form method="post" id="deleteEnrollmentForm" class="m-0">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash"></i> Delete Enrollment</button>
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="btn btn-danger" id="deleteEnrollmentSubmit" disabled><i class="bi bi-trash"></i> Delete Enrollment</button>
                 </form>
             </div>
         </div>
@@ -469,8 +479,21 @@
     function openDeleteEnrollmentModal(button) {
         document.getElementById("deleteEnrollmentForm").action = button.dataset.deleteUrl;
         document.getElementById("deleteEnrollmentName").textContent = button.dataset.enrollmentName || "this enrollment";
+        const acceptTerms = document.getElementById("deleteEnrollmentAcceptTerms");
+        const submitButton = document.getElementById("deleteEnrollmentSubmit");
+        if (acceptTerms && submitButton) {
+            acceptTerms.checked = false;
+            submitButton.disabled = true;
+        }
         const modal = new bootstrap.Modal(document.getElementById("deleteEnrollmentModal"));
         modal.show();
+    }
+
+    const deleteEnrollmentAcceptTerms = document.getElementById("deleteEnrollmentAcceptTerms");
+    if (deleteEnrollmentAcceptTerms) {
+        deleteEnrollmentAcceptTerms.addEventListener("change", function () {
+            document.getElementById("deleteEnrollmentSubmit").disabled = !this.checked;
+        });
     }
 </script>
 {% endblock content %}

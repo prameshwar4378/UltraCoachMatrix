@@ -52,7 +52,9 @@
                 <div style="grid-column: 1 / -1;"><label class="form-label"><i class="bi bi-journal-bookmark"></i> Courses</label>{{ form.courses }}{{ form.courses.errors }}<small class="text-muted">Courses will be selected automatically after choosing a batch.</small></div>
                 <div><label class="form-label"><i class="bi bi-calendar-check"></i> Enrolled On</label>{{ form.enrolled_on }}{{ form.enrolled_on.errors }}</div>
                 <div><label class="form-label"><i class="bi bi-toggle-on"></i> Status</label>{{ form.status }}{{ form.status.errors }}</div>
-                <div><label class="form-label"><i class="bi bi-cash-coin"></i> Enrollment Fee</label>{{ form.custom_fee_amount }}{{ form.custom_fee_amount.errors }}<small class="text-muted">Auto-filled from selected courses. You can change it for discount or special fee.</small></div>
+                <div><label class="form-label"><i class="bi bi-cash-coin"></i> Fees</label>{{ form.custom_fee_amount }}{{ form.custom_fee_amount.errors }}<small class="text-muted">Auto-filled from selected courses.</small></div>
+                <div><label class="form-label"><i class="bi bi-percent"></i> Discount</label>{{ form.fee_discount }}{{ form.fee_discount.errors }}</div>
+                <div><label class="form-label"><i class="bi bi-wallet2"></i> Final Amount</label>{{ form.final_fee_amount }}{{ form.final_fee_amount.errors }}</div>
             </div>
         </div>
         <div class="form-actions">
@@ -71,10 +73,16 @@
     const batchSelect = document.getElementById("id_batch");
     const courseSelect = document.getElementById("id_courses");
     const feeInput = document.getElementById("id_custom_fee_amount");
-    let feeEditedByUser = Boolean(feeInput && feeInput.value);
+    const discountInput = document.getElementById("id_fee_discount");
+    const finalFeeInput = document.getElementById("id_final_fee_amount");
 
     function formatFee(amount) {
         return Number(amount || 0).toFixed(2);
+    }
+
+    function parseFee(value) {
+        const parsed = Number.parseFloat(value);
+        return Number.isFinite(parsed) ? parsed : 0;
     }
 
     function selectedCourseIds() {
@@ -88,10 +96,24 @@
     }
 
     function updateFee(force = false) {
-        if (!feeInput || (!force && feeEditedByUser)) {
+        if (!feeInput) {
+            updateFinalFee();
             return;
         }
         feeInput.value = formatFee(feeForCourseIds(selectedCourseIds()));
+        updateFinalFee();
+    }
+
+    function updateFinalFee() {
+        if (!feeInput || !finalFeeInput) {
+            return;
+        }
+        const fee = parseFee(feeInput.value);
+        const discount = parseFee(discountInput ? discountInput.value : 0);
+        finalFeeInput.value = formatFee(Math.max(fee - discount, 0));
+        if (discountInput) {
+            discountInput.max = fee.toFixed(2);
+        }
     }
 
     function applyBatchCourses() {
@@ -107,7 +129,6 @@
             option.disabled = !isAllowed;
         });
 
-        feeEditedByUser = false;
         updateFee(true);
     }
 
@@ -120,19 +141,19 @@
         Array.from(courseSelect.options).forEach((option) => {
             option.disabled = option.value && !allowedIds.has(option.value);
         });
-        updateFee(false);
+        updateFee();
     }
 
     if (batchSelect && courseSelect && feeInput) {
         batchSelect.addEventListener("change", applyBatchCourses);
         courseSelect.addEventListener("change", function () {
-            feeEditedByUser = false;
             updateFee(true);
         });
-        feeInput.addEventListener("input", function () {
-            feeEditedByUser = true;
-        });
+        if (discountInput) {
+            discountInput.addEventListener("input", updateFinalFee);
+        }
         keepOnlyBatchCoursesOnLoad();
+        updateFinalFee();
     }
 </script>
 <script src="/static/js/form-submit-lock.js"></script>

@@ -22,10 +22,15 @@
     .rc-status-progress { background:#dbeafe; color:#1d4ed8; }
     .rc-status-pending { background:#ffedd5; color:#c2410c; }
     .rc-status-not-started { background:#f1f5f9; color:#475569; }
+    .rc-status-closed { background:#e5e7eb; color:#374151; }
     .rc-status-help { display:block; margin-top:4px; color:var(--muted); font-size:.75rem; font-weight:700; }
     .rc-btn { border-radius:8px; font-weight:800; }
     .btn-gradient { background:linear-gradient(135deg,var(--primary),var(--dark)); color:#fff; border:none; border-radius:8px; padding:10px 16px; font-weight:800; }
     .btn-gradient:hover { color:#fff; transform:translateY(-1px); }
+    .rc-filter-strip { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+    .rc-filter-chip { border:1px solid var(--border); color:#475569; background:#fff; border-radius:999px; padding:8px 12px; font-size:.85rem; font-weight:850; text-decoration:none; }
+    .rc-filter-chip.active { border-color:var(--primary); background:#f1edff; color:var(--dark); }
+    .rc-enter-btn { min-width:96px; }
     @media(max-width: 992px) { .rc-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media(max-width: 576px) { .rc-grid { grid-template-columns:1fr; } }
 </style>
@@ -45,6 +50,14 @@
         <div class="rc-stat" style="--stat-color:#dc2626; --stat-soft:#fee2e2;"><div class="rc-stat-icon"><i class="bi bi-exclamation-circle"></i></div><strong>{{ summary.missing_mark_count }}</strong><span>Missing Marks</span></div>
         <div class="rc-stat" style="--stat-color:#16a34a; --stat-soft:#dcfce7;"><div class="rc-stat-icon"><i class="bi bi-person-check"></i></div><strong>{{ summary.subject_count }}</strong><span>My Subjects</span></div>
     </div>
+    <div class="rc-filter-strip">
+        <a class="rc-filter-chip {% if not mark_status_filter %}active{% endif %}" href="{% url 'report_card:assessment_detail' assessment.pk %}">All {{ mark_status_counts.ALL }}</a>
+        <a class="rc-filter-chip {% if mark_status_filter == 'PENDING' %}active{% endif %}" href="?mark_status=PENDING">Pending {{ mark_status_counts.NOT_STARTED|add:mark_status_counts.IN_PROGRESS }}</a>
+        <a class="rc-filter-chip {% if mark_status_filter == 'NOT_STARTED' %}active{% endif %}" href="?mark_status=NOT_STARTED">Not Started {{ mark_status_counts.NOT_STARTED }}</a>
+        <a class="rc-filter-chip {% if mark_status_filter == 'IN_PROGRESS' %}active{% endif %}" href="?mark_status=IN_PROGRESS">In Progress {{ mark_status_counts.IN_PROGRESS }}</a>
+        <a class="rc-filter-chip {% if mark_status_filter == 'COMPLETE' %}active{% endif %}" href="?mark_status=COMPLETE">Complete {{ mark_status_counts.COMPLETE }}</a>
+        <a class="rc-filter-chip {% if mark_status_filter == 'CLOSED' %}active{% endif %}" href="?mark_status=CLOSED">Closed {{ mark_status_counts.CLOSED }}</a>
+    </div>
     <div class="rc-card table-responsive">
         <table class="table rc-table">
             <thead><tr><th>Subject</th><th>Max</th><th>Passing</th><th>Weightage</th><th>Optional</th><th>In Total</th><th>Status</th><th class="text-end">Marks</th></tr></thead>
@@ -58,12 +71,18 @@
                         <td>{{ subject.is_optional|yesno:"Yes,No" }}</td>
                         <td>{{ subject.include_in_total|yesno:"Yes,No" }}</td>
                         <td>
-                            <span class="rc-status-pill {% if subject.marks_status == 'COMPLETED' %}rc-status-completed{% elif subject.marks_status == 'IN_PROGRESS' %}rc-status-progress{% elif subject.marks_status == 'PENDING' %}rc-status-pending{% else %}rc-status-not-started{% endif %}">
+                            <span class="rc-status-pill {% if subject.marks_status == 'COMPLETE' %}rc-status-completed{% elif subject.marks_status == 'IN_PROGRESS' %}rc-status-progress{% elif subject.marks_status == 'CLOSED' %}rc-status-closed{% else %}rc-status-not-started{% endif %}">
                                 {{ subject.marks_status_label }}
                             </span>
                             <span class="rc-status-help">{{ subject.marks_entered_count }} / {{ subject.marks_expected_count }} entered</span>
                         </td>
-                        <td class="text-end"><a class="btn btn-sm btn-outline-primary rc-btn" href="{% url 'report_card:marks_entry' assessment.pk subject.pk %}">Enter</a></td>
+                        <td class="text-end">
+                            {% if subject.can_enter_marks %}
+                                <a class="btn btn-sm btn-primary rc-btn rc-enter-btn" href="{% url 'report_card:marks_entry' assessment.pk subject.pk %}"><i class="bi bi-pencil-square me-1"></i> Enter</a>
+                            {% else %}
+                                <button class="btn btn-sm btn-light border rc-btn rc-enter-btn" type="button" disabled><i class="bi bi-lock me-1"></i> Closed</button>
+                            {% endif %}
+                        </td>
                     </tr>
                 {% empty %}
                     <tr><td colspan="8" class="text-center text-muted p-4">No subjects configured.</td></tr>

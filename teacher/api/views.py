@@ -16,7 +16,7 @@ from rest_framework.views import APIView
 
 from institute_admin.models import Course, NoticeRead, Subject
 from report_card.models import ReportCardAssessment
-from report_card.selectors import get_teacher_accessible_assessments
+from report_card.selectors import get_active_academic_year_for_request, get_teacher_accessible_assessments
 from student_parent.notifications import notify_exam_results_declared
 from student_parent.models import StudentAcademicSession, StudentEnrollment
 from ..models import Attendance, Exam, ExamAttempt, ExamQuestion, ExamQuestionAttempt, ExamQuestionOption, ExamResult, Homework, HomeworkAttachment
@@ -119,7 +119,10 @@ class TeacherDashboardAPI(TeacherMobileAPIView):
         marked_count = today_attendance.count()
         attempts_qs = ExamAttempt.objects.filter(exam__in=exam_qs)
         submitted_attempts = attempts_qs.filter(submitted_at__isnull=False)
-        report_card_qs = get_teacher_accessible_assessments(request.user)
+        report_card_qs = get_teacher_accessible_assessments(
+            request.user,
+            academic_year=get_active_academic_year_for_request(request),
+        )
         report_card_status_counts = {
             status_value: report_card_qs.filter(status=status_value).count()
             for status_value, _status_label in ReportCardAssessment.Status.choices

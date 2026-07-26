@@ -36,6 +36,7 @@ urlpatterns = [
     path("assessments/<int:assessment_id>/results/lock/", views.admin_lock_assessment, name="lock_assessment"),
     path("assessments/<int:assessment_id>/structure/", views.admin_assessment_structure, name="assessment_structure"),
     path("assessments/<int:assessment_id>/open-marks-entry/", views.admin_open_marks_entry, name="open_marks_entry"),
+    path("assessments/<int:assessment_id>/close-marks-entry/", views.admin_close_marks_entry, name="close_marks_entry"),
     path("assessments/<int:assessment_id>/reopen-marks-entry/", views.admin_reopen_marks_entry, name="reopen_marks_entry"),
     path(
         "assessments/<int:assessment_id>/subjects/<int:assessment_subject_id>/reopen-marks-entry/",

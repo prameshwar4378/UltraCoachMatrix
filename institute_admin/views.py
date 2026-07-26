@@ -9740,11 +9740,32 @@ def enrollment_delete(request, pk):
     enrollment = get_object_or_404(queryset, pk=pk)
 
     if request.method == "POST":
-        if enrollment.fee_invoices.exists():
-            messages.error(request, "This enrollment has fee invoices. Cancel it instead of deleting.")
+        redirect_to = request.POST.get("next") or reverse("institute_admin:enrollment_list")
+        if not redirect_to.startswith("/") or redirect_to.startswith("//"):
+            redirect_to = reverse("institute_admin:enrollment_list")
+
+        if request.POST.get("accept_delete_terms") != "accepted":
+            messages.error(
+                request,
+                "Accept the deletion condition before deleting the enrollment and related fee records.",
+            )
+            return redirect(redirect_to)
+
+        try:
+            with transaction.atomic():
+                fee_invoices = enrollment.fee_invoices.all()
+                invoice_count = fee_invoices.count()
+                payment_count = Payment.objects.filter(invoice__in=fee_invoices).count()
+                fee_invoices.delete()
+                enrollment.delete()
+        except ProtectedError:
+            messages.error(request, "This enrollment has protected linked records and could not be deleted.")
         else:
-            enrollment.delete()
-            messages.success(request, "Enrollment deleted successfully.")
+            detail = ""
+            if invoice_count or payment_count:
+                detail = f" Removed {invoice_count} fee invoice(s) and {payment_count} payment transaction(s)."
+            messages.success(request, f"Enrollment deleted successfully.{detail}")
+        return redirect(redirect_to)
 
     return redirect("institute_admin:enrollment_list")
 

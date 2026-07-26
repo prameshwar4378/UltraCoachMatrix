@@ -2525,6 +2525,18 @@ class NoticeForm(forms.ModelForm):
 
 
 class StudentEnrollmentForm(forms.ModelForm):
+    fee_discount = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+        required=False,
+    )
+    final_fee_amount = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+    )
+
     class Meta:
         model = StudentEnrollment
         fields = ("student", "batch", "courses", "enrolled_on", "status", "custom_fee_amount")
@@ -2577,8 +2589,28 @@ class StudentEnrollmentForm(forms.ModelForm):
         self.fields["courses"].required = True
         self.fields["student"].label_from_instance = lambda student: session_label_map.get(student.pk, str(student))
         self.fields["batch"].label_from_instance = lambda batch: f"{batch.name} ({batch.total_course_fee})"
+        self.fields["custom_fee_amount"].label = "Fees"
         self.fields["custom_fee_amount"].widget.attrs.setdefault("min", "0")
         self.fields["custom_fee_amount"].widget.attrs.setdefault("step", "0.01")
+        self.fields["custom_fee_amount"].widget.attrs.setdefault("placeholder", "0.00")
+        self.fields["custom_fee_amount"].widget.attrs.setdefault("readonly", "readonly")
+        self.fields["fee_discount"].widget.attrs.setdefault("min", "0")
+        self.fields["fee_discount"].widget.attrs.setdefault("step", "0.01")
+        self.fields["fee_discount"].widget.attrs.setdefault("placeholder", "0.00")
+        self.fields["final_fee_amount"].widget.attrs.setdefault("readonly", "readonly")
+        self.fields["final_fee_amount"].widget.attrs.setdefault("placeholder", "0.00")
+
+        if self.instance and self.instance.pk:
+            selected_courses = list(self.instance.courses.all())
+            base_fee_amount = sum((course.fee_amount for course in selected_courses), Decimal("0.00"))
+            final_fee_amount = (
+                self.instance.custom_fee_amount
+                if self.instance.custom_fee_amount is not None
+                else base_fee_amount
+            )
+            self.initial["custom_fee_amount"] = base_fee_amount
+            self.initial["fee_discount"] = max(base_fee_amount - final_fee_amount, Decimal("0.00"))
+            self.initial["final_fee_amount"] = final_fee_amount
 
         for field in self.fields.values():
             if isinstance(field.widget, forms.CheckboxInput):
@@ -2597,6 +2629,10 @@ class StudentEnrollmentForm(forms.ModelForm):
         batch = cleaned_data.get("batch")
         courses = cleaned_data.get("courses")
         custom_fee_amount = cleaned_data.get("custom_fee_amount")
+        fee_discount = cleaned_data.get("fee_discount") or Decimal("0.00")
+        uses_discount_fields = self.data and (
+            "fee_discount" in self.data or "final_fee_amount" in self.data
+        )
 
         if student and batch:
             queryset = StudentEnrollment.objects.filter(student=student, batch=batch)
@@ -2618,7 +2654,24 @@ class StudentEnrollmentForm(forms.ModelForm):
                 raise ValidationError("Selected courses must belong to the selected academic year.")
 
         if custom_fee_amount is not None and custom_fee_amount < 0:
-            raise ValidationError("Custom fee cannot be negative.")
+            self.add_error("custom_fee_amount", "Fees cannot be negative.")
+
+        if fee_discount < Decimal("0.00"):
+            self.add_error("fee_discount", "Discount cannot be negative.")
+
+        if uses_discount_fields:
+            base_fee_amount = (
+                sum((course.fee_amount for course in courses), Decimal("0.00"))
+                if courses
+                else Decimal("0.00")
+            )
+
+            if fee_discount > base_fee_amount:
+                self.add_error("fee_discount", "Discount cannot be greater than the fees.")
+
+            final_fee_amount = max(base_fee_amount - fee_discount, Decimal("0.00"))
+            cleaned_data["final_fee_amount"] = final_fee_amount
+            cleaned_data["custom_fee_amount"] = final_fee_amount
 
         if self.instance and self.instance.pk:
             active_paid_amount = (
@@ -2641,8 +2694,8 @@ class StudentEnrollmentForm(forms.ModelForm):
                 if status == StudentEnrollment.Status.CANCELLED:
                     raise ValidationError("Enrollment with active payments cannot be cancelled. Void payments first.")
 
-                if custom_fee_amount is not None:
-                    new_total_fee = custom_fee_amount
+                if cleaned_data.get("custom_fee_amount") is not None:
+                    new_total_fee = cleaned_data["custom_fee_amount"]
                 elif courses:
                     new_total_fee = sum(course.fee_amount for course in courses)
                 else:

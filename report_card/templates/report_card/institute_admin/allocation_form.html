@@ -19,6 +19,10 @@
     .help-text { color:#64748b; font-size:.82rem; font-weight:700; margin-top:5px; }
     .allocation-table-wrap { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:#fff; }
     .allocation-table { width:100%; margin:0; }
+    .allocation-toolbar { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+    .allocation-batch-field { flex:1 1 420px; max-width:620px; }
+    .allocation-hint { display:flex; align-items:flex-start; gap:10px; flex:1 1 280px; color:#64748b; font-size:.86rem; font-weight:750; line-height:1.45; }
+    .allocation-hint i { color:var(--primary); margin-top:2px; }
     .allocation-table th { background:#f8fafc; color:#334155; font-size:.75rem; letter-spacing:.04em; text-transform:uppercase; padding:12px; }
     .allocation-table td { padding:10px 12px; vertical-align:middle; border-top:1px solid #eef2f7; }
     .row-number { width:70px; font-weight:900; color:#0f172a; }
@@ -26,6 +30,10 @@
     .btn-danger-soft { background:#e63946; color:#fff; border:none; border-radius:8px; width:42px; height:42px; display:inline-grid; place-items:center; }
     .btn-add-row { margin-top:14px; float:right; }
     .empty-row td { text-align:center; color:#64748b; font-weight:800; padding:24px; }
+    .duplicate-row td { background:#fff7ed; }
+    .duplicate-row .form-select { border-color:#fb923c; }
+    .row-error { color:#c2410c; font-size:.78rem; font-weight:800; margin-top:5px; display:none; }
+    .duplicate-row .row-error { display:block; }
     @media(max-width:768px){ .rc-body, .rc-head { padding:18px; } }
 </style>
 
@@ -35,7 +43,7 @@
         <div class="rc-head">
             <h2>{{ page_title }}</h2>
             {% if bulk_mode %}
-                <p>Select one class, add subject-teacher rows locally, then save all allocations in one bulk action.</p>
+                <p>Select one class, add subject-teacher rows locally, then save all marks-entry permissions in one bulk action.</p>
             {% else %}
                 <p>Assign one teacher to one class and subject for report-card marks entry.</p>
             {% endif %}
@@ -48,8 +56,8 @@
         <form method="post" class="rc-body" id="bulkAllocationForm">
             {% csrf_token %}
             {% for error in bulk_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
-            <div class="row g-3 align-items-end mb-4">
-                <div class="col-md-7">
+            <div class="allocation-toolbar">
+                <div class="allocation-batch-field">
                     <label class="form-label fw-bold" for="id_batch">Class / batch</label>
                     <select class="form-select" id="id_batch" name="batch" required>
                         <option value="">Select class / batch</option>
@@ -58,6 +66,10 @@
                         {% endfor %}
                     </select>
                     <div class="help-text">Choose class once. Add all subject-teacher allocations below.</div>
+                </div>
+                <div class="allocation-hint">
+                    <i class="bi bi-shield-check"></i>
+                    <span>Only active-session subjects and teachers from this institute are available. Teachers can enter marks only for saved rows.</span>
                 </div>
             </div>
 
@@ -162,7 +174,7 @@
                 tbody.innerHTML = rows.map((row, index) => `
                     <tr>
                         <td class="row-number">${index + 1}<input type="hidden" class="allocation-id" value="${escapeHtml(row.id)}"></td>
-                        <td><select class="form-select subject-select" required>${optionHtml(subjects, row.subject_id, 'Select subject')}</select></td>
+                        <td><select class="form-select subject-select" required>${optionHtml(subjects, row.subject_id, 'Select subject')}</select><div class="row-error">This subject is already selected for this class.</div></td>
                         <td><select class="form-select teacher-select" required>${optionHtml(teachers, row.teacher_id, 'Select teacher')}</select></td>
                         <td class="action-cell"><button class="btn-danger-soft remove-row" type="button" title="Delete row"><i class="bi bi-trash"></i></button></td>
                     </tr>
@@ -176,11 +188,31 @@
                 tbody.querySelectorAll('.remove-row').forEach((button, index) => {
                     button.addEventListener('click', () => removeRow(index));
                 });
+                markDuplicateRows();
                 syncHidden();
             }
 
             function syncHidden(){
+                markDuplicateRows();
                 hiddenInput.value = JSON.stringify(rows);
+            }
+
+            function markDuplicateRows(){
+                const seen = new Map();
+                rows.forEach((row, index) => {
+                    if (!row.subject_id) return;
+                    const current = seen.get(row.subject_id) || [];
+                    current.push(index);
+                    seen.set(row.subject_id, current);
+                });
+                tbody.querySelectorAll('tr').forEach((tr) => tr.classList.remove('duplicate-row'));
+                seen.forEach((indexes) => {
+                    if (indexes.length < 2) return;
+                    indexes.forEach((index) => {
+                        const row = tbody.querySelectorAll('tr')[index];
+                        if (row) row.classList.add('duplicate-row');
+                    });
+                });
             }
 
             batchSelect.addEventListener('change', function(){

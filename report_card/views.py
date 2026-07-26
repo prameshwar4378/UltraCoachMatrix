@@ -49,6 +49,8 @@ from .permissions import (
     teacher_has_subject_allocation,
 )
 from .selectors import (
+    get_active_academic_year_for_institute,
+    get_active_academic_year_for_request,
     get_assessment_subjects,
     get_assessment_subject_components,
     get_completion_summary,
@@ -57,7 +59,6 @@ from .selectors import (
     get_marks_grid,
     get_published_results_for_student,
     get_result_subject_rows,
-    get_selected_academic_year,
     get_teacher_assigned_batches,
     get_teacher_accessible_assessment_subjects,
     get_teacher_accessible_assessments,
@@ -68,6 +69,7 @@ from .services import (
     add_assessment_subject,
     add_assessment_subject_component,
     bulk_save_subject_marks,
+    close_marks_entry_for_structure_edit,
     create_assessment,
     generate_assessment_results,
     get_assessment_delete_impact,
@@ -150,6 +152,14 @@ def _marks_entry_closed_message(assessment):
     )
 
 
+def _can_admin_close_marks_entry(user, assessment):
+    return admin_can_manage_assessment(user, assessment) and assessment.status in {
+        ReportCardAssessment.Status.MARKS_ENTRY_OPEN,
+        ReportCardAssessment.Status.MARKS_ENTRY_COMPLETED,
+        ReportCardAssessment.Status.GENERATED,
+    }
+
+
 def _safe_exception_message(error):
     message = str(error).strip()
     if len(message) > 180:
@@ -205,7 +215,7 @@ def _close_report_card_popup_response(fallback_url="/teacher/report-cards/"):
 
 
 def _teacher_assessment_queryset(request):
-    academic_year = get_selected_academic_year(request)
+    academic_year = get_active_academic_year_for_request(request)
     return get_teacher_accessible_assessments(request.user, academic_year=academic_year)
 
 
@@ -243,9 +253,22 @@ def _teacher_own_completion_summary(user, assessment):
     return summary
 
 
+def _subject_marks_status(assessment, subject_summary):
+    expected_count = subject_summary.get("expected_mark_count", 0)
+    entered_count = subject_summary.get("entered_mark_count", 0)
+    missing_count = subject_summary.get("missing_mark_count", 0)
+    if assessment.status not in MARKS_ENTRY_STATUSES:
+        return "CLOSED", "Closed"
+    if expected_count == 0 or entered_count == 0:
+        return "NOT_STARTED", "Not Started"
+    if missing_count == 0:
+        return "COMPLETE", "Complete"
+    return "IN_PROGRESS", "In Progress"
+
+
 @teacher_required
 def assessment_list(request):
-    academic_year = get_selected_academic_year(request)
+    academic_year = get_active_academic_year_for_request(request)
     assessments = get_teacher_accessible_assessments(request.user, academic_year=academic_year)
     batch_options = get_teacher_allocated_batches(request.user, academic_year=academic_year)
     all_assigned_batches = get_teacher_allocated_batches(request.user)
@@ -316,10 +339,12 @@ def assessment_detail(request, assessment_id):
     assessment = _get_teacher_assessment(request, assessment_id)
     subjects = list(get_teacher_accessible_assessment_subjects(request.user, assessment))
     summary = _teacher_own_completion_summary(request.user, assessment)
+    mark_status_filter = (request.GET.get("mark_status") or "").strip().upper()
     subject_summary_by_id = {
         item["assessment_subject"].pk: item
         for item in summary.get("subjects", [])
     }
+    status_counts = {"ALL": len(subjects), "NOT_STARTED": 0, "IN_PROGRESS": 0, "COMPLETE": 0, "CLOSED": 0}
     for subject in subjects:
         subject_summary = subject_summary_by_id.get(subject.pk, {})
         missing_count = subject_summary.get("missing_mark_count", 0)
@@ -328,18 +353,14 @@ def assessment_detail(request, assessment_id):
         subject.marks_missing_count = missing_count
         subject.marks_entered_count = entered_count
         subject.marks_expected_count = expected_count
-        if expected_count == 0:
-            subject.marks_status = "NOT_STARTED"
-            subject.marks_status_label = "Not started"
-        elif missing_count == 0:
-            subject.marks_status = "COMPLETED"
-            subject.marks_status_label = "Completed"
-        elif entered_count > 0:
-            subject.marks_status = "IN_PROGRESS"
-            subject.marks_status_label = "In progress"
-        else:
-            subject.marks_status = "PENDING"
-            subject.marks_status_label = "Pending"
+        subject.marks_status, subject.marks_status_label = _subject_marks_status(assessment, subject_summary)
+        subject.can_enter_marks = teacher_can_enter_marks(request.user, assessment, subject)
+        if subject.marks_status in status_counts:
+            status_counts[subject.marks_status] += 1
+    if mark_status_filter == "PENDING":
+        subjects = [subject for subject in subjects if subject.marks_status in {"NOT_STARTED", "IN_PROGRESS"}]
+    elif mark_status_filter in {"NOT_STARTED", "IN_PROGRESS", "COMPLETE", "CLOSED"}:
+        subjects = [subject for subject in subjects if subject.marks_status == mark_status_filter]
     return render(
         request,
         "report_card/teacher/assessment_detail.html",
@@ -347,6 +368,8 @@ def assessment_detail(request, assessment_id):
             "assessment": assessment,
             "subjects": subjects,
             "summary": summary,
+            "mark_status_filter": mark_status_filter,
+            "mark_status_counts": status_counts,
         },
     )
 
@@ -569,7 +592,23 @@ def marks_entry_import(request, assessment_id, assessment_subject_id):
         messages.error(request, "Please upload the .xlsx marks template.")
         return redirect("report_card:marks_entry", assessment_id=assessment.pk, assessment_subject_id=assessment_subject.pk)
 
-    result = import_marks_workbook(assessment_subject, upload, actor=request.user)
+    try:
+        result = import_marks_workbook(assessment_subject, upload, actor=request.user)
+    except Exception as error:
+        logger.exception(
+            "Report-card Excel marks import failed for assessment_id=%s assessment_subject_id=%s user_id=%s",
+            assessment_id,
+            assessment_subject_id,
+            request.user.pk,
+        )
+        messages.error(
+            request,
+            "Unable to import marks right now. "
+            f"Technical reason: {_safe_exception_message(error)}. "
+            "Please verify the template and try again.",
+        )
+        return redirect("report_card:marks_entry", assessment_id=assessment.pk, assessment_subject_id=assessment_subject.pk)
+
     if result["errors"]:
         for error in result["errors"][:10]:
             row_label = f"Row {error['row']}: " if error["row"] else ""
@@ -675,6 +714,9 @@ def _student_from_request(request):
 
 def _selected_student_session(student, request):
     sessions = StudentAcademicSession.objects.filter(student=student).select_related("academic_year", "institute")
+    active_year = get_active_academic_year_for_institute(getattr(student, "institute", None))
+    if active_year:
+        sessions = sessions.filter(academic_year=active_year)
     return sessions.filter(status=StudentAcademicSession.Status.ACTIVE).order_by("-academic_year__start_date", "-pk").first()
 
 
@@ -771,7 +813,7 @@ def _get_admin_deleted_assessment(request, assessment_id):
 def admin_assessment_list(request):
     institute = _admin_institute(request)
     assessments = _admin_assessment_queryset(request)
-    current_academic_year = get_selected_academic_year(request)
+    current_academic_year = get_active_academic_year_for_request(request)
     batches = institute.batches.filter(is_active=True).select_related("academic_year").order_by("academic_year__start_date", "name") if institute else Batch.objects.none()
 
     filter_batch = (request.GET.get("batch") or "").strip()
@@ -848,7 +890,7 @@ def admin_assessment_list(request):
 @institute_admin_required
 def admin_assessment_bin(request):
     institute = _admin_institute(request)
-    current_academic_year = get_selected_academic_year(request)
+    current_academic_year = get_active_academic_year_for_request(request)
     assessments = get_deleted_assessments_for_admin(institute, academic_year=current_academic_year)
     batches = (
         institute.batches.filter(is_active=True)
@@ -909,7 +951,7 @@ def admin_assessment_bin(request):
 @institute_admin_required
 def admin_assessment_create(request):
     institute = _admin_institute(request)
-    academic_year = get_selected_academic_year(request)
+    academic_year = get_active_academic_year_for_request(request)
     form = ReportCardAssessmentForm(request.POST or None, institute=institute, academic_year=academic_year)
     if request.method == "POST" and form.is_valid():
         selected_batches = list(form.cleaned_data.get("batches") or [])
@@ -1169,6 +1211,7 @@ def admin_assessment_detail(request, assessment_id):
                 ReportCardAssessment.Status.PUBLISHED,
                 ReportCardAssessment.Status.LOCKED,
             },
+            "can_close_marks_entry": _can_admin_close_marks_entry(request.user, assessment),
             "subjects": subjects,
             "summary": summary,
             "results": results,
@@ -1270,6 +1313,7 @@ def admin_completion_dashboard(request, assessment_id):
                 ReportCardAssessment.Status.PUBLISHED,
                 ReportCardAssessment.Status.LOCKED,
             },
+            "can_close_marks_entry": _can_admin_close_marks_entry(request.user, assessment),
             "rows": rows,
             "summary": summary,
             "teacher_rows": teacher_rows,
@@ -1481,6 +1525,7 @@ def admin_assessment_structure(request, assessment_id):
             "subjects": subjects,
             "can_edit": can_edit,
             "can_open_marks": can_open_marks,
+            "can_close_marks_entry": _can_admin_close_marks_entry(request.user, assessment),
             "admin_warnings": admin_warnings,
             "summary": summary,
             "admin_mode": True,
@@ -1550,6 +1595,29 @@ def admin_reopen_marks_entry(request, assessment_id):
     except ValidationError as error:
         _handle_validation_error(request, error)
     return redirect("report_card_admin:completion_dashboard", assessment_id=assessment.pk)
+
+
+@institute_admin_required
+@require_POST
+def admin_close_marks_entry(request, assessment_id):
+    assessment = _get_admin_assessment(request, assessment_id)
+    if not admin_can_manage_assessment(request.user, assessment):
+        messages.error(request, "You cannot close marks entry for this assessment.")
+        return redirect("report_card_admin:assessment_detail", assessment_id=assessment.pk)
+    try:
+        close_marks_entry_for_structure_edit(
+            assessment,
+            actor=request.user,
+            reason=request.POST.get("reason", ""),
+        )
+        messages.success(
+            request,
+            "Marks entry closed. Teachers cannot enter marks now, and admin can update the assessment structure.",
+        )
+    except ValidationError as error:
+        _handle_validation_error(request, error)
+        return redirect("report_card_admin:assessment_detail", assessment_id=assessment.pk)
+    return redirect("report_card_admin:assessment_structure", assessment_id=assessment.pk)
 
 
 @institute_admin_required
@@ -1693,7 +1761,7 @@ def allocation_list(request):
         .select_related("academic_year", "batch", "subject", "teacher", "created_by")
         .order_by("academic_year__start_date", "batch__name", "subject__name", "teacher__username")
     )
-    current_academic_year = get_selected_academic_year(request)
+    current_academic_year = get_active_academic_year_for_request(request)
     batches = Batch.objects.none()
     subjects = Subject.objects.none()
     teachers = User.objects.none()
@@ -1716,6 +1784,10 @@ def allocation_list(request):
         allocations = allocations.filter(academic_year=current_academic_year)
         batches = batches.filter(academic_year=current_academic_year)
         subjects = subjects.filter(academic_year=current_academic_year)
+    else:
+        allocations = allocations.none()
+        batches = batches.none()
+        subjects = subjects.none()
     if filter_teacher:
         allocations = allocations.filter(teacher_id=filter_teacher)
     if filter_batch:
@@ -1756,7 +1828,7 @@ def allocation_list(request):
 @institute_admin_required
 def allocation_create(request):
     institute = _admin_institute(request)
-    academic_year = get_selected_academic_year(request)
+    academic_year = get_active_academic_year_for_request(request)
     if not institute or not academic_year:
         messages.error(request, "Active academic year is required before creating teacher subject allocations.")
         return redirect("report_card_admin:allocation_list")
@@ -1849,7 +1921,7 @@ def allocation_create(request):
         request,
         "report_card/institute_admin/allocation_form.html",
         {
-            "page_title": "Create Teacher Subject Allocation",
+            "page_title": "Manage Teacher Subject Allocation",
             "bulk_mode": True,
             "academic_year": academic_year,
             "batches": batches,
@@ -1882,7 +1954,13 @@ def allocation_create(request):
 @institute_admin_required
 def allocation_update(request, allocation_id):
     institute = _admin_institute(request)
-    allocation = get_object_or_404(ReportCardTeacherSubjectAllocation, pk=allocation_id, institute=institute)
+    academic_year = get_active_academic_year_for_request(request)
+    allocation = get_object_or_404(
+        ReportCardTeacherSubjectAllocation,
+        pk=allocation_id,
+        institute=institute,
+        academic_year=academic_year,
+    )
     form = ReportCardTeacherSubjectAllocationForm(
         request.POST or None,
         instance=allocation,
@@ -1910,7 +1988,13 @@ def allocation_update(request, allocation_id):
 @require_POST
 def allocation_delete(request, allocation_id):
     institute = _admin_institute(request)
-    allocation = get_object_or_404(ReportCardTeacherSubjectAllocation, pk=allocation_id, institute=institute)
+    academic_year = get_active_academic_year_for_request(request)
+    allocation = get_object_or_404(
+        ReportCardTeacherSubjectAllocation,
+        pk=allocation_id,
+        institute=institute,
+        academic_year=academic_year,
+    )
     allocation.delete()
     messages.success(request, "Teacher subject allocation deleted.")
     return redirect("report_card_admin:allocation_list")
@@ -1919,7 +2003,7 @@ def allocation_delete(request, allocation_id):
 @institute_admin_required
 def grade_rule_list(request):
     institute = _admin_institute(request)
-    academic_year = get_selected_academic_year(request)
+    academic_year = get_active_academic_year_for_request(request)
     rules = (
         ReportCardGradeRule.objects.filter(institute=institute, academic_year=academic_year)
         .select_related("academic_year")
@@ -1948,7 +2032,7 @@ def grade_rule_list(request):
 @institute_admin_required
 def grade_rule_create(request):
     institute = _admin_institute(request)
-    academic_year = get_selected_academic_year(request)
+    academic_year = get_active_academic_year_for_request(request)
     form = ReportCardGradeRuleForm(request.POST or None, institute=institute, academic_year=academic_year)
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -2002,7 +2086,7 @@ def grade_rule_create_defaults(request):
     institute = _admin_institute(request)
     scope = request.POST.get("scope") or "academic_year"
     academic_year_id = request.POST.get("academic_year_id") or ""
-    academic_year = get_selected_academic_year(request)
+    academic_year = get_active_academic_year_for_request(request)
     if scope == "academic_year" and academic_year_id:
         academic_year = get_object_or_404(AcademicYear, pk=academic_year_id, institute=institute)
 

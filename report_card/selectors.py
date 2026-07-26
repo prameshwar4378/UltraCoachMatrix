@@ -1,7 +1,5 @@
 """Read/query helpers for the Report Card Generator app."""
 
-from datetime import date
-
 from django.contrib.auth.models import User
 from django.db.models import Case, IntegerField, Prefetch, Q, Value, When
 from django.utils import timezone
@@ -18,32 +16,6 @@ from .models import (
     ReportCardStudentResult,
     ReportCardTeacherSubjectAllocation,
 )
-
-
-def _current_academic_year_label(today=None):
-    today = today or timezone.localdate()
-    start_year = today.year if today.month >= 4 else today.year - 1
-    return f"{start_year}-{str(start_year + 1)[-2:]}"
-
-
-def _academic_year_dates(name):
-    start_year = int(str(name).split("-", 1)[0])
-    return date(start_year, 4, 1), date(start_year + 1, 3, 31)
-
-
-def _get_or_create_academic_year(institute):
-    name = _current_academic_year_label()
-    start_date, end_date = _academic_year_dates(name)
-    academic_year, _created = AcademicYear.objects.get_or_create(
-        institute=institute,
-        name=name,
-        defaults={
-            "start_date": start_date,
-            "end_date": end_date,
-            "is_active": True,
-        },
-    )
-    return academic_year
 
 
 def get_teacher_institute(user):
@@ -64,19 +36,39 @@ def get_teacher_institute(user):
     return profile.institute
 
 
-def get_selected_academic_year(request):
-    institute = get_teacher_institute(request.user)
+def get_active_academic_year_for_institute(institute):
     if not institute:
         return None
 
-    session_year_id = request.session.get("academic_year_id")
-    if session_year_id:
-        academic_year = institute.academic_years.filter(pk=session_year_id, is_active=True).first()
-        if academic_year:
-            return academic_year
+    today = timezone.localdate()
+    current_active_year = (
+        institute.academic_years.filter(
+            is_active=True,
+            start_date__lte=today,
+            end_date__gte=today,
+        )
+        .order_by("-start_date", "-pk")
+        .first()
+    )
+    if current_active_year:
+        return current_active_year
 
-    academic_year = _get_or_create_academic_year(institute)
-    request.session["academic_year_id"] = academic_year.pk
+    return institute.academic_years.filter(is_active=True).order_by("-start_date", "-pk").first()
+
+
+def get_selected_academic_year(request):
+    institute = get_teacher_institute(request.user)
+    academic_year = get_active_academic_year_for_institute(institute)
+    if academic_year:
+        request._report_card_active_academic_year = academic_year
+    return academic_year
+
+
+def get_active_academic_year_for_request(request, institute=None):
+    institute = institute or get_teacher_institute(request.user)
+    academic_year = get_active_academic_year_for_institute(institute)
+    if academic_year:
+        request._report_card_active_academic_year = academic_year
     return academic_year
 
 

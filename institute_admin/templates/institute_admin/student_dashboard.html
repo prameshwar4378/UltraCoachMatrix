@@ -1460,7 +1460,10 @@
                                 {% endif %}
                             </td>
                             <td data-label="Actions" class="text-end">
-                                <a href="javascript:void(0);" data-url="{% url 'institute_admin:enrollment_update' enrollment.pk %}" class="btn btn-sm btn-outline-warning action-btn" onclick="openStudentDashboardWindow(this)" title="Edit"><i class="bi bi-pencil-square"></i></a>
+                                <div class="d-inline-flex gap-1">
+                                    <a href="javascript:void(0);" data-url="{% url 'institute_admin:enrollment_update' enrollment.pk %}" class="btn btn-sm btn-outline-warning action-btn" onclick="openStudentDashboardWindow(this)" title="Edit"><i class="bi bi-pencil-square"></i></a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger action-btn" data-delete-url="{% url 'institute_admin:enrollment_delete' enrollment.pk %}" data-enrollment-name="{{ student_full_name }} - {{ enrollment.batch.name }}" onclick="openStudentEnrollmentDeleteModal(this)" title="Delete"><i class="bi bi-trash"></i></button>
+                                </div>
                             </td>
                         </tr>
                         {% empty %}
@@ -1763,6 +1766,38 @@
     </div>
 </div>
 
+<div class="modal fade" id="deleteStudentEnrollmentModal" tabindex="-1" aria-labelledby="deleteStudentEnrollmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteStudentEnrollmentModalLabel"><i class="bi bi-exclamation-triangle me-2"></i> Delete Enrollment</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <h6 class="fw-bold mb-2">Delete this enrollment permanently?</h6>
+                <p><strong id="deleteStudentEnrollmentName"></strong> will be removed.</p>
+                <div class="alert alert-danger mb-3">
+                    This will permanently delete this enrollment, its linked fee invoices, payment transactions, and payment activity records.
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="accepted" id="deleteStudentEnrollmentAcceptTerms" name="accept_delete_terms" form="deleteStudentEnrollmentForm">
+                    <label class="form-check-label fw-semibold" for="deleteStudentEnrollmentAcceptTerms">
+                        I understand and accept that this enrollment and its related records will be permanently deleted.
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancel</button>
+                <form method="post" id="deleteStudentEnrollmentForm" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="btn btn-danger" id="deleteStudentEnrollmentSubmit" disabled><i class="bi bi-trash"></i> Delete Enrollment</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade feature-info-modal" id="studentDashboardFeatureInfoModal" tabindex="-1" aria-labelledby="studentDashboardFeatureInfoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
@@ -1830,6 +1865,34 @@
             alert("This student is not available in the selected session.");
         }
     };
+
+    window.openStudentEnrollmentDeleteModal = function(button) {
+        const form = document.getElementById("deleteStudentEnrollmentForm");
+        const nameTarget = document.getElementById("deleteStudentEnrollmentName");
+        const acceptTerms = document.getElementById("deleteStudentEnrollmentAcceptTerms");
+        const submitButton = document.getElementById("deleteStudentEnrollmentSubmit");
+        if (form) {
+            form.action = button.dataset.deleteUrl;
+        }
+        if (nameTarget) {
+            nameTarget.textContent = button.dataset.enrollmentName || "this enrollment";
+        }
+        if (acceptTerms && submitButton) {
+            acceptTerms.checked = false;
+            submitButton.disabled = true;
+        }
+        const modalElement = document.getElementById("deleteStudentEnrollmentModal");
+        if (modalElement && window.bootstrap && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalElement).show();
+        }
+    };
+
+    const deleteStudentEnrollmentAcceptTerms = document.getElementById("deleteStudentEnrollmentAcceptTerms");
+    if (deleteStudentEnrollmentAcceptTerms) {
+        deleteStudentEnrollmentAcceptTerms.addEventListener("change", function () {
+            document.getElementById("deleteStudentEnrollmentSubmit").disabled = !this.checked;
+        });
+    }
 
     const studentDashboardFeatureInfo = {
         dashboard_overview: {

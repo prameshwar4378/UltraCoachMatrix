@@ -19,7 +19,16 @@ from django.urls import reverse
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
-from accountant.models import Expense, ExpenseActivity, ExpenseBin, ExpenseDocument, FeeCategory, FeeInvoice, Payment
+from accountant.models import (
+    Expense,
+    ExpenseActivity,
+    ExpenseBin,
+    ExpenseDocument,
+    FeeCategory,
+    FeeInvoice,
+    Payment,
+    PaymentActivity,
+)
 from student_parent.models import (
     GuardianProfile,
     PushNotification,
@@ -3825,6 +3834,47 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertEqual(response.context["total_fee_amount"], Decimal("2000.00"))
         self.assertEqual(response.context["total_paid_amount"], Decimal("500.00"))
 
+    def test_enrollment_delete_requires_acceptance(self):
+        self.select_year(self.year_2026)
+
+        response = self.client.post(
+            reverse("institute_admin:enrollment_delete", args=[self.enrollment_2026.pk]),
+            {"next": reverse("institute_admin:student_dashboard", args=[self.student.pk])},
+        )
+
+        self.assertRedirects(response, reverse("institute_admin:student_dashboard", args=[self.student.pk]))
+        self.assertTrue(StudentEnrollment.objects.filter(pk=self.enrollment_2026.pk).exists())
+        self.assertTrue(FeeInvoice.objects.filter(pk=self.invoice_2026.pk).exists())
+        self.assertTrue(Payment.objects.filter(pk=self.payment_2026.pk).exists())
+
+    def test_enrollment_delete_with_acceptance_removes_related_fee_records(self):
+        self.select_year(self.year_2026)
+        activity = PaymentActivity.objects.create(
+            payment=self.payment_2026,
+            action=PaymentActivity.Action.CREATED,
+            performed_by=self.admin_user,
+            new_amount=self.payment_2026.amount,
+            new_method=self.payment_2026.method,
+            note="Created for delete cascade test.",
+        )
+
+        response = self.client.post(
+            reverse("institute_admin:enrollment_delete", args=[self.enrollment_2026.pk]),
+            {
+                "accept_delete_terms": "accepted",
+                "next": reverse("institute_admin:student_dashboard", args=[self.student.pk]),
+            },
+        )
+
+        self.assertRedirects(response, reverse("institute_admin:student_dashboard", args=[self.student.pk]))
+        self.assertFalse(StudentEnrollment.objects.filter(pk=self.enrollment_2026.pk).exists())
+        self.assertFalse(FeeInvoice.objects.filter(pk=self.invoice_2026.pk).exists())
+        self.assertFalse(Payment.objects.filter(pk=self.payment_2026.pk).exists())
+        self.assertFalse(PaymentActivity.objects.filter(pk=activity.pk).exists())
+        self.assertTrue(StudentEnrollment.objects.filter(pk=self.enrollment_2027.pk).exists())
+        self.assertTrue(FeeInvoice.objects.filter(pk=self.invoice_2027.pk).exists())
+        self.assertTrue(Payment.objects.filter(pk=self.payment_2027.pk).exists())
+
     def test_student_dashboard_shows_middle_name_in_full_name(self):
         self.student.middle_name = "Ambadas"
         self.student.save(update_fields=["middle_name"])
@@ -5121,6 +5171,72 @@ class AcademicSessionIsolationTests(TestCase):
         enrollment = StudentEnrollment.objects.get(batch=new_batch)
         self.assertEqual(enrollment.academic_session, self.session_2026)
         self.assertEqual(enrollment.student, self.student)
+
+    def test_enrollment_create_saves_discounted_final_amount(self):
+        self.select_year(self.year_2026)
+        new_batch = Batch.objects.create(
+            institute=self.institute,
+            academic_year=self.year_2026,
+            name="2026 Discounted",
+            is_active=True,
+        )
+        new_batch.courses.add(self.course)
+
+        response = self.client.post(
+            reverse("institute_admin:enrollment_create"),
+            data={
+                "student": self.student.pk,
+                "batch": new_batch.pk,
+                "courses": [self.course.pk],
+                "enrolled_on": "2026-06-15",
+                "status": StudentEnrollment.Status.ACTIVE,
+                "custom_fee_amount": "1000.00",
+                "fee_discount": "250.00",
+                "final_fee_amount": "750.00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        enrollment = StudentEnrollment.objects.get(batch=new_batch)
+        self.assertEqual(enrollment.custom_fee_amount, Decimal("750.00"))
+
+    def test_enrollment_update_replaces_discount_instead_of_accumulating_it(self):
+        self.select_year(self.year_2026)
+
+        first_response = self.client.post(
+            reverse("institute_admin:enrollment_update", args=[self.enrollment_2026.pk]),
+            data={
+                "student": self.student.pk,
+                "batch": self.batch_2026.pk,
+                "courses": [self.course.pk],
+                "enrolled_on": "2026-04-05",
+                "status": StudentEnrollment.Status.ACTIVE,
+                "custom_fee_amount": "1000.00",
+                "fee_discount": "200.00",
+                "final_fee_amount": "800.00",
+            },
+        )
+        self.assertEqual(first_response.status_code, 200)
+        self.enrollment_2026.refresh_from_db()
+        self.assertEqual(self.enrollment_2026.custom_fee_amount, Decimal("800.00"))
+
+        second_response = self.client.post(
+            reverse("institute_admin:enrollment_update", args=[self.enrollment_2026.pk]),
+            data={
+                "student": self.student.pk,
+                "batch": self.batch_2026.pk,
+                "courses": [self.course.pk],
+                "enrolled_on": "2026-04-05",
+                "status": StudentEnrollment.Status.ACTIVE,
+                "custom_fee_amount": "800.00",
+                "fee_discount": "300.00",
+                "final_fee_amount": "500.00",
+            },
+        )
+
+        self.assertEqual(second_response.status_code, 200)
+        self.enrollment_2026.refresh_from_db()
+        self.assertEqual(self.enrollment_2026.custom_fee_amount, Decimal("700.00"))
 
     def test_student_autocomplete_requires_two_characters_and_scopes_academic_year(self):
         self.select_year(self.year_2026)

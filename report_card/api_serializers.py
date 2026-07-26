@@ -32,12 +32,36 @@ class ReportCardAssessmentSerializer(serializers.Serializer):
     result_date = serializers.DateField(format="%Y-%m-%d", allow_null=True)
     subject_count = serializers.SerializerMethodField()
     result_count = serializers.SerializerMethodField()
+    my_subject_count = serializers.SerializerMethodField()
+    expected_mark_count = serializers.SerializerMethodField()
+    entered_mark_count = serializers.SerializerMethodField()
+    missing_mark_count = serializers.SerializerMethodField()
+    marks_status = serializers.SerializerMethodField()
+    marks_status_label = serializers.SerializerMethodField()
 
     def get_subject_count(self, assessment):
         return getattr(assessment, "subject_count", assessment.assessment_subjects.count())
 
     def get_result_count(self, assessment):
         return getattr(assessment, "result_count", assessment.student_results.count())
+
+    def get_my_subject_count(self, assessment):
+        return getattr(assessment, "my_subject_count", getattr(assessment, "subject_count", assessment.assessment_subjects.count()))
+
+    def get_expected_mark_count(self, assessment):
+        return getattr(assessment, "expected_mark_count", 0)
+
+    def get_entered_mark_count(self, assessment):
+        return getattr(assessment, "entered_mark_count", 0)
+
+    def get_missing_mark_count(self, assessment):
+        return getattr(assessment, "missing_mark_count", 0)
+
+    def get_marks_status(self, assessment):
+        return getattr(assessment, "marks_status", "")
+
+    def get_marks_status_label(self, assessment):
+        return getattr(assessment, "marks_status_label", "")
 
 
 class ReportCardAssessmentWriteSerializer(serializers.Serializer):
@@ -68,12 +92,40 @@ class ReportCardAssessmentSubjectSerializer(serializers.Serializer):
     is_optional = serializers.BooleanField()
     include_in_total = serializers.BooleanField()
     components = serializers.SerializerMethodField()
+    expected_mark_count = serializers.SerializerMethodField()
+    entered_mark_count = serializers.SerializerMethodField()
+    missing_mark_count = serializers.SerializerMethodField()
+    absent_mark_count = serializers.SerializerMethodField()
+    marks_status = serializers.SerializerMethodField()
+    marks_status_label = serializers.SerializerMethodField()
+    can_enter_marks = serializers.SerializerMethodField()
 
     def get_components(self, assessment_subject):
         return ReportCardAssessmentSubjectComponentSerializer(
             assessment_subject.components.order_by("display_order", "name_snapshot", "id"),
             many=True,
         ).data
+
+    def get_expected_mark_count(self, assessment_subject):
+        return getattr(assessment_subject, "expected_mark_count", 0)
+
+    def get_entered_mark_count(self, assessment_subject):
+        return getattr(assessment_subject, "entered_mark_count", 0)
+
+    def get_missing_mark_count(self, assessment_subject):
+        return getattr(assessment_subject, "missing_mark_count", 0)
+
+    def get_absent_mark_count(self, assessment_subject):
+        return getattr(assessment_subject, "absent_mark_count", 0)
+
+    def get_marks_status(self, assessment_subject):
+        return getattr(assessment_subject, "marks_status", "")
+
+    def get_marks_status_label(self, assessment_subject):
+        return getattr(assessment_subject, "marks_status_label", "")
+
+    def get_can_enter_marks(self, assessment_subject):
+        return bool(getattr(assessment_subject, "can_enter_marks", False))
 
 
 class ReportCardAssessmentSubjectWriteSerializer(serializers.Serializer):

@@ -53,6 +53,13 @@
                         <button class="btn btn-outline-warning rc-btn" type="submit"><i class="bi bi-unlock me-1"></i> Reopen Marks</button>
                     </form>
                 {% endif %}
+                {% if can_close_marks_entry %}
+                    <form method="post" action="{% url 'report_card_admin:close_marks_entry' assessment.pk %}" class="d-inline" onsubmit="const reason = prompt('Reason for closing marks entry and editing structure? Teachers will be blocked until marks entry is opened again.'); if (reason === null) return false; this.querySelector('[name=reason]').value = reason; return true;">
+                        {% csrf_token %}
+                        <input type="hidden" name="reason" value="">
+                        <button class="btn btn-outline-danger rc-btn" type="submit"><i class="bi bi-lock me-1"></i> Close Marks Entry</button>
+                    </form>
+                {% endif %}
                 <a class="btn btn-gradient" href="{% url 'report_card_admin:assessment_update' assessment.pk %}?popup=1" data-url="{% url 'report_card_admin:assessment_update' assessment.pk %}?popup=1" onclick="return openReportCardAssessmentWindow(this);"><i class="bi bi-pencil-square me-1"></i> Edit</a>
                 <a class="btn btn-outline-danger rc-btn" href="{% url 'report_card_admin:assessment_delete' assessment.pk %}"><i class="bi bi-trash me-1"></i> Delete</a>
             </div>

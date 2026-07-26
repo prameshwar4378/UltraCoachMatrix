@@ -20,6 +20,8 @@
     .rc-top-primary:hover { color:#fff; }
     .rc-top-success { background:#15803d; color:#fff; border:1px solid #166534; }
     .rc-top-success:hover { color:#fff; background:#166534; }
+    .rc-top-danger { background:#dc2626; color:#fff; border:1px solid #b91c1c; }
+    .rc-top-danger:hover { color:#fff; background:#b91c1c; }
     .stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:20px; }
     .stat-card { padding:18px; border-top:4px solid var(--stat-color); }
     .stat-icon { width:42px; height:42px; border-radius:8px; background:var(--stat-soft); color:var(--stat-color); display:flex; align-items:center; justify-content:center; font-size:1.2rem; margin-bottom:12px; }
@@ -66,6 +68,8 @@
             {% if can_edit %}<a class="rc-top-action rc-top-primary" href="{% if admin_mode %}{% url 'report_card_admin:assessment_subject_create' assessment.pk %}{% else %}{% url 'report_card:assessment_subject_create' assessment.pk %}{% endif %}"><i class="bi bi-plus-circle"></i> Add Subject</a>{% endif %}
             {% if can_open_marks and subjects %}
                 <form method="post" action="{% if admin_mode %}{% url 'report_card_admin:open_marks_entry' assessment.pk %}{% else %}{% url 'report_card:open_marks_entry' assessment.pk %}{% endif %}">{% csrf_token %}<button class="rc-top-action rc-top-success" type="submit" title="Open marks entry for configured subjects"><i class="bi bi-unlock"></i> Open Marks Entry</button></form>
+            {% elif admin_mode and can_close_marks_entry %}
+                <form method="post" action="{% url 'report_card_admin:close_marks_entry' assessment.pk %}" onsubmit="const reason = prompt('Reason for closing marks entry and editing structure? Teachers will be blocked until marks entry is opened again.'); if (reason === null) return false; this.querySelector('[name=reason]').value = reason; return true;">{% csrf_token %}<input type="hidden" name="reason" value=""><button class="rc-top-action rc-top-danger" type="submit" title="Close marks entry so admin can edit structure"><i class="bi bi-lock"></i> Close Marks Entry</button></form>
             {% elif not subjects %}
                 <span class="rc-open-blocked" title="Add at least one subject before opening marks entry"><i class="bi bi-info-circle"></i> Add subjects first</span>
             {% elif admin_mode and assessment.status == 'STRUCTURE_READY' %}

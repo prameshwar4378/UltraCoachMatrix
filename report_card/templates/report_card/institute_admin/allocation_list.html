@@ -31,9 +31,9 @@
         <div class="rc-title-row">
             <div>
                 <h2>Teacher Subject Allocations</h2>
-                <p>Assign teachers to class-subject combinations for report-card marks entry.</p>
+                <p>Select a class once, then save all subject-teacher marks-entry permissions in bulk for the active session.</p>
             </div>
-            <a class="btn btn-gradient" href="{% url 'report_card_admin:allocation_create' %}"><i class="bi bi-plus-circle me-1"></i> New Allocation</a>
+            <a class="btn btn-gradient" href="{% url 'report_card_admin:allocation_create' %}"><i class="bi bi-plus-circle me-1"></i> Manage Class Allocation</a>
         </div>
     </section>
 
@@ -97,7 +97,7 @@
                         <td><span class="rc-pill {% if not allocation.is_active %}rc-pill-inactive{% endif %}">{{ allocation.is_active|yesno:"Active,Inactive" }}</span></td>
                         <td>{{ allocation.created_by.get_full_name|default:allocation.created_by.username|default:"-" }}</td>
                         <td class="text-end">
-                            <a class="btn btn-sm btn-outline-secondary rc-btn" href="{% url 'report_card_admin:allocation_update' allocation.pk %}"><i class="bi bi-pencil"></i></a>
+                            <a class="btn btn-sm btn-outline-secondary rc-btn" href="{% url 'report_card_admin:allocation_create' %}?batch={{ allocation.batch_id }}" title="Edit class allocation"><i class="bi bi-pencil"></i></a>
                             <form class="d-inline" method="post" action="{% url 'report_card_admin:allocation_delete' allocation.pk %}" onsubmit="return confirm('Delete this teacher subject allocation?');">{% csrf_token %}<button class="btn btn-sm btn-outline-danger rc-btn" type="submit"><i class="bi bi-trash"></i></button></form>
                         </td>
                     </tr>
