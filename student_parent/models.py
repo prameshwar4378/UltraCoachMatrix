@@ -267,6 +267,10 @@ class StudentTransferCertificate(models.Model):
         GENERATED = "GENERATED", "Generated"
         CANCELLED = "CANCELLED", "Cancelled"
 
+    class CertificateType(models.TextChoices):
+        ORIGINAL = "ORIGINAL", "Original"
+        DUPLICATE = "DUPLICATE", "Duplicate"
+
     institute = models.ForeignKey(
         "super_admin.Institute",
         on_delete=models.CASCADE,
@@ -283,6 +287,11 @@ class StudentTransferCertificate(models.Model):
         related_name="transfer_certificates",
     )
     tc_number = models.CharField(max_length=60)
+    tc_type = models.CharField(
+        max_length=20,
+        choices=CertificateType.choices,
+        default=CertificateType.ORIGINAL,
+    )
     issue_date = models.DateField()
     leaving_date = models.DateField()
     reason_for_leaving = models.CharField(max_length=255)

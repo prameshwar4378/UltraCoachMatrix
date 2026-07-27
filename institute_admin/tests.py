@@ -36,6 +36,7 @@ from student_parent.models import (
     StudentBonafideCertificate,
     StudentEnrollment,
     StudentProfile,
+    StudentTransferCertificate,
 )
 from super_admin.models import (
     Institute,
@@ -4434,12 +4435,14 @@ class AcademicSessionIsolationTests(TestCase):
         )
 
         self.assertRegex(form.initial["tc_number"], r"^S-TC-\d{4}-\d{4}$")
+        self.assertEqual(form.initial["tc_type"], StudentTransferCertificate.CertificateType.ORIGINAL)
         self.assertEqual(form.initial["last_class_attended"], "Science")
         self.assertFalse(form.initial["active_login_after_tc"])
         self.assertEqual(
             list(form.fields),
             [
                 "tc_number",
+                "tc_type",
                 "issue_date",
                 "leaving_date",
                 "last_class_attended",
@@ -4449,8 +4452,8 @@ class AcademicSessionIsolationTests(TestCase):
                 "conduct",
                 "qualified_for_promotion",
                 "fees_cleared",
-                "status_after_tc",
                 "active_login_after_tc",
+                "status_after_tc",
                 "remarks",
             ],
         )
@@ -4462,6 +4465,7 @@ class AcademicSessionIsolationTests(TestCase):
         form = StudentTransferCertificateForm(
             {
                 "tc_number": "S-TC-2027-9999",
+                "tc_type": StudentTransferCertificate.CertificateType.ORIGINAL,
                 "issue_date": "2027-06-20",
                 "leaving_date": "2027-06-18",
                 "reason_for_leaving": "Completed school",
@@ -4487,6 +4491,7 @@ class AcademicSessionIsolationTests(TestCase):
         self.session_2027.refresh_from_db()
 
         self.assertEqual(tc.student, self.student)
+        self.assertEqual(tc.tc_type, StudentTransferCertificate.CertificateType.ORIGINAL)
         self.assertEqual(self.student.student_status, StudentProfile.StudentStatus.PASSED_OUT)
         self.assertFalse(self.student.is_active)
         self.assertFalse(self.student.user.is_active)

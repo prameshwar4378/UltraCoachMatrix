@@ -72,6 +72,10 @@
                             <div><label class="form-label"><i class="bi bi-person"></i> First Name</label>{{ form.first_name }}{{ form.first_name.errors }}</div>
                             <div><label class="form-label"><i class="bi bi-person"></i> Middle Name</label>{{ form.middle_name }}{{ form.middle_name.errors }}</div>
                             <div><label class="form-label"><i class="bi bi-person"></i> Surname</label>{{ form.last_name }}{{ form.last_name.errors }}</div>
+                            <div>
+                                <label class="form-label" for="id_basic_mother_name"><i class="bi bi-person"></i> Mother Name</label>
+                                <input type="text" id="id_basic_mother_name" class="form-control" value="{{ form.mother_name.value|default_if_none:'' }}">
+                            </div>
                             <div><label class="form-label"><i class="bi bi-key"></i> Admission Number</label>{{ form.username }}{{ form.username.errors }}{% if form.username.help_text %}<small>{{ form.username.help_text }}</small>{% endif %}</div>
                             {% if is_school_institute %}
                             <div><label class="form-label"><i class="bi bi-hash"></i> PEN No</label>{{ form.pen_no }}{{ form.pen_no.errors }}</div>
@@ -344,6 +348,28 @@
             if (field) field.addEventListener("input", updateFullName);
         });
         updateFullName();
+    }
+
+    const basicMotherNameField = document.getElementById("id_basic_mother_name");
+    const parentMotherNameField = document.getElementById("id_mother_name");
+    function syncMotherName(source, target) {
+        if (!source || !target) return;
+        target.value = source.value;
+    }
+    if (basicMotherNameField && parentMotherNameField) {
+        syncMotherName(parentMotherNameField, basicMotherNameField);
+        basicMotherNameField.addEventListener("input", function() {
+            syncMotherName(basicMotherNameField, parentMotherNameField);
+        });
+        parentMotherNameField.addEventListener("input", function() {
+            syncMotherName(parentMotherNameField, basicMotherNameField);
+        });
+        const studentForm = basicMotherNameField.closest("form");
+        if (studentForm) {
+            studentForm.addEventListener("submit", function() {
+                syncMotherName(basicMotherNameField, parentMotherNameField);
+            });
+        }
     }
 
     const studentStatusField = document.getElementById("id_student_status");

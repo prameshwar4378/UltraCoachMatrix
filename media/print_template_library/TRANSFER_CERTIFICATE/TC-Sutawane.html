@@ -91,71 +91,70 @@ html, body {
     letter-spacing: 1px;
 }
 
+.tc-type-stamp {
+    position: absolute;
+    top: 39mm;
+    right: 8mm;
+    z-index: 3;
+    min-width: 34mm;
+    padding: 5px 12px;
+    border: 2px solid #b91c1c;
+    border-radius: 3px;
+    color: #b91c1c;
+    background: rgba(255, 255, 255, .72);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 1.8px;
+    text-align: center;
+    text-transform: uppercase;
+    transform: none;
+    opacity: .86;
+    pointer-events: none;
+}
+
 .meta-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    margin-bottom: 7px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px 14px;
+    margin-bottom: 10px;
 }
 
 .meta-item,
 .compact-box {
-    border-bottom: 1px solid #374151;
-    padding: 2px 0 4px;
+    padding: 3px 0 5px;
+}
+
+.meta-item {
+    position: relative;
+    padding-left: 8px;
+    background: linear-gradient(90deg, #f8fafc 0, #fff 72%);
+    border-left: 3px solid #1e3a8a;
 }
 
 .meta-label,
 .compact-label {
-    font-size: 8px;
+    font-size: 10px;
     text-transform: uppercase;
-    color: #374151;
+    color: #1e3a8a;
     font-weight: 600;
-    letter-spacing: .03em;
+    letter-spacing: .06em;
 }
 
 .meta-value,
 .compact-value {
-    margin-top: 1px;
-    font-size: 10.4px;
-    font-weight: 700;
-    line-height: 1.35;
-}
-
-.section-title {
-    margin: 11px 0 4px;
-    padding-bottom: 3px;
-    border-bottom: 1px solid #374151;
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: .06em;
+    margin-top: 2px;
+    font-size: 12.5px;
     font-weight: 800;
+    line-height: 1.45;
+    color: #0f172a;
 }
 
 .student-block {
     display: grid;
-    grid-template-columns: 1fr 24mm;
-    gap: 8px;
+    grid-template-columns: 1fr;
     align-items: start;
-}
-
-.photo {
-    width: 23mm;
-    height: 28mm;
-    margin-top: 5mm;
-    border: 1px solid #374151;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #64748b;
-    font-size: 8px;
-    font-weight: 600;
-    overflow: hidden;
-}
-
-.photo img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
 }
 
 .info-table {
@@ -182,21 +181,14 @@ html, body {
     color: #111827;
 }
 
-.two-col {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 9px;
+.tc-sequence .label {
+    width: 42%;
 }
 
-.compact-line {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin-top: 6px;
-}
-
-.reason-box {
-    margin-top: 6px;
+.tc-sequence td {
+    padding: 6px 4px;
+    font-size: 12px;
+    line-height: 1.7;
 }
 
 .note {
@@ -216,11 +208,26 @@ html, body {
     font-size: 9.5px;
 }
 
+.certificate-footer {
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+.date-of-issue {
+    margin-top: 8px;
+    color: #111827;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
 .signatures {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 14px;
-    margin-top: 28mm;
+    margin-top: 18mm;
+    page-break-inside: avoid;
+    break-inside: avoid;
 }
 
 .signature {
@@ -264,6 +271,8 @@ html, body {
 
     <div class="letterhead-space"></div>
 
+    <div class="tc-type-stamp">{{ tc.get_tc_type_display|default:"Original" }}</div>
+
     <div class="title-wrap">
         <div class="title">Transfer Certificate</div>
     </div>
@@ -274,168 +283,117 @@ html, body {
             <div class="meta-value">{{ tc.tc_number|default:"-" }}</div>
         </div>
         <div class="meta-item">
-            <div class="meta-label">Issue Date</div>
-            <div class="meta-value">{{ tc.issue_date|default:"-" }}</div>
+            <div class="meta-label">Student ID (PEN ID)</div>
+            <div class="meta-value">{{ snapshot.pen_no|default:student.pen_no|default:"-" }}</div>
         </div>
         <div class="meta-item">
-            <div class="meta-label">Academic Year</div>
-            <div class="meta-value">{{ snapshot.academic_year|default:student_session.academic_year.name|default:"-" }}</div>
+            <div class="meta-label">Adhar Number (UID)</div>
+            <div class="meta-value">{{ snapshot.aadhaar_number|default:student.aadhaar_number|default:"-" }}</div>
+        </div>
+        <div class="meta-item">
+            <div class="meta-label">Student Registration Number</div>
+            <div class="meta-value">{{ student.user.username|default:"-" }}</div>
         </div>
     </div>
 
-    <div class="student-block">
-        <div>
-            <div class="section-title">1. Student Details</div>
-            <table class="info-table">
-                <tr>
-                    <td class="label">Student Name</td>
-                    <td class="value">: {{ snapshot.student_name|default:student.user.get_full_name|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Admission Number</td>
-                    <td class="value">: {{ snapshot.admission_number|default:student_session.admission_number|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <td class="label">GR No.</td>
-                    <td class="value">: {{ snapshot.gr_number_udise|default:student.gr_number_udise|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <td class="label">PEN No.</td>
-                    <td class="value">-</td>
-                </tr>
-                <tr>
-                    <td class="label">Father Name</td>
-                    <td class="value">: {{ snapshot.father_name|default:student.father_name|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Mother Name</td>
-                    <td class="value">: {{ snapshot.mother_name|default:student.mother_name|default:"-" }}</td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="photo">
-            {% if student.profile_image %}
-                <img src="{{ student.profile_image.url }}" alt="{{ snapshot.student_name|default:student.user.get_full_name }}">
-            {% else %}
-                Photo
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="two-col">
-        <div>
-            <div class="section-title">2. Personal Information</div>
-            <table class="info-table">
-                <tr>
-                    <td class="label">Date of Birth</td>
-                    <td class="value" id="dobNumber">{{ snapshot.date_of_birth|default:student.date_of_birth|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Date of Birth in Words</td>
-                    <td class="value" id="dobWords">-</td>
-                </tr>
-                <tr>
-                    <td class="label">Place of Birth</td>
-                    <td class="value">{{ snapshot.place_of_birth|default:student.place_of_birth|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Nationality</td>
-                    <td class="value">{{ snapshot.nationality|default:student.nationality|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Religion / Caste</td>
-                    <td class="value">{{ snapshot.religion|default:student.religion|default:"-" }} / {{ snapshot.caste_category|default:student.caste_category|default:"-" }}</td>
-                </tr>
-            </table>
-        </div>
-
-        <div>
-            <div class="section-title">3. Admission Information</div>
-            <table class="info-table">
-                <tr>
-                    <td class="label">Admission Date</td>
-                    <td class="value">{{ snapshot.admission_date|default:student_session.joined_on|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Admission Class</td>
-                    <td class="value">{{ snapshot.admission_class|default:student.admission_class|default:"-" }}</td>
-                </tr>
-            </table>
-        </div>
-    </div>
-
-    <div class="two-col">
-        <div>
-            <div class="section-title">4. Previous School Details</div>
-            <table class="info-table">
-                <tr>
-                    <td class="label">Previous School</td>
-                    <td class="value">{{ snapshot.previous_school_name|default:student.previous_school_name|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Previous Class</td>
-                    <td class="value">{{ snapshot.previous_class|default:student.previous_class|default:"-" }}</td>
-                </tr>
-            </table>
-        </div>
-
-        <div>
-            <div class="section-title">5. Academic Status</div>
-            <table class="info-table">
-                <tr>
-                    <td class="label">Last Class Attended</td>
-                    <td class="value">{{ tc.last_class_attended|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Result</td>
-                    <td class="value">{{ tc.result|default:"-" }}</td>
-                </tr>
-                <tr>
-                    <td class="label">Qualified for Promotion</td>
-                    <td class="value">{% if tc.qualified_for_promotion %}Yes{% else %}No{% endif %}</td>
-                </tr>
-            </table>
-        </div>
-    </div>
-
-    <div class="section-title">6. Leaving Details</div>
-
-    <div class="compact-line">
-        <div class="compact-box">
-            <div class="compact-label">Leaving Date</div>
-            <div class="compact-value">{{ tc.leaving_date|default:"-" }}</div>
-        </div>
-        <div class="compact-box">
-            <div class="compact-label">Conduct</div>
-            <div class="compact-value">{{ tc.conduct|default:"-" }}</div>
-        </div>
-    </div>
-
-    <table class="info-table reason-box">
+    <table class="info-table tc-sequence">
         <tr>
-            <td class="label">Reason for Leaving</td>
-            <td class="value">{{ tc.reason_for_leaving|default:"-" }}</td>
+            <td class="label">Student Name</td>
+            <td class="value">: {{ snapshot.student_name|default:student.user.get_full_name|default:"-" }}</td>
         </tr>
         <tr>
-            <td class="label">Remarks</td>
-            <td class="value">{{ tc.remarks|default:"-" }}</td>
+            <td class="label">Mother Name</td>
+            <td class="value">: {{ snapshot.mother_name|default:student.mother_name|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Religion</td>
+            <td class="value">: {{ snapshot.religion|default:student.religion|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Cast-Subcast</td>
+            <td class="value">: {{ student.cast|default:snapshot.caste_category|default:student.caste_category|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Nationality</td>
+            <td class="value">: {{ snapshot.nationality|default:student.nationality|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Mother Tongue</td>
+            <td class="value">: {{ student.mother_tongue|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Place of Birth</td>
+            <td class="value">: {{ snapshot.place_of_birth|default:student.place_of_birth|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Date of Birth</td>
+            <td class="value">: <span id="dobNumber">{{ snapshot.date_of_birth|default:student.date_of_birth|default:"-" }}</span></td>
+        </tr>
+        <tr>
+            <td class="label">Date of Birth in Word</td>
+            <td class="value">: <span id="dobWords">-</span></td>
+        </tr>
+        <tr>
+            <td class="label">Previous School</td>
+            <td class="value">: {{ snapshot.previous_school_name|default:student.previous_school_name|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Date of Admission and Class</td>
+            <td class="value">
+                : {{ snapshot.admission_date|default:student_session.joined_on|default:"-" }}
+                {% with admission_class=snapshot.admission_class|default:student.admission_class %}
+                    {% if admission_class %}, {{ admission_class }}{% endif %}
+                {% endwith %}
+            </td>
+        </tr>
+        <tr>
+            <td class="label">Progress</td>
+            <td class="value">: {{ tc.progress|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Conduct</td>
+            <td class="value">: {{ tc.conduct|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Date of Leaving</td>
+            <td class="value">: {{ tc.leaving_date|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Standard in Which Studying and Since When</td>
+            <td class="value">
+                : {{ tc.last_class_attended|default:"-" }}
+                {% with admission_date=snapshot.admission_date|default:student_session.joined_on %}
+                    {% if admission_date %}, since {{ admission_date }}{% endif %}
+                {% endwith %}
+            </td>
+        </tr>
+        <tr>
+            <td class="label">Reason of Leaving</td>
+            <td class="value">: {{ tc.reason_for_leaving|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td class="label">Remark</td>
+            <td class="value">: {{ tc.remarks|default:"-" }}</td>
         </tr>
     </table>
 
     <p class="note">
-        This is to certify that the above named student was enrolled in this institution as per the official school record.
-        The Transfer Certificate has been issued on the basis of student profile and academic session details maintained by the school.
+        <i>if any changes make in this certificate without and authorised person of school/college it will be considered as a crime and will be punished for this crime.</i>
     </p>
 
-    <div class="declaration">
-        Certified that the information given above is true and correct as per the records of the institution.
-    </div>
+    <div class="certificate-footer">
+        <div class="declaration">
+            Certified that the information given above is true and correct as per the records of the institution. 
+        </div>
+        <div class="date-of-issue">
+            Date of Issue: {{ tc.issue_date|default:"-" }}
+        </div>
 
-    <div class="signatures">
-        <div class="signature">Office Clerk</div>
-        <div class="signature" style="border:white;"> </div>
-        <div class="signature">Principal</div>
+        <div class="signatures">
+            <div class="signature">Office Clerk</div>
+            <div class="signature" style="border:white;"> </div>
+            <div class="signature">Principal</div>
+        </div>
     </div>
 
 </div>

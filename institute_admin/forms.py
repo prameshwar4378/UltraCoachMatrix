@@ -1095,10 +1095,17 @@ class InstituteUserForm(forms.Form):
 class StudentForm(forms.Form):
     CASTE_CATEGORY_CHOICES = [
         ("", "Select category"),
-        ("GENERAL", "General"),
-        ("OBC", "OBC"),
         ("SC", "SC"),
         ("ST", "ST"),
+        ("VJ_DT_NT_A", "VJ/DT - NT(A)"),
+        ("NT_B", "NT(B)"),
+        ("NT_C", "NT(C)"),
+        ("NT_D", "NT(D)"),
+        ("OBC", "OBC"),
+        ("SBC", "SBC"),
+        ("SEBC", "SEBC"),
+        ("EWS", "EWS"),
+        ("GENERAL", "General / Open"),
     ]
     MEDIUM_CHOICES = [
         ("", "Select medium"),
@@ -2016,6 +2023,10 @@ class StudentTransferCertificateForm(forms.Form):
     RESULT_CHOICES = StudentForm.RESULT_CHOICES
 
     tc_number = forms.CharField(max_length=60)
+    tc_type = forms.ChoiceField(
+        choices=StudentTransferCertificate.CertificateType.choices,
+        label="TC Type",
+    )
     issue_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
     leaving_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
     reason_for_leaving = forms.CharField(max_length=255)
@@ -2050,6 +2061,7 @@ class StudentTransferCertificateForm(forms.Form):
             initial.update(
                 {
                     "tc_number": self.build_default_tc_number(today),
+                    "tc_type": StudentTransferCertificate.CertificateType.ORIGINAL,
                     "issue_date": student.tc_issue_date or today,
                     "leaving_date": student.date_of_leaving_school or today,
                     "reason_for_leaving": student.reason_for_leaving,
@@ -2069,6 +2081,7 @@ class StudentTransferCertificateForm(forms.Form):
         self.order_fields(
             [
                 "tc_number",
+                "tc_type",
                 "issue_date",
                 "leaving_date",
                 "last_class_attended",
@@ -2078,8 +2091,8 @@ class StudentTransferCertificateForm(forms.Form):
                 "conduct",
                 "qualified_for_promotion",
                 "fees_cleared",
-                "status_after_tc",
                 "active_login_after_tc",
+                "status_after_tc",
                 "remarks",
             ]
         )
@@ -2135,6 +2148,7 @@ class StudentTransferCertificateForm(forms.Form):
     def clean(self):
         cleaned_data = super().clean()
         tc_number = cleaned_data.get("tc_number", "").strip()
+        tc_type = cleaned_data.get("tc_type")
         issue_date = cleaned_data.get("issue_date")
         leaving_date = cleaned_data.get("leaving_date")
         joined_on = self.academic_session.joined_on if self.academic_session else None
@@ -2146,11 +2160,18 @@ class StudentTransferCertificateForm(forms.Form):
             ).exists():
                 self.add_error("tc_number", "This TC number already exists for this institute.")
 
-        if self.student and StudentTransferCertificate.objects.filter(
-            student=self.student,
-            status=StudentTransferCertificate.Status.GENERATED,
-        ).exists():
-            raise ValidationError("This student already has a generated TC. Cancel the existing TC before generating another.")
+        if (
+            self.student
+            and tc_type == StudentTransferCertificate.CertificateType.ORIGINAL
+            and StudentTransferCertificate.objects.filter(
+                student=self.student,
+                status=StudentTransferCertificate.Status.GENERATED,
+                tc_type=StudentTransferCertificate.CertificateType.ORIGINAL,
+            ).exists()
+        ):
+            raise ValidationError(
+                "This student already has a generated Original TC. Select Duplicate TC or cancel the existing Original TC."
+            )
 
         if joined_on and leaving_date and leaving_date < joined_on:
             self.add_error("leaving_date", "Leaving date cannot be before admission date.")
@@ -2210,6 +2231,7 @@ class StudentTransferCertificateForm(forms.Form):
             student=student,
             academic_session=session,
             tc_number=self.cleaned_data["tc_number"].strip(),
+            tc_type=self.cleaned_data["tc_type"],
             issue_date=self.cleaned_data["issue_date"],
             leaving_date=self.cleaned_data["leaving_date"],
             reason_for_leaving=self.cleaned_data["reason_for_leaving"],
