@@ -2466,70 +2466,45 @@ class AcademicSessionIsolationTests(TestCase):
         workbook = Workbook()
         sheet = workbook.active
         sheet.title = "Students"
-        headers = [
-            "First Name *",
-            "Last Name",
-            "Password",
-            "Email",
-            "Phone",
-            "Date of Birth",
-            "Joined On",
-            "Address",
-            "Current School / College",
-            "Current School Address",
-            "Previous School / College",
-            "Previous Class",
-            "Guardian Name",
-            "Guardian Relation",
-            "Guardian Phone",
-            "Guardian Email",
-            "Active",
-        ]
+        headers = views.student_import_columns()
         sheet.append(["Student Bulk Import Template"])
         sheet.append(["Generated admission numbers"])
         sheet.append(headers)
-        sheet.append(
-            [
-                "Bulk",
-                "One",
-                "",
-                "bulk-one@example.com",
-                "9222222221",
-                "2012-01-01",
-                "2026-04-10",
-                "Address one",
-                "Current School",
-                "Current address",
-                "Previous School",
-                "8th",
-                "Guardian One",
-                "Father",
-                "9333333331",
-                "guardian-one@example.com",
-                "Yes",
-            ]
-        )
-        sheet.append(
-            [
-                "Bulk",
-                "Two",
-                "Secret123",
-                "bulk-two@example.com",
-                "9222222222",
-                "2012-02-02",
-                "2026-04-11",
-                "Address two",
-                "Current School",
-                "Current address",
-                "Previous School",
-                "9th",
-                "",
-                "",
-                "",
-                "",
-                "No",
-            ]
-        )
+        row1_data = {
+            "First Name *": "Bulk",
+            "Last Name": "One",
+            "Email": "bulk-one@example.com",
+            "Phone": "9222222221",
+            "Date of Birth": "2012-01-01",
+            "Joined On": "2026-04-10",
+            "Address": "Address one",
+            "Current School / College": "Current School",
+            "Current School Address": "Current address",
+            "Previous School / College": "Previous School",
+            "Previous Class": "8th",
+            "Guardian Name": "Guardian One",
+            "Guardian Relation": "Father",
+            "Guardian Phone": "9333333331",
+            "Guardian Email": "guardian-one@example.com",
+            "Active": "Yes",
+        }
+        row2_data = {
+            "First Name *": "Bulk",
+            "Last Name": "Two",
+            "Password": "Secret123",
+            "Email": "bulk-two@example.com",
+            "Phone": "9222222222",
+            "Date of Birth": "2012-02-02",
+            "Joined On": "2026-04-11",
+            "Address": "Address two",
+            "Current School / College": "Current School",
+            "Current School Address": "Current address",
+            "Previous School / College": "Previous School",
+            "Previous Class": "9th",
+            "Active": "No",
+        }
+        sheet.append([row1_data.get(col, "") for col in headers])
+        sheet.append([row2_data.get(col, "") for col in headers])
         buffer = BytesIO()
         workbook.save(buffer)
         upload = SimpleUploadedFile(
@@ -2561,31 +2536,19 @@ class AcademicSessionIsolationTests(TestCase):
         sheet = workbook.active
         sheet.title = "Students"
         headers = views.student_import_columns()
-        headers[6] = ""
+        joined_on_idx = headers.index("Joined On")
+        headers[joined_on_idx] = ""
         sheet.append(["Student Bulk Import Template"])
         sheet.append(["Generated admission numbers"])
         sheet.append(headers)
-        sheet.append(
-            [
-                "Bulk",
-                "Header",
-                "",
-                "bulk-header@example.com",
-                "9222222299",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "Yes",
-            ]
-        )
+        row_data = {
+            "First Name *": "Bulk",
+            "Last Name": "Header",
+            "Email": "bulk-header@example.com",
+            "Phone": "9222222299",
+            "Active": "Yes",
+        }
+        sheet.append([row_data.get(col, "") for col in views.student_import_columns()])
         buffer = BytesIO()
         workbook.save(buffer)
         upload = SimpleUploadedFile(
@@ -2607,7 +2570,8 @@ class AcademicSessionIsolationTests(TestCase):
 
     def test_student_bulk_import_rejects_renamed_header(self):
         headers = views.student_import_columns()
-        headers[6] = "Start Date"
+        joined_on_idx = headers.index("Joined On")
+        headers[joined_on_idx] = "Start Date"
 
         matches, missing = views.match_student_import_headers(headers)
 
@@ -3615,28 +3579,28 @@ class AcademicSessionIsolationTests(TestCase):
         sheet.title = "Students"
         sheet.append(["Student Bulk Import Template"])
         sheet.append(["Generated admission numbers"])
-        sheet.append(views.student_import_columns())
-        sheet.append(
-            [
-                "Queued",
-                "Student",
-                "Student@123",
-                "queued@example.com",
-                "9333333399",
-                "2012-01-01",
-                "2026-06-12",
-                "Queued address",
-                "Current School",
-                "School address",
-                "Previous School",
-                "9th",
-                "Queued Guardian",
-                "Father",
-                "9444444499",
-                "guardian.queued@example.com",
-                "Yes",
-            ]
-        )
+        headers = views.student_import_columns()
+        sheet.append(headers)
+        row_data = {
+            "First Name *": "Queued",
+            "Last Name": "Student",
+            "Password": "Student@123",
+            "Email": "queued@example.com",
+            "Phone": "9333333399",
+            "Date of Birth": "2012-01-01",
+            "Joined On": "2026-06-12",
+            "Address": "Queued address",
+            "Current School / College": "Current School",
+            "Current School Address": "School address",
+            "Previous School / College": "Previous School",
+            "Previous Class": "9th",
+            "Guardian Name": "Queued Guardian",
+            "Guardian Relation": "Father",
+            "Guardian Phone": "9444444499",
+            "Guardian Email": "guardian.queued@example.com",
+            "Active": "Yes",
+        }
+        sheet.append([row_data.get(col, "") for col in headers])
         upload_buffer = BytesIO()
         workbook.save(upload_buffer)
         upload = SimpleUploadedFile(
