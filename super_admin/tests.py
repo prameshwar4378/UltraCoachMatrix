@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.test.client import RequestFactory
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.urls import reverse
@@ -760,3 +760,14 @@ class InstituteSignupOnboardingTests(TestCase):
 
         revisit_response = self.client.get(reverse("institute_admin:software_tour"))
         self.assertRedirects(revisit_response, reverse("institute_admin:dashboard"))
+
+    @override_settings(TURNSTILE_SECRET_KEY="dummy_secret_key")
+    def test_signup_rejects_invalid_turnstile_token(self):
+        data = self.signup_data()
+        data["cf-turnstile-response"] = "invalid_token"
+
+        response = self.client.post(reverse("signup"), data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "The security verification failed. Please try again.")
+        self.assertFalse(User.objects.filter(username="new-owner").exists())

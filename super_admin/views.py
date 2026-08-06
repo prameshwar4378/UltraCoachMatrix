@@ -126,9 +126,65 @@ def _token_payload(user):
     }
 
 
+import os
+import urllib.parse
+import urllib.request
+from django.conf import settings
+
+
+def verify_turnstile_token(token, remote_ip=None):
+    secret_key = getattr(settings, "TURNSTILE_SECRET_KEY", os.getenv("TURNSTILE_SECRET_KEY", ""))
+    if not secret_key:
+        return True, None
+
+    if not token:
+        return False, "The security verification failed. Please try again."
+
+    try:
+        data = urllib.parse.urlencode({
+            "secret": secret_key,
+            "response": token,
+            "remoteip": remote_ip or "",
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        with urllib.request.urlopen(req, timeout=5.0) as resp:
+            if resp.status == 200:
+                result = json.loads(resp.read().decode("utf-8"))
+                if result.get("success"):
+                    return True, None
+                return False, "The security verification failed. Please try again."
+            return False, "The security verification failed. Please try again."
+    except Exception:
+        return False, "The security verification failed. Please try again."
+
+
 def signup(request):
+    turnstile_site_key = getattr(settings, "TURNSTILE_SITE_KEY", os.getenv("TURNSTILE_SITE_KEY", ""))
+
     if request.method == "POST":
         form = InstituteSignupForm(request.POST, request.FILES)
+
+        turnstile_token = request.POST.get("cf-turnstile-response") or request.POST.get("g-recaptcha-response")
+        client_ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip() or request.META.get("REMOTE_ADDR")
+
+        turnstile_valid, turnstile_error = verify_turnstile_token(turnstile_token, remote_ip=client_ip)
+
+        if not turnstile_valid:
+            form.add_error(None, turnstile_error)
+            return render(
+                request,
+                "super_admin/signup.html",
+                {
+                    "form": form,
+                    "turnstile_site_key": turnstile_site_key,
+                },
+            )
+
         if form.is_valid():
             user = form.save()
             on_commit_email(
@@ -141,7 +197,14 @@ def signup(request):
     else:
         form = InstituteSignupForm()
 
-    return render(request, "super_admin/signup.html", {"form": form})
+    return render(
+        request,
+        "super_admin/signup.html",
+        {
+            "form": form,
+            "turnstile_site_key": turnstile_site_key,
+        },
+    )
 
 
 @csrf_exempt

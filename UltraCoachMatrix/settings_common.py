@@ -320,3 +320,6 @@ BACKGROUND_JOB_SYNC_NOTICE_FALLBACK = os.environ.get(
     "BACKGROUND_JOB_SYNC_NOTICE_FALLBACK",
     "true",
 ).lower() in {"1", "true", "yes"}
+
+TURNSTILE_SITE_KEY = os.environ.get("TURNSTILE_SITE_KEY", "")
+TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "")
