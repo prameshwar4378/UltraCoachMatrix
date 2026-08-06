@@ -2578,6 +2578,125 @@ class AcademicSessionIsolationTests(TestCase):
         self.assertFalse(matches)
         self.assertEqual(missing, [])
 
+    def test_student_bulk_import_saves_all_new_and_old_fields(self):
+        self.select_year(self.year_2026)
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Students"
+        headers = views.student_import_columns()
+        sheet.append(["Student Bulk Import Template"])
+        sheet.append(["Generated admission numbers"])
+        sheet.append(headers)
+        row_data = {
+            "First Name *": "Rohan",
+            "Middle Name": "Kumar",
+            "Last Name": "Sharma",
+            "Password": "SecretPassword123",
+            "Email": "rohan.all@example.com",
+            "Phone": "9876500001",
+            "Date of Birth": "2010-05-12",
+            "Gender": "Male",
+            "Blood Group": "O+",
+            "Religion": "Hindu",
+            "Cast": "General",
+            "Caste Category": "General",
+            "Nationality": "Indian",
+            "Aadhaar Number": "123456789012",
+            "Birth Certificate Number": "BC12345",
+            "Place of Birth": "Mumbai",
+            "Mother Tongue": "Hindi",
+            "PEN No": "PEN123456",
+            "Appar ID": "APPAR123456",
+            "GR Number": "GR1001",
+            "UDISE Number": "UDISE12345",
+            "Roll Number": "101",
+            "Joined On": "2026-04-10",
+            "Admission Class": "10th",
+            "Current Class": "10th",
+            "Division": "A",
+            "Medium": "English",
+            "Address": "Student address 123",
+            "Current House Number": "H-123",
+            "Current Street / Area": "MG Road",
+            "Current Village / City": "Mumbai",
+            "Current Taluka": "Mumbai",
+            "Current District": "Mumbai",
+            "Current State": "Maharashtra",
+            "Current PIN Code": "400001",
+            "Permanent House Number": "H-123",
+            "Permanent Street / Area": "MG Road",
+            "Permanent Village / City": "Mumbai",
+            "Permanent Taluka": "Mumbai",
+            "Permanent District": "Mumbai",
+            "Permanent State": "Maharashtra",
+            "Permanent PIN Code": "400001",
+            "Guardian Name": "Mahesh Sharma",
+            "Guardian Relation": "Father",
+            "Guardian Phone": "9876500001",
+            "Guardian Email": "guardian.rohan@example.com",
+            "Guardian Address": "Guardian address 123",
+            "Father Name": "Mahesh Sharma",
+            "Father Occupation": "Business",
+            "Father Qualification": "Graduate",
+            "Father Mobile Number": "9876500001",
+            "Father Email": "father.rohan@example.com",
+            "Father Aadhaar Number": "123456789012",
+            "Father Annual Income": "500000",
+            "Mother Name": "Sunita Sharma",
+            "Mother Occupation": "Homemaker",
+            "Mother Qualification": "Graduate",
+            "Mother Mobile Number": "9876500002",
+            "Mother Aadhaar Number": "123456789013",
+            "Mother Annual Income": "0",
+            "Current School / College": "Saint Monica International School",
+            "Current School Address": "School address 123",
+            "Previous School / College": "Previous School",
+            "Previous School Address": "Previous address 123",
+            "Previous School UDISE Code": "UDISE98765",
+            "Previous Class": "9th",
+            "Previous Class Passed": "9th",
+            "Last Exam Result": "Passed",
+            "Result": "Pass",
+            "Conduct": "Good",
+            "Reason For Leaving": "",
+            "Date Of Leaving School": "",
+            "TC Issue Date": "",
+            "Bonafide Purpose": "",
+            "Emergency Contact Number": "9876500001",
+            "Active": "Yes",
+        }
+        sheet.append([row_data.get(col, "") for col in headers])
+        buffer = BytesIO()
+        workbook.save(buffer)
+        upload = SimpleUploadedFile(
+            "students.xlsx",
+            buffer.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        response = self.client.post(
+            reverse("institute_admin:student_bulk_import"),
+            {"student_file": upload},
+        )
+        self.assertRedirects(response, reverse("institute_admin:student_list"))
+
+        student = StudentProfile.objects.get(user__email="rohan.all@example.com")
+        self.assertEqual(student.middle_name, "Kumar")
+        self.assertEqual(student.gender, StudentProfile.Gender.MALE)
+        self.assertEqual(student.blood_group, "O+")
+        self.assertEqual(student.religion, "Hindu")
+        self.assertEqual(student.pen_no, "PEN123456")
+        self.assertEqual(student.appar_id, "APPAR123456")
+        self.assertEqual(student.gr_number_udise, "GR1001")
+        self.assertEqual(student.udise_number, "UDISE12345")
+        self.assertEqual(student.roll_number, "101")
+        self.assertEqual(student.father_name, "Mahesh Sharma")
+        self.assertEqual(student.father_occupation, "Business")
+        self.assertEqual(student.mother_name, "Sunita Sharma")
+        self.assertEqual(student.current_house_number, "H-123")
+        self.assertEqual(student.current_district, "Mumbai")
+        self.assertEqual(student.emergency_contact_number, "9876500001")
+
     def test_dummy_student_create_builds_complete_unique_institute_records(self):
         self.select_year(self.year_2026)
         other_institute = Institute.objects.create(

@@ -7383,11 +7383,109 @@ def bool_from_excel(value):
     return text not in {"no", "false", "0", "inactive"}
 
 
+def parse_student_import_row(row):
+    first_name = str(row.get("First Name *") or "").strip()
+    if not first_name:
+        raise ValidationError("First Name is required.")
+
+    gender_val = str(row.get("Gender") or "").strip().upper()
+    if gender_val in {"MALE", "M"}:
+        gender = StudentProfile.Gender.MALE
+    elif gender_val in {"FEMALE", "F"}:
+        gender = StudentProfile.Gender.FEMALE
+    elif gender_val in {"OTHER", "O"}:
+        gender = StudentProfile.Gender.OTHER
+    else:
+        gender = ""
+
+    return {
+        "first_name": first_name,
+        "middle_name": str(row.get("Middle Name") or "").strip(),
+        "last_name": str(row.get("Last Name") or "").strip(),
+        "password": str(row.get("Password") or "Student@123"),
+        "email": str(row.get("Email") or "").strip(),
+        "phone": str(row.get("Phone") or "").strip(),
+        "date_of_birth": parse_excel_date_value(row.get("Date of Birth")),
+        "gender": gender,
+        "blood_group": str(row.get("Blood Group") or "").strip(),
+        "religion": str(row.get("Religion") or "").strip(),
+        "cast": str(row.get("Cast") or "").strip(),
+        "caste_category": str(row.get("Caste Category") or "").strip(),
+        "nationality": str(row.get("Nationality") or "").strip(),
+        "aadhaar_number": str(row.get("Aadhaar Number") or "").strip(),
+        "birth_certificate_number": str(row.get("Birth Certificate Number") or "").strip(),
+        "place_of_birth": str(row.get("Place of Birth") or "").strip(),
+        "mother_tongue": str(row.get("Mother Tongue") or "").strip(),
+        "pen_no": str(row.get("PEN No") or "").strip(),
+        "appar_id": str(row.get("Appar ID") or "").strip(),
+        "gr_number_udise": str(row.get("GR Number") or "").strip(),
+        "udise_number": str(row.get("UDISE Number") or "").strip(),
+        "roll_number": str(row.get("Roll Number") or "").strip(),
+        "joined_on": parse_excel_date_value(row.get("Joined On")),
+        "admission_class": str(row.get("Admission Class") or "").strip(),
+        "current_class": str(row.get("Current Class") or "").strip(),
+        "division": str(row.get("Division") or "").strip(),
+        "medium": str(row.get("Medium") or "").strip(),
+        "address": str(row.get("Address") or "").strip(),
+        "current_house_number": str(row.get("Current House Number") or "").strip(),
+        "current_street_area": str(row.get("Current Street / Area") or "").strip(),
+        "current_village_city": str(row.get("Current Village / City") or "").strip(),
+        "current_taluka": str(row.get("Current Taluka") or "").strip(),
+        "current_district": str(row.get("Current District") or "").strip(),
+        "current_state": str(row.get("Current State") or "").strip(),
+        "current_pin_code": str(row.get("Current PIN Code") or "").strip(),
+        "permanent_house_number": str(row.get("Permanent House Number") or "").strip(),
+        "permanent_street_area": str(row.get("Permanent Street / Area") or "").strip(),
+        "permanent_village_city": str(row.get("Permanent Village / City") or "").strip(),
+        "permanent_taluka": str(row.get("Permanent Taluka") or "").strip(),
+        "permanent_district": str(row.get("Permanent District") or "").strip(),
+        "permanent_state": str(row.get("Permanent State") or "").strip(),
+        "permanent_pin_code": str(row.get("Permanent PIN Code") or "").strip(),
+        "guardian_name": str(row.get("Guardian Name") or "").strip(),
+        "guardian_relation": str(row.get("Guardian Relation") or "").strip(),
+        "guardian_phone": str(row.get("Guardian Phone") or row.get("Phone") or "").strip(),
+        "guardian_email": str(row.get("Guardian Email") or "").strip(),
+        "guardian_address": str(row.get("Guardian Address") or "").strip(),
+        "father_name": str(row.get("Father Name") or "").strip(),
+        "father_occupation": str(row.get("Father Occupation") or "").strip(),
+        "father_qualification": str(row.get("Father Qualification") or "").strip(),
+        "father_mobile_number": str(row.get("Father Mobile Number") or "").strip(),
+        "father_email": str(row.get("Father Email") or "").strip(),
+        "father_aadhaar_number": str(row.get("Father Aadhaar Number") or "").strip(),
+        "father_annual_income": str(row.get("Father Annual Income") or "").strip(),
+        "mother_name": str(row.get("Mother Name") or "").strip(),
+        "mother_occupation": str(row.get("Mother Occupation") or "").strip(),
+        "mother_qualification": str(row.get("Mother Qualification") or "").strip(),
+        "mother_mobile_number": str(row.get("Mother Mobile Number") or "").strip(),
+        "mother_aadhaar_number": str(row.get("Mother Aadhaar Number") or "").strip(),
+        "mother_annual_income": str(row.get("Mother Annual Income") or "").strip(),
+        "current_school_name": str(row.get("Current School / College") or "").strip(),
+        "current_school_address": str(row.get("Current School Address") or "").strip(),
+        "previous_school_name": str(row.get("Previous School / College") or "").strip(),
+        "previous_school_address": str(row.get("Previous School Address") or "").strip(),
+        "previous_school_udise_code": str(row.get("Previous School UDISE Code") or "").strip(),
+        "previous_class": str(row.get("Previous Class") or "").strip(),
+        "previous_class_passed": str(row.get("Previous Class Passed") or "").strip(),
+        "last_exam_result": str(row.get("Last Exam Result") or "").strip(),
+        "result": str(row.get("Result") or "").strip(),
+        "conduct": str(row.get("Conduct") or "").strip(),
+        "reason_for_leaving": str(row.get("Reason For Leaving") or "").strip(),
+        "date_of_leaving_school": parse_excel_date_value(row.get("Date Of Leaving School")),
+        "tc_issue_date": parse_excel_date_value(row.get("TC Issue Date")),
+        "bonafide_purpose": str(row.get("Bonafide Purpose") or "").strip(),
+        "emergency_contact_number": str(row.get("Emergency Contact Number") or "").strip(),
+        "is_active": bool_from_excel(row.get("Active")),
+    }
+
+
 def match_student_import_headers(headers):
     expected = student_import_columns()
-    submitted = headers[: len(expected)]
-    if len(submitted) < len(expected):
-        submitted.extend([""] * (len(expected) - len(submitted)))
+    submitted = [str(cell or "").strip() for cell in headers]
+    while submitted and not submitted[-1]:
+        submitted.pop()
+
+    if not submitted or len(submitted) > len(expected):
+        return False, []
 
     mismatched = [
         (index, actual, expected_header)
@@ -7398,13 +7496,13 @@ def match_student_import_headers(headers):
         return False, []
 
     matching_count = sum(actual == expected_header for actual, expected_header in zip(submitted, expected))
-    if matching_count < len(expected) - 2:
+    if matching_count < len(submitted) - 2:
         return False, []
 
     missing_headers = [
-        expected_header
-        for actual, expected_header in zip(submitted, expected)
-        if not actual
+        expected[i]
+        for i in range(len(submitted))
+        if not submitted[i]
     ]
     return True, missing_headers
 
@@ -7486,9 +7584,9 @@ def validate_student_import_file(upload, institute, academic_year=None):
             if email in seen_emails:
                 warnings.append(f"Row {row_number}: Email also appears on row {seen_emails[email]} ({email}).")
             seen_emails[email] = row_number
-        for date_column in ("Date of Birth", "Joined On"):
+        for date_column in ("Date of Birth", "Joined On", "Date Of Leaving School", "TC Issue Date"):
             try:
-                parse_excel_date_value(row[date_column])
+                parse_excel_date_value(row.get(date_column))
             except ValueError as exc:
                 row_errors.append(str(exc))
                 row_cell_errors[date_column] = str(exc)
@@ -7839,31 +7937,9 @@ def student_bulk_import(request):
             continue
         row = dict(zip(expected, row_values))
         try:
-            first_name = str(row["First Name *"] or "").strip()
-            if not first_name:
-                raise ValidationError("First Name is required.")
-            rows_to_import.append(
-                {
-                    "row_number": row_number,
-                    "first_name": first_name,
-                    "last_name": str(row["Last Name"] or "").strip(),
-                    "password": str(row["Password"] or "Student@123"),
-                    "email": str(row["Email"] or "").strip(),
-                    "phone": str(row["Phone"] or "").strip(),
-                    "date_of_birth": parse_excel_date_value(row["Date of Birth"]),
-                    "joined_on": parse_excel_date_value(row["Joined On"]),
-                    "address": str(row["Address"] or "").strip(),
-                    "current_school_name": str(row["Current School / College"] or "").strip(),
-                    "current_school_address": str(row["Current School Address"] or "").strip(),
-                    "previous_school_name": str(row["Previous School / College"] or "").strip(),
-                    "previous_class": str(row["Previous Class"] or "").strip(),
-                    "guardian_name": str(row["Guardian Name"] or "").strip(),
-                    "guardian_relation": str(row["Guardian Relation"] or "").strip(),
-                    "guardian_phone": str(row["Guardian Phone"] or row["Phone"] or "").strip(),
-                    "guardian_email": str(row["Guardian Email"] or "").strip(),
-                    "is_active": bool_from_excel(row["Active"]),
-                }
-            )
+            parsed = parse_student_import_row(row)
+            parsed["row_number"] = row_number
+            rows_to_import.append(parsed)
         except Exception as exc:
             errors.append(f"Row {row_number}: {exc}")
 
@@ -7931,13 +8007,72 @@ def student_bulk_import(request):
                         academic_year=academic_year,
                         user=user,
                         admission_number=row["admission_number"],
+                        pen_no=row["pen_no"],
+                        appar_id=row["appar_id"],
+                        gr_number_udise=row["gr_number_udise"],
+                        udise_number=row["udise_number"],
+                        roll_number=row["roll_number"],
+                        middle_name=row["middle_name"],
+                        gender=row["gender"],
                         date_of_birth=row["date_of_birth"],
+                        blood_group=row["blood_group"],
+                        religion=row["religion"],
+                        cast=row["cast"],
+                        caste_category=row["caste_category"],
+                        nationality=row["nationality"],
+                        aadhaar_number=row["aadhaar_number"],
+                        birth_certificate_number=row["birth_certificate_number"],
+                        place_of_birth=row["place_of_birth"],
+                        mother_tongue=row["mother_tongue"],
+                        father_name=row["father_name"],
+                        father_occupation=row["father_occupation"],
+                        father_qualification=row["father_qualification"],
+                        father_mobile_number=row["father_mobile_number"],
+                        father_email=row["father_email"],
+                        father_aadhaar_number=row["father_aadhaar_number"],
+                        father_annual_income=row["father_annual_income"],
+                        mother_name=row["mother_name"],
+                        mother_occupation=row["mother_occupation"],
+                        mother_qualification=row["mother_qualification"],
+                        mother_mobile_number=row["mother_mobile_number"],
+                        mother_aadhaar_number=row["mother_aadhaar_number"],
+                        mother_annual_income=row["mother_annual_income"],
+                        guardian_address=row["guardian_address"],
+                        current_house_number=row["current_house_number"],
+                        current_street_area=row["current_street_area"],
+                        current_village_city=row["current_village_city"],
+                        current_taluka=row["current_taluka"],
+                        current_district=row["current_district"],
+                        current_state=row["current_state"],
+                        current_pin_code=row["current_pin_code"],
+                        permanent_house_number=row["permanent_house_number"],
+                        permanent_street_area=row["permanent_street_area"],
+                        permanent_village_city=row["permanent_village_city"],
+                        permanent_taluka=row["permanent_taluka"],
+                        permanent_district=row["permanent_district"],
+                        permanent_state=row["permanent_state"],
+                        permanent_pin_code=row["permanent_pin_code"],
                         joined_on=row["joined_on"],
                         address=row["address"],
+                        admission_class=row["admission_class"],
+                        current_class=row["current_class"],
+                        division=row["division"],
+                        medium=row["medium"],
                         current_school_name=row["current_school_name"],
                         current_school_address=row["current_school_address"],
                         previous_school_name=row["previous_school_name"],
+                        previous_school_address=row["previous_school_address"],
+                        previous_school_udise_code=row["previous_school_udise_code"],
                         previous_class=row["previous_class"],
+                        previous_class_passed=row["previous_class_passed"],
+                        last_exam_result=row["last_exam_result"],
+                        result=row["result"],
+                        conduct=row["conduct"],
+                        reason_for_leaving=row["reason_for_leaving"],
+                        date_of_leaving_school=row["date_of_leaving_school"],
+                        tc_issue_date=row["tc_issue_date"],
+                        bonafide_purpose=row["bonafide_purpose"],
+                        emergency_contact_number=row["emergency_contact_number"],
                         is_active=row["is_active"],
                     )
                 )

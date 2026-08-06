@@ -47,6 +47,36 @@ class SaaSAdminTests(TestCase):
         self.assertNotIn(StudentProfile, registered_models)
         self.assertNotIn(FeeInvoice, registered_models)
 
+    def test_deleting_institute_with_profiles_and_academic_years_succeeds(self):
+        institute = Institute.objects.create(
+            name="Deletable Institute",
+            code="deletable-inst",
+            status=Institute.Status.ACTIVE,
+        )
+        user = User.objects.create_user(
+            username="deletable_admin",
+            password="Password123",
+        )
+        UserProfile.objects.create(
+            user=user,
+            institute=institute,
+            role=UserProfile.Role.INSTITUTE_ADMIN,
+        )
+        from institute_admin.models import AcademicYear
+        AcademicYear.objects.create(
+            institute=institute,
+            name="2026-27",
+            start_date=date(2026, 4, 1),
+            end_date=date(2027, 3, 31),
+            is_active=True,
+        )
+
+        institute_id = institute.pk
+        institute.delete()
+
+        self.assertFalse(Institute.objects.filter(pk=institute_id).exists())
+        self.assertFalse(UserProfile.objects.filter(institute_id=institute_id).exists())
+
 
 class SaaSBillingModelTests(TestCase):
     def setUp(self):

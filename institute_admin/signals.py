@@ -64,7 +64,11 @@ def invalidate_enrollment_courses_dashboard(sender, instance, action, **kwargs):
 
 @receiver([post_save, post_delete], sender=FeeInvoice)
 def invalidate_invoice_dashboard(sender, instance, **kwargs):
-    invalidate_dashboard_summary(instance.institute_id, instance.academic_session.academic_year_id)
+    if not instance.institute_id:
+        return
+    academic_session = getattr(instance, "academic_session", None)
+    if academic_session and academic_session.academic_year_id:
+        invalidate_dashboard_summary(instance.institute_id, academic_session.academic_year_id)
 
 
 @receiver([post_save, post_delete], sender=Payment)
@@ -72,7 +76,7 @@ def invalidate_payment_dashboard(sender, instance, **kwargs):
     invoice = FeeInvoice.objects.only("institute_id", "academic_session__academic_year_id").select_related(
         "academic_session"
     ).filter(pk=instance.invoice_id).first()
-    if invoice:
+    if invoice and invoice.academic_session:
         invalidate_dashboard_summary(invoice.institute_id, invoice.academic_session.academic_year_id)
 
 
@@ -109,9 +113,13 @@ def invalidate_attendance_dashboard(sender, instance, **kwargs):
 
 @receiver([post_save, post_delete], sender=StudentProfile)
 def invalidate_student_profile_dashboard(sender, instance, **kwargs):
-    for institute_id, academic_year_id in instance.academic_sessions.values_list(
-        "institute_id", "academic_year_id"
-    ):
+    try:
+        sessions = list(
+            instance.academic_sessions.values_list("institute_id", "academic_year_id")
+        )
+    except Exception:
+        return
+    for institute_id, academic_year_id in sessions:
         invalidate_dashboard_summary(institute_id, academic_year_id)
 
 
@@ -165,5 +173,11 @@ def validate_notice_target_students(sender, instance, action, **kwargs):
 def invalidate_staff_dashboard(sender, instance, **kwargs):
     if not instance.institute_id:
         return
-    for academic_year_id in instance.institute.academic_years.values_list("pk", flat=True):
+    try:
+        academic_year_ids = list(
+            AcademicYear.objects.filter(institute_id=instance.institute_id).values_list("pk", flat=True)
+        )
+    except Exception:
+        return
+    for academic_year_id in academic_year_ids:
         invalidate_dashboard_summary(instance.institute_id, academic_year_id)

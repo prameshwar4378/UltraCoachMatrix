@@ -13,9 +13,8 @@ from UltraCoachMatrix.email_notifications import on_commit_email, send_bulk_stud
 def process_student_import_job(job):
     from .forms import build_student_username, get_last_student_admission_sequence, get_student_admission_prefix
     from .views import (
-        bool_from_excel,
         match_student_import_headers,
-        parse_excel_date_value,
+        parse_student_import_row,
         student_import_columns,
     )
 
@@ -35,30 +34,12 @@ def process_student_import_job(job):
         if not any(value not in (None, "") for value in values):
             continue
         data = dict(zip(expected, values))
-        first_name = str(data["First Name *"] or "").strip()
-        if not first_name:
-            raise ValueError(f"Row {row_number}: First Name is required.")
-        rows.append(
-            {
-                "first_name": first_name,
-                "last_name": str(data["Last Name"] or "").strip(),
-                "password": str(data["Password"] or "Student@123"),
-                "email": str(data["Email"] or "").strip(),
-                "phone": str(data["Phone"] or "").strip(),
-                "date_of_birth": parse_excel_date_value(data["Date of Birth"]),
-                "joined_on": parse_excel_date_value(data["Joined On"]),
-                "address": str(data["Address"] or "").strip(),
-                "current_school_name": str(data["Current School / College"] or "").strip(),
-                "current_school_address": str(data["Current School Address"] or "").strip(),
-                "previous_school_name": str(data["Previous School / College"] or "").strip(),
-                "previous_class": str(data["Previous Class"] or "").strip(),
-                "guardian_name": str(data["Guardian Name"] or "").strip(),
-                "guardian_relation": str(data["Guardian Relation"] or "").strip(),
-                "guardian_phone": str(data["Guardian Phone"] or data["Phone"] or "").strip(),
-                "guardian_email": str(data["Guardian Email"] or "").strip(),
-                "is_active": bool_from_excel(data["Active"]),
-            }
-        )
+        try:
+            parsed = parse_student_import_row(data)
+            parsed["row_number"] = row_number
+            rows.append(parsed)
+        except Exception as exc:
+            raise ValueError(f"Row {row_number}: {exc}")
 
     with transaction.atomic():
         academic_year = AcademicYear.objects.select_for_update().get(pk=academic_year.pk)
@@ -116,13 +97,72 @@ def process_student_import_job(job):
                     academic_year=academic_year,
                     user=users_by_username[row["username"]],
                     admission_number=row["admission_number"],
+                    pen_no=row["pen_no"],
+                    appar_id=row["appar_id"],
+                    gr_number_udise=row["gr_number_udise"],
+                    udise_number=row["udise_number"],
+                    roll_number=row["roll_number"],
+                    middle_name=row["middle_name"],
+                    gender=row["gender"],
                     date_of_birth=row["date_of_birth"],
+                    blood_group=row["blood_group"],
+                    religion=row["religion"],
+                    cast=row["cast"],
+                    caste_category=row["caste_category"],
+                    nationality=row["nationality"],
+                    aadhaar_number=row["aadhaar_number"],
+                    birth_certificate_number=row["birth_certificate_number"],
+                    place_of_birth=row["place_of_birth"],
+                    mother_tongue=row["mother_tongue"],
+                    father_name=row["father_name"],
+                    father_occupation=row["father_occupation"],
+                    father_qualification=row["father_qualification"],
+                    father_mobile_number=row["father_mobile_number"],
+                    father_email=row["father_email"],
+                    father_aadhaar_number=row["father_aadhaar_number"],
+                    father_annual_income=row["father_annual_income"],
+                    mother_name=row["mother_name"],
+                    mother_occupation=row["mother_occupation"],
+                    mother_qualification=row["mother_qualification"],
+                    mother_mobile_number=row["mother_mobile_number"],
+                    mother_aadhaar_number=row["mother_aadhaar_number"],
+                    mother_annual_income=row["mother_annual_income"],
+                    guardian_address=row["guardian_address"],
+                    current_house_number=row["current_house_number"],
+                    current_street_area=row["current_street_area"],
+                    current_village_city=row["current_village_city"],
+                    current_taluka=row["current_taluka"],
+                    current_district=row["current_district"],
+                    current_state=row["current_state"],
+                    current_pin_code=row["current_pin_code"],
+                    permanent_house_number=row["permanent_house_number"],
+                    permanent_street_area=row["permanent_street_area"],
+                    permanent_village_city=row["permanent_village_city"],
+                    permanent_taluka=row["permanent_taluka"],
+                    permanent_district=row["permanent_district"],
+                    permanent_state=row["permanent_state"],
+                    permanent_pin_code=row["permanent_pin_code"],
                     joined_on=row["joined_on"],
                     address=row["address"],
+                    admission_class=row["admission_class"],
+                    current_class=row["current_class"],
+                    division=row["division"],
+                    medium=row["medium"],
                     current_school_name=row["current_school_name"],
                     current_school_address=row["current_school_address"],
                     previous_school_name=row["previous_school_name"],
+                    previous_school_address=row["previous_school_address"],
+                    previous_school_udise_code=row["previous_school_udise_code"],
                     previous_class=row["previous_class"],
+                    previous_class_passed=row["previous_class_passed"],
+                    last_exam_result=row["last_exam_result"],
+                    result=row["result"],
+                    conduct=row["conduct"],
+                    reason_for_leaving=row["reason_for_leaving"],
+                    date_of_leaving_school=row["date_of_leaving_school"],
+                    tc_issue_date=row["tc_issue_date"],
+                    bonafide_purpose=row["bonafide_purpose"],
+                    emergency_contact_number=row["emergency_contact_number"],
                     is_active=row["is_active"],
                 )
                 for row in rows
